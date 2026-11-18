@@ -38,7 +38,7 @@ from app.modules.identity_access.domain.identity import (
 from app.modules.identity_access.domain.people import clean_text, person_problems
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.policy import (
     PEOPLE,
@@ -422,6 +422,23 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
         return {}
     rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
     return {str(row.id): row.display_name for row in rows}
+
+
+async def api_key_names(session: AsyncSession, key_ids: Sequence[str]) -> dict[str, str]:
+    """{key id: key name} for the session's tenant (WP-057 S4b: the audit names a key actor).
+
+    Names only, never the key's text or scopes; a deleted key keeps its name in the log.
+    """
+    wanted: list[uuid.UUID] = []
+    for raw in key_ids:
+        try:
+            wanted.append(uuid.UUID(str(raw)))
+        except ValueError:
+            continue
+    if not wanted:
+        return {}
+    rows = await session.execute(select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(wanted)))
+    return {str(row.id): row.name for row in rows}
 
 
 async def user_contacts(
