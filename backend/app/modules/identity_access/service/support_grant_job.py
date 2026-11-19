@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.events import SupportGrantChanged
-from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
+from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin, KeycloakAdmin
 from app.modules.identity_access.infra.models import SupportGrant
 from app.modules.identity_access.service import support_grants as grants
 from app.modules.identity_access.service.worker_sessions import (
@@ -46,7 +46,7 @@ async def run_tenant(
     database: Database,
     tenant: uuid.UUID,
     *,
-    admin: KeycloakAdmin | None,
+    admin: IdentityAdmin | None,
     end_sessions: TenantSessionEnder | None,
 ) -> None:
     """One tenant's pass: end what is due, retry removals, tell stuck ones once."""
