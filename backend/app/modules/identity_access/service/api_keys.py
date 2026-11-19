@@ -38,6 +38,7 @@ from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.domain import api_keys as rules
 from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import ApiKeyChanged
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import (
@@ -48,6 +49,7 @@ from app.modules.identity_access.service.network_rules import admitted, get_netw
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
+VENDOR_SUPPORT_NO_KEYS = "api_key_vendor_support"
 MANAGE = "api_keys.manage"
 SERVICE = "service"
 OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
@@ -151,6 +153,32 @@ async def service_owners(session: AsyncSession, subject: Subject) -> list[User]:
     return list(rows)
 
 
+async def _check_owner(
+    session: AsyncSession,
+    subject: Subject,
+    owner: uuid.UUID,
+    *,
+    manager: bool,
+    people_may: bool,
+) -> None:
+    """Who may hold the new key: the person themself, or a service identity a manager names."""
+    if owner == subject.user_id:
+        if not (manager or people_may):
+            raise PermissionDenied(code="api_keys_people_off")
+        me = await session.get(User, owner)
+        # A vendor support account never holds a key (WP-057 S4c-1, lane B (5)): its access is
+        # its grant's, ended with it; a key would outlive both.
+        if me is not None and me.user_type == SUPPORT_USER_TYPE:
+            raise PermissionDenied(code=VENDOR_SUPPORT_NO_KEYS)
+        return
+    if not manager:
+        raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
+    person = await session.get(User, owner)
+    # Keys for others: service identities only, never another person (they act as their owner).
+    if person is None or person.deleted_at is not None or person.user_type != SERVICE:
+        raise _problem(field="owner_id", code="api_key_owner_not_service")
+
+
 async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     session: AsyncSession,
     subject: Subject,
@@ -171,16 +199,9 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     owner = owner_id or subject.user_id
     manager = subject.holds(MANAGE)
     allowed = await key_rules(session)
-    if owner == subject.user_id:
-        if not (manager or allowed.people_may_create_keys):
-            raise PermissionDenied(code="api_keys_people_off")
-    else:
-        if not manager:
-            raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
-        person = await session.get(User, owner)
-        # Keys for others: service identities only, never another person (they act as their owner).
-        if person is None or person.deleted_at is not None or person.user_type != SERVICE:
-            raise _problem(field="owner_id", code="api_key_owner_not_service")
+    await _check_owner(
+        session, subject, owner, manager=manager, people_may=allowed.people_may_create_keys
+    )
     title = name.strip()
     if not title or len(title) > rules.NAME_MAX:
         raise _problem(field="name", code="api_key_name_invalid")
@@ -362,6 +383,8 @@ async def authenticate(
         owner = await session.get(User, row.owner_id)
         if owner is None or owner.deleted_at is not None or owner.status != "active":
             raise Unauthenticated(code="api_key_owner_inactive")
+        if owner.user_type == SUPPORT_USER_TYPE:  # never made; refused anyway (lane B (5))
+            raise Unauthenticated(code=VENDOR_SUPPORT_NO_KEYS)
         # The key's own list, then the tenant's API list (REQ-SEC-034): both must admit it.
         key_allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
         tenant_allowed = admitted(

@@ -67,7 +67,9 @@ def test_only_the_allowed_domains_and_their_subdomains() -> None:
     assert "support_email_domain_not_allowed" in _codes(
         dataclasses.replace(GOOD, engineer_email="omar@gmail.com")
     )
-    assert "invalid_email" in _codes(dataclasses.replace(GOOD, engineer_email="omar extravis.com"))
+    assert "support_email_invalid" in _codes(
+        dataclasses.replace(GOOD, engineer_email="omar extravis.com")
+    )
     assert email_domain("a@b@extravis.com") is None
 
 

@@ -154,32 +154,36 @@ def grant_problems(  # noqa: C901, PLR0912 - one check per field, flat, each its
         problems.append(("grant", "support_grants_limit"))
     name = request.engineer_name.strip()
     if not name or len(name) > NAME_MAX:
-        problems.append(("engineer_name", "required" if not name else "too_long"))
+        problems.append(("engineer_name", "required" if not name else "support_text_too_long"))
     if email_domain(request.engineer_email) is None:
-        problems.append(("engineer_email", "invalid_email"))
+        problems.append(("engineer_email", "support_email_invalid"))
     elif not domain_allowed(request.engineer_email, allowed_domains):
         problems.append(("engineer_email", "support_email_domain_not_allowed"))
     elif account_email(request.engineer_email, _PROBE_ID) is None:
         problems.append(("engineer_email", "support_email_not_taggable"))
     reason = request.reason.strip()
     if not reason or len(reason) > REASON_MAX:
-        problems.append(("reason", "required" if not reason else "too_long"))
+        problems.append(("reason", "required" if not reason else "support_text_too_long"))
     if request.ticket_ref is not None and len(request.ticket_ref.strip()) > TICKET_MAX:
-        problems.append(("ticket_ref", "too_long"))
+        problems.append(("ticket_ref", "support_text_too_long"))
     if request.access is Access.VIEW_AND_CHANGE:
         change = (request.change_reason or "").strip()
         if not change or len(change) > REASON_MAX:
-            problems.append(("change_reason", "required" if not change else "too_long"))
+            problems.append(
+                ("change_reason", "required" if not change else "support_text_too_long")
+            )
     if request.hours is not None and not (
         MIN_LENGTH <= timedelta(hours=request.hours) <= MAX_TOTAL
     ):
         problems.append(("hours", "support_grant_length"))
     if len(request.ip_allowlist) > IP_LIST_MAX:
-        problems.append(("ip_allowlist", "too_many"))
+        problems.append(("ip_allowlist", "support_ip_list_too_long"))
     if request.verification is Verification.OUT_OF_BAND:
         note = (request.confirmation_note or "").strip()
         if not note or len(note) > REASON_MAX:
-            problems.append(("confirmation_note", "required" if not note else "too_long"))
+            problems.append(
+                ("confirmation_note", "required" if not note else "support_text_too_long")
+            )
     return problems
 
 

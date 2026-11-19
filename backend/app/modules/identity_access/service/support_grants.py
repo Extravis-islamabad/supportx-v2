@@ -31,10 +31,12 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.database import SESSION_TENANT_KEY
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
+from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import support_grants as rules
+from app.modules.identity_access.domain.network import address_of
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import SupportGrantChanged, VendorSupportSettingChanged
@@ -53,6 +55,7 @@ from app.modules.identity_access.infra.models import (
 )
 from app.modules.identity_access.service.directory import UserRepository
 from app.modules.identity_access.service.sso import organization_of
+from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.ids import new_id
@@ -732,6 +735,24 @@ async def _facts(
     return facts
 
 
+def _judge(
+    facts: _Facts,
+    address: ipaddress.IPv4Address | ipaddress.IPv6Address | None,
+    now: datetime,
+) -> str | None:
+    if (
+        facts.state is None
+        or not rules.is_open(facts.state)
+        or facts.starts_at is None
+        or facts.ends_at is None
+        or not (facts.starts_at <= now < facts.ends_at)
+    ):
+        return INACTIVE
+    if facts.networks and (address is None or not any(address in n for n in facts.networks)):
+        return "ip_not_allowed"
+    return None
+
+
 async def support_refusal(
     session: AsyncSession,
     tenant_id: uuid.UUID,
@@ -744,18 +765,7 @@ async def support_refusal(
     Its grant must be open and in time, and the address in the grant's list when it has one (the
     tenant's own list is checked as for everyone, by the caller).
     """
-    facts = await _facts(session, tenant_id, user_id, now)
-    if (
-        facts.state is None
-        or not rules.is_open(facts.state)
-        or facts.starts_at is None
-        or facts.ends_at is None
-        or not (facts.starts_at <= now < facts.ends_at)
-    ):
-        return INACTIVE
-    if facts.networks and (address is None or not any(address in n for n in facts.networks)):
-        return "ip_not_allowed"
-    return None
+    return _judge(await _facts(session, tenant_id, user_id, now), address, now)
 
 
 async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> uuid.UUID | None:
@@ -803,3 +813,46 @@ async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
         aggregate_version=row.version,
     )
     return row.id
+
+
+async def request_refusal(
+    database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID, address: str | None
+) -> str | None:
+    """A support session's request: why it may not go on, or None (lane B (4)).
+
+    The cached facts answer without the database while they last; a miss reads the grant in the
+    tenant's own session (RLS).
+    """
+    now = system_clock.now()
+    cached = _cache.get((tenant_id, user_id))
+    if cached is None or cached.until <= now:
+        async with database.tenant_session(TenantContext(tenant_id)) as session:
+            return await support_refusal(session, tenant_id, user_id, address_of(address), now)
+    return _judge(cached, address_of(address), now)
+
+
+async def sign_in_refusal(
+    database: Database, tenant_id: uuid.UUID, subject: str, address: str | None
+) -> str | None:
+    """Before a session is made: a support account signs in only within its grant and list.
+
+    Anyone else (no local row yet, or another user type) is not this check's to judge: None.
+    """
+    now = system_clock.now()
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        found = (
+            await session.execute(
+                select(User.id, User.user_type).where(User.external_subject == subject)
+            )
+        ).one_or_none()
+        if found is None or found.user_type != rules.SUPPORT_USER_TYPE:
+            return None
+        forget(tenant_id, found.id)  # a sign-in always reads the grant afresh
+        return await support_refusal(session, tenant_id, found.id, address_of(address), now)
+
+
+async def mark_first_use(database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """After a support account's session is made: its grant becomes active (once)."""
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        await first_use(session, user_id, system_clock.now())
+    forget(tenant_id, user_id)

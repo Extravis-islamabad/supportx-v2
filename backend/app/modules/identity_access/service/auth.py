@@ -69,6 +69,7 @@ from app.modules.identity_access.domain.sign_in_policy import (
     requires_supportx_mfa,
 )
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import BreakGlassSignedIn
 from app.modules.identity_access.infra.crypto import session_ring
 from app.modules.identity_access.infra.device_keys import device_keys
@@ -96,6 +97,7 @@ from app.modules.identity_access.service import (
     sign_in_log,
     site_networks,
     sso_test,
+    support_grants,
 )
 from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service import sso as sso_service
@@ -988,6 +990,17 @@ class AuthService:
                 uuid.UUID(target.tenant_id), identity, attempt, verdict.refusal
             )
             raise PermissionDenied(code=verdict.refusal)
+        # WP-057 S4c-1 (lane B (4)): a vendor support account signs in only within its grant
+        # and, when the grant has one, from its address list; before anyone is provisioned.
+        support = await support_grants.sign_in_refusal(
+            self.database,
+            uuid.UUID(target.tenant_id),
+            identity.subject,
+            attempt.ip if attempt is not None else None,
+        )
+        if support is not None:
+            await self._log_policy_refusal(uuid.UUID(target.tenant_id), identity, attempt, support)
+            raise PermissionDenied(code=support)
         user = await provision_user(
             self.database,
             uuid.UUID(target.tenant_id),
@@ -1055,6 +1068,11 @@ class AuthService:
                 ip=attempt.ip,
                 place=built.place,
                 now=now,
+            )
+        if user.user_type == SUPPORT_USER_TYPE:
+            # The engineer finished Keycloak's required actions: the grant is in use (lane B (7)).
+            await support_grants.mark_first_use(
+                self.database, uuid.UUID(target.tenant_id), user.user_id
             )
         return built
 
@@ -1316,11 +1334,31 @@ class AuthService:
         found = await self.session_for(request)
         if found is None:
             return None
-        _session_id, session = found
+        session_id, session = found
+        if session.user_type == SUPPORT_USER_TYPE:
+            await self._check_support(request, session_id, session)
         record_freshness(request, self._freshness(session))
         return TenantContext(
             tenant_id=session.tenant_uuid, user_id=session.user_uuid, roles=frozenset(session.roles)
         )
+
+    async def _check_support(self, request: Request, session_id: str, session: Session) -> None:
+        """A vendor support session's every request: its grant in time and its address allowed.
+
+        WP-057 S4c-1 (lane B (4), (6)): a refusal deletes the session, so the client's next call
+        has none and the refusal is logged once, not per retry. The address is the same one the
+        REQ-SEC-034 check reads (trusted proxies only).
+        """
+        if self.database is None:
+            raise Unauthenticated(code=support_grants.INACTIVE)
+        refusal = await support_grants.request_refusal(
+            self.database, session.tenant_uuid, session.user_uuid, client_address(request)
+        )
+        if refusal is None:
+            return
+        await self.store.delete_session(session_id)
+        log.info("support_session_refused", reason=refusal, user_id=session.user_id)
+        raise Unauthenticated(code=refusal)
 
     def _freshness(self, session: Session) -> SignInFreshness:
         """For RecentAuth (REQ-SEC-027): a browser session, and whether it confirmed recently.
