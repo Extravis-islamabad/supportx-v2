@@ -23,6 +23,7 @@ from app.modules.ai import GATEWAY_STATE, Gateway
 from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_changes
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
+from app.modules.work_items.api.announce_routes import add_announce_routes
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
 from app.modules.work_items.api.checklist_routes import (
@@ -37,6 +38,7 @@ from app.modules.work_items.api.conversation_routes import (
 from app.modules.work_items.api.convert_routes import add_convert_routes
 from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.major_routes import add_major_routes
 from app.modules.work_items.api.merge_routes import add_incident_merge_routes
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
@@ -97,6 +99,7 @@ from app.modules.work_items.service import (
     change_links,
     custom_values,
     drafts,
+    reads,
     record_copies,
     release_links,
     resolution,
@@ -729,6 +732,12 @@ class WorkItemOut(BaseModel):
         description="Resolved at first contact (REQ-INC-102): suggested at resolve, confirmed or"
         " changed by the technician; null until resolved.",
     )
+    major: bool = Field(default=False, description="Declared a major incident (REQ-INC-141).")
+    major_declared_at: datetime | None = Field(default=None, description="When it was declared.")
+    major_declared_by: uuid.UUID | None = Field(default=None, description="Who declared it.")
+    major_reason: str | None = Field(
+        default=None, description="Why it was declared major (staff who may see the record)."
+    )
     closure_code: str | None = Field(description="A closure_code pick-list code (REQ-INC-093).")
     resolution_notified_at: datetime | None = Field(
         description="When the requester was told of the resolution; auto-close counts from it."
@@ -834,6 +843,10 @@ class WorkItemOut(BaseModel):
 
 _RECORD_FIELDS = (
     "first_contact_resolution",
+    "major",  # WP-046b S4 (REQ-INC-141)
+    "major_declared_at",
+    "major_declared_by",
+    "major_reason",
     "catalog_item_id",
     "answers",
     "approval_status",
@@ -952,6 +965,7 @@ class WorkItemListItem(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None
+    major: bool = Field(default=False, description="A major incident: the marker (REQ-INC-141).")
     stage: str | None = Field(default=None, description="Staged types: the current stage.")
     stage_path: str | None = Field(
         default=None, description="Staged types: the path (releases: `emergency` is the flag)."
@@ -1025,6 +1039,10 @@ class WorkItemPage(Page[WorkItemListItem]):
     releases: dict[str, ListReleaseFactsOut] = Field(
         default_factory=dict,
         description="Releases only: each row's own columns, by record ID.",
+    )
+    unread: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="The rows changed by someone else since you last opened them (REQ-INC-115).",
     )
 
 
@@ -2526,6 +2544,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             people=_people(await user_contacts(session, people)),
             changes=await _change_facts(session, wtype, ids),
             releases=releases,
+            unread=await reads.unread_ids(session, subject, page.rows),
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -2542,6 +2561,16 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
         return await _page(session, subject, page)
+
+    @router.post(
+        "/{record_id}/read",
+        summary="Mark as read",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def mark_read(record_id: uuid.UUID, session: TenantSession, subject: View) -> Response:
+        """The record page calls this on opening it (and when a change arrives while open)."""
+        await reads.mark_read(session, subject, wtype, record_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get("/views", summary=f"Built-in {name} views with counts")
     async def views(
@@ -2893,6 +2922,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         # approvals asked ad hoc (WP-044b s4, WP-046b S1): none has a requester's withdrawal (a
         # change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        add_major_routes(router, wtype)  # WP-046b S4: before the /{record_id} routes (/majors)
+        add_announce_routes(router, wtype)  # WP-046b S4 (REQ-INC-129)
     if wtype.code is WorkItemTypeCode.CHANGE:
         # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
 

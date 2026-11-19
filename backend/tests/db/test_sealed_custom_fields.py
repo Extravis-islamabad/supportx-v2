@@ -38,6 +38,8 @@ from tests.db.test_reports_api import reports  # noqa: F401 - fixture
 from tooling import timing
 
 pytestmark = pytest.mark.db
+# The test values hold a space and "!", which no base64 or hex text contains, so checking that a
+# value is absent from the stored ciphertext can never fail by chance (#535's shard 8 flake).
 
 
 def _with_keys(w: World) -> None:
@@ -75,11 +77,11 @@ async def test_a_sensitive_value_is_sealed_at_rest_and_reads_back_opened(world: 
     _with_keys(world)
     a = world.a
     key = await _sensitive(world, a, "Pay band")
-    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7"})
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7 one!"})
     value, text = await _stored(world, a, item["id"], key)
     assert value.startswith("sx2:")
-    assert "B7" not in value
-    assert "B7" not in (text or "")
+    assert "B7 one!" not in value
+    assert "B7 one!" not in (text or "")
     index = await world.sql(
         "SELECT digest FROM work_item_field_index WHERE tenant_id = $1 AND work_item_id = $2"
         " AND field_key = $3",
@@ -88,14 +90,14 @@ async def test_a_sensitive_value_is_sealed_at_rest_and_reads_back_opened(world: 
         key,
     )
     assert len(index) == 1
-    assert "B7" not in index[0]["digest"]
+    assert "B7 one!" not in index[0]["digest"]
     shown = await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)
     assert shown.status_code == 200, shown.text
-    assert shown.json()["custom"][key] == "B7"
+    assert shown.json()["custom"][key] == "B7 one!"
     assert shown.json()["unreadable_fields"] == []
     listed = await world.call("GET", BASE, a, a.admin)
     row = next(r for r in listed.json()["items"] if r["id"] == item["id"])
-    assert row["custom"][key] == "B7"
+    assert row["custom"][key] == "B7 one!"
 
 
 async def test_a_sealed_field_filters_by_exact_value_only_and_never_sorts(world: World) -> None:  # noqa: F811
@@ -126,9 +128,9 @@ async def test_a_withheld_sealed_field_is_never_an_oracle(world: World) -> None:
     _with_keys(world)
     a = world.a
     key = await _sensitive(world, a, "Bonus band")
-    await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7"})
+    await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7 one!"})
     await _rule(world, a, "technician", f"custom.{key}", "hidden")
-    probe = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "B7"})
+    probe = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "B7 one!"})
     refused = await world.call("GET", BASE, a, a.tech_a, params={"filter": probe})
     assert refused.status_code == 422, refused.text
     assert "field_not_filterable_sealed" not in refused.text  # the withheld refusal, unchanged
@@ -140,14 +142,14 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
     _with_keys(world)
     a = world.a
     key = await _sensitive(world, a, "Cost band")
-    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7"})
+    item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "B7 one!"})
     current = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
     changed = await world.call(
         "PATCH",
         f"{BASE}/{item['id']}",
         a,
         a.admin,
-        json={"custom": {key: "C9"}},
+        json={"custom": {key: "C9 two!"}},
         headers={"If-Match": f'"{current["version"]}"'},
     )
     assert changed.status_code == 200, changed.text
@@ -161,7 +163,7 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
     )
     assert row["old"].startswith("sx2:")
     assert row["new"].startswith("sx2:")
-    assert "C9" not in row["new"]
+    assert "C9 two!" not in row["new"]
     version = row["record_version"]
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         cipher = field_cipher_for(session, world.app.state.settings)
@@ -170,7 +172,9 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
         def cell(v: int, side: str) -> Binding:
             return custom_values.history_binding("work_item", record, f"custom.{key}", v, side)
 
-        assert await cipher.open(custom_values.CUSTOM, cell(version, "new"), row["new"]) == '"C9"'
+        assert (
+            await cipher.open(custom_values.CUSTOM, cell(version, "new"), row["new"]) == '"C9 two!"'
+        )
         # Moved to another version or side, it does not open (lane B).
         assert await cipher.open(custom_values.CUSTOM, cell(version + 1, "new"), row["new"]) is None
         assert await cipher.open(custom_values.CUSTOM, cell(version, "old"), row["new"]) is None
@@ -187,7 +191,7 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
         binding = custom_values.history_binding(
             "work_item", uuid.UUID(item["id"]), f"custom.{key}", made["record_version"], "new"
         )
-        assert await cipher.open(custom_values.CUSTOM, binding, made["new"]) == '"B7"'
+        assert await cipher.open(custom_values.CUSTOM, binding, made["new"]) == '"B7 one!"'
     # The opened value sent back unchanged is no change: no new history row.
     again = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
     same = await world.call(
@@ -195,7 +199,7 @@ async def test_history_keeps_sealed_values_per_cell_and_unchanged_is_no_change(
         f"{BASE}/{item['id']}",
         a,
         a.admin,
-        json={"custom": {key: "C9"}, "subject": "Renamed"},
+        json={"custom": {key: "C9 two!"}, "subject": "Renamed"},
         headers={"If-Match": f'"{again["version"]}"'},
     )
     assert same.status_code == 200, same.text
@@ -229,7 +233,7 @@ async def test_history_opens_sealed_values_and_never_shows_sealed_text(world: Wo
     _with_keys(world)
     a = world.a
     key = await _sensitive(world, a, "Shift band")
-    item = await _changed(world, a, key, "B7", "C9")
+    item = await _changed(world, a, key, "B7 one!", "C9 two!")
     page = f"{BASE}/{item['id']}/history"
     shown = await world.call("GET", page, a, a.admin)
     assert shown.status_code == 200, shown.text
@@ -237,13 +241,15 @@ async def test_history_opens_sealed_values_and_never_shows_sealed_text(world: Wo
     lines = [
         c for e in shown.json()["items"] for c in e["changes"] if c["field"] == f"custom.{key}"
     ]
-    assert {"old": "B7", "new": "C9"} in [{"old": c.get("old"), "new": c.get("new")} for c in lines]
+    assert {"old": "B7 one!", "new": "C9 two!"} in [
+        {"old": c.get("old"), "new": c.get("new")} for c in lines
+    ]
     # Masked for the technician: the hidden line, never opened.
     await _rule(world, a, "technician", f"custom.{key}", "masked")
     masked = await world.call("GET", page, a, a.tech_a)
     assert masked.status_code == 200, masked.text
     assert "sx2:" not in masked.text
-    assert "C9" not in masked.text
+    assert "C9 two!" not in masked.text
     # A value moved into another row (tampering) does not open: the hidden line, no ciphertext.
     record = uuid.UUID(item["id"])
     await world.sql(
@@ -329,7 +335,7 @@ async def test_a_sealed_filter_p95_on_a_large_list(world: World) -> None:  # noq
     _with_keys(world)
     org = await make_org(world, "SealedPerf")
     key = await _sensitive(world, org, "Perf band")
-    real = await world.create(org, org.admin, custom={key: "B7"})  # the real key and digest
+    real = await world.create(org, org.admin, custom={key: "B7 one!"})  # the real key and digest
     (made,) = await world.sql(
         "SELECT key_id, digest FROM work_item_field_index WHERE tenant_id = $1"
         " AND work_item_id = $2",
@@ -346,7 +352,7 @@ async def test_a_sealed_filter_p95_on_a_large_list(world: World) -> None:  # noq
         await conn.execute("ANALYZE work_item_field_index")
     finally:
         await conn.close()
-    sealed = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "b7"})
+    sealed = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "b7 one!"})
     queries = {
         "plain_list": "?limit=50",
         "sealed_eq": "?" + str(httpx.QueryParams({"filter": sealed, "limit": "50"})),
@@ -383,7 +389,7 @@ async def test_a_closed_incident_still_refuses_a_sealed_field_edit(world: World)
     a = world.a
     key = await _sensitive(world, a, "Closed band")
     item = await world.create(
-        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), custom={key: "B7"}
+        a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a), custom={key: "B7 one!"}
     )
     resolved = await world.act(a, a.admin, item, "resolve")
     closed = (await world.act(a, a.admin, resolved.json(), "close")).json()
@@ -394,7 +400,7 @@ async def test_a_closed_incident_still_refuses_a_sealed_field_edit(world: World)
         f"{BASE}/{item['id']}",
         a,
         a.tech_a,
-        json={"custom": {key: "C9"}},
+        json={"custom": {key: "C9 two!"}},
         headers={"If-Match": f'"{closed["version"]}"', **CONSOLE},
     )
     assert (refused.status_code, refused.json()["code"]) == (409, "record_closed"), refused.text
@@ -404,11 +410,11 @@ async def test_a_closed_incident_still_refuses_a_sealed_field_edit(world: World)
         f"{BASE}/{item['id']}",
         a,
         a.admin,
-        json={"custom": {key: "C9"}, "edit_reason": "Corrected after closing."},
+        json={"custom": {key: "C9 two!"}, "edit_reason": "Corrected after closing."},
         headers={"If-Match": f'"{closed["version"]}"', **CONSOLE},
     )
     assert edited.status_code == 200, edited.text
     after, _ = await _stored(world, a, item["id"], key)
     assert after.startswith("sx2:")
     assert after != before
-    assert edited.json()["custom"][key] == "C9"
+    assert edited.json()["custom"][key] == "C9 two!"

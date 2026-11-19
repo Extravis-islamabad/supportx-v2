@@ -15,6 +15,7 @@ export const en = {
   'errors.action_link_used': 'This link has already been used.',
   'errors.alias_not_found': 'No record you can open has this number now.',
   'errors.already_known_error': '{{display_id}} is already a known error.',
+  'errors.already_major': '{{display_id}} is already a major incident.',
   'errors.already_on_version': 'This run is already on that version.',
   'errors.already_taken': '{{taken_by}} has just taken this. Reload to see it.',
   'errors.already_yours': 'It is already assigned to you.',
@@ -241,6 +242,8 @@ export const en = {
   'errors.custom_field_limit_reached':
     'This kind of record already has {{limit}} custom fields, the most allowed. Remove or reuse one first.',
   'errors.custom_field_not_found': 'This custom field does not exist (any more).',
+  'errors.custom_field_scope_in_use':
+    'Records already hold values in this field, so it can only apply to more types now, never fewer.',
   'errors.custom_field_sensitive_unsupported':
     'Fields of this kind of record cannot be marked sensitive.',
   'errors.custom_field_used_by_rule':
@@ -443,6 +446,11 @@ export const en = {
     'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
+  'errors.field.custom_field_scope_unknown': 'This type does not exist (any more).',
+  'errors.field.custom_field_scope_unsupported':
+    'This kind of record has no types to limit a field to.',
+  'errors.field.custom_field_sensitive_unsupported':
+    'Fields of this kind of record cannot be marked sensitive.',
   'errors.field.dashboard_not_shared': "Only a built-in or shared dashboard can be a role's home.",
   'errors.field.date_format_unknown': 'Choose a date format from the list.',
   'errors.field.date_in_future': 'Choose today or an earlier date.',
@@ -836,6 +844,8 @@ export const en = {
   'errors.field.vendor_name_taken': 'Another vendor has this name.',
   'errors.field.vendor_not_found': 'This vendor no longer exists.',
   'errors.field.vendor_support_disabled': 'Vendor support is turned off for this organisation.',
+  'errors.field.view_filter_not_shareable':
+    "This view filters on a field some people can't see, so it can only stay private. Remove that condition to share it.",
   'errors.field.week_empty': 'Add at least one working period.',
   'errors.field.week_start_unknown': 'Choose the day the week starts.',
   'errors.field.week_too_many_periods': 'A week can have at most 28 working periods.',
@@ -1065,6 +1075,7 @@ export const en = {
   'errors.not_convertible': 'This kind of record cannot be converted.',
   'errors.not_found': 'The item was not found.',
   'errors.not_known_error': '{{display_id}} is not a known error.',
+  'errors.not_major': '{{display_id}} is not a major incident.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.not_visible': 'You cannot see this change, so it was left as it is.',
@@ -1283,6 +1294,7 @@ export const en = {
   'errors.vendor_support_type_fixed': "An Extravis support account's type can't be changed.",
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.view_share_not_allowed': "You can't share this view with that audience.",
   'errors.window_not_found': 'This window does not exist, or it was removed.',
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',

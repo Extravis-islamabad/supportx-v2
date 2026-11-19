@@ -1,5 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { CisQuery } from './cmdb';
+import type { NeighboursQuery } from './cmdbGraph';
 import type { BookingsQuery, ConsumablesQuery } from './assetStock';
 import type {
   AssetHistoryFilters,
@@ -146,6 +147,21 @@ export const queryKeys = {
     detail: (id: string) => ['cmdb', 'detail', id] as const,
     history: (id: string) => ['cmdb', 'history', id] as const,
     picker: (search: string, typeId: string | null) => ['cmdb', 'picker', search, typeId] as const,
+    // WP-053 S2: relationship types, maps, business views and versions.
+    relationshipTypes: (forType: string | null) => ['cmdb', 'relationship-types', forType] as const,
+    neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
+    neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
+    versions: (id: string) => ['cmdb', 'versions', id] as const,
+    asOf: (id: string, at: string) => ['cmdb', 'versions', id, 'as-of', at] as const,
+    compare: (id: string, from: number, to: number) =>
+      ['cmdb', 'versions', id, 'compare', from, to] as const,
+    views: ['cmdb', 'business-views'] as const,
+    viewList: (baseCiId: string | null, search: string) =>
+      ['cmdb', 'business-views', 'list', baseCiId, search] as const,
+    view: (id: string) => ['cmdb', 'business-views', 'detail', id] as const,
+    // 0175 part 2: what moving a CI to a type would drop.
+    typeChangePreview: (id: string, typeId: string) =>
+      ['cmdb', 'type-change-preview', id, typeId] as const,
   },
   announcements: {
     all: ['announcements'] as const,
@@ -203,6 +219,9 @@ export const queryKeys = {
     listFields: ['incidents', 'list-fields'] as const,
     viewFilters: ['incidents', 'views', 'filters'] as const,
     savedViews: ['incidents', 'saved-views'] as const,
+    // WP-046b S3a: the default row colouring and the shared-view audit (D-176).
+    listDisplay: ['incidents', 'settings', 'list-display'] as const,
+    viewAudit: ['incidents', 'saved-views', 'audit'] as const,
     listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
     bulkJobs: ['incidents', 'bulk-jobs'] as const,
     bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
@@ -215,6 +234,10 @@ export const queryKeys = {
   customFields: {
     all: ['custom-fields'] as const,
     list: (entity: string, removed: boolean) => ['custom-fields', entity, removed] as const,
+    // One type's fields (0175): the entity's key plus the type, so the live message (which
+    // invalidates every `custom-fields` key) reaches it too.
+    forType: (entity: string, removed: boolean, typeId: string) =>
+      ['custom-fields', entity, removed, typeId] as const,
   },
   audit: {
     all: ['audit'] as const,

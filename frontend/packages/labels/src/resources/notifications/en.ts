@@ -61,6 +61,7 @@ export const en = {
   'notification_area.service_request': 'Service requests',
   'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.task': 'Tasks',
+  'notification_area.work_item_view': 'Saved views',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -117,6 +118,8 @@ export const en = {
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
   'notification_event.incident.follower_added': 'Added as a follower',
+  'notification_event.incident.major_declared': 'Major incident declared',
+  'notification_event.incident.major_ended': 'Major incident ended',
   'notification_event.incident.mentioned': 'Mentioned',
   'notification_event.incident.private_note': 'Private note',
   'notification_event.incident.public_note': 'Public note',
@@ -172,6 +175,7 @@ export const en = {
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
+  'notification_event.work_item_view.unshared': 'A view you shared was made private',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -210,6 +214,7 @@ export const en = {
   'notification_recipient.linked_incident_technicians': 'Technicians of the linked incidents',
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
+  'notification_recipient.major_team': 'Major incident team',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
@@ -225,6 +230,7 @@ export const en = {
   'notification_recipient.tenant_admins': 'The tenant administrators',
   'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.view_owner': "The view's owner",
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
   'notification_rules.any_status': 'Any status',
@@ -499,6 +505,18 @@ export const en = {
     'You now follow {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'You now follow {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" was declared a major incident. You are on the major incident team: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    '{{ record.display_id }} was declared a major incident: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'Major incident: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" is no longer a major incident: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    '{{ record.display_id }} is no longer a major incident: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'Major incident ended: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':
@@ -818,6 +836,12 @@ export const en = {
     '{{ task.title }} starts at {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.work_item_view.unshared.body':
+    'Hello {{ recipient.name }},\nYour saved view {{ record.title }} filters on {{ view.field }}, which some of the people you shared it with may not see. It is private to you now; nothing else changed. To share it again, remove that condition and choose who sees it. {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} is private now: it filters on {{ view.field }}',
+  'notification_template.work_item_view.unshared.subject':
+    'Your view {{ record.title }} is private now',
   'notification_value.unnamed_requester': 'the requester',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
@@ -859,6 +883,8 @@ export const en = {
   'notification_variable.report_schedule.skipped_count': 'Schedule › People left out',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
+  'notification_variable.saved_view.field': 'Saved view › Field it filters on',
+  'notification_variable.saved_view.name': 'Saved view › Name',
   'notification_variable.security.device': 'Sign-in › Browser and device',
   'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
   'notification_variable.security.place': 'Sign-in › Approximate place',

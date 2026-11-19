@@ -36,3 +36,34 @@ export {
   type History,
 } from './history';
 export * from './canvas';
+export {
+  CI_MAP_LAYOUTS,
+  MAP_COLUMN,
+  MAP_NODE_HEIGHT,
+  MAP_NODE_WIDTH,
+  MAP_RING,
+  MAP_ROW,
+  isMapArrow,
+  layoutMap,
+  mirrored,
+  nextNode,
+  type CiMapLayout,
+  type MapArrow,
+  type MapLayoutInput,
+  type MapLink,
+  type MapPoint,
+} from './ciMap';
+export {
+  CSV_BOM,
+  csvCell,
+  mapCsv,
+  mapSvg,
+  toCsv,
+  xmlEscape,
+  type MapCsvEdge,
+  type MapCsvNode,
+  type MapCsvWords,
+  type SvgEdge,
+  type SvgMap,
+  type SvgNode,
+} from './ciExport';

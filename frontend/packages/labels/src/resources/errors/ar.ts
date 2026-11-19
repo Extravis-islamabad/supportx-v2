@@ -17,6 +17,7 @@ export const ar: LabelResource = {
   'errors.action_link_used': 'تم استخدام هذا الرابط من قبل.',
   'errors.alias_not_found': 'لا يوجد سجل يمكنك فتحه بهذا الرقم الآن.',
   'errors.already_known_error': '{{display_id}} خطأ معروف بالفعل.',
+  'errors.already_major': '{{display_id}} حادثة كبرى بالفعل.',
   'errors.already_on_version': 'هذا التشغيل على هذا الإصدار بالفعل.',
   'errors.already_taken': 'تولّى {{taken_by}} هذا للتو. أعد التحميل لرؤيته.',
   'errors.already_yours': 'إنها مسندة إليك بالفعل.',
@@ -222,6 +223,8 @@ export const ar: LabelResource = {
   'errors.custom_field_limit_reached':
     'لهذا النوع من السجلات {{limit}} حقلًا مخصصًا، وهو الحد الأقصى. احذف حقلًا أو أعد استخدامه أولًا.',
   'errors.custom_field_not_found': 'هذا الحقل المخصص غير موجود (لم يعد موجودًا).',
+  'errors.custom_field_scope_in_use':
+    'تحتوي سجلات على قيم في هذا الحقل، لذا يمكن توسيعه ليشمل أنواعًا أكثر فقط، ولا يمكن تضييقه.',
   'errors.custom_field_sensitive_unsupported':
     'لا يمكن وضع علامة "حساس" على حقول هذا النوع من السجلات.',
   'errors.custom_field_used_by_rule':
@@ -404,6 +407,11 @@ export const ar: LabelResource = {
   'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
+  'errors.field.custom_field_scope_unknown': 'هذا النوع غير موجود (بعد الآن).',
+  'errors.field.custom_field_scope_unsupported':
+    'لا توجد أنواع لهذا النوع من السجلات لقصر الحقل عليها.',
+  'errors.field.custom_field_sensitive_unsupported':
+    'لا يمكن وسم حقول هذا النوع من السجلات بأنها حساسة.',
   'errors.field.dashboard_not_shared': 'يمكن أن تكون لوحة البداية لدور لوحة مدمجة أو مشتركة فقط.',
   'errors.field.date_format_unknown': 'اختر تنسيق تاريخ من القائمة.',
   'errors.field.date_in_future': 'اختر تاريخ اليوم أو تاريخًا سابقًا.',
@@ -779,6 +787,8 @@ export const ar: LabelResource = {
   'errors.field.vendor_name_taken': 'يوجد مورد آخر بهذا الاسم.',
   'errors.field.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.field.vendor_support_disabled': 'دعم المورّد متوقف لهذه المؤسسة.',
+  'errors.field.view_filter_not_shareable':
+    'يُصفّي هذا العرض حسب حقل لا يستطيع بعض الأشخاص رؤيته، لذا يبقى خاصًا فقط. أزِل هذا الشرط لمشاركته.',
   'errors.field.week_empty': 'أضف فترة عمل واحدة على الأقل.',
   'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
   'errors.field.week_too_many_periods': 'يمكن أن يحتوي الأسبوع على 28 فترة عمل على الأكثر.',
@@ -992,6 +1002,7 @@ export const ar: LabelResource = {
   'errors.not_convertible': 'لا يمكن تحويل هذا النوع من السجلات.',
   'errors.not_found': 'العنصر غير موجود.',
   'errors.not_known_error': '{{display_id}} ليس خطأً معروفًا.',
+  'errors.not_major': '{{display_id}} ليست حادثة كبرى.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
   'errors.not_visible': 'لا يمكنك رؤية هذا التغيير، لذا تُرك كما هو.',
@@ -1183,6 +1194,7 @@ export const ar: LabelResource = {
   'errors.vendor_support_type_fixed': 'لا يمكن تغيير نوع حساب دعم Extravis.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
+  'errors.view_share_not_allowed': 'لا يمكنك مشاركة هذا العرض مع هذا الجمهور.',
   'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',
   'errors.withdraw_not_allowed': 'يمكن لمقدم الطلب فقط سحب هذا الطلب.',
   'errors.withdraw_not_pending': 'لا يمكن سحب إلا طلب بانتظار الموافقة.',

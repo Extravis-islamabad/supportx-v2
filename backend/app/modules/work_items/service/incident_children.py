@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound
+from app.core.errors import Conflict, NotFound
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.lists import BulkAction
@@ -164,6 +164,39 @@ async def resolve_children(  # noqa: PLR0913 - the parent, the choice and the so
         wtype,
         action=BulkAction.RESOLVE,
         changes={"resolution": parent.resolution, "follow_up_of": parent.display_id},
+        record_ids=chosen,
+        source=source,
+    )
+
+
+async def attach_similar(  # noqa: PLR0913 - the parent, the choice and the source
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    parent_id: uuid.UUID,
+    child_ids: Sequence[uuid.UUID],
+    *,
+    source: Source,
+) -> WorkItemBulkJob:
+    """Attach the chosen incidents to a major incident as its children (REQ-INC-141 AC2).
+
+    A bulk job as the actor: at most 1,000 records, each checked again as it runs (edit on it
+    and on the parent, open, one level, no loops: `add_child`), a result per record with the
+    refusal's code. The candidates are only what the person may see: a record they cannot see
+    is refused like one that does not exist. The parent must be a major incident.
+    """
+    parent = await items.record_for_action(session, subject, wtype, "edit", parent_id)
+    if not parent.major:
+        raise Conflict(code="not_major", params={"display_id": parent.display_id})
+    chosen = [i for i in dict.fromkeys(child_ids) if i != parent.id]
+    if not chosen:
+        raise items.field_errors([("child_ids", "required")])
+    return await bulk.start(
+        session,
+        subject,
+        wtype,
+        action=BulkAction.ATTACH_CHILD,
+        changes={"parent_id": str(parent.id)},
         record_ids=chosen,
         source=source,
     )

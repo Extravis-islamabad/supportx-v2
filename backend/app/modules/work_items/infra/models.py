@@ -59,7 +59,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
-from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisibility
+from app.modules.work_items.domain.lists import BulkAction, BulkStatus, RowColourBy, ViewVisibility
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
@@ -89,6 +89,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
 
     __tablename__ = "work_item_type_settings"
     __table_args__ = (
+        CheckConstraint(_codes("row_colour_by", RowColourBy), name="row_colour_by_code"),
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
@@ -209,6 +210,15 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     closed_edit_locked: Mapped[bool] = mapped_column(Boolean, server_default="false")
     edit_reason_fields: Mapped[list[str]] = mapped_column(ARRAY(String(80)), server_default="{}")
     first_contact_minutes: Mapped[int] = mapped_column(Integer, server_default="30")
+    # WP-046b S4 (0177, REQ-INC-141): who is told when an incident is declared major (a group and
+    # named people), and the template it switches to (none: it keeps its own).
+    major_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    major_user_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+    major_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # WP-046b S3a (0178, REQ-INC-115 AC1): what list rows are coloured by, unless a person chose.
+    row_colour_by: Mapped[str] = mapped_column(String(10), server_default="none")
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -604,6 +614,13 @@ class WorkItem(TenantEntity):
             "tenant_id", "type", "display_number", name="uq_work_items_tenant_type_number"
         ),
         CheckConstraint(TYPE_CHECK, name="type_code"),
+        # Major incidents (0177): the list and the marker filter.
+        Index(
+            "ix_work_items_tenant_major",
+            "tenant_id",
+            "type",
+            postgresql_where=text("major AND deleted_at IS NULL"),
+        ),
         CheckConstraint(_codes("channel", Channel), name="channel_code"),
         CheckConstraint(
             "outage_ended_at IS NULL OR outage_started_at IS NULL"
@@ -828,6 +845,12 @@ class WorkItem(TenantEntity):
     # REQ-INC-102 (0169): resolved at first contact, as suggested at resolution and confirmed or
     # changed by the technician; null until resolved.
     first_contact_resolution: Mapped[bool | None] = mapped_column(Boolean)
+    # WP-046b S4 (0177, REQ-INC-141): declared major, when, by whom and why. The reason is free
+    # text: kept here and in the audit entry's personal part, never in field history values.
+    major: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    major_declared_at: Mapped[datetime | None]
+    major_declared_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    major_reason: Mapped[str | None] = mapped_column(String(500))
     symptoms: Mapped[str | None] = mapped_column(Text)
     # Known errors (WP-044b s3, REQ-PRB-034..042): the workaround incident technicians see,
     # when it was marked a known error, and when that was retired by a permanent fix.
@@ -998,6 +1021,31 @@ class WorkItemAsset(TenantEntity):
     source: Mapped[str] = mapped_column(String(20), server_default="ui")
 
 
+class WorkItemAnnouncement(TenantEntity):
+    """An announcement made from a work item (WP-046b S4, REQ-INC-129).
+
+    Kept by work_items: the announcements module owns the announcement and never reads this. The
+    link grants nobody anything: each side keeps its own access rules (lane B).
+    """
+
+    __tablename__ = "work_item_announcements"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_announcements_work_item"),
+        Index(
+            "uq_work_item_announcements_pair",
+            "tenant_id",
+            "work_item_id",
+            "announcement_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_work_item_announcements_announcement", "tenant_id", "announcement_id"),
+    )
+
+    work_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    announcement_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+
+
 class WorkItemFollower(TenantEntity):
     """Someone following a work item (REQ-INC-056/151). Unfollowing soft-deletes the row.
 
@@ -1140,6 +1188,54 @@ class WorkItemView(TenantEntity):
     # [{"key": "subject", "width": 240}, ...]; empty = the default columns.
     columns: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     sort: Mapped[str | None] = mapped_column(String(200))
+    # D-176: when the view audit last made it private, and the filter field that caused it (the
+    # administrators' report and the owner's notice); kept if it is shared again.
+    unshared_at: Mapped[datetime | None]
+    unshared_field: Mapped[str | None] = mapped_column(String(80))
+
+
+class WorkItemRead(TenantKeyed, Base):
+    """The version of a record someone last opened, for unread markers (REQ-INC-115 AC2).
+
+    Personal: never shown to anyone else, removed with the person (erasure). One row per
+    person and record, moved forward only (an older tab never marks a newer change as seen).
+    """
+
+    __tablename__ = "work_item_reads"
+    __table_args__ = (
+        _work_item_fk("fk_wir_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wir_user"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    work_item_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    seen_version: Mapped[int] = mapped_column(BigInteger)
+    seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkItemViewFavourite(TenantKeyed, Base):
+    """A saved view someone starred, so it shows first in their picker (REQ-INC-107 AC1).
+
+    Personal and never shown to anyone else; un-starring removes the row (a preference, not a
+    business record, like a task dependency). The view must still be one they may use: the
+    picker reads favourites only through `_seen_by`, so a view unshared from them drops out.
+    """
+
+    __tablename__ = "work_item_view_favourites"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wivf_user"
+        ),
+        Index("ix_work_item_view_favourites_tenant_view", "tenant_id", "view_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    view_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("work_item_views.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class WorkItemListSetting(TenantEntity):
@@ -1152,6 +1248,10 @@ class WorkItemListSetting(TenantEntity):
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("page_size IN (25, 50, 100)", name="page_size_choice"),
+        CheckConstraint(
+            f"row_colour_by IS NULL OR {_codes('row_colour_by', RowColourBy)}",
+            name="row_colour_by_code",
+        ),
         CheckConstraint("jsonb_array_length(columns) <= 40", name="columns_limit"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wils_user"
@@ -1173,6 +1273,8 @@ class WorkItemListSetting(TenantEntity):
     columns: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     sort: Mapped[str | None] = mapped_column(String(200))
     page_size: Mapped[int] = mapped_column(Integer, server_default="50")
+    # REQ-INC-115 AC1: their own row colouring for this view; NULL: the tenant's default.
+    row_colour_by: Mapped[str | None] = mapped_column(String(10))
 
 
 class WorkItemBulkJob(TenantEntity):

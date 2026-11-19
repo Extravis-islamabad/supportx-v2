@@ -74,6 +74,7 @@ ERASE_RIGHT = "people.erase"
 PLAIN = (
     "subject",
     "impact_details",
+    "major_reason",  # WP-046b S4: free text (lane B: erasure must find it)
 )
 HTML = (
     "description",

@@ -18,13 +18,21 @@ from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import transaction_memo
-from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.core.database import SESSION_TENANT_KEY, transaction_memo
+from app.core.errors import (
+    Conflict,
+    EntitlementRequired,
+    FieldError,
+    NotFound,
+    ValidationFailed,
+)
 from app.modules.identity_access import display_names, user_names
+from app.modules.licensing import Feature, has_feature
 from app.modules.metadata.domain.fields import (
     FIELDS_PER_ENTITY,
     HELP_MAX,
     LABEL_MAX,
+    NEVER_SENSITIVE,
     Choice,
     ChoiceDisplay,
     CustomFieldEntity,
@@ -37,18 +45,21 @@ from app.modules.metadata.domain.fields import (
     clean_values,
     definition_problems,
     empty,
+    in_scope,
     is_key,
     key_from,
     labels_problems,
     missing_required,
+    scope_change_allowed,
     search_text,
 )
 from app.modules.metadata.domain.fields import (
     problem_params as field_problem_params,
 )
-from app.modules.metadata.events import CustomFieldChanged
+from app.modules.metadata.events import CustomFieldChangedV2
 from app.modules.metadata.infra.expressions import value_expression
 from app.modules.metadata.infra.models import CustomField
+from app.modules.metadata.service import type_trees
 from app.shared.api.filters import FieldType as FilterType
 from app.shared.api.filters import FilterField
 from app.shared.db.repository import Repository
@@ -145,41 +156,120 @@ def definition_of(row: CustomField) -> Definition:
 
 
 async def list_fields(
-    session: AsyncSession, entity: str, *, removed: bool = False
+    session: AsyncSession,
+    entity: str,
+    *,
+    removed: bool = False,
+    type_id: uuid.UUID | None = None,
 ) -> list[CustomField]:
     """Every field of an entity in display order, retired ones included (marked).
 
     `removed`: also fields removed while in use, for history and old values (AC4).
+    `type_id` (0175): only the fields that apply to records of that type, the entity-wide ones
+    and those scoped to the type or a type above it; without it, every field of the entity
+    (lists and filters across all types; keys are unique per entity, so that is safe).
     Read once per transaction: one save checks, filters and indexes the same definitions
     several times (`_memo`).
     """
     kind = _entity(entity)
     memo = _memo(session)
     if memo is not None and (kind, "rows", removed) in memo:
-        return list(memo[(kind, "rows", removed)])
-    query = select(CustomField).where(CustomField.entity == kind)
-    if not removed:
-        query = query.where(CustomField.deleted_at.is_(None))
-    rows = list(
-        await session.scalars(
-            query.order_by(CustomField.sort_order, CustomField.created_at, CustomField.id)
+        rows = list(memo[(kind, "rows", removed)])
+    else:
+        query = select(CustomField).where(CustomField.entity == kind)
+        if not removed:
+            query = query.where(CustomField.deleted_at.is_(None))
+        rows = list(
+            await session.scalars(
+                query.order_by(CustomField.sort_order, CustomField.created_at, CustomField.id)
+            )
         )
-    )
-    if memo is not None:
-        memo[(kind, "rows", removed)] = rows
-    return list(rows)
+        if memo is not None:
+            memo[(kind, "rows", removed)] = rows
+    if type_id is None:
+        return list(rows)
+    lineage = await type_trees.lineage(session, kind, type_id) or []
+    return [row for row in rows if in_scope(row.scope_type_id, lineage)]
 
 
-async def definitions(session: AsyncSession, entity: str) -> dict[str, Definition]:
-    """Every field of an entity by key (retired ones too: old values keep their rules)."""
+async def definitions(
+    session: AsyncSession, entity: str, *, type_id: uuid.UUID | None = None
+) -> dict[str, Definition]:
+    """Every field of an entity by key (retired ones too: old values keep their rules).
+
+    `type_id` (0175): only those that apply to records of that type.
+    """
     kind = _entity(entity)
     memo = _memo(session)
-    if memo is not None and (kind, "definitions") in memo:
-        return dict(memo[(kind, "definitions")])
-    found = {row.key: definition_of(row) for row in await list_fields(session, kind)}
+    if memo is not None and (kind, "definitions", type_id) in memo:
+        return dict(memo[(kind, "definitions", type_id)])
+    found = {
+        row.key: definition_of(row) for row in await list_fields(session, kind, type_id=type_id)
+    }
     if memo is not None:
-        memo[(kind, "definitions")] = found
+        memo[(kind, "definitions", type_id)] = found
     return dict(found)
+
+
+async def fields_scoped_to(
+    session: AsyncSession, entity: str, type_ids: Sequence[uuid.UUID]
+) -> list[CustomField]:
+    """Fields scoped to any of these types, retired ones included (they still hold values).
+
+    Deleted fields are left out: a field is deleted only before it holds a value, so it never
+    stands in a type's way. The owning module asks before deleting a type (`ci_type_has_fields`).
+    """
+    if not type_ids:
+        return []
+    kind = _entity(entity)
+    return list(
+        await session.scalars(
+            select(CustomField).where(
+                CustomField.entity == kind,
+                CustomField.scope_type_id.in_(list(type_ids)),
+                CustomField.deleted_at.is_(None),
+            )
+        )
+    )
+
+
+def forget_lineage(session: AsyncSession, entity: str) -> None:
+    """Forget what this transaction read of the entity's type lineages and scoped definitions.
+
+    The owning module calls it after moving a type under a new parent, so the same transaction's
+    later checks (`clean`, `definitions(type_id=…)`) see the new tree (0175 part 2).
+    """
+    kind = _entity(entity)
+    type_trees.forget(session, kind)
+    _forget(session, kind)
+
+
+async def _scope_in(
+    session: AsyncSession,
+    entity: CustomFieldEntity,
+    raw: Any,  # noqa: ANN401 - JSON
+) -> uuid.UUID | None:
+    """A scope sent by an admin: None, or a type the entity's tree knows (0175)."""
+    if raw is None:
+        return None
+    if type_trees.tree_of(entity) is None:
+        raise _problems([("scope_type_id", "custom_field_scope_unsupported")])
+    try:
+        wanted = raw if isinstance(raw, uuid.UUID) else uuid.UUID(str(raw))
+    except ValueError:
+        raise _problems([("scope_type_id", "custom_field_scope_unknown")]) from None
+    if await type_trees.lineage(session, entity, wanted) is None:
+        raise _problems([("scope_type_id", "custom_field_scope_unknown")])
+    return wanted
+
+
+def _never_sensitive(entity: CustomFieldEntity, values: Mapping[str, Any]) -> None:
+    """Asset and CI fields are never sensitive (lane A's 0175 condition a).
+
+    Refused by the server whatever a client sends: there is no seal port for them yet.
+    """
+    if entity in NEVER_SENSITIVE and values.get("sensitive"):
+        raise _problems([("sensitive", "custom_field_sensitive_unsupported")])
 
 
 _MEMO = "metadata.definitions"
@@ -328,12 +418,13 @@ async def _changed(  # noqa: PLR0913 - the row, its change and context
     )
     await record_event(
         session,
-        CustomFieldChanged(
+        CustomFieldChangedV2(
             custom_field_id=row.id,
             entity=row.entity,
             key=row.key,
             change=change,
             changed_fields=sorted(c.field for c in changes),
+            scope_type_id=row.scope_type_id,
         ),
         aggregate_id=row.id,
         aggregate_version=row.version,
@@ -345,6 +436,14 @@ async def create_field(
 ) -> CustomField:
     """A new field at the end of the entity's list; its key comes from the English name."""
     kind_of_entity = _entity(entity)
+    _never_sensitive(kind_of_entity, values)
+    if kind_of_entity == CustomFieldEntity.CI:
+        # A CI field is part of the CMDB (0175): adding one needs its feature; existing fields
+        # stay readable after a lapse, like the rest of the CMDB.
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        if not await has_feature(tenant, Feature.CMDB):
+            raise EntitlementRequired(params={"feature": Feature.CMDB.value})
+    scope = await _scope_in(session, kind_of_entity, values.get("scope_type_id"))
     existing = await list_fields(session, kind_of_entity)
     if len(existing) >= FIELDS_PER_ENTITY:
         raise Conflict(code="custom_field_limit_reached", params={"limit": FIELDS_PER_ENTITY})
@@ -389,6 +488,7 @@ async def create_field(
     )
     row = CustomField(
         entity=kind_of_entity,
+        scope_type_id=scope,
         key=key,
         field_type=kind,
         labels=labels,
@@ -430,10 +530,26 @@ async def update_field(  # noqa: C901, PLR0912, PLR0915 - one rule per setting, 
         raise _problems([("field_type", "type_cannot_change")])
     if "key" in values and values["key"] != row.key:
         raise _problems([("key", "key_cannot_change")])
+    entity = CustomFieldEntity(row.entity)
+    _never_sensitive(entity, values)
     kind = FieldType(row.field_type)
     current = definition_of(row)
     problems: list[Problem] = []
     changes: dict[str, Any] = {}
+    if "scope_type_id" in values:
+        wanted = await _scope_in(session, entity, values["scope_type_id"])
+        if wanted != row.scope_type_id:
+            now = (
+                []
+                if row.scope_type_id is None
+                else await type_trees.lineage(session, entity, row.scope_type_id) or []
+            )
+            if not scope_change_allowed(
+                row.scope_type_id, wanted, now, in_use=row.first_used_at is not None
+            ):
+                # Narrower or sideways once a record holds a value: that value would be stranded.
+                raise Conflict(code="custom_field_scope_in_use", params={"key": row.key})
+            changes["scope_type_id"] = wanted
     if "labels" in values:
         labels = _clean_text(values["labels"])
         problems += labels_problems(labels, "labels", required=True, limit=LABEL_MAX)
@@ -491,6 +607,8 @@ async def update_field(  # noqa: C901, PLR0912, PLR0915 - one rule per setting, 
     )
 
     def shown(name: str, value: Any) -> Any:  # noqa: ANN401 - JSON values
+        if name == "scope_type_id":
+            return None if value is None else str(value)
         return value is not None if name == "retired_at" else value
 
     change = "updated"
@@ -670,13 +788,18 @@ async def clean(  # noqa: PLR0913 - the values and how they are being saved
     current: Mapping[str, Any] | None = None,
     creating: bool,
     defaults: bool = False,
+    type_id: uuid.UUID | None = None,
 ) -> tuple[dict[str, Any], list[Problem]]:
     """Checked values by key (None = cleared) and problems as (`custom.<key>`, code).
 
     `defaults`: on create, fields with a default and no value sent start from it.
+    `type_id` (0175): the record's type; a key outside its lineage's fields is unknown
+    (`unknown_field`), exactly as a key no field has.
     """
-    known = await definitions(session, entity)
-    rows = {r.key: r for r in await list_fields(session, entity)} if defaults else {}
+    known = await definitions(session, entity, type_id=type_id)
+    rows = (
+        {r.key: r for r in await list_fields(session, entity, type_id=type_id)} if defaults else {}
+    )
     sent = dict(values)
     if defaults:
         for key, row in rows.items():
@@ -754,12 +877,19 @@ class FieldMarks:
 
 
 async def field_marks(
-    session: AsyncSession, entity: str, *, retired: bool = False
+    session: AsyncSession,
+    entity: str,
+    *,
+    retired: bool = False,
+    type_id: uuid.UUID | None = None,
 ) -> list[FieldMarks]:
-    """The entity's custom fields in use, with their names and marks; `retired`: those too."""
+    """The entity's custom fields in use, with their names and marks; `retired`: those too.
+
+    `type_id` (0175): only those that apply to records of that type.
+    """
     return [
         FieldMarks(row.key, dict(row.labels), row.personal_data, row.sensitive, row.seal_state)
-        for row in await list_fields(session, entity)
+        for row in await list_fields(session, entity, type_id=type_id)
         if retired or row.retired_at is None
     ]
 

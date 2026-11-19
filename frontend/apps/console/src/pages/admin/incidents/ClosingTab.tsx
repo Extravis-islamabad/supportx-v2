@@ -21,6 +21,7 @@ import {
 import { numberProblem } from '../../../numbers';
 import { fieldName } from '../../customFields/values';
 import { useDraft, useSettingsBase, useSettingsSave } from './helpers';
+import { MajorSettingsCard } from './MajorSettingsCard';
 import { Problems } from './shared';
 
 // Built-in fields a closure rule can require (REQ-INC-094); custom fields join as custom.<key>.
@@ -583,6 +584,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         </Form>
       </SettingsCard>
       {copies && <ClosedEditLock catalogue={catalogue} />}
+      {copies && <MajorSettingsCard />}
       {/* One save bar for the page (template E, D-147), below the card as on every page. */}
       <StickySaveBar
         changes={changes}

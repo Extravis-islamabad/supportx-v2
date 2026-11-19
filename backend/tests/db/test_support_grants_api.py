@@ -25,6 +25,7 @@ from app.core.database import Database, create_engine
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.infra.keycloak_admin import IdentityAdminUnavailable
 from app.modules.identity_access.service import support_grant_job
+from tests.app_state import set_state
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
 
 pytestmark = pytest.mark.db
@@ -276,7 +277,7 @@ async def test_a_support_account_never_holds_a_key_and_its_type_never_changes(
 ) -> None:
     settings = world.app.state.settings
     keyed = settings.model_copy(update={"api_key_secret": SecretStr("k" * 48)})
-    monkeypatch.setattr(world.app.state, "settings", keyed)  # keys can be made at all
+    set_state(monkeypatch, world.app.state, "settings", keyed)  # keys can be made at all
     body = (await _grant(world)).json()
     address = rules.account_email("omar@extravis.com", uuid.UUID(body["id"]))
     (row,) = await _sql(world, "SELECT id, version FROM users WHERE email = $1", address)

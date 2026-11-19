@@ -140,17 +140,20 @@ async def merged_from(
     }
 
 
-async def timeline(
+async def timeline(  # noqa: PLR0913 - the record and two optional filters, keyword-only
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
     record_id: uuid.UUID,
     *,
     kind: EntryKind | None = None,
+    visibility: Visibility | None = None,
 ) -> Timeline:
     """Replies and notes (public and private: staff see both), oldest first.
 
-    At most TIMELINE_MAX entries (the newest ones; `truncated` says so).
+    At most TIMELINE_MAX entries (the newest ones; `truncated` says so). `visibility` narrows
+    them on the server: a printout of public entries only never carries a private note (lane B,
+    REQ-INC-126 AC1).
     """
     record = await items.visible_record(session, subject, wtype, record_id)
     sources = await merged_from(session, subject, wtype, record)
@@ -160,6 +163,8 @@ async def timeline(
     )
     if kind is not None:
         query = query.where(WorkItemConversation.kind == kind)
+    if visibility is not None:
+        query = query.where(WorkItemConversation.visibility == visibility.value)
     rows = list(
         await session.scalars(
             query.order_by(

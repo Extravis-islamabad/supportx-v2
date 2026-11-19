@@ -19,6 +19,9 @@ export type ListSettingInput = components['schemas']['ListSettingIn'];
 export type BulkAction = components['schemas']['BulkAction'];
 export type BulkJob = components['schemas']['BulkJobOut'];
 export type BulkResult = components['schemas']['BulkResultOut'];
+export type ListDisplay = components['schemas']['ListDisplayOut'];
+export type RowColourBy = components['schemas']['RowColourBy'];
+export type ViewAudit = components['schemas']['ViewAuditOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -317,5 +320,94 @@ export function useBulkJobs(enabled = true) {
     queryKey: queryKeys.incidents.bulkJobs,
     queryFn: () => call(api.GET('/api/v1/incidents/bulk-jobs')),
     enabled,
+  });
+}
+
+// --- WP-046b S3a ---------------------------------------------------------------------------------
+
+/** Star or un-star a view (REQ-INC-107 AC1): yours only, starred first in the picker. */
+export function useStarView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, starred }: { id: string; starred: boolean }): Promise<void> => {
+      const params = { params: { path: { view_id: id } } };
+      await call(
+        starred
+          ? api.PUT('/api/v1/incidents/saved-views/{view_id}/favourite', params)
+          : api.DELETE('/api/v1/incidents/saved-views/{view_id}/favourite', params),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.savedViews });
+    },
+  });
+}
+
+/** Mark an incident read at its current version (REQ-INC-115 AC2); the list's bold goes. */
+export function useMarkIncidentRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await call(
+        api.POST('/api/v1/incidents/{record_id}/read', { params: { path: { record_id: id } } }),
+      );
+    },
+    onSuccess: () => {
+      // Only the lists (their bold); the open record itself is unchanged by reading it.
+      void queryClient.invalidateQueries({ queryKey: ['incidents', 'list'] });
+    },
+  });
+}
+
+/** The tenant's default row colouring (REQ-INC-115 AC1), with the settings' version. */
+export function useIncidentListDisplay(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.listDisplay,
+    queryFn: () => call(api.GET('/api/v1/incidents/settings/list-display')),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+/** Set the default row colouring (administrators; If-Match on the type's settings). */
+export function useIncidentListDisplayChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ value, version }: { value: RowColourBy; version: number }) =>
+      call(
+        api.PUT('/api/v1/incidents/settings/list-display', {
+          params: { header: ifMatch(version) },
+          body: { row_colour_by: value },
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.incidents.listDisplay, saved);
+    },
+  });
+}
+
+/** Views the audit made private (D-176; administrators). */
+export function useIncidentViewAudit(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.viewAudit,
+    queryFn: () => call(api.GET('/api/v1/incidents/saved-views/audit')),
+    enabled,
+  });
+}
+
+/** Check the shared views again now (idempotent; a key per press). */
+export function useRerunIncidentViewAudit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      call(
+        api.POST('/api/v1/incidents/saved-views/audit', {
+          params: { header: { 'Idempotency-Key': crypto.randomUUID() } },
+        }),
+      ),
+    onSuccess: (report) => {
+      queryClient.setQueryData(queryKeys.incidents.viewAudit, report);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.savedViews });
+    },
   });
 }

@@ -21,7 +21,7 @@ The app role may insert and update grants, never delete them: the grant and its 
 the account. Expand only.
 
 Revision ID: 0179
-Revises: 0173 (main's head while building; re-pointed at its queue turn: 0177, 0175, 0176 first)
+Revises: 0181 (main's head at its queue turn: … 0180 → 0178 → 0181 → 0179)
 Created: 2026-11-18
 """
 
@@ -35,7 +35,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0179"
-down_revision: str | None = "0173"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0181"  # main's head at its queue turn (0178 → 0181 → 0179)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

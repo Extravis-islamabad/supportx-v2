@@ -253,6 +253,21 @@ class WorkItemFollowerRemoved(_FollowerEvent):
     schema_version: ClassVar[int] = 1
 
 
+class WorkItemMajorChanged(DomainEvent):
+    """An incident was declared major, or its major status ended (WP-046b S4, REQ-INC-141).
+
+    IDs and the flag only: never the reason (lane B). The notification engine tells the major
+    incident team; lists and the record show the marker live.
+    """
+
+    event_type: ClassVar[str] = "work_items.major.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    major: bool
+
+
 class WorkItemWorkflowNotice(DomainEvent):
     """A workflow's notify node tells people about the record (WP-048b S2, REQ-WF-022).
 
@@ -295,6 +310,24 @@ class WorkItemViewChanged(DomainEvent):
     type: str
     owner_id: uuid.UUID
     visibility: str
+
+
+class WorkItemViewUnshared(DomainEvent):
+    """A shared view went back to private (D-176).
+
+    Its filter names a field some recipient may not see. IDs and codes only; the owner is told
+    through the notification source of saved views.
+    """
+
+    event_type: ClassVar[str] = "work_items.view.unshared"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_view"
+
+    view_id: uuid.UUID
+    type: str
+    owner_id: uuid.UUID
+    field_key: str
+    reason: str  # "restricted_field" or "sealed_field"
 
 
 class WorkItemListSettingsChanged(DomainEvent):
@@ -613,6 +646,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemWorkflowNotice,
+    WorkItemMajorChanged,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
@@ -631,6 +665,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
     WorkItemViewChanged,
+    WorkItemViewUnshared,
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,

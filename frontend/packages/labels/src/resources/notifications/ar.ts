@@ -63,6 +63,7 @@ export const ar: LabelResource = {
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.task': 'المهام',
+  'notification_area.work_item_view': 'العروض المحفوظة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
   'notification_category.conversation': 'الردود والملاحظات',
@@ -119,6 +120,8 @@ export const ar: LabelResource = {
   'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
   'notification_event.incident.created_in_group': 'حادث جديد في مجموعة',
   'notification_event.incident.follower_added': 'أُضيف كمتابع',
+  'notification_event.incident.major_declared': 'أُعلنت حادثة كبرى',
+  'notification_event.incident.major_ended': 'انتهت الحادثة الكبرى',
   'notification_event.incident.mentioned': 'إشارة',
   'notification_event.incident.private_note': 'ملاحظة خاصة',
   'notification_event.incident.public_note': 'ملاحظة عامة',
@@ -175,6 +178,7 @@ export const ar: LabelResource = {
   'notification_event.task.assigned': 'أُسندت إليك مهمة',
   'notification_event.task.overdue': 'مهمتك متأخرة',
   'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
+  'notification_event.work_item_view.unshared': 'تم جعل عرض شاركته خاصًا',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
@@ -212,6 +216,7 @@ export const ar: LabelResource = {
   'notification_recipient.linked_incident_technicians': 'فنيو الحوادث المرتبطة',
   'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
+  'notification_recipient.major_team': 'فريق الحوادث الكبرى',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
   'notification_recipient.new_investigator': 'المحقق المضاف',
@@ -227,6 +232,7 @@ export const ar: LabelResource = {
   'notification_recipient.tenant_admins': 'مسؤولو المؤسسة',
   'notification_recipient.the_person': 'الشخص المعني',
   'notification_recipient.topic_owner': 'مالك الموضوع',
+  'notification_recipient.view_owner': 'مالك العرض',
   'notification_recipient.workflow_audience': 'الأشخاص الذين يحدّدهم سير العمل',
   'notification_rules.any_priority': 'أي أولوية',
   'notification_rules.any_status': 'أي حالة',
@@ -500,6 +506,18 @@ export const ar: LabelResource = {
     'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُعلنت الحادثة {{ record.display_id }} "{{ record.title }}" حادثة كبرى. أنت في فريق الحوادث الكبرى: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    'أُعلنت {{ record.display_id }} حادثة كبرى: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'حادثة كبرى: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'مرحبًا {{ recipient.name }}،\n\nلم تعد الحادثة {{ record.display_id }} "{{ record.title }}" حادثة كبرى: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    'لم تعد {{ record.display_id }} حادثة كبرى: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'انتهت الحادثة الكبرى: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':
@@ -815,6 +833,12 @@ export const ar: LabelResource = {
   'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.work_item_view.unshared.body':
+    'مرحبًا {{ recipient.name }}،\nيُصفّي عرضك المحفوظ {{ record.title }} حسب {{ view.field }}، وقد لا يستطيع بعض من شاركته معهم رؤيته. أصبح خاصًا بك الآن ولم يتغير شيء آخر. لمشاركته مجددًا، أزِل هذا الشرط واختر من يراه. {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} أصبح خاصًا: يُصفّي حسب {{ view.field }}',
+  'notification_template.work_item_view.unshared.subject':
+    'عرضك {{ record.title }} أصبح خاصًا الآن',
   'notification_value.unnamed_requester': 'مقدّم الطلب',
   'notification_variable.acknowledgement.comment': 'الإقرار › التعليق',
   'notification_variable.actor.name': 'غيّره › الاسم',
@@ -856,6 +880,8 @@ export const ar: LabelResource = {
   'notification_variable.report_schedule.skipped_count': 'الجدول › الأشخاص المستبعدون',
   'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
   'notification_variable.rule.name': 'القاعدة',
+  'notification_variable.saved_view.field': 'العرض المحفوظ › الحقل الذي يُصفّي حسبه',
+  'notification_variable.saved_view.name': 'العرض المحفوظ › الاسم',
   'notification_variable.security.device': 'تسجيل الدخول › المتصفح والجهاز',
   'notification_variable.security.opens_at': 'القفل › أقرب وقت لإعادة المحاولة',
   'notification_variable.security.place': 'تسجيل الدخول › المكان التقريبي',

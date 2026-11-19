@@ -560,6 +560,7 @@ export const en = {
   'people_erasure.record_type_of.announcement': 'Announcement',
   'people_erasure.record_type_of.asset': 'Asset',
   'people_erasure.record_type_of.ci': 'Configuration item',
+  'people_erasure.record_type_of.ci_business_view': 'Business view',
   'people_erasure.record_type_of.ci_version': 'Configuration item, earlier version',
   'people_erasure.record_type_of.file': 'File',
   'people_erasure.record_type_of.kb_article': 'Article',
@@ -750,6 +751,13 @@ export const en = {
     'Reply to requesters on changes and add notes they can see.',
   'permission.changes.resolve': 'Resolve changes',
   'permission.changes.resolve.description': 'Mark changes as resolved with their resolution.',
+  'permission.changes.share_views': 'Share saved views of changes with their own groups',
+  'permission.changes.share_views.description':
+    'Share a saved view of changes with support groups the person belongs to, or with members of those groups.',
+  'permission.changes.share_views_wide':
+    'Share saved views of changes with everyone or other groups',
+  'permission.changes.share_views_wide.description':
+    'Share a saved view of changes with everyone or with other groups. At group scope, only with the groups the person leads.',
   'permission.changes.take': 'Take changes',
   'permission.changes.take.description': 'Take a change nobody owns yet.',
   'permission.changes.view': 'View changes',
@@ -824,6 +832,9 @@ export const en = {
   'permission.incidents.close.description': 'Close resolved incidents.',
   'permission.incidents.create': 'Log incidents',
   'permission.incidents.create.description': 'Log new incidents for any requester.',
+  'permission.incidents.declare_major': 'Declare major incidents',
+  'permission.incidents.declare_major.description':
+    'Declare an incident major, or end that, with a reason. Its team is told.',
   'permission.incidents.delete': 'Delete incidents',
   'permission.incidents.delete.description': 'Move incidents to the trash and restore them.',
   'permission.incidents.edit': 'Work on incidents',
@@ -845,6 +856,13 @@ export const en = {
     'Reply to requesters, add notes they can see, and make private notes public.',
   'permission.incidents.resolve': 'Resolve incidents',
   'permission.incidents.resolve.description': 'Mark incidents as resolved.',
+  'permission.incidents.share_views': 'Share saved views of incidents with their own groups',
+  'permission.incidents.share_views.description':
+    'Share a saved view of incidents with support groups the person belongs to, or with members of those groups.',
+  'permission.incidents.share_views_wide':
+    'Share saved views of incidents with everyone or other groups',
+  'permission.incidents.share_views_wide.description':
+    'Share a saved view of incidents with everyone or with other groups. At group scope, only with the groups the person leads.',
   'permission.incidents.take': 'Take incidents',
   'permission.incidents.take.description': 'Take an incident nobody has taken yet.',
   'permission.incidents.undo_merge': 'Undo incident merges',
@@ -949,6 +967,13 @@ export const en = {
     "Write notes the problem's followers and recipients see.",
   'permission.problems.resolve': 'Resolve problems',
   'permission.problems.resolve.description': 'Mark problems as resolved with their resolution.',
+  'permission.problems.share_views': 'Share saved views of problems with their own groups',
+  'permission.problems.share_views.description':
+    'Share a saved view of problems with support groups the person belongs to, or with members of those groups.',
+  'permission.problems.share_views_wide':
+    'Share saved views of problems with everyone or other groups',
+  'permission.problems.share_views_wide.description':
+    'Share a saved view of problems with everyone or with other groups. At group scope, only with the groups the person leads.',
   'permission.problems.take': 'Take problems',
   'permission.problems.take.description': 'Take a problem nobody owns yet.',
   'permission.problems.view': 'View problems',
@@ -998,6 +1023,13 @@ export const en = {
     'Reply to requesters on releases and add notes they can see.',
   'permission.releases.resolve': 'Mark releases as done',
   'permission.releases.resolve.description': 'Mark releases as done where a status asks for it.',
+  'permission.releases.share_views': 'Share saved views of releases with their own groups',
+  'permission.releases.share_views.description':
+    'Share a saved view of releases with support groups the person belongs to, or with members of those groups.',
+  'permission.releases.share_views_wide':
+    'Share saved views of releases with everyone or other groups',
+  'permission.releases.share_views_wide.description':
+    'Share a saved view of releases with everyone or with other groups. At group scope, only with the groups the person leads.',
   'permission.releases.take': 'Take releases',
   'permission.releases.take.description': 'Take a release nobody has taken yet.',
   'permission.releases.view': 'View releases',
@@ -1054,6 +1086,13 @@ export const en = {
     'Reply to requesters on service requests, add notes they can see, and make private notes public.',
   'permission.requests.resolve': 'Fulfil service requests',
   'permission.requests.resolve.description': 'Mark service requests as fulfilled.',
+  'permission.requests.share_views': 'Share saved views of service requests with their own groups',
+  'permission.requests.share_views.description':
+    'Share a saved view of service requests with support groups the person belongs to, or with members of those groups.',
+  'permission.requests.share_views_wide':
+    'Share saved views of service requests with everyone or other groups',
+  'permission.requests.share_views_wide.description':
+    'Share a saved view of service requests with everyone or with other groups. At group scope, only with the groups the person leads.',
   'permission.requests.take': 'Take service requests',
   'permission.requests.take.description': 'Take a service request nobody has taken yet.',
   'permission.requests.view': 'View service requests',

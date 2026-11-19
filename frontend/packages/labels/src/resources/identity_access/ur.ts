@@ -563,6 +563,7 @@ export const ur: LabelResource = {
   'people_erasure.record_type_of.announcement': 'اعلان',
   'people_erasure.record_type_of.asset': 'اثاثہ',
   'people_erasure.record_type_of.ci': 'کنفیگریشن آئٹم',
+  'people_erasure.record_type_of.ci_business_view': 'کاروباری منظر',
   'people_erasure.record_type_of.ci_version': 'کنفیگریشن آئٹم، پچھلا ورژن',
   'people_erasure.record_type_of.file': 'فائل',
   'people_erasure.record_type_of.kb_article': 'مضمون',
@@ -750,6 +751,13 @@ export const ur: LabelResource = {
     'ایسے نوٹس لکھیں جو تبدیلی کے فالوورز اور وصول کنندگان دیکھیں۔',
   'permission.changes.resolve': 'تبدیلیاں حل کریں',
   'permission.changes.resolve.description': 'تبدیلیاں کو ان کے حل کے ساتھ حل شدہ نشان زد کریں۔',
+  'permission.changes.share_views': 'تبدیلیاں کے محفوظ منظر اپنے گروپوں کے ساتھ شیئر کرنا',
+  'permission.changes.share_views.description':
+    'تبدیلیاں کا محفوظ منظر ان سپورٹ گروپوں یا ان کے ارکان کے ساتھ شیئر کرنا جن کا وہ شخص رکن ہے۔',
+  'permission.changes.share_views_wide':
+    'تبدیلیاں کے محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا',
+  'permission.changes.share_views_wide.description':
+    'تبدیلیاں کا محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا۔ گروپ کی حد میں، صرف ان گروپوں کے ساتھ جن کی وہ شخص قیادت کرتا ہے۔',
   'permission.changes.take': 'تبدیلیاں خود لیں',
   'permission.changes.take.description': 'ایسا تبدیلی خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.changes.view': 'تبدیلیاں دیکھیں',
@@ -823,6 +831,9 @@ export const ur: LabelResource = {
   'permission.incidents.close.description': 'حل شدہ واقعات بند کریں۔',
   'permission.incidents.create': 'واقعات درج کریں',
   'permission.incidents.create.description': 'کسی بھی درخواست گزار کے لیے نئے واقعات درج کریں۔',
+  'permission.incidents.declare_major': 'بڑے واقعات قرار دینا',
+  'permission.incidents.declare_major.description':
+    'کسی واقعے کو وجہ کے ساتھ بڑا قرار دینا یا یہ ختم کرنا۔ اس کی ٹیم کو بتایا جاتا ہے۔',
   'permission.incidents.delete': 'واقعات حذف کریں',
   'permission.incidents.delete.description': 'واقعات کو ردی کی ٹوکری میں ڈالیں اور بحال کریں۔',
   'permission.incidents.edit': 'واقعات پر کام کریں',
@@ -844,6 +855,13 @@ export const ur: LabelResource = {
     'درخواست دہندگان کو جواب دیں، ایسے نوٹس شامل کریں جو وہ دیکھ سکیں، اور نجی نوٹس کو عوامی بنائیں۔',
   'permission.incidents.resolve': 'واقعات حل کریں',
   'permission.incidents.resolve.description': 'واقعات کو حل شدہ نشان زد کریں۔',
+  'permission.incidents.share_views': 'واقعات کے محفوظ منظر اپنے گروپوں کے ساتھ شیئر کرنا',
+  'permission.incidents.share_views.description':
+    'واقعات کا محفوظ منظر ان سپورٹ گروپوں یا ان کے ارکان کے ساتھ شیئر کرنا جن کا وہ شخص رکن ہے۔',
+  'permission.incidents.share_views_wide':
+    'واقعات کے محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا',
+  'permission.incidents.share_views_wide.description':
+    'واقعات کا محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا۔ گروپ کی حد میں، صرف ان گروپوں کے ساتھ جن کی وہ شخص قیادت کرتا ہے۔',
   'permission.incidents.take': 'واقعات خود لیں',
   'permission.incidents.take.description': 'ایسا واقعہ خود لیں جو ابھی کسی نے نہیں لیا۔',
   'permission.incidents.undo_merge': 'واقعات کا انضمام واپس کریں',
@@ -943,6 +961,13 @@ export const ur: LabelResource = {
     'ایسے نوٹس لکھیں جو مسئلے کے فالوورز اور وصول کنندگان دیکھیں۔',
   'permission.problems.resolve': 'مسائل حل کریں',
   'permission.problems.resolve.description': 'مسائل کو ان کے حل کے ساتھ حل شدہ نشان زد کریں۔',
+  'permission.problems.share_views': 'مسائل کے محفوظ منظر اپنے گروپوں کے ساتھ شیئر کرنا',
+  'permission.problems.share_views.description':
+    'مسائل کا محفوظ منظر ان سپورٹ گروپوں یا ان کے ارکان کے ساتھ شیئر کرنا جن کا وہ شخص رکن ہے۔',
+  'permission.problems.share_views_wide':
+    'مسائل کے محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا',
+  'permission.problems.share_views_wide.description':
+    'مسائل کا محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا۔ گروپ کی حد میں، صرف ان گروپوں کے ساتھ جن کی وہ شخص قیادت کرتا ہے۔',
   'permission.problems.take': 'مسائل خود لیں',
   'permission.problems.take.description': 'ایسا مسئلہ خود لیں جس کا ابھی کوئی مالک نہیں۔',
   'permission.problems.view': 'مسائل دیکھیں',
@@ -992,6 +1017,13 @@ export const ur: LabelResource = {
     'ریلیزز پر درخواست گزاروں کو جواب دیں اور ایسے نوٹس شامل کریں جو وہ دیکھ سکیں۔',
   'permission.releases.resolve': 'ریلیزز کو مکمل قرار دیں',
   'permission.releases.resolve.description': 'جہاں حیثیت تقاضا کرے، ریلیزز کو مکمل قرار دیں۔',
+  'permission.releases.share_views': 'ریلیزز کے محفوظ منظر اپنے گروپوں کے ساتھ شیئر کرنا',
+  'permission.releases.share_views.description':
+    'ریلیزز کا محفوظ منظر ان سپورٹ گروپوں یا ان کے ارکان کے ساتھ شیئر کرنا جن کا وہ شخص رکن ہے۔',
+  'permission.releases.share_views_wide':
+    'ریلیزز کے محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا',
+  'permission.releases.share_views_wide.description':
+    'ریلیزز کا محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا۔ گروپ کی حد میں، صرف ان گروپوں کے ساتھ جن کی وہ شخص قیادت کرتا ہے۔',
   'permission.releases.take': 'ریلیزز لیں',
   'permission.releases.take.description': 'ایسی ریلیز لیں جو ابھی کسی نے نہیں لی۔',
   'permission.releases.view': 'ریلیزز دیکھیں',
@@ -1048,6 +1080,13 @@ export const ur: LabelResource = {
     'سروس درخواستوں پر درخواست گزاروں کو جواب دیں، ایسے نوٹس شامل کریں جو وہ دیکھ سکیں، اور نجی نوٹس عوامی بنائیں۔',
   'permission.requests.resolve': 'سروس درخواستیں پوری کریں',
   'permission.requests.resolve.description': 'سروس درخواستوں کو پوری شدہ نشان زد کریں۔',
+  'permission.requests.share_views': 'سروس درخواستیں کے محفوظ منظر اپنے گروپوں کے ساتھ شیئر کرنا',
+  'permission.requests.share_views.description':
+    'سروس درخواستیں کا محفوظ منظر ان سپورٹ گروپوں یا ان کے ارکان کے ساتھ شیئر کرنا جن کا وہ شخص رکن ہے۔',
+  'permission.requests.share_views_wide':
+    'سروس درخواستیں کے محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا',
+  'permission.requests.share_views_wide.description':
+    'سروس درخواستیں کا محفوظ منظر سب یا دوسرے گروپوں کے ساتھ شیئر کرنا۔ گروپ کی حد میں، صرف ان گروپوں کے ساتھ جن کی وہ شخص قیادت کرتا ہے۔',
   'permission.requests.take': 'سروس درخواستیں خود لیں',
   'permission.requests.take.description': 'ایسی سروس درخواست خود لیں جو ابھی کسی نے نہیں لی۔',
   'permission.requests.view': 'سروس درخواستیں دیکھیں',

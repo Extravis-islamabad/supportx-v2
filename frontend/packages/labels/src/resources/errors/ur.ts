@@ -18,6 +18,7 @@ export const ur: LabelResource = {
   'errors.action_link_used': 'یہ لنک پہلے ہی استعمال ہو چکا ہے۔',
   'errors.alias_not_found': 'اس نمبر کا کوئی ریکارڈ نہیں جو آپ کھول سکیں۔',
   'errors.already_known_error': '{{display_id}} پہلے ہی معلوم خرابی ہے۔',
+  'errors.already_major': '{{display_id}} پہلے ہی بڑا واقعہ ہے۔',
   'errors.already_on_version': 'یہ رن پہلے ہی اسی ورژن پر ہے۔',
   'errors.already_taken': '{{taken_by}} نے ابھی اسے لے لیا ہے۔ دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.already_yours': 'یہ پہلے ہی آپ کو تفویض ہے۔',
@@ -238,6 +239,8 @@ export const ur: LabelResource = {
   'errors.custom_field_limit_reached':
     'اس قسم کے ریکارڈ میں پہلے ہی {{limit}} اپنی مرضی کے خانے ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے کوئی خانہ ہٹائیں یا دوبارہ استعمال کریں۔',
   'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
+  'errors.custom_field_scope_in_use':
+    'ریکارڈز میں اس فیلڈ کی قدریں موجود ہیں، اس لیے اب یہ صرف زیادہ اقسام پر لاگو ہو سکتی ہے، کم پر نہیں۔',
   'errors.custom_field_sensitive_unsupported':
     'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.custom_field_used_by_rule':
@@ -439,6 +442,11 @@ export const ur: LabelResource = {
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
+  'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
+  'errors.field.custom_field_scope_unsupported':
+    'اس قسم کے ریکارڈ کی کوئی اقسام نہیں جن تک فیلڈ محدود کی جا سکے۔',
+  'errors.field.custom_field_sensitive_unsupported':
+    'اس قسم کے ریکارڈ کی فیلڈز کو حساس نشان زد نہیں کیا جا سکتا۔',
   'errors.field.dashboard_not_shared':
     'کسی کردار کا ہوم صرف بلٹ اِن یا شیئر شدہ ڈیش بورڈ ہو سکتا ہے۔',
   'errors.field.date_format_unknown': 'فہرست میں سے تاریخ کی شکل چنیں۔',
@@ -841,6 +849,8 @@ export const ur: LabelResource = {
   'errors.field.vendor_name_taken': 'کسی اور وینڈر کا یہی نام ہے۔',
   'errors.field.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.field.vendor_support_disabled': 'اس ادارے کے لیے وینڈر سپورٹ بند ہے۔',
+  'errors.field.view_filter_not_shareable':
+    'یہ منظر ایسے فیلڈ پر فلٹر کرتا ہے جو کچھ لوگ نہیں دیکھ سکتے، اس لیے یہ صرف نجی رہ سکتا ہے۔ اسے شیئر کرنے کے لیے وہ شرط ہٹا دیں۔',
   'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
   'errors.field.week_start_unknown': 'ہفتہ شروع ہونے کا دن چنیں۔',
   'errors.field.week_too_many_periods':
@@ -1074,6 +1084,7 @@ export const ur: LabelResource = {
   'errors.not_convertible': 'اس قسم کا ریکارڈ تبدیل نہیں کیا جا سکتا۔',
   'errors.not_found': 'آئٹم نہیں ملا۔',
   'errors.not_known_error': '{{display_id}} معلوم خرابی نہیں ہے۔',
+  'errors.not_major': '{{display_id}} بڑا واقعہ نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
   'errors.not_visible': 'آپ یہ تبدیلی نہیں دیکھ سکتے، اس لیے اسے ویسے ہی چھوڑ دیا گیا۔',
@@ -1293,6 +1304,7 @@ export const ur: LabelResource = {
   'errors.vendor_support_type_fixed': 'Extravis سپورٹ اکاؤنٹ کی قسم تبدیل نہیں کی جا سکتی۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
+  'errors.view_share_not_allowed': 'آپ یہ منظر اس سامعین کے ساتھ شیئر نہیں کر سکتے۔',
   'errors.window_not_found': 'یہ ونڈو موجود نہیں، یا ہٹا دی گئی۔',
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',

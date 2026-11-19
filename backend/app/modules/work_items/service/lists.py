@@ -18,30 +18,47 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFound, PermissionDenied, PreconditionRequired
+from app.core.errors import (
+    FieldError,
+    NotFound,
+    PermissionDenied,
+    PreconditionRequired,
+    ValidationFailed,
+)
 from app.modules import metadata
-from app.modules.identity_access import Subject
-from app.modules.organization import existing_unit_ids
+from app.modules.identity_access import Subject, restricted_fields
+from app.modules.organization import existing_unit_ids, led_groups
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
     CUSTOM_VIEW,
     MAX_COLUMNS,
     MAX_VIEW_GROUPS,
     PAGE_SIZES,
+    RowColourBy,
     ViewVisibility,
     view_key_valid,
     width_valid,
 )
 from app.modules.work_items.domain.templates import PickList
 from app.modules.work_items.domain.types import WorkItemType
-from app.modules.work_items.events import WorkItemListSettingsChanged, WorkItemViewChanged
-from app.modules.work_items.infra.models import WorkItemListSetting, WorkItemView
+from app.modules.work_items.events import (
+    WorkItemListSettingsChanged,
+    WorkItemSettingsChanged,
+    WorkItemViewChanged,
+)
+from app.modules.work_items.infra.models import (
+    WorkItemListSetting,
+    WorkItemTypeSettings,
+    WorkItemView,
+    WorkItemViewFavourite,
+)
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS, type_fields
+from app.modules.work_items.service.access import FIELDS, SHARE_VIEWS, SHARE_VIEWS_WIDE, type_fields
 from app.modules.work_items.service.reporting import DIMENSIONS, TYPE_DIMENSIONS
 from app.shared.api.filters import FieldType, ResourceFields, compile_filter
 from app.shared.api.listing import parse_sort
@@ -199,6 +216,39 @@ def _seen_by(subject: Subject) -> ColumnElement[bool]:
     return or_(*seen)
 
 
+async def withheld_from(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType
+) -> frozenset[str]:
+    """The filter fields this reader may not see (D-176).
+
+    Their role rules (ADR-047), the permission gates (a problem's root cause) and every sealed
+    custom field (ADR-050).
+    """
+    rules = field_rules.unseen(subject.field_access, wtype.code.value).all
+    gates = frozenset(
+        name
+        for name, action in items.HIDDEN_WITHOUT.items()
+        if wtype.code.value == "problem" and not subject.holds(wtype.permission(action))
+    )
+    sealed = frozenset(
+        f"{field_rules.CUSTOM}{m.key}"
+        for m in await metadata.field_marks(session, wtype.code.value, retired=True)
+        if m.sensitive or m.seal_state != "plain"
+    )
+    return rules | gates | sealed
+
+
+def usable(row: WorkItemView, subject: Subject, withheld: frozenset[str]) -> bool:
+    """Their own view always; someone else's only if its filter names nothing withheld from them.
+
+    Checked on every read (lane C's D-176 condition 1): sharing is checked on save, but roles,
+    groups and field rules change afterwards, so the read decides.
+    """
+    return row.owner_id == subject.user_id or not field_rules.withheld_in_filter(
+        row.filter, withheld
+    )
+
+
 async def views(session: AsyncSession, subject: Subject, wtype: WorkItemType) -> list[WorkItemView]:
     """The subject's own views and those shared with them, by name."""
     _require_view(subject, wtype)
@@ -211,7 +261,53 @@ async def views(session: AsyncSession, subject: Subject, wtype: WorkItemType) ->
         )
         .order_by(func.lower(WorkItemView.name), WorkItemView.id)
     )
-    return list(rows)
+    withheld = await withheld_from(session, subject, wtype)
+    return [r for r in rows if usable(r, subject, withheld)]
+
+
+async def favourite_ids(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType
+) -> set[uuid.UUID]:
+    """The saved views the subject starred (REQ-INC-107 AC1), among those they may still use."""
+    rows = await session.scalars(
+        select(WorkItemViewFavourite.view_id)
+        .join(WorkItemView, WorkItemView.id == WorkItemViewFavourite.view_id)
+        .where(
+            WorkItemViewFavourite.user_id == subject.user_id,
+            WorkItemView.type == wtype.code,
+            WorkItemView.deleted_at.is_(None),
+            _seen_by(subject),
+        )
+    )
+    return set(rows)
+
+
+async def star_view(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    view_id: uuid.UUID,
+    *,
+    starred: bool,
+) -> None:
+    """Star or un-star a view the subject may use. Idempotent both ways.
+
+    Personal, like list settings: no history and no event (nobody else ever sees a star).
+    """
+    await view(session, subject, wtype, view_id)  # 404 unless they may use it
+    if starred:
+        await session.execute(
+            insert(WorkItemViewFavourite)
+            .values(tenant_id=config.tenant_of(session), user_id=subject.user_id, view_id=view_id)
+            .on_conflict_do_nothing()
+        )
+    else:
+        await session.execute(
+            delete(WorkItemViewFavourite).where(
+                WorkItemViewFavourite.user_id == subject.user_id,
+                WorkItemViewFavourite.view_id == view_id,
+            )
+        )
 
 
 async def view(
@@ -227,8 +323,8 @@ async def view(
             _seen_by(subject),
         )
     )
-    if row is None:
-        raise NotFound(code="work_item_view_not_found")
+    if row is None or not usable(row, subject, await withheld_from(session, subject, wtype)):
+        raise NotFound(code="work_item_view_not_found")  # the same 404 either way
     return row
 
 
@@ -295,6 +391,81 @@ async def _check_view(
     }
 
 
+async def _check_sharing(
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    clean: dict[str, Any],
+    before: WorkItemView | None,
+) -> None:
+    """D-176: the rights an audience needs, for what this save adds to it (existing kept).
+
+    Private needs nothing beyond `view`. A group of theirs needs `share_views`; any other group
+    `share_views_wide` (a team lead's `group` scope: only groups they lead); everyone needs
+    `share_views_wide` everywhere. 403 `view_share_not_allowed` with the audience refused.
+    """
+    visibility = ViewVisibility(clean["visibility"])
+    if visibility is ViewVisibility.PRIVATE:
+        return
+    was = ViewVisibility(before.visibility) if before is not None else ViewVisibility.PRIVATE
+    wide = subject.broadest_scope(wtype.permission(SHARE_VIEWS_WIDE))
+
+    def refuse(audience: ViewVisibility) -> PermissionDenied:
+        return PermissionDenied(
+            code="view_share_not_allowed",
+            params={"audience": audience.value, "reason": "no_permission"},
+        )
+
+    if visibility is ViewVisibility.EVERYONE:
+        if was is not ViewVisibility.EVERYONE and wide != "all":
+            raise refuse(ViewVisibility.EVERYONE)
+        return
+    kept = set(before.group_ids) if before is not None and was is ViewVisibility.GROUPS else set()
+    added = [g for g in clean["group_ids"] if g not in kept]
+    if not added:
+        return
+    own = set(subject.group_ids)
+    led = await led_groups(session, subject.user_id) if wide == "group" else frozenset()
+    for group in added:
+        if group in own and subject.holds(wtype.permission(SHARE_VIEWS)):
+            continue
+        if wide == "all" or (wide == "group" and group in led):
+            continue
+        raise refuse(ViewVisibility.GROUPS)
+
+
+async def _check_shareable_filter(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, clean: dict[str, Any]
+) -> None:
+    """D-176 (lane C): a shared view's filter names no field some recipient may not see.
+
+    Checked against the whole tenant, as search is (ADR-047 §6): a field any role restricts, or a
+    sealed one, keeps the view private. The read decides exactly for each person (`usable`);
+    this tells the owner on save. 422 `view_filter_not_shareable` {field, audience}.
+    """
+    if ViewVisibility(clean["visibility"]) is ViewVisibility.PRIVATE:
+        return
+    del subject
+    withheld = await restricted_fields(session, wtype.code.value)
+    sealed = frozenset(
+        f"{field_rules.CUSTOM}{m.key}"
+        for m in await metadata.field_marks(session, wtype.code.value, retired=True)
+        if m.sensitive or m.seal_state != "plain"
+    )
+    found = field_rules.withheld_in_filter(clean["filter"], withheld | sealed)
+    if found:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.filter",
+                    code="view_filter_not_shareable",
+                    message_key="errors.field.view_filter_not_shareable",
+                    params={"field": found[0], "audience": clean["visibility"]},
+                )
+            ]
+        )
+
+
 async def _view_changed(
     session: AsyncSession, row: WorkItemView, kind: str, changes: list[Change], source: Source
 ) -> None:
@@ -328,6 +499,8 @@ async def create_view(
     """Save a view as the subject's (private or shared with everyone)."""
     _require_view(subject, wtype)
     clean = await _check_view(session, subject, wtype, values)
+    await _check_sharing(session, subject, wtype, clean, None)
+    await _check_shareable_filter(session, subject, wtype, clean)
     row = await ViewRepository(session).add(
         WorkItemView(type=wtype.code, owner_id=subject.user_id, **clean)
     )
@@ -373,6 +546,8 @@ async def update_view(  # noqa: PLR0913 - the view, its version and the change, 
         **values,
     }
     clean = await _check_view(session, subject, wtype, merged, except_id=row.id)
+    await _check_sharing(session, subject, wtype, clean, row)
+    await _check_shareable_filter(session, subject, wtype, clean)
     changes = [
         Change(field, _plain(getattr(row, field)), _plain(value))
         for field, value in clean.items()
@@ -449,12 +624,16 @@ async def save_list_setting(  # noqa: PLR0913 - the view, its version and the se
     page_size = values.get("page_size")
     if page_size not in PAGE_SIZES:
         problems.append(("page_size", "invalid_choice"))
+    colour = values.get("row_colour_by")
+    if colour is not None and colour not in {c.value for c in RowColourBy}:
+        problems.append(("row_colour_by", "invalid_choice"))
     if problems:
         raise items.field_errors(problems)
     clean = {
         "columns": columns,
         "sort": _sort(values.get("sort"), await allowed_fields(session, wtype)),
         "page_size": page_size,
+        "row_colour_by": colour,
     }
     repository = SettingRepository(session)
     if existing is None:
@@ -476,3 +655,54 @@ async def save_list_setting(  # noqa: PLR0913 - the view, its version and the se
         aggregate_version=row.version,
     )
     return row
+
+
+# --- row colours (REQ-INC-115 AC1) ----------------------------------------------------------------
+
+
+async def set_row_colour_default(  # noqa: PLR0913 - the type, the choice, its version and who
+    session: AsyncSession,
+    wtype: WorkItemType,
+    value: str,
+    *,
+    expected_version: int,
+    source: Source,
+    user_id: uuid.UUID,
+) -> tuple[config.Catalogue, str, str]:
+    """The tenant's default row colouring (If-Match on the type's settings).
+
+    Returns the new catalogue and the before and after codes for the audit entry.
+    """
+    from app.modules.work_items.service import settings as settings_service  # noqa: PLC0415 - cycle
+
+    if value not in {c.value for c in RowColourBy}:
+        raise items.field_errors([("row_colour_by", "invalid_choice")])
+    current = await config.load(session, wtype)
+    if current.settings_version != expected_version:
+        raise await settings_service.stale_settings(session, wtype, current, expected_version)
+    before = current.row_colour_by
+    if before == value:
+        return current, before, value
+    await session.execute(
+        update(WorkItemTypeSettings)
+        .where(WorkItemTypeSettings.type == wtype.code)
+        .values(row_colour_by=value, version=WorkItemTypeSettings.version + 1, updated_by=user_id)
+    )
+    settings_id = config.settings_record_id(wtype.code)
+    await record_changes(
+        session,
+        record_type=settings_service.SETTINGS_RECORD_TYPE,
+        record_id=settings_id,
+        version=expected_version + 1,
+        kind="updated",
+        changes=[Change("row_colour_by", before, value)],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemSettingsChanged(type=wtype.code, changed_fields=["row_colour_by"]),
+        aggregate_id=settings_id,
+        aggregate_version=expected_version + 1,
+    )
+    session.expire_all()
+    return await config.load(session, wtype), before, value

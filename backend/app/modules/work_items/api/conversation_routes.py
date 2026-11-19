@@ -487,9 +487,15 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
         session: TenantSession,
         subject: View,
         kind: Annotated[EntryKind | None, Query(description="Only replies or only notes.")] = None,
+        visibility: Annotated[
+            Visibility | None,
+            Query(description="Only public entries (a printout, REQ-INC-126), or only private."),
+        ] = None,
     ) -> ConversationOut:
         """Replies and notes, oldest first; private notes are marked (staff only)."""
-        found = await service.timeline(session, subject, wtype, record_id, kind=kind)
+        found = await service.timeline(
+            session, subject, wtype, record_id, kind=kind, visibility=visibility
+        )
         return ConversationOut(
             items=[ConversationEntryOut.of(e, found.merged_from) for e in found.entries],
             truncated=found.truncated,

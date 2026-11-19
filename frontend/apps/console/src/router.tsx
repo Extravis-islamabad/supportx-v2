@@ -40,6 +40,19 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/cmdb/NewCiPage')).NewCiPage }),
           },
           {
+            // WP-053 S2: business views (the list, and one view's map).
+            path: 'views',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewsPage')).BusinessViewsPage,
+            }),
+          },
+          {
+            path: 'views/:viewId',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewPage')).BusinessViewPage,
+            }),
+          },
+          {
             path: ':id',
             lazy: async () => ({ Component: (await import('./pages/cmdb/CiPage')).CiPage }),
           },
@@ -276,6 +289,13 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/incidents/IncidentPage')).IncidentPage,
             }),
           },
+          {
+            // WP-046b S4 (REQ-INC-126): the printable incident, sections chosen in the dialog.
+            path: ':id/print',
+            lazy: async () => ({
+              Component: (await import('./pages/incidents/IncidentPrint')).IncidentPrintPage,
+            }),
+          },
         ],
       },
       {
@@ -491,6 +511,13 @@ export const routes: RouteObject[] = [
             path: 'cmdb',
             lazy: async () => ({
               Component: (await import('./pages/admin/cmdb/CmdbAdminPage')).CmdbAdminPage,
+            }),
+          },
+          {
+            // 0175 part 2: one CI type's custom fields (template E).
+            path: 'cmdb/types/:typeId/fields',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/CiTypeFieldsPage')).CiTypeFieldsPage,
             }),
           },
           {

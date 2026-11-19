@@ -17,7 +17,7 @@ import {
 
 import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
-import { EMPTY, FIELDS, bodyOf, schema, type Values } from './form';
+import { EMPTY, bodyOf, errorFields, schema, type Values } from './form';
 
 /** A new configuration item (template B, D-147). */
 export function NewCiPage() {
@@ -44,7 +44,7 @@ export function NewCiPage() {
         },
         onError: (error) => {
           setKey(crypto.randomUUID());
-          if (!applyServerErrors(error, form.setError, FIELDS)) problem.show(error);
+          if (!applyServerErrors(error, form.setError, errorFields(error))) problem.show(error);
         },
       },
     );

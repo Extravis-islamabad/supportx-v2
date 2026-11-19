@@ -194,6 +194,10 @@ class CiIn(BaseModel):
     managed_by_group_id: uuid.UUID | None = None
     business_impact: ImpactCode | None = None
     criticality: ImpactCode | None = None
+    custom: dict[str, Any] | None = Field(
+        default=None,
+        description="Custom field values by key: the fields of the CI's type and the types above.",
+    )
 
 
 class CiPatch(BaseModel):
@@ -208,6 +212,10 @@ class CiPatch(BaseModel):
     managed_by_group_id: uuid.UUID | None = None
     business_impact: ImpactCode | None = None
     criticality: ImpactCode | None = None
+    custom: dict[str, Any] | None = Field(
+        default=None,
+        description="Custom values to change by key (null clears one); keys not sent are kept.",
+    )
 
 
 class CiListItem(BaseModel):
@@ -246,6 +254,13 @@ class CiOut(CiListItem):
     history_count: int
     can_edit: bool
     can_delete: bool
+    custom: dict[str, Any] = Field(
+        description="Custom values you may read, by key (hidden and masked ones are left out)."
+    )
+    masked_fields: list[str] = Field(description="Fields shown as masked (`custom.<key>`).")
+    read_only_fields: list[str] = Field(
+        description="Fields your roles may only read (`custom.<key>`); a change is refused."
+    )
 
     @classmethod
     def of_view(cls, view: cis.CiView) -> "CiOut":
@@ -262,6 +277,9 @@ class CiOut(CiListItem):
             history_count=view.history_count,
             can_edit=view.can_edit,
             can_delete=view.can_delete,
+            custom=view.custom,
+            masked_fields=list(view.masked_fields),
+            read_only_fields=list(view.read_only_fields),
         )
 
 
@@ -273,6 +291,27 @@ class CiTypeChangeIn(BaseModel):
     """The type to move the CI to."""
 
     type_id: uuid.UUID
+    confirm_dropped_fields: bool = Field(
+        default=False,
+        description="Drop the custom values the new type's fields do not include (see the "
+        "preview); without it such a change is refused (409 cmdb_ci_type_change_drops_fields).",
+    )
+
+
+class CiDroppedFieldOut(BaseModel):
+    """A custom field whose value the type change would drop."""
+
+    key: str
+    labels: Names
+
+
+class CiTypeChangePreviewOut(BaseModel):
+    """What moving the CI to a type would drop. Nothing is changed."""
+
+    dropped: list[CiDroppedFieldOut]
+    blocked: bool = Field(
+        description="A dropped field is one your roles may only read: you may not change the type."
+    )
 
 
 class CiFromAssetsIn(BaseModel):
@@ -706,7 +745,12 @@ async def change_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     response: Response,
     request: Request,
 ) -> CiOut:
-    """Move the CI to another type; the values the new type does not hold are dropped."""
+    """Move the CI to another type.
+
+    Custom values outside the new type's fields are dropped only with `confirm_dropped_fields`
+    (409 `cmdb_ci_type_change_drops_fields` otherwise); the history names those fields, never the
+    values.
+    """
     view = await cis.change_type(
         session,
         subject,
@@ -714,9 +758,25 @@ async def change_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         type_id=body.type_id,
         expected_version=version,
         source=source_of(request),
+        confirm_dropped_fields=body.confirm_dropped_fields,
     )
     set_etag(response, view.record.version)
     return CiOut.of_view(view)
+
+
+@router.get("/cis/{ci_id}/change-type-preview", summary="Preview a CI's type change")
+async def change_type_preview(
+    ci_id: uuid.UUID,
+    type_id: Annotated[uuid.UUID, Query(description="The type the CI would move to.")],
+    session: TenantSession,
+    subject: Edit,
+) -> CiTypeChangePreviewOut:
+    """The custom values moving the CI to that type would drop, by field (nothing changes)."""
+    preview = await cis.type_change_preview(session, subject, ci_id, type_id)
+    return CiTypeChangePreviewOut(
+        dropped=[CiDroppedFieldOut(key=d.key, labels=d.labels) for d in preview.dropped],
+        blocked=preview.blocked,
+    )
 
 
 @router.delete(

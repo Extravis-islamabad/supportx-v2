@@ -34,6 +34,7 @@ from app.modules.identity_access import (
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
+    TEAM_LEAD,
     ResourceType,
     Subject,
 )
@@ -392,7 +393,15 @@ RELEASE_FIELDS: Mapping[str, FilterField] = {
     "stage_overdue": FilterField(_OVERDUE_STAGE, FieldType.BOOLEAN),
     "approval_turnaround_seconds": FilterField(_TURNAROUND, FieldType.INTEGER),
 }
+# WP-046b S4 (REQ-INC-141): the major marker filters lists and views; when it was declared.
+INCIDENT_FIELDS: Mapping[str, FilterField] = {
+    "major": FilterField(WorkItem.major, FieldType.BOOLEAN),
+    "major_declared_at": FilterField(
+        WorkItem.major_declared_at, FieldType.DATETIME, sortable=True, simple=False
+    ),
+}
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,
     WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
     WorkItemTypeCode.CHANGE: CHANGE_FIELDS,
     WorkItemTypeCode.RELEASE: RELEASE_FIELDS,
@@ -542,6 +551,41 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
         + (INCIDENT_SPECS if wtype.code is WorkItemTypeCode.INCIDENT else ())
         + (_cost_spec(wtype) if wtype.code in COST_TYPES else ())
+        + _share_specs(wtype)
+    )
+
+
+# D-176 (Haider, 2026-11-18; lane C blocks): who may share a saved view beyond themselves.
+# `share_views`: with their own groups and members of those groups (technicians and up).
+# `share_views_wide`: with everyone, other groups and roles. Team leads hold it at `group` scope,
+# meaning only the groups they lead (organization's group-manager answer, D-152), never everyone
+# or roles; service desk managers hold it everywhere; tenant admins hold every right. Requesters
+# hold neither. Views already shared stay as they are; widening an audience later needs the right.
+SHARE_VIEWS = "share_views"
+SHARE_VIEWS_WIDE = "share_views_wide"
+
+
+def _share_specs(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    # Releases are change control (WP-058): technicians and team leads keep only `view` there, so
+    # sharing release views is the release manager's and the service desk managers' by default.
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        own: tuple[tuple[str, Scope], ...] = (
+            (RELEASE_MANAGER, "all"),
+            (SERVICE_DESK_MANAGER, "all"),
+        )
+        wide: tuple[tuple[str, Scope], ...] = ((SERVICE_DESK_MANAGER, "all"),)
+    else:
+        # The check is membership (their own groups), so `group` for those who work groups; a
+        # team lead never holds `all` on the desk's records (D-152).
+        own = (("technician", "group"), (TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
+        wide = ((TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
+    return (
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS), wtype.feature, ("all", "group"), defaults=own
+        ),
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS_WIDE), wtype.feature, ("all", "group"), defaults=wide
+        ),
     )
 
 
@@ -666,6 +710,7 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
 # coordinator, 2026-11-14; administrators hold every permission), grantable, each use audited,
 # with a reason; a tenant's full lock on closed incidents outranks it (lane B).
 EDIT_CLOSED = "edit_closed"
+DECLARE_MAJOR = "declare_major"
 UNDO_MERGE = "undo_merge"
 INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
@@ -676,6 +721,14 @@ INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     ),
     PermissionSpec(
         f"incidents.{EDIT_CLOSED}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-046b S4 (REQ-INC-141, D-043): declaring an incident major and ending it, the same holders
+    # (coordinator, 2026-11-14); a reason each time, audited, no recent sign-in (coordinator).
+    PermissionSpec(
+        f"incidents.{DECLARE_MAJOR}",
         "incident",
         ("all", "site", "group"),
         defaults=((SERVICE_DESK_MANAGER, "all"),),

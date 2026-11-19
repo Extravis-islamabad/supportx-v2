@@ -50,6 +50,10 @@ const NONE = '';
 /** The effective view's groups, from the clearest. */
 const EFFECTIVE_ORDER = ['clear', 'read_only', 'masked', 'hidden'] as const;
 
+/** Record types are work item types, except the CMDB's CIs (0175 part 2), which have their own label. */
+const recordTypeLabel = (type: string) =>
+  type === 'ci' ? 'cmdb.record_type.ci' : `work_item_type.${type}`;
+
 export function FieldAccessTab({ roleId }: { roleId: string }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -141,7 +145,7 @@ export function FieldAccessTab({ roleId }: { roleId: string }) {
           }}
           options={types.map((c) => ({
             value: c.record_type,
-            label: t(`work_item_type.${c.record_type}`),
+            label: t(recordTypeLabel(c.record_type)),
           }))}
           style={{ minWidth: 180 }}
           data-testid="field-access-type"

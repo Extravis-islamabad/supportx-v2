@@ -19,6 +19,7 @@ import {
 
 import type { ReportWords } from '../../reports/names';
 import { closureCodeLabel, personName } from '../labels';
+import { MajorTag } from '../MajorIncident';
 import { PriorityTag, SlaTag, StatusTag } from '../tags';
 
 // The columns the incident list can show (REQ-INC-104): its own columns, more built-in fields and
@@ -87,7 +88,13 @@ const OWN: ColumnSpec[] = [
     width: 240,
     title: field('subject'),
     // The whole subject is the tooltip, and it reads in its own direction (QA BUG-12, BUG-16).
-    render: (row) => <CellText title={row.subject}>{row.subject}</CellText>,
+    // A major incident's marker before the subject (REQ-INC-141), live with the list.
+    render: (row) => (
+      <CellText title={row.subject}>
+        {row.major && <MajorTag major />}
+        {row.subject}
+      </CellText>
+    ),
   },
   {
     key: 'requester_id',

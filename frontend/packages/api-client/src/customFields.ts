@@ -16,17 +16,39 @@ export type CustomFieldChoice = components['schemas']['CustomFieldChoiceIO'];
 export type CustomFieldValidation = components['schemas']['CustomFieldValidationIO'];
 export type CustomFieldIndexState = components['schemas']['IndexState'];
 
+/** Optional extras of `useCustomFields` (0175). */
+export interface CustomFieldsOptions {
+  /** Only the fields records of this type have (the entity's, and its own and its parents'). */
+  typeId?: string;
+}
+
 /**
  * The entity's fields in display order (retired ones included and marked). `removed` adds the
- * fields removed while in use, to name old values in history.
+ * fields removed while in use, to name old values in history. `options.typeId` (0175): one
+ * type's fields, each marked `inherited` when it is the entity's or a parent type's; the query
+ * key gains the type only then, so every other call keeps its key.
  */
-export function useCustomFields(entity: CustomFieldEntity, removed = false, enabled = true) {
+export function useCustomFields(
+  entity: CustomFieldEntity,
+  removed = false,
+  enabled = true,
+  options?: CustomFieldsOptions,
+) {
+  const typeId = options?.typeId;
   return useQuery({
-    queryKey: queryKeys.customFields.list(entity, removed),
+    queryKey:
+      typeId === undefined
+        ? queryKeys.customFields.list(entity, removed)
+        : queryKeys.customFields.forType(entity, removed, typeId),
     queryFn: () =>
       call(
         api.GET('/api/v1/custom-fields', {
-          params: { query: { entity, include_removed: removed } },
+          params: {
+            query:
+              typeId === undefined
+                ? { entity, include_removed: removed }
+                : { entity, include_removed: removed, type_id: typeId },
+          },
         }),
       ),
     enabled,

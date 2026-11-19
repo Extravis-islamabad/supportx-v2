@@ -59,7 +59,9 @@ type Records = Partial<
     | 'workflow'
     | 'workflowRun'
     | 'workflowRunFlow'
-    | 'ci',
+    | 'ci'
+    | 'businessView'
+    | 'ciType',
     string
   >
 >;
@@ -129,7 +131,12 @@ interface Screen {
   /** Admin sub-sections: the side layout only (layouts do not change their bodies). */
   sideOnly?: boolean;
   /** An open state shot after the page settles (a menu, a drawer, a dialog ...). */
-  state?: { name: string; open: (page: Page) => Promise<void> };
+  state?: {
+    name: string;
+    open: (page: Page) => Promise<void>;
+    /** Undo what `open` changed for the whole tenant, so later shots see the stack as it was. */
+    close?: (page: Page) => Promise<void>;
+  };
   /** Shot without waiting for the network: the loading state. */
   loading?: boolean;
 }
@@ -255,9 +262,186 @@ const privacyTab = async (page: Page, held: boolean, reasonShown = true) => {
 };
 const requestDrawer = (page: Page) => privacyTab(page, false);
 
+// WP-046b S3a (lane C's states, rule 8 OK): a starred view, an unread row and row colours on the
+// incident list; the General tab's row colour and view audit cards. Seeded through the API as
+// the matrix's own admin; the unread row comes from a second person's real public reply, so the
+// live path runs. Each shot re-seeds (idempotent): another screen may have opened INC-30.
+const STARRED_VIEW = 'Matrix: an unread row';
+const UNREAD_SUBJECT = 'Matrix: an unread row';
+let replier: Page | undefined;
+let unreadIncident: { id: string; display_id: string } | undefined;
+// The tenant's colouring before the shot, put back by `close` (lane C: it is tenant-wide).
+let colouringBefore: string | undefined;
+
+async function replierPage(page: Page): Promise<Page> {
+  if (replier !== undefined) return replier;
+  const browser = page.context().browser();
+  if (browser === null) throw new Error('no browser for the second person');
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const other = await context.newPage();
+  other.setDefaultTimeout(SHOT_TIMEOUT);
+  // As the matrix signs in its own admin: the showcase password comes from the environment.
+  await signIn(other, 'tech@showcase.test', SHOWCASE_PASSWORD, '/');
+  replier = other;
+  return other;
+}
+
+/** The matrix's own incident for this state (never INC-30: other screens shoot that one). */
+async function unreadRecord(page: Page, other: Page): Promise<{ id: string; display_id: string }> {
+  if (unreadIncident !== undefined) return unreadIncident;
+  const filter = JSON.stringify({ field: 'subject', op: 'eq', value: UNREAD_SUBJECT });
+  const found = (await (
+    await page.request.get(`/api/v1/incidents?limit=1&filter=${encodeURIComponent(filter)}`)
+  ).json()) as { items?: { id: string; display_id: string }[] };
+  const existing = found.items?.[0];
+  if (existing !== undefined) return (unreadIncident = existing);
+  const admin = await me(page);
+  const theirs = await me(other);
+  // In a group the second person works, so their reply is theirs to make.
+  const groups = (await (await page.request.get('/api/v1/organization/groups')).json()) as {
+    id: string;
+    member_ids: string[];
+  }[];
+  const group = groups.find((g) => g.member_ids.includes(theirs.id));
+  if (group === undefined) throw new Error('no group of the second person');
+  const made = await page.request.post('/api/v1/incidents', {
+    data: { subject: UNREAD_SUBJECT, requester_id: admin.id, group_id: group.id },
+    headers: {
+      'X-CSRF-Token': admin.csrf,
+      'X-SupportX-Client': 'console',
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+  });
+  if (!made.ok()) throw new Error(`incident: ${String(made.status())}`);
+  return (unreadIncident = (await made.json()) as { id: string; display_id: string });
+}
+
+async function setColouring(page: Page, value: string): Promise<string> {
+  const { csrf } = await me(page);
+  const display = (await (
+    await page.request.get('/api/v1/incidents/settings/list-display')
+  ).json()) as { row_colour_by: string; settings_version: number };
+  if (display.row_colour_by !== value) {
+    const set = await page.request.put('/api/v1/incidents/settings/list-display', {
+      data: { row_colour_by: value },
+      headers: { 'X-CSRF-Token': csrf, 'If-Match': `"${String(display.settings_version)}"` },
+    });
+    if (!set.ok()) throw new Error(`row colours: ${String(set.status())}`);
+  }
+  return display.row_colour_by;
+}
+
+async function starredUnreadColoured(page: Page): Promise<void> {
+  const { csrf } = await me(page);
+  const write = { 'X-CSRF-Token': csrf };
+  const other = await replierPage(page);
+  const incident = await unreadRecord(page, other);
+  // A view of that incident alone, starred.
+  const views = (await (await page.request.get('/api/v1/incidents/saved-views')).json()) as {
+    id: string;
+    name: string;
+  }[];
+  let view = views.find((v) => v.name === STARRED_VIEW);
+  if (view === undefined) {
+    const made = await page.request.post('/api/v1/incidents/saved-views', {
+      data: {
+        name: STARRED_VIEW,
+        filter: { field: 'display_id', op: 'eq', value: incident.display_id },
+      },
+      headers: { ...write, 'Idempotency-Key': crypto.randomUUID() },
+    });
+    if (!made.ok()) throw new Error(`saved view: ${String(made.status())}`);
+    view = (await made.json()) as { id: string; name: string };
+  }
+  const star = await page.request.put(`/api/v1/incidents/saved-views/${view.id}/favourite`, {
+    headers: write,
+  });
+  if (!star.ok()) throw new Error(`star: ${String(star.status())}`);
+  colouringBefore = await setColouring(page, 'priority');
+  // Read by the admin, then a public reply by someone else: unread again.
+  const read = await page.request.post(`/api/v1/incidents/${incident.id}/read`, { headers: write });
+  if (!read.ok()) throw new Error(`read: ${String(read.status())}`);
+  const theirs = await me(other);
+  const replied = await other.request.post(`/api/v1/incidents/${incident.id}/conversation`, {
+    data: { kind: 'note', visibility: 'public', body: '<p>Checked on site: still failing.</p>' },
+    headers: { 'X-CSRF-Token': theirs.csrf, 'Idempotency-Key': crypto.randomUUID() },
+  });
+  if (!replied.ok()) throw new Error(`reply: ${String(replied.status())}`);
+  // The list keeps its view on the screen, not in the address: picked as a person does, from
+  // the Starred group (lane C's run 44391110161 timed out on a ?view= address).
+  await page.goto('/incidents');
+  const seen = async (what: string, locator: ReturnType<Page['locator']>) => {
+    try {
+      await locator.first().waitFor({ timeout: STATE_TIMEOUT });
+    } catch {
+      throw new Error(`starred-unread-coloured: no ${what}`);
+    }
+  };
+  await page.getByTestId('inc-view').click({ timeout: STATE_TIMEOUT });
+  await seen(
+    'starred view in the picker',
+    page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }),
+  );
+  await page.locator('.ant-select-item-option', { hasText: STARRED_VIEW }).first().click();
+  // The picker's list fades out: shot only once it is gone (lane C; #548's compare state too).
+  try {
+    await page
+      .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+      .first()
+      .waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+  } catch {
+    throw new Error('starred-unread-coloured: the view picker did not close');
+  }
+  await seen('star toggle', page.getByTestId('inc-view-star'));
+  await seen('unread row', page.locator('[data-unread="true"]'));
+  await seen('row colour mark', page.locator('[data-row-mark]'));
+}
+
+/** Put the tenant's colouring back as it was before the shot. */
+async function restoreColouring(page: Page): Promise<void> {
+  if (colouringBefore === undefined) return;
+  await setColouring(page, colouringBefore);
+  colouringBefore = undefined;
+}
+
+const generalCard = (testId: string) => async (page: Page) => {
+  const card = page.getByTestId(testId);
+  await card.scrollIntoViewIfNeeded({ timeout: STATE_TIMEOUT });
+  await card.waitFor({ timeout: STATE_TIMEOUT });
+  // Back to the top: the full-page shot holds the card anyway, and a scrolled page drew the
+  // sticky side nav halfway down (lane C, run 44391110161).
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+};
+
 export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: {
+      name: 'starred-unread-coloured',
+      open: starredUnreadColoured,
+      close: restoreColouring,
+    },
+  },
+  {
+    key: 'admin-incidents-general',
+    path: '/admin/incidents',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'row-colours', open: generalCard('settings-row-colours') },
+  },
+  {
+    key: 'admin-incidents-general',
+    path: '/admin/incidents',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'view-audit', open: generalCard('settings-view-audit') },
+  },
   { key: 'incident-new', path: '/incidents/new', app: 'console' },
   // WP-046a S5c (REQ-INC-019): a kept draft offered back, and one that could not be read
   // (lane C). The draft is answered in the browser: the matrix keeps none of its own.
@@ -455,6 +639,60 @@ export const SCREENS: Screen[] = [
   },
   { key: 'ci-new', path: '/cmdb/new', app: 'console' },
   { key: 'admin-cmdb', path: '/admin/cmdb', app: 'console' },
+  // WP-053 S2 (lane B; lane C's condition 14): the CI's Map tab as it is, the map with a
+  // restricted placeholder and keyboard focus on a node, its node menu, the business views list,
+  // one business view, the Versions tab and a comparison.
+  { key: 'ci-map', path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined), app: 'console' },
+  {
+    key: 'ci-map-focus',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined),
+    app: 'console',
+    state: { name: 'keyboard', open: ciMapFocus(false) },
+  },
+  {
+    key: 'ci-map-menu',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=map` : undefined),
+    app: 'console',
+    state: { name: 'menu', open: ciMapFocus(true) },
+  },
+  { key: 'cmdb-views', path: '/cmdb/views', app: 'console' },
+  {
+    key: 'cmdb-view',
+    path: (r) => (r.businessView ? `/cmdb/views/${r.businessView}` : undefined),
+    app: 'console',
+  },
+  {
+    key: 'ci-versions',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
+    app: 'console',
+  },
+  // 0175 part 2 (lane B): one CI type's custom fields, its own and those it inherits.
+  {
+    key: 'cmdb-type-fields',
+    path: (r) => (r.ciType ? `/admin/cmdb/types/${r.ciType}/fields` : undefined),
+    app: 'console',
+    state: { name: 'inherited', open: ciTypeFields },
+  },
+  // 0175 part 2: changing a CI's type drops a field's value (danger, the field named), or is
+  // blocked by a field access rule.
+  {
+    key: 'ci-change-type',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: { name: 'drops', open: ciChangeType(false) },
+  },
+  {
+    key: 'ci-change-type-blocked',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: { name: 'blocked', open: ciChangeType(true) },
+  },
+  {
+    key: 'ci-versions-compare',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
+    app: 'console',
+    state: { name: 'compare', open: ciCompare },
+  },
   // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
   // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
   {
@@ -963,6 +1201,7 @@ async function findRecords(page: Page): Promise<Records> {
   const incident =
     (await first('/api/v1/incidents/lookup/INC-30', (b) => (b as { id?: string }).id)) ??
     (await first('/api/v1/incidents?limit=1', firstItem));
+  const ci = (await first('/api/v1/cmdb/cis?limit=1', firstItem)) ?? (await showcaseCi(page));
   return {
     incident,
     ...(await showcaseRun(page, incident).then((made) =>
@@ -978,7 +1217,19 @@ async function findRecords(page: Page): Promise<Records> {
     release: await first('/api/v1/releases?limit=1', firstItem),
     announcement: await first('/api/v1/announcements?limit=1', firstItem),
     asset: await first('/api/v1/assets?limit=1', firstItem),
-    ci: (await first('/api/v1/cmdb/cis?limit=1', firstItem)) ?? (await showcaseCi(page)),
+    ci,
+    // 0175 part 2: a CI type's Fields page (the built-in server type: every tenant has it).
+    ciType: await first(
+      '/api/v1/cmdb/ci-types',
+      (b) =>
+        ((b as { items?: { id: string; api_name: string }[] }).items ?? []).find(
+          (x) => x.api_name === 'server',
+        )?.id,
+    ),
+    // WP-053 S2: a business view to open (one on the showcase CI when the stack has none).
+    businessView:
+      (await first('/api/v1/cmdb/business-views?limit=1', firstItem)) ??
+      (await showcaseView(page, ci)),
     consumable: await first('/api/v1/assets/consumables', firstOfList),
     // WP-049b s3: the showcase's running audit, and its laptop with scans (SX-LAP-001).
     audit: await first('/api/v1/assets/audits', firstOfList),
@@ -1069,6 +1320,301 @@ async function showcaseCi(page: Page): Promise<string | undefined> {
     headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
   });
   return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+}
+
+/** A business view on the showcase CI (WP-053 S2): the stack's showcase has none yet. */
+async function showcaseView(page: Page, ci: string | undefined): Promise<string | undefined> {
+  if (ci === undefined) return undefined;
+  const { csrf } = await me(page);
+  const made = await page.request.post('/api/v1/cmdb/business-views', {
+    data: {
+      base_ci_id: ci,
+      name: 'Core switch map',
+      description: 'What the core switch connects.',
+    },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+}
+
+/**
+ * The map with neighbours answered in the browser (the showcase CI has no relationships yet): two
+ * CIs, one end of life, and a CI the viewer may not open, so the shot has every node look. Then
+ * keyboard focus on a node (an arrow key moves it, so the focus ring shows), and with `menu`
+ * its menu open (Enter).
+ */
+function ciMapFocus(menu: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/cmdb/cis/*/neighbours*';
+    const answer = (route: Route) => {
+      const base = /\/cis\/([^/]+)\/neighbours/.exec(route.request().url())?.[1] ?? '';
+      const node = (id: string, name: string, display: string, eol = false, type = 'server') => ({
+        key: id,
+        restricted: false,
+        depth: id === base ? 0 : 1,
+        id,
+        display_id: display,
+        name,
+        type_label_key: `cmdb_ci_type.${type}`,
+        type_names: {},
+        state_category: eol ? 'end_of_life' : 'active',
+        state_label_key: eol ? 'cmdb_ci_state.retired' : 'cmdb_ci_state.in_use',
+        state_names: {},
+        version: 1,
+        counts: null,
+      });
+      const a = '0190aaaa-0000-7000-8000-000000000001';
+      const b = '0190aaaa-0000-7000-8000-000000000002';
+      return route.fulfill({
+        json: {
+          nodes: [
+            // The showcase CI's own type, so the shot matches its header.
+            node(base, 'Core switch SW-01', 'CI-1', false, 'application'),
+            node(a, 'Server SRV-01', 'CI-2'),
+            node(b, 'Old server SRV-00', 'CI-3', true),
+            { key: 'r1', restricted: true, depth: 1 },
+          ],
+          edges: [
+            // Links between CIs the person sees carry their IDs (the menu offers Remove on them);
+            // only the restricted node's link has none.
+            {
+              id: '01a1f000-0000-7000-8000-0000000000e1',
+              type_id: 'x',
+              from_key: base,
+              to_key: a,
+              version: 1,
+            },
+            {
+              id: '01a1f000-0000-7000-8000-0000000000e2',
+              type_id: 'x',
+              from_key: base,
+              to_key: b,
+              version: 1,
+            },
+            { id: null, type_id: 'x', from_key: 'r1', to_key: base, version: null },
+          ],
+          truncated: false,
+          node_max: 500,
+          counts_available: false,
+        },
+      });
+    };
+    await page.route(url, answer);
+    try {
+      await page.reload();
+      const node = page.locator('.react-flow__node').first();
+      await node.waitFor({ timeout: STATE_TIMEOUT });
+      await node.focus();
+      await page.keyboard.press('ArrowDown');
+      if (menu) {
+        await page.keyboard.press('Enter');
+        await page.getByTestId('ci-map-menu').waitFor({ timeout: STATE_TIMEOUT });
+      }
+    } finally {
+      await page.unroute(url, answer);
+    }
+  };
+}
+
+/** A CI custom-field definition as the API answers it, for mocked matrix states (0175 part 2). */
+const ciField = (key: string, en: string, ar: string, extra: Record<string, unknown> = {}) => ({
+  id: key, // callers set a UUID per row
+  entity: 'ci',
+  key,
+  field_type: 'text',
+  labels: { en, ar },
+  help: null,
+  choices: [],
+  display: 'list',
+  default: null,
+  validation: {
+    required: false,
+    min: null,
+    max: null,
+    min_length: null,
+    max_length: null,
+    pattern: null,
+  },
+  currency: null,
+  sort_order: 0,
+  retired: false,
+  removed: false,
+  in_use: true,
+  index_state: 'none',
+  index_error: null,
+  sensitive: false,
+  seal_state: 'plain',
+  scope_type_id: null,
+  inherited: false,
+  version: 1,
+  ...extra,
+});
+
+/**
+ * A CI type's Fields page with every kind of row (0175 part 2), answered in the browser: a field
+ * of every CI type, one from the parent type (read-only, "From Hardware"), and two of its own,
+ * one retired. The stack's real fields come back after the shot.
+ */
+async function ciTypeFields(page: Page): Promise<void> {
+  const url = '**/api/v1/custom-fields*';
+  const types = (await (await page.request.get('/api/v1/cmdb/ci-types')).json()) as {
+    items: { id: string; api_name: string }[];
+  };
+  const hardware = types.items.find((x) => x.api_name === 'hardware')?.id ?? null;
+  const server = types.items.find((x) => x.api_name === 'server')?.id ?? null;
+  const field = ciField;
+  const rows = [
+    field('asset_owner_note', 'Owner note', 'ملاحظة المالك', { inherited: true }),
+    field('rack_position', 'Rack position', 'موضع الحامل', {
+      scope_type_id: hardware,
+      inherited: true,
+    }),
+    field('os_version', 'Operating system', 'نظام التشغيل', { scope_type_id: server }),
+    field('cpu_cores', 'CPU cores', 'أنوية المعالج', {
+      scope_type_id: server,
+      field_type: 'integer',
+    }),
+    field('legacy_tag', 'Legacy tag', 'وسم قديم', { scope_type_id: server, retired: true }),
+  ].map((row, index) => ({ ...row, id: `0190cccc-0000-7000-8000-00000000000${String(index)}` }));
+  const answer = (route: Route) =>
+    route.request().method() === 'GET' ? route.fulfill({ json: rows }) : route.continue();
+  await page.route(url, answer);
+  try {
+    await page.reload();
+    await page.getByTestId('cf-inherited-link-rack_position').waitFor({ timeout: STATE_TIMEOUT });
+  } finally {
+    await page.unroute(url, answer);
+  }
+}
+
+/** Two versions compared, answered in the browser (the showcase CI has one version). */
+async function ciCompare(page: Page): Promise<void> {
+  const at = new Date(Date.now() - 3600_000).toISOString();
+  const versions = '**/api/v1/cmdb/cis/*/versions*';
+  const compare = '**/api/v1/cmdb/cis/*/compare*';
+  const listed = (route: Route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            version: 2,
+            saved_at: new Date().toISOString(),
+            saved_by: null,
+            saved_by_name: 'Sara Khan',
+          },
+          { version: 1, saved_at: at, saved_by: null, saved_by_name: 'Sara Khan' },
+        ],
+        next_cursor: null,
+      },
+    });
+  const compared = (route: Route) => {
+    const empty = {
+      saved_at: at,
+      saved_by: null,
+      saved_by_name: null,
+      fields: {},
+      relationships: [],
+    };
+    return route.fulfill({
+      json: {
+        from_version: { ...empty, version: 1, masked_fields: ['custom.licence_key'] },
+        to_version: { ...empty, version: 2, masked_fields: ['custom.licence_key'] },
+        attributes: [
+          { field: 'name', kind: 'changed', old: 'Core switch', new: 'Core switch SW-01' },
+          {
+            field: 'description',
+            kind: 'changed',
+            old: 'Floor 2 network core.',
+            new: 'Floor 2 network core. '.repeat(12),
+          },
+          { field: 'criticality', kind: 'added', old: null, new: 'high' },
+          // A custom field by its label (0175 part 2).
+          { field: 'custom.os_version', kind: 'changed', old: 'Ubuntu 22.04', new: 'Ubuntu 24.04' },
+        ],
+        relationships_added: [
+          { id: null, type_id: 'x', direction: 'forward', ci: { key: 'r1', restricted: true } },
+        ],
+        relationships_removed: [],
+      },
+    });
+  };
+  const fields = '**/api/v1/custom-fields*';
+  const defined = (route: Route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          json: [
+            ciField('os_version', 'Operating system', 'نظام التشغيل', {
+              id: '0190cccc-0000-7000-8000-0000000000a1',
+            }),
+            ciField('licence_key', 'Licence key', 'مفتاح الترخيص', {
+              id: '0190cccc-0000-7000-8000-0000000000a2',
+            }),
+          ],
+        })
+      : route.continue();
+  await page.route(versions, listed);
+  await page.route(compare, compared);
+  await page.route(fields, defined);
+  try {
+    await page.reload();
+    const pick = async (testId: string, nth: number) => {
+      await page.getByTestId(testId).first().click({ timeout: STATE_TIMEOUT });
+      const dropdown = page.locator('.ant-select-dropdown:visible');
+      await dropdown.locator('.ant-select-item-option').nth(nth).click({ timeout: STATE_TIMEOUT });
+      // Wait until it has closed: a second pick during the first one's fade-out lands in the old
+      // dropdown, leaving Compare disabled (run 44377613773 timed out on that click).
+      await dropdown.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+    };
+    await pick('ci-versions-from', 1);
+    await pick('ci-versions-to', 0);
+    await page.getByTestId('ci-versions-compare').first().click({ timeout: STATE_TIMEOUT });
+    await page.getByTestId('ci-versions-comparison').waitFor({ timeout: STATE_TIMEOUT });
+  } finally {
+    await page.unroute(versions, listed);
+    await page.unroute(compare, compared);
+    await page.unroute(fields, defined);
+  }
+}
+
+/**
+ * The CI's change-type dialog with a mocked preview (0175 part 2): `drops` names the field whose
+ * value would go and the button turns danger; `blocked` says the person may not change the type.
+ */
+function ciChangeType(blocked: boolean): (page: Page) => Promise<void> {
+  return async (page) => {
+    const url = '**/api/v1/cmdb/cis/*/change-type-preview*';
+    const answer = (route: Route) =>
+      route.fulfill({
+        json: {
+          dropped: [{ key: 'os_version', labels: { en: 'Operating system', ar: 'نظام التشغيل' } }],
+          blocked,
+        },
+      });
+    await page.route(url, answer);
+    try {
+      await page.reload();
+      await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-change-type').click({ timeout: STATE_TIMEOUT });
+      // The dialog has finished zooming in before the tree opens.
+      await page
+        .locator('.ant-modal-wrap .ant-zoom-enter, .ant-modal-wrap .ant-zoom-appear')
+        .waitFor({ state: 'detached', timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-new-type').click({ timeout: STATE_TIMEOUT });
+      const tree = page.locator('.ant-select-dropdown:visible');
+      await tree
+        .locator('.ant-select-tree-node-content-wrapper')
+        .nth(1)
+        .click({ timeout: STATE_TIMEOUT });
+      // The shot and axe wait for the tree to close: a fading dropdown fails contrast (run
+      // 44407478834) and hides the dialog.
+      await tree.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+      await page
+        .getByTestId(blocked ? 'ci-change-type-blocked' : 'ci-change-type-drops')
+        .waitFor({ timeout: STATE_TIMEOUT });
+    } finally {
+      await page.unroute(url, answer);
+    }
+  };
 }
 
 /** The CI record's edit, with its save beaten by someone else's (a 409 answered here). */
@@ -1241,11 +1787,18 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
     // A screen that breaks is a finding, not a crash of the run.
     shot.error = error instanceof Error ? error.message.split('\n')[0] : String(error);
   } finally {
+    if (screen.state?.close) await screen.state.close(page).catch(() => undefined);
     if (screen.loading) await page.close().catch(() => undefined);
   }
 }
 
 test.skip(!RUN, 'the visual matrix runs in its own workflow (VISUAL_MATRIX=1)');
+
+// The second person's context (S3a's unread row), closed once the shard is done (lane C).
+test.afterAll(async () => {
+  await replier?.context().close();
+  replier = undefined;
+});
 
 test(`visual matrix, shard ${String(SHARD)}/${String(SHARDS)}`, async ({ browser }) => {
   test.setTimeout(3 * 60 * 60_000);

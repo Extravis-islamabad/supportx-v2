@@ -274,3 +274,23 @@ export function useReplyTemplateChange() {
     },
   });
 }
+
+/**
+ * The conversation for a printout (WP-046b S4, REQ-INC-126): public entries only when asked,
+ * filtered by the server, so a private note never reaches the page (lane B).
+ */
+export function usePrintedConversation(id: string, publicOnly: boolean, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.conversation(id), 'print', publicOnly],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/conversation', {
+          params: {
+            path: { record_id: id },
+            query: publicOnly ? { visibility: 'public' } : {},
+          },
+        }),
+      ),
+    enabled: enabled && id !== '',
+  });
+}

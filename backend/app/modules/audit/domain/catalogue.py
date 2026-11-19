@@ -289,6 +289,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
     ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),
@@ -373,6 +376,21 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.approval_requested", AuditCategory.RECORDS, "work_items"),  # WP-046b S1
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
+    ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
+    ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
+    ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
+    ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("incident.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("service_request.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("problem.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("change.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("release.view_audit_run", AuditCategory.CONFIGURATION, "work_items"),  # S3a D-176
+    ("service_request.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # S3a
+    ("problem.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("change.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("release.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
+    ("incident.announced", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-129
+    ("incident.printed", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-126
     ("incident.merge_undone", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
     ("incident.converted", AuditCategory.RECORDS, "work_items"),  # WP-046b S2, both IDs
     ("service_request.converted", AuditCategory.RECORDS, "work_items"),

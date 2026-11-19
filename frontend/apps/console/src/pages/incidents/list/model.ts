@@ -11,6 +11,7 @@ import {
   type IncidentListField,
   type IncidentViewFilter,
   type SavedView,
+  type Unit,
 } from '@supportx/api-client';
 import {
   fromDsl,
@@ -316,4 +317,80 @@ export function exportFilter(
   const found = viewFilters?.find((v) => v.view === view);
   if (!found?.expressible) return null;
   return allOf((found.filter ?? undefined) as FilterExpression | undefined, filter);
+}
+
+/** A held permission as the session lists it (key and broadest scope). */
+export interface HeldPermission {
+  key: string;
+  scope: 'all' | 'site' | 'group' | 'own';
+}
+
+/** Who a person may share a saved view with (D-176); the server checks it again on save. */
+export interface ShareAudiences {
+  everyone: boolean;
+  groupIds: Set<string>;
+}
+
+/**
+ * D-176: `<type>.share_views` gives the groups they are in; `<type>.share_views_wide` at `all`
+ * gives every group and everyone, at `group` only the groups they lead. Requesters hold neither.
+ */
+export function shareAudiences(
+  permissions: readonly HeldPermission[],
+  typePath: string,
+  userId: string,
+  groups: readonly Unit[],
+): ShareAudiences {
+  const scopeOf = (action: string) =>
+    permissions.find((p) => p.key === `${typePath}.${action}`)?.scope;
+  const own = scopeOf('share_views') !== undefined;
+  const wide = scopeOf('share_views_wide');
+  const live = groups.filter((g) => !g.disabled);
+  const groupIds = new Set(
+    live
+      .filter(
+        (g) =>
+          wide === 'all' ||
+          (own && g.member_ids.includes(userId)) ||
+          (wide === 'group' && g.lead_id === userId),
+      )
+      .map((g) => g.id),
+  );
+  return { everyone: wide === 'all', groupIds };
+}
+
+/** Row colouring (REQ-INC-115 AC1): non-text marks need 3:1 against the row (WCAG 2.2 1.4.11). */
+export const MARK_CONTRAST = 3;
+
+function channels(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (m === null) return null;
+  const n = Number.parseInt(m[1] ?? '', 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mix(hex: string, toward: [number, number, number], amount: number): string {
+  const from = channels(hex);
+  if (from === null) return hex;
+  const out = from.map((c, i) => Math.round(c + ((toward[i] ?? c) - c) * amount));
+  return `#${out.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The stored colour if it reads against the row; otherwise the nearest darker shade (lighter in
+ * dark mode) that does; none for a colour that is not `#rrggbb` (lane C). `contrast` is the shared WCAG ratio (`@supportx/ui`).
+ */
+export function readableMark(
+  colour: string,
+  background: string,
+  contrast: (a: string, b: string) => number,
+  dark = false,
+): string | undefined {
+  if (channels(colour) === null) return undefined; // not #rrggbb: no mark rather than a guess
+  const toward: [number, number, number] = dark ? [255, 255, 255] : [0, 0, 0];
+  for (let step = 0; step <= 10; step += 1) {
+    const shade = mix(colour, toward, step / 10);
+    if (contrast(shade, background) >= MARK_CONTRAST) return shade;
+  }
+  return mix(colour, toward, 1);
 }
