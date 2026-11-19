@@ -294,6 +294,8 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
         aggregate_id=row.id,
         aggregate_version=row.version,
     )
+    if row.support_user_id is not None:
+        forget(tenant_id, row.support_user_id)
     return Ended(row.id, tenant_id, row.support_user_id, keycloak_id)
 
 
@@ -671,3 +673,133 @@ async def extend_grant(  # noqa: PLR0913 - the grant, its version, the hours and
         aggregate_version=row.version,
     )
     return _view(row)
+
+
+# --- the check on every sign-in and request (lane B's condition 4) ------------------------------
+
+INACTIVE = "support_grant_inactive"
+CACHE_FOR = timedelta(seconds=30)
+
+
+@dataclass(frozen=True)
+class _Facts:
+    """What the check needs of a support account's grant, cached until `until`."""
+
+    grant_id: uuid.UUID | None
+    state: str | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
+    until: datetime
+
+
+# In process only, keyed (tenant, user): a revoke ends the sessions through the store marker at
+# once; this only bounds how late an expiry is seen, and it never outlives the grant's end
+# (lane B (2)).
+_cache: dict[tuple[uuid.UUID, uuid.UUID], _Facts] = {}
+
+
+def forget(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Drop a cached grant (the revoke and end paths, and tests)."""
+    _cache.pop((tenant_id, user_id), None)
+
+
+async def _facts(
+    session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, now: datetime
+) -> _Facts:
+    cached = _cache.get((tenant_id, user_id))
+    if cached is not None and cached.until > now:
+        return cached
+    row = await session.scalar(
+        select(SupportGrant)
+        .where(SupportGrant.support_user_id == user_id)
+        .order_by(SupportGrant.created_at.desc())
+        .limit(1)
+    )
+    if row is None:
+        facts = _Facts(None, None, None, None, (), now + CACHE_FOR)
+    else:
+        until = min(now + CACHE_FOR, row.ends_at) if row.ends_at > now else now + CACHE_FOR
+        facts = _Facts(
+            row.id,
+            row.state,
+            row.starts_at,
+            row.ends_at,
+            tuple(ipaddress.ip_network(str(n), strict=False) for n in row.ip_allowlist),
+            until,
+        )
+    _cache[(tenant_id, user_id)] = facts
+    return facts
+
+
+async def support_refusal(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    address: ipaddress.IPv4Address | ipaddress.IPv6Address | None,
+    now: datetime,
+) -> str | None:
+    """Why a support account may not act now, or None.
+
+    Its grant must be open and in time, and the address in the grant's list when it has one (the
+    tenant's own list is checked as for everyone, by the caller).
+    """
+    facts = await _facts(session, tenant_id, user_id, now)
+    if (
+        facts.state is None
+        or not rules.is_open(facts.state)
+        or facts.starts_at is None
+        or facts.ends_at is None
+        or not (facts.starts_at <= now < facts.ends_at)
+    ):
+        return INACTIVE
+    if facts.networks and (address is None or not any(address in n for n in facts.networks)):
+        return "ip_not_allowed"
+    return None
+
+
+async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> uuid.UUID | None:
+    """The first sign-in that passed Keycloak's required actions: the grant becomes active.
+
+    The engineer is the only one who could finish them on the e-mail path, so a SupportX session
+    existing is the proof (lane B (12)). The audit records how the engineer was verified (lane B
+    (11), (7)). None when the grant was active already.
+    """
+    row = await session.scalar(
+        select(SupportGrant)
+        .where(
+            SupportGrant.support_user_id == user_id,
+            SupportGrant.state == rules.GrantState.PENDING_VERIFICATION.value,
+        )
+        .with_for_update()
+    )
+    if row is None:
+        return None
+    row.state = rules.GrantState.ACTIVE.value
+    row.first_used_at = now
+    row.version += 1
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=GRANT_RECORD_TYPE,
+        record_id=row.id,
+        version=row.version,
+        kind="updated",
+        changes=[
+            Change("state", rules.GrantState.PENDING_VERIFICATION.value, row.state),
+            Change("verification", row.verification, row.verification),
+        ],
+        source="system",
+    )
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="first_used",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return row.id
