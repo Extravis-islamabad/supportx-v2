@@ -35,6 +35,7 @@ export const ar: LabelResource = {
   'errors.api_key_owner_not_service': 'مفاتيح الآخرين لا تكون إلا لهوية خدمة.',
   'errors.api_key_revoked': 'تم إبطال مفتاح API هذا.',
   'errors.api_key_scope_unknown': 'اختر نطاقًا واحدًا على الأقل من النطاقات المعروضة.',
+  'errors.api_key_vendor_support': 'لا يمكن لحساب دعم Extravis امتلاك مفاتيح API.',
   'errors.api_keys_people_off': 'لا تسمح مؤسستك للأشخاص بإنشاء مفاتيح API خاصة بهم.',
   'errors.api_keys_unavailable': 'مفاتيح API غير مُعدّة في هذا التثبيت.',
   'errors.api_scope_missing': 'مفتاح API هذا لا يملك النطاق {{scope}}.',
@@ -505,6 +506,7 @@ export const ar: LabelResource = {
   'errors.field.invalid_key': 'أعطِ الحقل اسمًا يحتوي على حرفين أو رقمين على الأقل.',
   'errors.field.invalid_language':
     'يمكن إدخال الأسماء بالإنجليزية والعربية والأردية، حتى 200 حرف لكل منها.',
+  'errors.field.invalid_network': '{{value}} ليس عنوان IP أو نطاقًا.',
   'errors.field.invalid_node': 'هذا الجزء من عامل التصفية ليس شرطًا ولا مجموعة.',
   'errors.field.invalid_number': 'أدخل رقمًا.',
   'errors.field.invalid_pattern': 'هذا النمط ليس تعبيرًا نمطيًا صالحًا.',
@@ -689,6 +691,17 @@ export const ar: LabelResource = {
   'errors.field.sso_protocol_fixed': 'يحتفظ الإعداد ببروتوكوله. أضف إعدادًا جديدًا بدلًا من ذلك.',
   'errors.field.sso_sign_in_url_missing': 'لا تحتوي البيانات الوصفية على عنوان تسجيل دخول.',
   'errors.field.sso_url_invalid': 'أدخل عنوانًا كاملًا يبدأ بـ https://.',
+  'errors.field.support_email_domain_not_allowed':
+    'يجب أن يستخدم مهندسو الدعم عنوانًا في نطاق مسموح من Extravis.',
+  'errors.field.support_email_invalid': 'أدخل عنوان بريد إلكتروني واحدًا.',
+  'errors.field.support_email_not_taggable':
+    'استخدم عنوان المهندس العادي دون علامة إضافية بعد +، واجعل الجزء قبل @ قصيرًا.',
+  'errors.field.support_grant_length':
+    'يستمر الوصول من ساعة واحدة حتى 72 ساعة إجمالًا، بما في ذلك التمديدات.',
+  'errors.field.support_grants_limit':
+    'يمكن فتح ثلاثة وصولات دعم كحد أقصى في وقت واحد. أنهِ أحدها أولًا.',
+  'errors.field.support_ip_list_too_long': 'اذكر 20 عنوانًا أو نطاقًا كحد أقصى.',
+  'errors.field.support_text_too_long': 'هذا طويل جدًا.',
   'errors.field.system_calendar_fixed':
     'على مدار الساعة يحتسب دائمًا كل ساعة. يمكن تغيير اسمه فقط.',
   'errors.field.target_amount_invalid': 'أدخل عددًا صحيحًا من 1 إلى 100000.',
@@ -765,6 +778,7 @@ export const ar: LabelResource = {
   'errors.field.vendor_inactive': 'هذا المورد غير نشط ولا يمكن اختياره.',
   'errors.field.vendor_name_taken': 'يوجد مورد آخر بهذا الاسم.',
   'errors.field.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.field.vendor_support_disabled': 'دعم المورّد متوقف لهذه المؤسسة.',
   'errors.field.week_empty': 'أضف فترة عمل واحدة على الأقل.',
   'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
   'errors.field.week_too_many_periods': 'يمكن أن يحتوي الأسبوع على 28 فترة عمل على الأكثر.',
@@ -1125,6 +1139,9 @@ export const ar: LabelResource = {
   'errors.storage_quota_exceeded':
     'مساحة تخزين الملفات لمؤسستك ممتلئة ({{used_gb}} من {{limit_gb}} غيغابايت).',
   'errors.storage_unavailable': 'تعذّر الوصول إلى تخزين الملفات. حاول لاحقًا أو تواصل مع المسؤول.',
+  'errors.support_grant_inactive': 'انتهى وصول الدعم هذا أو لم يبدأ بعد. اسأل مسؤول المؤسسة.',
+  'errors.support_grant_not_found': 'لم يُعثر على وصول الدعم هذا.',
+  'errors.support_grant_not_open': 'انتهى وصول الدعم هذا بالفعل، لذا لا يمكن تغييره.',
   'errors.survivor_is_a_child': '{{display_id}} حادث فرعي لحادث آخر، فلا يمكن أن يأخذ حوادث فرعية.',
   'errors.system_calendar_required': 'تحتفظ كل مؤسسة بهذا التقويم، لذا لا يمكن حذفه.',
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
@@ -1159,6 +1176,10 @@ export const ar: LabelResource = {
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
   'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.vendor_support_email_pending_decision':
+    'دعم المورّد عبر البريد الإلكتروني بانتظار قرار. استخدم التأكيد بالهاتف أو شخصيًا إن احتجت إليه الآن.',
+  'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
+  'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
   'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',
