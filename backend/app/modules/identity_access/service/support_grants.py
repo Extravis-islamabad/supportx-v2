@@ -28,6 +28,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -815,20 +816,34 @@ async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
     return row.id
 
 
+@dataclass(frozen=True)
+class Refusal:
+    """Why a support session's request was refused, and the grant it was judged against."""
+
+    reason: str
+    grant_id: uuid.UUID | None
+
+
 async def request_refusal(
     database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID, address: str | None
-) -> str | None:
+) -> Refusal | None:
     """A support session's request: why it may not go on, or None (lane B (4)).
 
     The cached facts answer without the database while they last; a miss reads the grant in the
-    tenant's own session (RLS).
+    tenant's own session (RLS). A grant still waiting for the engineer while their session acts
+    is made active here (lane B: never an orphan session if activation at sign-in failed).
     """
     now = system_clock.now()
-    cached = _cache.get((tenant_id, user_id))
-    if cached is None or cached.until <= now:
+    facts = _cache.get((tenant_id, user_id))
+    if facts is None or facts.until <= now:
         async with database.tenant_session(TenantContext(tenant_id)) as session:
-            return await support_refusal(session, tenant_id, user_id, address_of(address), now)
-    return _judge(cached, address_of(address), now)
+            facts = await _facts(session, tenant_id, user_id, now)
+    reason = _judge(facts, address_of(address), now)
+    if reason is not None:
+        return Refusal(reason, facts.grant_id)
+    if facts.state == rules.GrantState.PENDING_VERIFICATION.value:
+        await mark_first_use(database, tenant_id, user_id)
+    return None
 
 
 async def sign_in_refusal(
@@ -853,6 +868,11 @@ async def sign_in_refusal(
 
 async def mark_first_use(database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """After a support account's session is made: its grant becomes active (once)."""
-    async with database.tenant_session(TenantContext(tenant_id)) as session:
-        await first_use(session, user_id, system_clock.now())
+    try:
+        async with database.tenant_session(TenantContext(tenant_id)) as session:
+            await first_use(session, user_id, system_clock.now())
+    except SQLAlchemyError:
+        # The next request tries again (`request_refusal`): never a failed sign-in with a stored
+        # session (lane B).
+        log.warning("support_grant_first_use_failed", user_id=str(user_id))
     forget(tenant_id, user_id)

@@ -37,7 +37,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
 from app.core.tenancy import TenantContext
-from app.modules.audit import RequestFacts
+from app.modules.audit import RequestFacts, record_alone
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
@@ -1357,8 +1357,18 @@ class AuthService:
         if refusal is None:
             return
         await self.store.delete_session(session_id)
-        log.info("support_session_refused", reason=refusal, user_id=session.user_id)
-        raise Unauthenticated(code=refusal)
+        # One security entry per refused session (the session is gone, so its client's next call
+        # has none to refuse again): the reason and the grant, the address as the log keeps it.
+        await record_alone(
+            self.database,
+            TenantContext(session.tenant_uuid, session.user_uuid),
+            action_code="support_grant.request_refused",
+            facts=RequestFacts.of(request),
+            object_type="support_grant",
+            object_id=refusal.grant_id,
+            details={"reason": refusal.reason},
+        )
+        raise Unauthenticated(code=refusal.reason)
 
     def _freshness(self, session: Session) -> SignInFreshness:
         """For RecentAuth (REQ-SEC-027): a browser session, and whether it confirmed recently.
