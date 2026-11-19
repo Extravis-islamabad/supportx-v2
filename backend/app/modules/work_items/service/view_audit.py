@@ -198,6 +198,27 @@ async def seal_stored(session: AsyncSession, wtype: WorkItemType, now: datetime)
     return done
 
 
+async def seal_pending(session: AsyncSession, wtype: WorkItemType) -> list[uuid.UUID]:
+    """Views of the type still holding a sealed field's value in plain text (sealing pending).
+
+    Nothing marks them: each run checks again and seals them once keys are there, so this is
+    also what the administrators' report counts.
+    """
+    from app.modules.work_items.service import lists, view_filters  # noqa: PLC0415 - a cycle
+
+    sealed = await lists.sealed_fields(session, wtype)
+    if not sealed:
+        return []
+    rows = await session.execute(
+        select(WorkItemView.id, WorkItemView.filter).where(
+            WorkItemView.type == wtype.code.value,
+            WorkItemView.deleted_at.is_(None),
+            WorkItemView.filter.is_not(None),
+        )
+    )
+    return [vid for vid, tree in rows.all() if view_filters.plain_sealed(tree, sealed)]
+
+
 async def audit_all(session: AsyncSession, now: datetime | None = None) -> list[Unshared]:
     """Every type of the session's tenant: plain sealed values sealed, offending shares ended."""
     when = now or datetime.now(UTC)
@@ -207,9 +228,15 @@ async def audit_all(session: AsyncSession, now: datetime | None = None) -> list[
             async with session.begin_nested():
                 await seal_stored(session, wtype, when)
         except FieldKeysUnavailable:
-            # Keys missing or locked: sealing waits for the next run (as the S3b-2b job does);
-            # ending offending shares never depends on keys.
-            log.warning("view_filters_not_sealed", type=wtype.code.value)
+            # Keys missing or locked: these views stay pending and the next run seals them (as
+            # the S3b-2b job retries); ending offending shares never depends on keys. IDs only.
+            pending = await seal_pending(session, wtype)
+            log.warning(
+                "view_filters_seal_pending",
+                type=wtype.code.value,
+                count=len(pending),
+                view_ids=[str(v) for v in pending[:50]],
+            )
         found.extend(await audit_type(session, wtype, when))
     return found
 

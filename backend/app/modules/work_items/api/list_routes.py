@@ -127,6 +127,11 @@ class ViewAuditOut(BaseModel):
     """The report: the views made private, newest first (at most 200)."""
 
     items: list[UnsharedViewOut]
+    seal_pending: int = Field(
+        default=0,
+        description="Views still holding a sealed field's value in plain text; sealed on the "
+        "next run once the tenant's keys are available.",
+    )
 
 
 class SavedViewOut(BaseModel):
@@ -534,8 +539,9 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
     Admin = Annotated[Subject, Depends(require_permission("roles.manage"))]  # noqa: N806 - alias
 
-    def _report(rows: list[WorkItemView]) -> ViewAuditOut:
+    def _report(rows: list[WorkItemView], pending: int = 0) -> ViewAuditOut:
         return ViewAuditOut(
+            seal_pending=pending,
             items=[
                 UnsharedViewOut(
                     id=r.id,
@@ -546,7 +552,7 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
                 )
                 for r in rows
                 if r.unshared_at is not None
-            ]
+            ],
         )
 
     @router.get(
@@ -557,7 +563,10 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
     async def view_audit_report(session: TenantSession, subject: Admin) -> ViewAuditOut:
         """Administrators: shared views the audit made private, with the field that caused it."""
         del subject
-        return _report(await view_audit.unshared_views(session, wtype))
+        return _report(
+            await view_audit.unshared_views(session, wtype),
+            len(await view_audit.seal_pending(session, wtype)),
+        )
 
     @router.post(
         "/saved-views/audit",
@@ -579,7 +588,10 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
         async def run() -> ViewAuditOut:
             await view_audit.audit_type(session, wtype, datetime.now(UTC))
-            return _report(await view_audit.unshared_views(session, wtype))
+            return _report(
+                await view_audit.unshared_views(session, wtype),
+                len(await view_audit.seal_pending(session, wtype)),
+            )
 
         return await idempotency.run(None, run, status_code=status.HTTP_200_OK)
 

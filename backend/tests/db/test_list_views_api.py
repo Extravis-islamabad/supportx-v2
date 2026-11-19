@@ -998,8 +998,19 @@ async def test_d176_a_sealed_field_keeps_views_private_hidden_and_audited_as_sea
     assert "Passports" not in await names(a.tech_b)
     assert "Passports" not in await names(a.lead)
     assert "Passports" in await names(a.admin)
-    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        done = await view_audit.audit_all(session)
+    import structlog  # noqa: PLC0415 - the log capture, here only
+
+    with structlog.testing.capture_logs() as logs:
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            done = await view_audit.audit_all(session)
     assert [(str(d.view_id), d.field_key, d.reason) for d in done] == [
         (view["id"], field, "sealed_field")
     ]
+    # No field keys in this world: the unsharing happened, the sealing waits (the coordinator):
+    # the view stays pending, the report counts it, and one log line names it by ID, no value.
+    pending = [e for e in logs if e.get("event") == "view_filters_seal_pending"]
+    assert len(pending) == 1
+    assert pending[0]["view_ids"] == [view["id"]]
+    assert "X1" not in str(pending[0])
+    report = await world.call("GET", f"{BASE}/saved-views/audit", a, a.admin)
+    assert report.json()["seal_pending"] == 1

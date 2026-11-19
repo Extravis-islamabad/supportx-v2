@@ -238,3 +238,32 @@ async def test_the_job_seals_what_was_stored_plain_and_runs_once(world: World) -
         "op": "eq",
         "value": SECRET,
     }
+
+
+async def test_an_in_list_is_sealed_item_by_item_opened_in_order_and_kept_on_rename(
+    world: World,
+) -> None:
+    """Lane C's #551 review: `in` and `not_in` values."""
+    _with_keys(world)
+    a = world.a
+    field = await _sealed_field(world, a, "Codes")
+    values = ["C 1!", "A 2!", "B 3!"]
+    for op in ("in", "not_in"):
+        tree = {"field": field, "op": op, "value": values}
+        made = await _save(world, a, a.admin, name=f"List {op}", filter=tree)
+        assert made.status_code == 201, made.text
+        stored = (await _stored(world, a, made.json()["id"]))["value"]
+        assert len(stored) == len(values)
+        assert all(item.startswith(TEXT_PREFIX) for item in stored)
+        assert not any(v in json.dumps(stored) for v in values)
+        assert await _shown(world, a, a.admin, made.json()["id"]) == tree  # in order
+        renamed = await world.call(
+            "PATCH",
+            f"{BASE}/saved-views/{made.json()['id']}",
+            a,
+            a.admin,
+            json={"name": f"List {op}, renamed", "filter": tree},
+            headers={"If-Match": f'"{made.json()["version"]}"'},
+        )
+        assert renamed.status_code == 200, renamed.text
+        assert (await _stored(world, a, made.json()["id"]))["value"] == stored
