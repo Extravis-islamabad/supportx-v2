@@ -1180,6 +1180,7 @@ export const ar: LabelResource = {
     'دعم المورّد عبر البريد الإلكتروني بانتظار قرار. استخدم التأكيد بالهاتف أو شخصيًا إن احتجت إليه الآن.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
   'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',
+  'errors.vendor_support_type_fixed': 'لا يمكن تغيير نوع حساب دعم Extravis.',
   'errors.version_conflict':
     'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
   'errors.window_not_found': 'هذه النافذة غير موجودة، أو أُزيلت.',

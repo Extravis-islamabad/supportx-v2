@@ -1280,6 +1280,7 @@ export const en = {
     'End the open support access first, then turn vendor support off.',
   'errors.vendor_support_tenant_admin_only':
     "Only the organisation's administrators can manage vendor support access.",
+  'errors.vendor_support_type_fixed': "An Extravis support account's type can't be changed.",
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
   'errors.window_not_found': 'This window does not exist, or it was removed.',

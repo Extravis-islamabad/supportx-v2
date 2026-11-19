@@ -1290,6 +1290,7 @@ export const ur: LabelResource = {
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
   'errors.vendor_support_tenant_admin_only':
     'صرف ادارے کے منتظمین وینڈر سپورٹ رسائی کا انتظام کر سکتے ہیں۔',
+  'errors.vendor_support_type_fixed': 'Extravis سپورٹ اکاؤنٹ کی قسم تبدیل نہیں کی جا سکتی۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.window_not_found': 'یہ ونڈو موجود نہیں، یا ہٹا دی گئی۔',
