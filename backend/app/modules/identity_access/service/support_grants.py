@@ -614,3 +614,60 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         admin_could_act=rules.admin_could_act_as_engineer(delivery),
         one_time_password=password,
     )
+
+
+async def extend_grant(  # noqa: PLR0913 - the grant, its version, the hours and context
+    session: AsyncSession,
+    subject: Subject,
+    grant_id: uuid.UUID,
+    *,
+    expected_version: int,
+    extra_hours: int,
+    source: Source,
+) -> GrantView:
+    """Move an open grant's end later, never past 72 hours from its start (D-173 (3)).
+
+    The route asks for a recent sign-in (lane B); every admin is told through the event.
+    """
+    await require_tenant_admin(session, subject)
+    row = await session.scalar(
+        select(SupportGrant).where(SupportGrant.id == grant_id).with_for_update()
+    )
+    if row is None:
+        raise NotFound(code="support_grant_not_found")
+    if row.version != expected_version:
+        raise Conflict(
+            code="version_conflict",
+            params={"expected_version": expected_version, "current_version": row.version},
+        )
+    if not rules.is_open(row.state):
+        raise Conflict(code="support_grant_not_open")
+    new_end = rules.extended_end(row.starts_at, row.ends_at, extra_hours)
+    if new_end is None:
+        raise _refuse([("hours", "support_grant_length")])
+    before = row.ends_at
+    row.ends_at = new_end
+    row.version += 1
+    row.updated_by = subject.user_id
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=GRANT_RECORD_TYPE,
+        record_id=row.id,
+        version=row.version,
+        kind="updated",
+        changes=[Change("ends_at", before.isoformat(), new_end.isoformat())],
+        source=source,
+    )
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="extended",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return _view(row)
