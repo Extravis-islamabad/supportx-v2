@@ -1724,6 +1724,7 @@ export const en = {
   'sign_in_reason.other': 'Another reason',
   'sign_in_reason.reauth_failed': 'Could not confirm it was them',
   'sign_in_reason.sign_in_expired': 'Sign-in took too long',
+  'sign_in_reason.sso_provider_not_this_tenant': 'Provider of another organisation',
   'sign_in_reason.sso_required': 'Single sign-on required',
   'sign_in_reason.unknown_person': 'No such account',
   'sign_in_reason.wrong_client': 'Wrong application credentials',
