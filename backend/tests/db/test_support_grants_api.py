@@ -19,6 +19,7 @@ from typing import Any
 
 import asyncpg
 import pytest
+from pydantic import SecretStr
 
 from app.core.database import Database, create_engine
 from app.modules.identity_access.domain import support_grants as rules
@@ -96,7 +97,7 @@ async def test_an_out_of_band_grant_shows_its_password_once_and_makes_a_support_
         ("vendor_support", address, True)
     ]
     # The password is nowhere: not the grant, not its history, not the audit.
-    for table in ("support_grants", "audit_log", "record_history"):
+    for table in ("support_grants", "audit_entries", "field_changes"):
         dump = await _sql(world, f"SELECT row_to_json(t)::text AS j FROM {table} t")  # noqa: S608 - fixed names
         assert all(password not in r["j"] for r in dump), table
 
@@ -252,7 +253,8 @@ async def test_the_schedule_ends_an_expired_grant_in_its_own_tenant_only(world: 
     past = datetime.now(UTC) - timedelta(minutes=1)
     await _sql(
         world,
-        "UPDATE support_grants SET starts_at = $2 - interval '1 hour', ends_at = $2 WHERE id = $1",
+        "UPDATE support_grants SET starts_at = $2::timestamptz - interval '1 hour', ends_at = $2"
+        " WHERE id = $1",
         grant_id,
         past,
     )
@@ -270,7 +272,11 @@ async def test_the_schedule_ends_an_expired_grant_in_its_own_tenant_only(world: 
 
 async def test_a_support_account_never_holds_a_key_and_its_type_never_changes(
     world: World,  # noqa: F811 - the reused fixture
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    settings = world.app.state.settings
+    keyed = settings.model_copy(update={"api_key_secret": SecretStr("k" * 48)})
+    monkeypatch.setattr(world.app.state, "settings", keyed)  # keys can be made at all
     body = (await _grant(world)).json()
     address = rules.account_email("omar@extravis.com", uuid.UUID(body["id"]))
     (row,) = await _sql(world, "SELECT id, version FROM users WHERE email = $1", address)

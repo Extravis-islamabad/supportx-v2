@@ -534,6 +534,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     out_of_band = request.verification is rules.Verification.OUT_OF_BAND
     row = SupportGrant(
         id=grant_id,
+        tenant_id=session.info[SESSION_TENANT_KEY].tenant_id,  # RLS: the session's tenant
         engineer_name=request.engineer_name.strip(),
         engineer_email=request.engineer_email.strip().lower(),
         reason=request.reason.strip(),

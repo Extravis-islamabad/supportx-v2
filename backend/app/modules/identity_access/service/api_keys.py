@@ -163,13 +163,13 @@ async def _check_owner(
 ) -> None:
     """Who may hold the new key: the person themself, or a service identity a manager names."""
     if owner == subject.user_id:
-        if not (manager or people_may):
-            raise PermissionDenied(code="api_keys_people_off")
         me = await session.get(User, owner)
-        # A vendor support account never holds a key (WP-057 S4c-1, lane B (5)): its access is
-        # its grant's, ended with it; a key would outlive both.
+        # A vendor support account never holds a key (WP-057 S4c-1, lane B (5)), whatever the
+        # tenant allows people: its access is its grant's, ended with it; a key would outlive both.
         if me is not None and me.user_type == SUPPORT_USER_TYPE:
             raise PermissionDenied(code=VENDOR_SUPPORT_NO_KEYS)
+        if not (manager or people_may):
+            raise PermissionDenied(code="api_keys_people_off")
         return
     if not manager:
         raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
