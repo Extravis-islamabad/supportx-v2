@@ -24,7 +24,7 @@ from pydantic import SecretStr
 from app.core.database import Database, create_engine
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.infra.keycloak_admin import IdentityAdminUnavailable
-from app.modules.identity_access.service import support_grant_job
+from app.modules.identity_access.service import support_grant_job, support_grants
 from tests.app_state import set_state
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
 
@@ -302,3 +302,23 @@ async def test_a_support_account_never_holds_a_key_and_its_type_never_changes(
     assert retyped.status_code in {404, 409}, retyped.text
     if retyped.status_code == 409:
         assert retyped.json()["code"] == "vendor_support_type_fixed"
+
+
+async def test_a_support_account_never_signs_in_through_an_identity_provider(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B (10): a tenant's provider could assert the plus-address and be linked to it."""
+    body = (await _grant(world)).json()
+    address = rules.account_email("omar@extravis.com", uuid.UUID(body["id"]))
+    (account,) = [a for a in world.admin.accounts.values() if a.email == address]
+    engine = create_engine(world.db.app_url, application_name="test")
+    try:
+        database = Database(engine)
+        brokered = await support_grants.sign_in_refusal(
+            database, world.a.tenant, account.id, None, identity_provider="acme-oidc"
+        )
+        own = await support_grants.sign_in_refusal(database, world.a.tenant, account.id, None)
+    finally:
+        await engine.dispose()
+    assert brokered == support_grants.BROKERED
+    assert own is None  # its own password and second factor, within its grant

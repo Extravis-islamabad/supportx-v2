@@ -997,6 +997,7 @@ class AuthService:
             uuid.UUID(target.tenant_id),
             identity.subject,
             attempt.ip if attempt is not None else None,
+            identity_provider=identity.identity_provider,
         )
         if support is not None:
             await self._log_policy_refusal(uuid.UUID(target.tenant_id), identity, attempt, support)

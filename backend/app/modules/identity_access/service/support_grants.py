@@ -853,12 +853,23 @@ async def request_refusal(
     return None
 
 
+BROKERED = "support_sign_in_brokered"
+
+
 async def sign_in_refusal(
-    database: Database, tenant_id: uuid.UUID, subject: str, address: str | None
+    database: Database,
+    tenant_id: uuid.UUID,
+    subject: str,
+    address: str | None,
+    *,
+    identity_provider: str | None = None,
 ) -> str | None:
     """Before a session is made: a support account signs in only within its grant and list.
 
-    Anyone else (no local row yet, or another user type) is not this check's to judge: None.
+    And only with its own password and second factor, never through an identity provider (lane B
+    (10)): a tenant's provider is the tenant's to configure, and could otherwise assert a support
+    account's address and be linked to it by Keycloak's first broker login. Anyone else (no local
+    row yet, or another user type) is not this check's to judge: None.
     """
     now = system_clock.now()
     async with database.tenant_session(TenantContext(tenant_id)) as session:
@@ -869,6 +880,8 @@ async def sign_in_refusal(
         ).one_or_none()
         if found is None or found.user_type != rules.SUPPORT_USER_TYPE:
             return None
+        if identity_provider is not None:
+            return BROKERED
         forget(tenant_id, found.id)  # a sign-in always reads the grant afresh
         return await support_refusal(session, tenant_id, found.id, address_of(address), now)
 
