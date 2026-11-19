@@ -34,6 +34,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import UserCreatedV3, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import PersonErasure, Role, User, UserRole
 from app.modules.identity_access.service.directory import (
@@ -429,6 +430,10 @@ async def set_user_type(
     """
     _person_type(user_type)
     current = await _person(session, user_id)
+    # A vendor support account's type is set when its grant makes it and never changes (lane B
+    # (1), WP-057 S4c-1): the type is what every check of its access reads.
+    if current.user_type == SUPPORT_USER_TYPE:
+        raise Conflict(code="vendor_support_type_fixed")
     if current.user_type == user_type.value:
         return await _save(session, current, expected_version, {}, "ui")
     if user_type is UserType.TECHNICIAN:

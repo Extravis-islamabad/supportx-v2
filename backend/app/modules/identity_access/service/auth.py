@@ -1313,6 +1313,14 @@ class AuthService:
         address = client_address(request)
         if not await self._admit(session.tenant_uuid, _client_app(session), address):
             raise PermissionDenied(code=IP_NOT_ALLOWED)
+        if session.user_type == SUPPORT_USER_TYPE and self.database is not None:
+            # No realtime token once a support grant has ended (lane B (4)): its open connections
+            # were cut when it ended, and none can start again.
+            refusal = await support_grants.request_refusal(
+                self.database, session.tenant_uuid, session.user_uuid, address
+            )
+            if refusal is not None:
+                raise PermissionDenied(code=refusal.reason)
 
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
