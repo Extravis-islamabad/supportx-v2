@@ -1210,6 +1210,8 @@ export const ur: LabelResource = {
   'errors.sso_provider_missing':
     'یہ سیٹ اپ سائن اِن کی سروس میں موجود نہیں۔ اسے ہٹا کر دوبارہ شامل کریں۔',
   'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
+  'errors.sso_provider_not_this_tenant':
+    'آپ نے کسی دوسری تنظیم کے شناختی فراہم کنندہ کے ذریعے سائن اِن کیا ہے۔ اپنی تنظیم کے سائن اِن صفحے سے سائن اِن کریں۔',
   'errors.sso_provider_refused':
     'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
   'errors.sso_required':

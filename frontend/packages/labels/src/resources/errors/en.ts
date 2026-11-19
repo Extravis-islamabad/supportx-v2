@@ -1200,6 +1200,8 @@ export const en = {
   'errors.sso_provider_missing':
     'This set-up is missing in the sign-in service. Remove it and add it again.',
   'errors.sso_provider_not_found': 'This single sign-on set-up was not found.',
+  'errors.sso_provider_not_this_tenant':
+    "You signed in through a provider that belongs to another organisation. Sign in through your own organisation's sign-in page.",
   'errors.sso_provider_refused':
     'The sign-in service refused these settings. Check them and try again.',
   'errors.sso_required':
