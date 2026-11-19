@@ -221,6 +221,7 @@ export const ur: LabelResource = {
   'cmdb.views.as_cards': 'کارڈ',
   'cmdb.views.as_list': 'فہرست',
   'cmdb.views.back': 'کاروباری مناظر پر واپس',
+  'cmdb.views.base_ci': 'بنیادی کنفیگریشن آئٹم',
   'cmdb.views.copy_name': '{{name}} (نقل)',
   'cmdb.views.delete': 'منظر ہٹائیں',
   'cmdb.views.delete_confirm': 'کیا کاروباری منظر "{{name}}" ہٹا دیں؟',

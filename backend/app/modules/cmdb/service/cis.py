@@ -14,7 +14,7 @@ type change that would drop values outside the new type's fields needs
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -27,6 +27,7 @@ from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
 from app.modules.cmdb.infra.models import Ci, CiState, CiType
+from app.modules.cmdb.service import ref_names
 from app.modules.cmdb.service.catalogue import (
     ADD,
     DELETE,
@@ -170,6 +171,9 @@ class CiView:
     custom: dict[str, Any]
     masked_fields: tuple[str, ...]
     read_only_fields: tuple[str, ...]
+    # The CI's references named for this reader (site, owner, groups, asset, person custom
+    # fields), by the referenced ID; never an ID as a label (CMDB polish).
+    names: dict[str, ref_names.RefName] = field(default_factory=dict)
 
 
 async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: uuid.UUID) -> bool:
@@ -190,12 +194,19 @@ def _unseen(subject: Subject) -> field_rules.Unseen:
 async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
     unseen = _unseen(subject)
     held = record.custom or {}
+    custom = field_rules.without(held, unseen.custom_keys())
+    # Only what the reader may read is named: hidden and masked custom values are left out.
+    referred = {
+        **{name: getattr(record, name) for name in ref_names.REFERENCE_FIELDS},
+        **{f"{field_rules.CUSTOM}{key}": value for key, value in custom.items()},
+    }
     return CiView(
         record=record,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         can_edit=await _may(session, subject, EDIT, record.id),
         can_delete=await _may(session, subject, DELETE, record.id),
-        custom=field_rules.without(held, unseen.custom_keys()),
+        names=await ref_names.names_for(session, subject, [referred]),
+        custom=custom,
         masked_fields=tuple(
             sorted(f for f in unseen.masked if f.removeprefix(field_rules.CUSTOM) in held)
         ),
