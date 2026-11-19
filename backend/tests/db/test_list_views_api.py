@@ -998,8 +998,85 @@ async def test_d176_a_sealed_field_keeps_views_private_hidden_and_audited_as_sea
     assert "Passports" not in await names(a.tech_b)
     assert "Passports" not in await names(a.lead)
     assert "Passports" in await names(a.admin)
-    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        done = await view_audit.audit_all(session)
+    import structlog  # noqa: PLC0415 - the log capture, here only
+
+    with structlog.testing.capture_logs() as logs:
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            done = await view_audit.audit_all(session)
     assert [(str(d.view_id), d.field_key, d.reason) for d in done] == [
         (view["id"], field, "sealed_field")
     ]
+    # No field keys in this world: the unsharing happened, the sealing waits (the coordinator):
+    # the view stays pending, the report counts it, and one log line names it by ID, no value.
+    pending = [e for e in logs if e.get("event") == "view_filters_seal_pending"]
+    assert len(pending) == 1
+    assert pending[0]["view_ids"] == [view["id"]]
+    assert "X1" not in str(pending[0])
+    report = await world.call("GET", f"{BASE}/saved-views/audit", a, a.admin)
+    assert report.json()["seal_pending"] == 1
+
+
+async def test_d176_the_owner_is_told_and_the_audit_runs_on_its_own(world: World) -> None:
+    """The view audit's other ways in: the owner's notice (only theirs, the field by its name),
+    the field-rule consumer and the schedule (the same idempotent run)."""
+    from app.modules.work_items.service import view_audit  # noqa: PLC0415 - the job under test
+    from tests.db.test_conversation_api import events_of  # noqa: PLC0415 - the outbox helper
+    from tests.db.test_incidents_api import CONSOLE  # noqa: PLC0415 - the console header
+
+    a = world.a
+    made = await world.call(
+        "POST",
+        "/custom-fields",
+        a,
+        a.admin,
+        json={"entity": "incident", "field_type": "text", "labels": {"en": "Region code"}},
+        headers=CONSOLE,
+    )
+    field = f"custom.{made.json()['key']}"
+    view = (
+        await save_view(
+            world,
+            a,
+            a.admin,
+            name="Regional",
+            visibility="everyone",
+            filter={"field": field, "op": "eq", "value": "R7"},
+        )
+    ).json()
+    await world.sql(
+        "INSERT INTO role_field_access (id, tenant_id, role_id, record_type, field, mode)"
+        " SELECT gen_random_uuid(), $1, id, 'incident', $2, 'hidden' FROM roles"
+        " WHERE tenant_id = $1 AND key = 'technician'",
+        a.tenant,
+        field,
+    )
+    # The consumer (a field rule changed) runs the audit; without a session it does nothing.
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        envelope = None
+        await view_audit.on_field_access_changed(envelope, None)  # type: ignore[arg-type]  # the no-session path
+        await view_audit.on_field_access_changed(envelope, session)  # type: ignore[arg-type]  # payload unused
+    (notice,) = [
+        e
+        for e in await events_of(world, "work_item_view")
+        if e.event_type == "work_items.view.unshared" and e.payload["view_id"] == view["id"]
+    ]
+    source = view_audit.SOURCE
+    assert source.events_for(notice) == (view_audit.UNSHARED,)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await source.context(session, view_audit.UNSHARED, notice)
+        assert context is not None
+        assert context.relatives[view_audit.OWNER] == frozenset({uuid.UUID(view["owner_id"])})
+        assert context.variables["record.title"] == "Regional"
+        assert "R7" not in str(context.variables)  # the field by its name, never the value
+        mine = await source.access(session, uuid.UUID(view["owner_id"]), uuid.UUID(view["id"]))
+        theirs = await source.access(session, a.tech_b, uuid.UUID(view["id"]))
+    assert mine.value == "full"
+    assert theirs.value == "none"
+    # The schedule: every tenant, the same run; nothing left to change, so nothing changes.
+    await view_audit.audit_schedule(world.app.state.db, world.app.state.settings)
+    (row,) = await world.sql(
+        "SELECT visibility, version FROM work_item_views WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(view["id"]),
+    )
+    assert row["visibility"] == "private"

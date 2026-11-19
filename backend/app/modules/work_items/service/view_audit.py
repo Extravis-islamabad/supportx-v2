@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
+from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import metadata
 from app.modules.identity_access import restricted_fields
@@ -37,6 +38,7 @@ from app.modules.work_items.domain.types import PERMISSION_TYPES, WorkItemType
 from app.modules.work_items.events import WorkItemViewChanged, WorkItemViewUnshared
 from app.modules.work_items.infra.models import WorkItemView, WorkItemViewFavourite
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
+from app.shared.fields import FieldKeysUnavailable
 from app.shared.history import Change, record_changes
 from app.shared.notifications.ports import (
     EventDefault,
@@ -51,6 +53,7 @@ from app.shared.notifications.ports import (
     register_record_source,
 )
 
+log = get_logger(__name__)
 RESTRICTED = "restricted_field"
 SEALED = "sealed_field"
 RECORD_TYPE = "work_item_view"
@@ -150,11 +153,90 @@ async def audit_type(session: AsyncSession, wtype: WorkItemType, now: datetime) 
     return done
 
 
+async def seal_stored(session: AsyncSession, wtype: WorkItemType, now: datetime) -> int:
+    """Seal sealed-field values still stored in plain text in the type's views (lane C).
+
+    Private views included; a value already sealed is skipped, so a second run does nothing.
+    One version and one history line per view, the filter's field names only, as the system.
+    """
+    from app.modules.work_items.service import lists, view_filters  # noqa: PLC0415 - a cycle
+
+    sealed = await lists.sealed_fields(session, wtype)
+    if not sealed:
+        return 0
+    rows = await session.scalars(
+        select(WorkItemView)
+        .where(
+            WorkItemView.type == wtype.code.value,
+            WorkItemView.deleted_at.is_(None),
+            WorkItemView.filter.is_not(None),
+        )
+        .order_by(WorkItemView.id)
+        .with_for_update()
+    )
+    done = 0
+    for row in rows:
+        if not view_filters.plain_sealed(row.filter, sealed):
+            continue
+        before = view_filters.history_value(row.filter, sealed)
+        row.filter = view_filters.as_mapping(
+            await view_filters.seal(session, row.id, row.filter, sealed)
+        )
+        row.version += 1
+        row.updated_at = now
+        await session.flush()
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=row.id,
+            version=row.version,
+            kind="updated",
+            changes=[Change("filter", before, view_filters.history_value(row.filter, sealed))],
+            source="system",
+        )
+        done += 1
+    return done
+
+
+async def seal_pending(session: AsyncSession, wtype: WorkItemType) -> list[uuid.UUID]:
+    """Views of the type still holding a sealed field's value in plain text (sealing pending).
+
+    Nothing marks them: each run checks again and seals them once keys are there, so this is
+    also what the administrators' report counts.
+    """
+    from app.modules.work_items.service import lists, view_filters  # noqa: PLC0415 - a cycle
+
+    sealed = await lists.sealed_fields(session, wtype)
+    if not sealed:
+        return []
+    rows = await session.execute(
+        select(WorkItemView.id, WorkItemView.filter).where(
+            WorkItemView.type == wtype.code.value,
+            WorkItemView.deleted_at.is_(None),
+            WorkItemView.filter.is_not(None),
+        )
+    )
+    return [vid for vid, tree in rows.all() if view_filters.plain_sealed(tree, sealed)]
+
+
 async def audit_all(session: AsyncSession, now: datetime | None = None) -> list[Unshared]:
-    """Every type of the session's tenant."""
+    """Every type of the session's tenant: plain sealed values sealed, offending shares ended."""
     when = now or datetime.now(UTC)
     found: list[Unshared] = []
     for wtype in PERMISSION_TYPES:  # the types that have saved views and share rights
+        try:
+            async with session.begin_nested():
+                await seal_stored(session, wtype, when)
+        except FieldKeysUnavailable:
+            # Keys missing or locked: these views stay pending and the next run seals them (as
+            # the S3b-2b job retries); ending offending shares never depends on keys. IDs only.
+            pending = await seal_pending(session, wtype)
+            log.warning(
+                "view_filters_seal_pending",
+                type=wtype.code.value,
+                count=len(pending),
+                view_ids=[str(v) for v in pending[:50]],
+            )
         found.extend(await audit_type(session, wtype, when))
     return found
 

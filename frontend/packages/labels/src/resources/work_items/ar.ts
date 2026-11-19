@@ -1503,6 +1503,10 @@ export const ar: LabelResource = {
   'incidents.views.unstar': 'إزالة النجمة',
   'incidents.views.which_groups': 'المجموعات التي تراها',
   'incidents.views.who': 'من يراها',
+  'incidents.views.withheld':
+    'يستخدم جزء من مرشح هذا العرض حقلًا لا يمكنك رؤيته الآن، لذا لا يُطبَّق. قد تختلف النتائج عن العرض كما حُفظ.',
+  'incidents.views.withheld_edit':
+    'يستخدم مرشح هذا العرض حقلًا لا يمكنك رؤيته الآن، لذا تبقى شروطه كما حُفظت. لا يزال بإمكانك تغيير اسمه وأعمدته ومشاركته.',
   'incidents.worklogs.add': 'تسجيل الوقت',
   'incidents.worklogs.billable': 'قابل للفوترة',
   'incidents.worklogs.billable_field': 'وقت قابل للفوترة',
@@ -2541,6 +2545,8 @@ export const ar: LabelResource = {
     'العروض المشتركة التي يستخدم مرشحها حقلًا لا يستطيع بعض الأشخاص رؤيته تُجعل خاصة بمالكها، ويُبلَّغ بالسبب. يجري هذا تلقائيًا، ويمكنك أيضًا تشغيله الآن.',
   'settings.view_audit.none': 'لم يُجعل أي عرض خاصًا.',
   'settings.view_audit.rerun': 'فحص العروض المشتركة الآن',
+  'settings.view_audit.seal_pending':
+    'عروض تنتظر ختم قيمها المحمية: {{n}}. يحدث ذلك في الفحص التالي عند توفر مفاتيح التشفير.',
   'settings.view_audit.title': 'العروض التي جُعلت خاصة',
   'settings.view_audit.unavailable': 'لا يمكن عرض قائمة العروض التي جُعلت خاصة الآن.',
   'settings.view_audit.view': 'العرض',

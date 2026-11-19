@@ -1352,6 +1352,10 @@ export const ur: LabelResource = {
   'incidents.views.unstar': 'ستارہ ہٹائیں',
   'incidents.views.which_groups': 'کون سے گروپ دیکھیں',
   'incidents.views.who': 'کون دیکھ سکتا ہے',
+  'incidents.views.withheld':
+    'اس منظر کے فلٹر کا ایک حصہ ایسا فیلڈ استعمال کرتا ہے جو آپ اب نہیں دیکھ سکتے، اس لیے وہ لاگو نہیں ہوتا۔ نتائج محفوظ کیے گئے منظر سے مختلف ہو سکتے ہیں۔',
+  'incidents.views.withheld_edit':
+    'اس منظر کا فلٹر ایسا فیلڈ استعمال کرتا ہے جو آپ اب نہیں دیکھ سکتے، اس لیے اس کی شرائط ویسی ہی رہیں گی جیسی محفوظ کی گئیں۔ آپ اب بھی اس کا نام، کالم اور شیئرنگ بدل سکتے ہیں۔',
   'incidents.worklogs.add': 'وقت درج کریں',
   'incidents.worklogs.billable': 'قابلِ بل',
   'incidents.worklogs.billable_field': 'قابلِ بل وقت',
@@ -2264,6 +2268,8 @@ export const ur: LabelResource = {
     'وہ شیئر کیے گئے منظر جن کا فلٹر ایسا فیلڈ استعمال کرتا ہے جو کچھ لوگ نہیں دیکھ سکتے، ان کے مالک کے لیے نجی کر دیے جاتے ہیں اور اسے وجہ بتائی جاتی ہے۔ یہ خود چلتا ہے؛ آپ اسے ابھی بھی چلا سکتے ہیں۔',
   'settings.view_audit.none': 'کوئی منظر نجی نہیں کیا گیا۔',
   'settings.view_audit.rerun': 'شیئر کیے گئے منظر ابھی جانچیں',
+  'settings.view_audit.seal_pending':
+    'وہ منظر جن کی محفوظ قدریں سیل ہونے کی منتظر ہیں: {{n}}۔ یہ اگلی جانچ پر ہوگا جب خفیہ کاری کی کلیدیں دستیاب ہوں۔',
   'settings.view_audit.title': 'نجی کیے گئے منظر',
   'settings.view_audit.unavailable': 'نجی کیے گئے منظروں کی فہرست ابھی نہیں دکھائی جا سکتی۔',
   'settings.view_audit.view': 'منظر',

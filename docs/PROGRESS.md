@@ -1637,20 +1637,21 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     reassigned, within the tenant's minutes), confirmed or changed by the technician.
   - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
     closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
-- [~] **S4, major incidents, announcing and printing (0177; lane B blocks; lane C owns the
-  announcements port and reads the UI):**
+- [x] **S4, major incidents, announcing and printing (0177; #541 merged 2026-11-18; lane B blocked
+  under D-149, lane C after D-175; lane C owns the announcements port and read the UI):**
   - REQ-INC-141: `incidents.declare_major` (tenant admin, service desk managers): declare and end
     with a reason (audited, the reason in the entry's personal part, never in history values);
     the major incident team (a group and named people) is told through the engine; the major
     template applies when set; the marker in the record and lists, a filter field, the open
-    major incidents list; settings with If-Match and an audit entry. Attaching similar incidents
-    as children (REQ-INC-141 AC2) follows once S2 (#525) is on main.
+    major incidents list; settings with If-Match and an audit entry. Similar incidents attach as
+    children through a bulk job, each checked as the person (REQ-INC-141 AC2).
   - REQ-INC-129: announce from an incident through announcements' new public port (its own
     rights, scope and audience); the link kept by work_items; one Idempotency-Key per dialog;
     a draft when the actor may not publish; resolving offers to end them, nothing ends by itself.
   - REQ-INC-126: print or save as PDF with chosen sections, read from the reader's own APIs; the
     conversation's server-side `visibility` filter keeps private notes off a public printout.
-- [~] **S2, links, merges and conversions (0172; lane B blocks; lane C reads the UI):**
+- [x] **S2, links, merges and conversions (0172; #525 merged 2026-11-18; lane B blocked; lane C
+  read the UI):**
   - REQ-INC-086: parent and child incidents, one level, no loops (one parent per child, a parent
     is no child, a child has no children); edit on both; a link never widens access (an unseen
     side is a hidden line).
@@ -1666,6 +1667,19 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     pending approvals withdrawn; old numbers lead to the new record for readers only (404).
   - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
   - Seed version 6 tops up the `converted` status for older tenants.
+- [~] **S3, views, lists and bulk:** S3a done (0178; #549 merged 2026-11-18; lane C blocked
+  under D-175); S3b (board and calendar) and S3c (split view, peek, in-list edits, chart, bulk
+  merge/link/note/delete) to come.
+  - REQ-INC-107 AC1: star saved views (personal, first in the picker).
+  - REQ-INC-115: unread rows (changed by someone else, or a public reply, since you opened the
+    record; one never opened only for its assignee) in bold with a dot and a spoken "Unread",
+    live; rows coloured by status or priority (a tenant default and a person's own per view),
+    the mark darkened until it reads 3:1.
+  - D-176: `<type>.share_views` and `<type>.share_views_wide` (team leads: groups they lead;
+    releases: the release manager); a shared view naming a field the reader may not see is not
+    theirs (checked on every read); sharing on a restricted or sealed field refused; the view
+    audit makes existing offending views private (history, events, the owner told, a report).
+  - A link opens a view (`?view=open`, `?view=custom:<id>`).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
