@@ -179,6 +179,8 @@ async def _person(session: AsyncSession, user_id: uuid.UUID) -> User:
     current = await UserRepository(session).get(user_id)
     if current.user_type == UserType.SERVICE.value:
         raise Conflict(code="service_identity_managed")
+    if current.user_type == SUPPORT_USER_TYPE:  # its grant alone manages it (lane B (1))
+        raise Conflict(code="vendor_support_type_fixed")
     return current
 
 
@@ -313,8 +315,8 @@ async def update_person(
     source: Source = "api",
 ) -> User:
     """Change the person record (REQ-ADM-002). A stale version gets an explained 409."""
+    current = await _person(session, user_id)  # not a person (service, vendor support): 409 first
     clean = _clean(changes)
-    current = await _person(session, user_id)
     if current.directory_source is not None and source != "integration":
         managed = sorted(
             name

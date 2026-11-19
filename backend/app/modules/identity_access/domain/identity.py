@@ -41,6 +41,10 @@ class PersonType(StrEnum):
 
 
 PERSON_TYPES = frozenset({UserType.TECHNICIAN, UserType.REQUESTER})
+# Accounts that are not people: never in people lists, pickers, counts, adoption or the people
+# screens. A connector's service identity, and a vendor support grant's temporary account
+# (WP-057 S4c-1, D-173; `support_grants.SUPPORT_USER_TYPE`), which its grant alone manages.
+NOT_PEOPLE = frozenset({UserType.SERVICE.value, "vendor_support"})
 
 
 class NavLayout(StrEnum):

@@ -343,3 +343,24 @@ async def test_no_log_line_holds_the_password_or_the_engineers_addresses(
     assert caplog.records  # something was logged at all
     for private in (secret, address, "omar@extravis.com"):
         assert private not in logged
+
+
+async def test_a_support_account_is_never_in_the_people_list(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """D-173 design (8): no people list, picker or count shows a vendor support account."""
+    body = (await _grant(world)).json()
+    address = rules.account_email("omar@extravis.com", uuid.UUID(body["id"]))
+    (row,) = await _sql(world, "SELECT id FROM users WHERE email = $1", address)
+    listed = await world.call("GET", "/users", world.a, params={"limit": 200})
+    assert listed.status_code == 200, listed.text
+    assert str(row["id"]) not in listed.text
+    assert "Omar Engineer" not in listed.text
+    edited = await world.call(
+        "PATCH",
+        f"/users/{row['id']}/person",
+        world.a,
+        json={"first_name": "Someone"},
+        headers={"If-Match": '"1"'},
+    )
+    assert edited.status_code == 409, edited.text  # the people screens never change it
