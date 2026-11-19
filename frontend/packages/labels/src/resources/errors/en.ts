@@ -1243,6 +1243,8 @@ export const en = {
     "This support access has ended or hasn't started. Ask the organisation's administrator.",
   'errors.support_grant_not_found': 'That support access was not found.',
   'errors.support_grant_not_open': "This support access has already ended, so it can't be changed.",
+  'errors.support_sign_in_brokered':
+    "An Extravis support account signs in with its own password and second step, never through your organisation's sign-in provider.",
   'errors.survivor_is_a_child':
     '{{display_id}} is a child of another incident, so it cannot take children.',
   'errors.system_calendar_required':

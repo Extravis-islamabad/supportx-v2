@@ -1253,6 +1253,8 @@ export const ur: LabelResource = {
   'errors.support_grant_not_found': 'یہ سپورٹ رسائی نہیں ملی۔',
   'errors.support_grant_not_open':
     'یہ سپورٹ رسائی پہلے ہی ختم ہو چکی ہے، اس لیے اسے بدلا نہیں جا سکتا۔',
+  'errors.support_sign_in_brokered':
+    'Extravis سپورٹ اکاؤنٹ صرف اپنے پاس ورڈ اور دوسرے مرحلے سے سائن اِن کرتا ہے، آپ کے ادارے کے سائن اِن فراہم کنندہ سے کبھی نہیں۔',
   'errors.survivor_is_a_child':
     '{{display_id}} کسی اور واقعے کا ذیلی ہے، اس لیے یہ ذیلی واقعات نہیں لے سکتا۔',
   'errors.system_calendar_required':

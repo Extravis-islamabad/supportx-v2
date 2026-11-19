@@ -1153,6 +1153,8 @@ export const ar: LabelResource = {
   'errors.support_grant_inactive': 'انتهى وصول الدعم هذا أو لم يبدأ بعد. اسأل مسؤول المؤسسة.',
   'errors.support_grant_not_found': 'لم يُعثر على وصول الدعم هذا.',
   'errors.support_grant_not_open': 'انتهى وصول الدعم هذا بالفعل، لذا لا يمكن تغييره.',
+  'errors.support_sign_in_brokered':
+    'يسجّل حساب دعم Extravis الدخول بكلمة مروره وخطوته الثانية فقط، ولا يستخدم أبدًا موفّر تسجيل الدخول لمؤسستك.',
   'errors.survivor_is_a_child': '{{display_id}} حادث فرعي لحادث آخر، فلا يمكن أن يأخذ حوادث فرعية.',
   'errors.system_calendar_required': 'تحتفظ كل مؤسسة بهذا التقويم، لذا لا يمكن حذفه.',
   'errors.system_role_immutable': 'لا يمكن تغيير الأدوار المضمّنة أو حذفها.',
