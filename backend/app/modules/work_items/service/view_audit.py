@@ -38,7 +38,7 @@ from app.modules.work_items.domain.types import PERMISSION_TYPES, WorkItemType
 from app.modules.work_items.events import WorkItemViewChanged, WorkItemViewUnshared
 from app.modules.work_items.infra.models import WorkItemView, WorkItemViewFavourite
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
-from app.shared.fields.cipher import FieldKeysUnavailable
+from app.shared.fields import FieldKeysUnavailable
 from app.shared.history import Change, record_changes
 from app.shared.notifications.ports import (
     EventDefault,
