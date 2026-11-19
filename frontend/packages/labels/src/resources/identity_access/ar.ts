@@ -1632,6 +1632,7 @@ export const ar: LabelResource = {
   'security_area.sessions': 'الجلسات',
   'security_area.sign_in': 'تسجيل الدخول الموحد',
   'security_area.sign_in_events': 'نشاط تسجيل الدخول',
+  'security_area.vendor_support': 'دعم المورّد',
   'security_flag.admins_without_mfa': 'يمكن لمسؤولي المؤسسة تسجيل الدخول دون التحقق متعدد العوامل.',
   'security_flag.api_open_network': 'تعمل مفاتيح API من أي عنوان شبكة.',
   'security_flag.console_idle_long': 'تبقى جلسات وحدة التحكم مفتوحة أكثر من ساعة دون نشاط.',
@@ -1654,6 +1655,8 @@ export const ar: LabelResource = {
     'تنتهي خلال شهر شهادة أو سر لتسجيل الدخول الموحد. الأيام المتبقية: {{count}}',
   'security_flag.sso_credential_expires_soon':
     'تنتهي قريبًا شهادة أو سر لتسجيل الدخول الموحد. الأيام المتبقية: {{count}}',
+  'security_flag.support_removals_stuck':
+    'حسابات دعم Extravis لم تُحذف بعد يوم من انتهاء وصولها: {{count}}',
   'security_severity.high': 'تصرّف الآن',
   'security_severity.low': 'للنظر',
   'security_severity.medium': 'يستحق المراجعة',

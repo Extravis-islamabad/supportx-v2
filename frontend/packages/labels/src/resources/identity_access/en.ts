@@ -1616,6 +1616,7 @@ export const en = {
   'security_area.sessions': 'Sessions',
   'security_area.sign_in': 'Single sign-on',
   'security_area.sign_in_events': 'Sign-in activity',
+  'security_area.vendor_support': 'Vendor support',
   'security_flag.admins_without_mfa':
     'Tenant administrators can sign in without multi-factor sign-in.',
   'security_flag.api_open_network': 'API keys work from any network address.',
@@ -1642,6 +1643,8 @@ export const en = {
     'A single sign-on certificate or secret runs out within a month. Days left: {{count}}',
   'security_flag.sso_credential_expires_soon':
     'A single sign-on certificate or secret runs out soon. Days left: {{count}}',
+  'security_flag.support_removals_stuck':
+    'Extravis support accounts not yet removed a day after their access ended: {{count}}',
   'security_severity.high': 'Act now',
   'security_severity.low': 'Consider',
   'security_severity.medium': 'Worth a look',

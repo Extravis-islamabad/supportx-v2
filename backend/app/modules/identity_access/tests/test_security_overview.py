@@ -111,3 +111,13 @@ def test_flags_hold_codes_and_numbers_only() -> None:
     for flag in flags(dataclasses.replace(SOUND, roles_without_mfa=2, keys_unused=5)):
         assert isinstance(flag.code, str)
         assert flag.count is None or isinstance(flag.count, int)
+
+
+def test_a_stuck_support_removal_is_a_high_flag() -> None:
+    """Lane B: a support account not confirmed gone a day after its grant ended is never silent."""
+    found = flags(dataclasses.replace(SOUND, support_removals_stuck=2))
+    stuck = [f for f in found if f.code == "support_removals_stuck"]
+    assert [(f.area, f.severity, f.count) for f in stuck] == [
+        (SecurityArea.VENDOR_SUPPORT, SecuritySeverity.HIGH, 2)
+    ]
+    assert not [f for f in flags(SOUND) if f.code == "support_removals_stuck"]
