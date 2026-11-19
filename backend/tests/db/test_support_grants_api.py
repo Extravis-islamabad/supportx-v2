@@ -3,8 +3,7 @@
 - A grant makes a temporary account at a plus-address of the engineer's own, in the tenant's
   organization; out of band, the admin sees a one-time password once, never again (not in the
   replay, not in the database, not in the audit).
-- With mail, the e-mail path waits for the product owner (item 14): refused, never the admin path.
-  On the actions-e-mail path no credential exists until the engineer's mailbox sets one.
+- With mail (D-177), no credential exists until the engineer's own mailbox sets one, with MFA.
 - D-173's rules refuse: another domain, a fourth open grant, the opt-out; the opt-out is refused
   while a grant is open; only tenant admins act.
 - Ending a grant refuses the account at once; its Keycloak account is disabled, then deleted, and
@@ -104,22 +103,10 @@ async def test_an_out_of_band_grant_shows_its_password_once_and_makes_a_support_
         assert all(password not in r["j"] for r in dump), table
 
 
-async def test_with_mail_the_email_path_waits_for_the_decision(world: World) -> None:  # noqa: F811 - the reused fixture
-    """Item 14: with mail set up, refused (lane B, the coordinator), never the admin path."""
-    refused = await _grant(world, verification="email", confirmation_note=None)
-    assert refused.status_code == 409, refused.text
-    assert refused.json()["code"] == rules.PENDING_DECISION
-    assert (
-        await _sql(world, "SELECT 1 FROM support_grants WHERE tenant_id = $1", world.a.tenant) == []
-    )
-
-
 async def test_the_actions_email_path_holds_no_credential(
     world: World,  # noqa: F811 - the reused fixture
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Once Haider chooses it (one value): no password, the engineer's mailbox sets one."""
-    monkeypatch.setattr(rules, "WITH_MAIL", rules.Delivery.ACTIONS_EMAIL)
+    """D-177: with mail, no password exists; the engineer's own mailbox sets one, with MFA."""
     made = await _grant(world, verification="email", confirmation_note=None)
     assert made.status_code == 201, made.text
     body = made.json()

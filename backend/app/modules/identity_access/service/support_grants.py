@@ -521,8 +521,6 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     if problems:
         raise _refuse(problems)
     delivery = rules.delivery_for(request.verification, mail_available=mail_configured(settings))
-    if delivery is None:
-        raise Conflict(code=rules.PENDING_DECISION)
     if admin is None:
         raise IdentityAdminNotConfigured
     networks = _networks(request.ip_allowlist)

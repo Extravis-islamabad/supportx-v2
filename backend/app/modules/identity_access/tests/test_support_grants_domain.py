@@ -141,18 +141,19 @@ def test_a_tagged_or_too_long_address_is_refused() -> None:
 
 
 def test_one_place_decides_how_the_engineer_gets_in(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With mail it waits for Haider (item 14): refused, never the admin path (lane B)."""
+    """D-177: with mail, the engineer's own actions e-mail; without, the admin's password."""
     oob = Verification.OUT_OF_BAND
     assert delivery_for(oob, mail_available=True) is Delivery.ONE_TIME_PASSWORD
     assert delivery_for(Verification.EMAIL, mail_available=False) is Delivery.ONE_TIME_PASSWORD
-    assert WITH_MAIL is None
-    assert delivery_for(Verification.EMAIL, mail_available=True) is None
+    assert WITH_MAIL is Delivery.ACTIONS_EMAIL
+    assert delivery_for(Verification.EMAIL, mail_available=True) is Delivery.ACTIONS_EMAIL
     assert admin_could_act_as_engineer(Delivery.ONE_TIME_PASSWORD)
     assert not admin_could_act_as_engineer(Delivery.ACTIONS_EMAIL)
-    # Either answer is one value, and the function follows it.
-    for answer in (Delivery.ACTIONS_EMAIL, Delivery.ONE_TIME_PASSWORD):
-        monkeypatch.setattr(support_grants, "WITH_MAIL", answer)
-        assert support_grants.delivery_for(Verification.EMAIL, mail_available=True) is answer
+    # Still one value: the function follows it.
+    monkeypatch.setattr(support_grants, "WITH_MAIL", Delivery.ONE_TIME_PASSWORD)
+    assert support_grants.delivery_for(Verification.EMAIL, mail_available=True) is (
+        Delivery.ONE_TIME_PASSWORD
+    )
 
 
 def test_the_required_actions_and_the_link_lifespan() -> None:

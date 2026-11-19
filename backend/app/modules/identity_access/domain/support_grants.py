@@ -66,12 +66,10 @@ class Delivery(StrEnum):
     ONE_TIME_PASSWORD = "one_time_password"  # noqa: S105 - a delivery code, not a secret
 
 
-# With mail, which path applies waits for Haider (item 14, 2026-11-20). Until then it is None:
-# the grant is refused (lane B, 2026-11-19), as the admin path lets the admin be the engineer and
-# D-173's core is "named and verified". His answer sets this one value: ACTIONS_EMAIL (lane B's
-# and lane C's recommendation) or ONE_TIME_PASSWORD (D-173's wording today).
-WITH_MAIL: Delivery | None = None
-PENDING_DECISION = "vendor_support_email_pending_decision"
+# With mail, the engineer sets their own password and second factor from Keycloak's actions
+# e-mail (D-177, Haider 2026-11-20): nobody else ever holds a credential. The admin's one-time
+# password stays only where no mail exists (air-gapped), with the call-back confirmation.
+WITH_MAIL = Delivery.ACTIONS_EMAIL
 
 # The order the engineer must complete before any session (lane B (2)); on the one-time path
 # Keycloak's own priorities decide the order, which is why that path carries its warning.
@@ -79,11 +77,11 @@ REQUIRED_ACTIONS = ("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP")
 OUT_OF_BAND_ACTIONS = ("UPDATE_PASSWORD", "CONFIGURE_TOTP")
 
 
-def delivery_for(verification: "Verification", *, mail_available: bool) -> Delivery | None:
-    """The one place that decides how the engineer gets in; None while that waits for Haider.
+def delivery_for(verification: "Verification", *, mail_available: bool) -> Delivery:
+    """The one place that decides how the engineer gets in (D-177).
 
-    Out-of-band (no mail to verify with) is always the one-time password, with its warning;
-    with mail, `WITH_MAIL`.
+    Out-of-band (no mail to verify with) is the one-time password, with its warning; with mail,
+    `WITH_MAIL`, the actions e-mail.
     """
     if verification is Verification.OUT_OF_BAND or not mail_available:
         return Delivery.ONE_TIME_PASSWORD
