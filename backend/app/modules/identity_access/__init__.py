@@ -109,6 +109,7 @@ from app.modules.identity_access.service import (
     service_account_handover,
     sign_in_import,
     sign_in_log,
+    support_grant_job,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
@@ -510,6 +511,12 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
         # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.
         ScheduleSpec("identity_access__person_erasures", 30, erasure_job.erasure_schedule),
+        # WP-057 S4c-1 (D-173): grants end within 30 s; removals retried; stuck ones told once.
+        ScheduleSpec(
+            "identity_access__support_grants",
+            support_grant_job.EVERY_SECONDS,
+            support_grant_job.support_grant_schedule,
+        ),
     ],
 )
 

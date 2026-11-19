@@ -517,6 +517,7 @@ class SupportGrantChanged(DomainEvent):
         "revoked",
         "account_removed",
         "account_removal_failed",
+        "account_removal_stuck",
     ]
     access: Literal["view", "view_and_change"]
     ends_at: datetime
