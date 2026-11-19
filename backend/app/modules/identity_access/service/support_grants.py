@@ -169,6 +169,12 @@ async def never_allowed(session: AsyncSession) -> bool:
     return bool(found)
 
 
+async def setting(session: AsyncSession) -> tuple[bool, int]:
+    """The opt-out and the sign-in settings' version (0 when no row exists yet)."""
+    row = await session.scalar(select(IdentitySettings))
+    return (False, 0) if row is None else (row.never_allow_vendor_support, row.version)
+
+
 async def set_never_allow(
     session: AsyncSession,
     subject: Subject,

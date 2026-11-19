@@ -62,6 +62,7 @@ from app.modules.identity_access.api.service_roles import (
     ServiceRolesOut,
     service_roles_out,
 )
+from app.modules.identity_access.api.support_grants import router as support_grants_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -476,6 +477,7 @@ module = ModuleSpec(
         account_router,
         api_keys_router,
         service_accounts_router,
+        support_grants_router,
         realtime_router,
         privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
         erasures_router,

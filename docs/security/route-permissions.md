@@ -549,6 +549,13 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/identity/sso/{provider_id}/switch-on` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/sso/{provider_id}/tests` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/vendor-support/grants/{grant_id}` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/extend` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/revoke` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
+| PUT | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all |
 | GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own |
