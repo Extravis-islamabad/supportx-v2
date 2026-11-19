@@ -13,6 +13,7 @@
 - Another tenant sees none of it, and its schedule pass touches none of it.
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -322,3 +323,23 @@ async def test_a_support_account_never_signs_in_through_an_identity_provider(
         await engine.dispose()
     assert brokered == support_grants.BROKERED
     assert own is None  # its own password and second factor, within its grant
+
+
+async def test_no_log_line_holds_the_password_or_the_engineers_addresses(
+    world: World,  # noqa: F811 - the reused fixture
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """D-173 / lane B (6): the credential and the engineer's personal data never reach a log."""
+    caplog.set_level(logging.DEBUG)
+    made = await _grant(world)
+    assert made.status_code == 201, made.text
+    body = made.json()
+    ended = await world.call("POST", f"{BASE}/grants/{body['id']}/revoke", world.a)
+    assert ended.status_code == 200, ended.text
+    secret = body["one_time_password"]
+    address = rules.account_email("omar@extravis.com", uuid.UUID(body["id"]))
+    assert address is not None
+    logged = "\n".join(f"{r.getMessage()} {r.__dict__}" for r in caplog.records)
+    assert caplog.records  # something was logged at all
+    for private in (secret, address, "omar@extravis.com"):
+        assert private not in logged
