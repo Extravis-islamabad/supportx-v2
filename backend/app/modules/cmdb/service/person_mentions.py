@@ -13,8 +13,13 @@ with reason `erasure_redaction`, a new snapshot, `CiUpdated`); the registry blan
 earlier `field_changes`. Redacting a `ci_version` mention replaces the matched stretches of that
 one snapshot field through 0176's migrator-owned `cmdb_redact_version(mention, value)`, which
 accepts only the old text with stretches replaced by the marker (the app role may only add
-snapshots). Only places that name the person change: an unrelated older name stays. CI custom
-text values join with 0175.
+snapshots). Only places that name the person change: an unrelated older name stays.
+
+CI custom values (0175 part 2) that are text a person typed (text, long text, email, phone and
+link fields, and any value of a field removed since) are mentions too, as field `custom.<key>`:
+on the CI now, an ordinary save of that one key; in a saved snapshot, through 0181's
+migrator-owned `cmdb_redact_version_custom(mention, value)`, which takes the key from the bound
+mention and accepts only the old text with stretches replaced by the marker (as 0176).
 
 Redacting a `ci_business_view` mention is an ordinary save of the view (version, history naming
 the field only with reason `erasure_redaction`, `cmdb.business_view.changed`): views are editable
@@ -24,12 +29,15 @@ The cursor is `<phase>|<last id>`: the CIs first, then the snapshots, then the b
 """
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, ClassVar
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules import metadata
+from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.events import BusinessViewChanged, CiUpdated
 from app.modules.cmdb.infra.models import BusinessView, Ci, CiVersion
 from app.modules.cmdb.service.business_views import RECORD_TYPE as VIEW_RECORD_TYPE
@@ -52,9 +60,20 @@ from app.shared.history import Change, record_changes
 REDACTION_REASON = "erasure_redaction"  # the history reason code (identity_access's)
 VERSION_RECORD_TYPE = "ci_version"
 FIELDS = ("name", "description")  # as the CMDB's field catalogue names them (ADR-047)
+# Custom field types whose values are text someone typed (choices are codes, people are IDs).
+TEXT_TYPES = frozenset(
+    {
+        metadata.FieldType.TEXT,
+        metadata.FieldType.LONG_TEXT,
+        metadata.FieldType.EMAIL,
+        metadata.FieldType.PHONE,
+        metadata.FieldType.URL,
+    }
+)
 CIS, VERSIONS, VIEWS = "ci", "ver", "view"  # the cursor's phases
 ERASE = "people.erase"  # identity_access's right to erase people (ADR-052)
 _REDACT_VERSION = text("SELECT cmdb_redact_version(:mention, :value)")
+_REDACT_VERSION_CUSTOM = text("SELECT cmdb_redact_version_custom(:mention, :value)")
 
 
 def _cursor(phase: str, last: uuid.UUID) -> str:
@@ -69,13 +88,57 @@ def _place(cursor: str | None) -> tuple[str, uuid.UUID | None]:
 
 
 def _found(
-    record_type: str, rid: uuid.UUID, values: dict[str, Any], terms: MentionTerms
+    record_type: str,
+    rid: uuid.UUID,
+    values: dict[str, Any],
+    terms: MentionTerms,
+    custom_text: "_CustomText | None" = None,
 ) -> list[Mention]:
+    places = [(field, values.get(field)) for field in FIELDS]
+    if custom_text is not None:
+        places += custom_text.places(values.get("custom"))
     return [
         Mention(record_type, rid, field, kind, count)
-        for field in FIELDS
-        for kind, count in sorted(count_matches(_text(values.get(field)), terms).items())
+        for field, value in places
+        for kind, count in sorted(count_matches(_text(value), terms).items())
     ]
+
+
+class _CustomText:
+    """Which CI custom keys hold typed text: text-like fields, and fields removed since.
+
+    A key no live field has (removed while in use) is read as text: its old value may name the
+    person, and only text-like values ever match a person's name or email anyway.
+    """
+
+    def __init__(self, definitions: Mapping[str, metadata.Definition]) -> None:
+        self._other = frozenset(k for k, d in definitions.items() if d.type not in TEXT_TYPES)
+
+    def is_text(self, key: str) -> bool:
+        return key not in self._other
+
+    def places(self, custom: object) -> list[tuple[str, object]]:
+        if not isinstance(custom, dict):
+            return []
+        return [
+            (f"{field_rules.CUSTOM}{k}", v)
+            for k, v in sorted(custom.items())
+            if isinstance(v, str) and self.is_text(k)
+        ]
+
+
+async def _custom_text(session: AsyncSession) -> _CustomText:
+    return _CustomText(await metadata.definitions(session, metadata.CustomFieldEntity.CI))
+
+
+def _custom_key(field: str) -> str | None:
+    """The custom key of a mention's field, or None when it is not a custom one."""
+    key = field.removeprefix(field_rules.CUSTOM)
+    return key if key != field and key else None
+
+
+def _known(field: str) -> bool:
+    return field in FIELDS or _custom_key(field) is not None
 
 
 def _text(value: object) -> str | None:
@@ -98,16 +161,21 @@ class CiMentions:
         """One batch of CIs, then of snapshots, by ID (a CI is never the person's own)."""
         del person_id
         phase, last = _place(cursor)
+        texts = await _custom_text(session) if phase in {CIS, VERSIONS} else None
         if phase == CIS:
-            query = select(Ci.id, Ci.name, Ci.description)
+            query = select(Ci.id, Ci.name, Ci.description, Ci.custom)
             if last is not None:
                 query = query.where(Ci.id > last)
             rows = (await session.execute(query.order_by(Ci.id).limit(MENTION_BATCH))).all()
             found = [
                 m
-                for ci_id, name, description in rows
+                for ci_id, name, description, custom in rows
                 for m in _found(
-                    RECORD_TYPE, ci_id, {"name": name, "description": description}, terms
+                    RECORD_TYPE,
+                    ci_id,
+                    {"name": name, "description": description, "custom": custom},
+                    terms,
+                    texts,
                 )
             ]
             if len(rows) >= MENTION_BATCH:
@@ -121,7 +189,9 @@ class CiMentions:
                 await session.execute(query_v.order_by(CiVersion.id).limit(MENTION_BATCH))
             ).all()
             found = [
-                m for vid, snap in versions for m in _found(VERSION_RECORD_TYPE, vid, snap, terms)
+                m
+                for vid, snap in versions
+                for m in _found(VERSION_RECORD_TYPE, vid, snap, terms, texts)
             ]
             if len(versions) >= MENTION_BATCH:
                 return MentionBatch(tuple(found), _cursor(VERSIONS, versions[-1][0]))
@@ -152,17 +222,21 @@ class CiMentions:
         now: datetime,
     ) -> bool:
         """That kind's occurrences in that one field become the marker; False if none are left."""
-        if mention.field not in FIELDS:
+        if not _known(mention.field):
             return False
         if mention.record_type == VERSION_RECORD_TYPE:
             return await _redact_version(session, mention, terms, marker)
+        if mention.record_type == RECORD_TYPE and (key := _custom_key(mention.field)):
+            return await _redact_ci_custom(
+                session, mention, key, terms=terms, marker=marker, now=now
+            )
         if mention.record_type == VIEW_RECORD_TYPE:
             return await _redact_view(session, mention, terms, marker, now)
         if mention.record_type == RECORD_TYPE:
             return await _redact_ci(session, mention, terms, marker, now)
         return False
 
-    async def passage(
+    async def passage(  # noqa: PLR0911 - one early answer per place, flat
         self, session: AsyncSession, subject: Subject, mention: Mention
     ) -> str | None:
         """The field's text, when the subject may see the CI.
@@ -170,18 +244,29 @@ class CiMentions:
         A CI in the bin (and its snapshots) only for someone who may erase people, as lane B's
         other ports do (0170): the registry redacts only what the redactor can read.
         """
-        if mention.field not in FIELDS:
+        if not _known(mention.field):
             return None
+        key = _custom_key(mention.field)
+        if (
+            key is not None
+            and mention.field in field_rules.unseen(subject.field_access, RECORD_TYPE).all
+        ):
+            return None  # a custom field the subject's roles withhold (ADR-047)
         if mention.record_type == RECORD_TYPE:
             row = await _seen(session, subject, mention.record_id)
-            return (_text(getattr(row, mention.field)) or None) if row is not None else None
+            if row is None:
+                return None
+            value = (row.custom or {}).get(key) if key else getattr(row, mention.field)
+            return _text(value) or None
         if mention.record_type == VERSION_RECORD_TYPE:
             version = await session.scalar(
                 select(CiVersion).where(CiVersion.id == mention.record_id)
             )
             if version is None or await _seen(session, subject, version.ci_id) is None:
                 return None
-            return _text(version.snapshot.get(mention.field)) or None
+            held = version.snapshot.get("custom") if key else None
+            value = held.get(key) if isinstance(held, dict) else version.snapshot.get(mention.field)
+            return _text(value) or None
         if mention.record_type == VIEW_RECORD_TYPE:
             view = await _seen_view(session, subject, mention.record_id)
             return (_text(getattr(view, mention.field)) or None) if view is not None else None
@@ -208,6 +293,30 @@ async def _redact_ci(
     if not count:
         return False
     setattr(row, mention.field, redacted)
+    row.version, row.updated_at = row.version + 1, now
+    await session.flush()
+    await _saved(session, row, mention.field)
+    return True
+
+
+async def _redact_ci_custom(  # noqa: PLR0913 - the mention, its key and the redaction's parts
+    session: AsyncSession,
+    mention: Mention,
+    key: str,
+    *,
+    terms: MentionTerms,
+    marker: str,
+    now: datetime,
+) -> bool:
+    """One CI custom value: an ordinary save of that one key (removed CIs too)."""
+    row = await session.scalar(select(Ci).where(Ci.id == mention.record_id).with_for_update())
+    current = _text((row.custom or {}).get(key)) if row is not None else None
+    if row is None or not current:
+        return False
+    redacted, count = redact_matches(current, terms, mention.match_kind, marker)
+    if not count:
+        return False
+    row.custom = {**(row.custom or {}), key: redacted}
     row.version, row.updated_at = row.version + 1, now
     await session.flush()
     await _saved(session, row, mention.field)
@@ -275,17 +384,27 @@ async def _redact_view(
 async def _redact_version(
     session: AsyncSession, mention: Mention, terms: MentionTerms, marker: str
 ) -> bool:
-    """One snapshot field, through the bound definer (0176): stretches only, nothing else."""
+    """One snapshot field through its bound definer: stretches only, nothing else.
+
+    Name and description go through 0176's `cmdb_redact_version`, a custom value through 0181's
+    `cmdb_redact_version_custom`.
+    """
     version = await session.scalar(select(CiVersion).where(CiVersion.id == mention.record_id))
-    old = _text(version.snapshot.get(mention.field)) if version is not None else None
+    if version is None:
+        return False
+    key = _custom_key(mention.field)
+    if key is None:
+        old, call = _text(version.snapshot.get(mention.field)), _REDACT_VERSION
+    else:
+        held = version.snapshot.get("custom")
+        old = _text(held.get(key)) if isinstance(held, dict) else None
+        call = _REDACT_VERSION_CUSTOM
     if not old:
         return False
     redacted, count = redact_matches(old, terms, mention.match_kind, marker)
     if not count:
         return False
-    changed = await session.scalar(
-        _REDACT_VERSION, {"mention": mention.mention_id, "value": redacted}
-    )
+    changed = await session.scalar(call, {"mention": mention.mention_id, "value": redacted})
     if changed:
         await session.refresh(version)  # the session's copy matches the row again
     return bool(changed)

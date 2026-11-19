@@ -14,6 +14,7 @@ import {
   Typography,
 } from 'antd';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   queryKeys,
@@ -42,6 +43,7 @@ import {
 } from '@supportx/ui';
 
 import { nameOf, typeTree } from '../../cmdb/names';
+import { ciTypeFieldsHref } from './links';
 import { RelationshipTypesBlock } from './RelationshipTypesBlock';
 
 interface TypeDraft {
@@ -60,8 +62,9 @@ function names(draft: Pick<TypeDraft, 'name_en' | 'name_ar' | 'name_ur'>): Recor
 }
 
 /**
- * CMDB setup (template E, D-147): the settings, the CI type tree and the CI states. Custom
- * fields come through the metadata module in a follow-up (§6.6). Every change is audited and reaches open screens live.
+ * CMDB setup (template E, D-147): the settings, the CI type tree and the CI states. Each type's
+ * custom fields (metadata's, 0175) are on its own Fields page. Every change is audited and
+ * reaches open screens live.
  */
 export function CmdbAdminPage() {
   const t = useLabel();
@@ -196,6 +199,13 @@ function TypesBlock() {
                     >
                       {t('actions.edit')}
                     </Button>
+                    <Link
+                      to={ciTypeFieldsHref(row.id)}
+                      aria-label={t('cmdb.fields.open', { type: name(row) })}
+                      data-testid={`cmdb-type-fields-${row.api_name}`}
+                    >
+                      {t('cmdb.fields.tab')}
+                    </Link>
                     {!row.built_in && (
                       <Button
                         size="small"

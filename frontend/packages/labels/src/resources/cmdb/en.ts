@@ -15,6 +15,7 @@ export const en = {
   'audit.object.cmdb_relationship_type': 'Relationship type',
   'audit.object.cmdb_settings': 'CMDB settings',
   'cmdb.action.change_type': 'Change type',
+  'cmdb.action.change_type_drop': 'Change type and drop values',
   'cmdb.action.copy': 'Copy',
   'cmdb.action.delete': 'Move to trash',
   'cmdb.action.from_assets': 'Add from assets',
@@ -26,6 +27,10 @@ export const en = {
   'cmdb.action.restore': 'Restore',
   'cmdb.added': '{{id}} added',
   'cmdb.all_types': 'All types',
+  'cmdb.change_type_blocked':
+    "Your roles may only read a field whose value this change would drop, so you can't change the type.",
+  'cmdb.change_type_drops':
+    "Fields the new type doesn't have, whose values will be dropped: {{count}}. History will name them, never their values.",
   'cmdb.copied': 'Copy saved as {{id}}',
   'cmdb.count': 'CIs',
   'cmdb.delete_confirm': 'Move {{name}} to the trash?',
@@ -38,8 +43,10 @@ export const en = {
   'cmdb.field.business_impact': 'Business impact',
   'cmdb.field.category': 'Category',
   'cmdb.field.criticality': 'Criticality',
+  'cmdb.field.custom_field': 'Custom field',
   'cmdb.field.description': 'Description',
   'cmdb.field.display_id': 'ID',
+  'cmdb.field.fields_dropped': 'Fields dropped by a type change',
   'cmdb.field.filters': 'Map filters',
   'cmdb.field.layout': 'Layout',
   'cmdb.field.managed_by_group_id': 'Managed by',
@@ -60,6 +67,19 @@ export const en = {
   'cmdb.field.state_id': 'State',
   'cmdb.field.type_id': 'Type',
   'cmdb.field.updated_at': 'Last changed',
+  'cmdb.fields.description':
+    'Fields CIs of this type and every type below it have. Fields of all CI types and of parent types show here read-only.',
+  'cmdb.fields.from_every_type': 'From all CI types',
+  'cmdb.fields.from_type': 'From',
+  'cmdb.fields.help':
+    'Fields your organisation adds to configuration items of this type. Changes reach open forms and records at once.',
+  'cmdb.fields.none': 'No custom fields for this type yet.',
+  'cmdb.fields.open': 'Fields of {{type}}',
+  'cmdb.fields.read_only': 'Read only here',
+  'cmdb.fields.remove_in_use':
+    "CIs hold values in this field. Retiring it is recommended: it stops being offered but stays visible on the CIs that have it. Removing it hides it everywhere; old values stay only in each CI's history.",
+  'cmdb.fields.tab': 'Fields',
+  'cmdb.fields.title': 'Fields of {{type}}',
   'cmdb.from_assets.result': '{{created}} CIs added, {{skipped}} assets skipped',
   'cmdb.history': 'History',
   'cmdb.map.add': 'Add',
@@ -125,6 +145,7 @@ export const en = {
   'cmdb.map.zoom_out': 'Zoom out',
   'cmdb.more': 'Show more',
   'cmdb.no': 'No',
+  'cmdb.record_type.ci': 'Configuration item',
   'cmdb.relationship_type.added': 'Relationship type added',
   'cmdb.relationship_type.any_types': 'Any CI types',
   'cmdb.relationship_type.both_names': '{{forward}} / {{inverse}}',
@@ -153,6 +174,7 @@ export const en = {
   'cmdb.relationship_type.suggested': 'Offer first',
   'cmdb.restored': '{{id}} restored',
   'cmdb.saved': 'Changes saved',
+  'cmdb.section.custom_fields': 'More details',
   'cmdb.section.properties': 'Properties',
   'cmdb.settings.eol_hidden': 'End-of-life CIs are now left out of pickers',
   'cmdb.settings.eol_shown': 'End-of-life CIs now show in pickers',
@@ -265,6 +287,7 @@ export const en = {
   'cmdb_view_layout.hierarchical': 'Hierarchical',
   'cmdb_view_layout.radial': 'Radial',
   'cmdb_view_layout.tree': 'Tree',
+  'erasure_count.cmdb_ci_person_fields_moved': 'Person fields on CIs handed to the successor',
   'erasure_count.cmdb_cis_moved': 'Configuration items handed to the successor',
   'erasure_count.cmdb_views_moved': 'Business views handed to the successor',
   'errors.cmdb_asset_has_ci': 'This asset already has another configuration item.',
@@ -275,8 +298,14 @@ export const en = {
   'errors.cmdb_ci_not_found': 'This configuration item does not exist, or you cannot see it.',
   'errors.cmdb_ci_state_in_use': 'Configuration items still hold this state ({{ci_count}}).',
   'errors.cmdb_ci_state_not_found': 'This CI state does not exist.',
+  'errors.cmdb_ci_type_change_drops_fields':
+    "The new type doesn't have {{field_count}} fields this CI holds values in. Check what would be dropped, then confirm.",
+  'errors.cmdb_ci_type_has_fields':
+    'Custom fields belong to this type ({{field_count}}). Move or remove them first.',
   'errors.cmdb_ci_type_in_use':
     'This type is still used by {{ci_count}} configuration items and {{type_count}} types below it.',
+  'errors.cmdb_ci_type_move_drops_fields':
+    'Moving this type would drop custom values held by {{ci_count}} configuration items. Move or widen those fields first.',
   'errors.cmdb_ci_type_not_found': 'This CI type does not exist.',
   'errors.cmdb_ci_version_not_found': 'This configuration item has no version for that time.',
   'errors.cmdb_relationship_exists':

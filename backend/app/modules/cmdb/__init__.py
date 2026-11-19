@@ -20,8 +20,10 @@ from app.core.modules import ModuleSpec
 from app.modules.cmdb.api.graph_routes import router as graph_router
 from app.modules.cmdb.api.routes import router
 from app.modules.cmdb.events import EVENTS
+from app.modules.cmdb.service import field_catalogue as _field_catalogue
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
+from app.modules.cmdb.service import type_tree as _type_tree
 from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
 from app.modules.cmdb.service.open_counts import OpenCounts, OpenCountsPort, register_open_counts
 from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
@@ -61,6 +63,8 @@ module = ModuleSpec(
 # GDPR erasure (ADR-052): owned CIs move to the successor; at import, for the workers too.
 _person_data.register()
 _person_mentions.register()  # the mentions report and redaction (ADR-052 S1b; 0176)
+_type_tree.register()  # custom fields scoped to a CI type subtree (0175 part 2)
+_field_catalogue.register()  # CI custom fields an admin may restrict per role (ADR-047)
 
 __all__ = [
     "CiRef",

@@ -10,6 +10,8 @@ Public interface for other modules:
 - `mark_used(session, entity, keys)`: fields that now hold values (only retirable from then);
 - `filter_fields(session, entity, table)`: `custom.<key>` fields for the shared filter DSL;
 - `text_for_search(session, entity, values)`: free text for the search port (WP-027).
+- `fields_scoped_to(session, entity, type_ids)`: fields a type owns (before it is deleted);
+- `forget_lineage(session, entity)`: after moving a type, this transaction sees the new tree.
 """
 
 from app.core.modules import ModuleSpec
@@ -28,6 +30,7 @@ from app.modules.metadata.service.custom_fields import (
     field_marks,
     fields_scoped_to,
     filter_fields,
+    forget_lineage,
     mark_used,
     problem_params,
     register_field_usage,
@@ -89,6 +92,7 @@ __all__ = [
     "fields_scoped_to",
     "filter_fields",
     "finish_seal",
+    "forget_lineage",
     "hold_seal",
     "mark_used",
     "module",

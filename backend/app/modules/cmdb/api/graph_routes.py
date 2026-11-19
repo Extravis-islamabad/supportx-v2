@@ -318,8 +318,14 @@ class CiVersionOut(BaseModel):
     saved_at: datetime
     saved_by: uuid.UUID | None
     saved_by_name: str | None
-    fields: dict[str, Any]
+    fields: dict[str, Any] = Field(
+        description="Built-in fields by name, then custom values as `custom.<key>` (those you "
+        "may read now)."
+    )
     relationships: list[CiVersionLinkOut]
+    masked_fields: list[str] = Field(
+        default_factory=list, description="Custom fields this version holds but shows masked."
+    )
 
 
 class CiAttributeChangeOut(BaseModel):
@@ -358,6 +364,7 @@ def _version(view: versions.VersionView) -> CiVersionOut:
         saved_by_name=view.saved_by_name,
         fields=view.fields,
         relationships=[_link(link) for link in view.relationships],
+        masked_fields=view.masked_fields,
     )
 
 

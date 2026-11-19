@@ -11,11 +11,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import array, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.modules import metadata
+from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.events import CmdbConfigChanged
 from app.modules.cmdb.infra.models import Ci, CiState, CiType, CmdbSettings
@@ -283,8 +285,57 @@ async def update_type(
     updated = await TypeRepository(session).update(
         row.id, expected_version=expected_version, changes=changes
     )
+    if "parent_id" in changes:
+        await _check_move(session, updated.id)
     await _config_event(session, "type", "updated", updated.id, updated.version)
     return await _type_view(session, updated)
+
+
+async def _subtree(session: AsyncSession, type_id: uuid.UUID) -> list[uuid.UUID]:
+    rows = (
+        await session.execute(
+            select(CiType.id, CiType.parent_id).where(CiType.deleted_at.is_(None))
+        )
+    ).tuples()
+    children: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for child, parent in rows:
+        if parent is not None:
+            children.setdefault(parent, []).append(child)
+    found, todo = [type_id], [type_id]
+    while todo:
+        for child in children.get(todo.pop(), []):
+            if child not in found:
+                found.append(child)
+                todo.append(child)
+    return found
+
+
+async def _check_move(session: AsyncSession, type_id: uuid.UUID) -> None:
+    """After a type moved under a new parent: no CI below it may hold a value it would lose.
+
+    Runs on the moved tree inside the same transaction (metadata's lineages forgotten first), so
+    the check sees exactly what CIs would see from now on; a refusal (409
+    `cmdb_ci_type_move_drops_fields`, with the count) rolls the move back with it (0175 §4).
+    """
+    entity = metadata.CustomFieldEntity.CI
+    metadata.forget_lineage(session, entity)
+    known = [f.key for f in await metadata.field_marks(session, entity, retired=True)]
+    if not known:
+        return
+    affected = 0
+    for each in await _subtree(session, type_id):
+        kept = {
+            f.key for f in await metadata.field_marks(session, entity, retired=True, type_id=each)
+        }
+        lost = [k for k in known if k not in kept]
+        if not lost:
+            continue
+        holders = await session.scalars(
+            select(Ci.custom).where(Ci.type_id == each, Ci.custom.has_any(array(lost)))
+        )
+        affected += sum(1 for custom in holders if field_rules.dropped(custom or {}, kept, known))
+    if affected:
+        raise Conflict(code="cmdb_ci_type_move_drops_fields", params={"ci_count": affected})
 
 
 async def delete_type(
@@ -306,6 +357,9 @@ async def delete_type(
             code="cmdb_ci_type_in_use",
             params={"ci_count": int(cis or 0), "type_count": int(children or 0)},
         )
+    # Custom fields scoped to it (0175): its children are already refused above, so only its own.
+    if fields := await metadata.fields_scoped_to(session, metadata.CustomFieldEntity.CI, [row.id]):
+        raise Conflict(code="cmdb_ci_type_has_fields", params={"field_count": len(fields)})
     deleted = await TypeRepository(session).soft_delete(row.id, expected_version=expected_version)
     await _config_event(session, "type", "deleted", row.id, deleted.version)
 

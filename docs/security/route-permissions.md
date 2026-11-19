@@ -472,6 +472,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/change-type` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |

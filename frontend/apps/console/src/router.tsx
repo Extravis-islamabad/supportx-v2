@@ -514,6 +514,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // 0175 part 2: one CI type's custom fields (template E).
+            path: 'cmdb/types/:typeId/fields',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/CiTypeFieldsPage')).CiTypeFieldsPage,
+            }),
+          },
+          {
             // Visual workflows (WP-048b S4): the list (template C) and the designer.
             path: 'workflows',
             lazy: async () => ({
