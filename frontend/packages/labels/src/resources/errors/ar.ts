@@ -775,6 +775,10 @@ export const ar: LabelResource = {
   'errors.field.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
   'errors.field.view_filter_not_shareable':
     'يُصفّي هذا العرض حسب حقل لا يستطيع بعض الأشخاص رؤيته، لذا يبقى خاصًا فقط. أزِل هذا الشرط لمشاركته.',
+  'errors.field.view_filter_sealed_value':
+    'يحتوي هذا المرشح على قيمة محمية لا يمكن إرسالها هنا. اكتب القيمة مرة أخرى.',
+  'errors.field.view_filter_withheld_unknown':
+    'لم يعد شرط مخفي في هذا العرض يطابق ما حُفظ. أزِله وأضفه مرة أخرى.',
   'errors.field.week_empty': 'أضف فترة عمل واحدة على الأقل.',
   'errors.field.week_start_unknown': 'اختر يوم بداية الأسبوع.',
   'errors.field.week_too_many_periods': 'يمكن أن يحتوي الأسبوع على 28 فترة عمل على الأكثر.',

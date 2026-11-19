@@ -832,6 +832,10 @@ export const en = {
   'errors.field.vendor_not_found': 'This vendor no longer exists.',
   'errors.field.view_filter_not_shareable':
     "This view filters on a field some people can't see, so it can only stay private. Remove that condition to share it.",
+  'errors.field.view_filter_sealed_value':
+    "This filter holds a protected value that can't be sent here. Type the value again.",
+  'errors.field.view_filter_withheld_unknown':
+    'A hidden condition in this view no longer matches what was saved. Remove it and add it again.',
   'errors.field.week_empty': 'Add at least one working period.',
   'errors.field.week_start_unknown': 'Choose the day the week starts.',
   'errors.field.week_too_many_periods': 'A week can have at most 28 working periods.',
