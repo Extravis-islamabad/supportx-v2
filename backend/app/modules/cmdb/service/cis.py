@@ -971,7 +971,10 @@ async def from_assets(  # noqa: PLR0913 - the assets and the CIs' shared fields,
     skipped: list[tuple[uuid.UUID, str]] = []
     for ref in refs.values():
         if ref.hidden or ref.gone or ref.name is None:
-            skipped.append((ref.id, "hidden" if ref.hidden else "gone"))
+            # The caller chose these IDs: an asset outside their reach and one that exists nowhere
+            # read the same, so the answer never confirms that an unseen asset exists (lane B's
+            # write walk, lane C's re-check, 2026-11-20). `gone` stays in the schema, unused here.
+            skipped.append((ref.id, "hidden"))
             continue
         if ref.id in taken:
             skipped.append((ref.id, "has_ci"))
