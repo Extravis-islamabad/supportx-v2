@@ -554,6 +554,11 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/files/{file_id}/thumbnail` | signed_in | - |
 | GET | `/api/v1/health` | public | - |
 | PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
+| DELETE | `/api/v1/identity/domains/{domain_id}` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains/{domain_id}/check` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains/{domain_id}/verify` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |

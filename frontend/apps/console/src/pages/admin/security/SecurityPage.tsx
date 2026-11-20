@@ -5,6 +5,7 @@ import { queryKeys } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import { useLabel } from '@supportx/ui';
 
+import { DomainsCard } from './DomainsCard';
 import { InvitationsCard } from './InvitationsCard';
 import { MfaPolicyCard } from './MfaPolicyCard';
 import { NetworkRulesCard } from './NetworkRulesCard';
@@ -38,6 +39,7 @@ export function SecurityPage() {
       </Typography.Paragraph>
       <SecurityOverview />
       <SsoCard />
+      <DomainsCard />
       <SsoPolicyCard />
       <PasswordPolicyCard />
       <MfaPolicyCard />

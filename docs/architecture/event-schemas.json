@@ -4101,6 +4101,37 @@
         "type": "object"
       }
     },
+    "identity_access.verified_domain.changed": {
+      "1": {
+        "description": "A verified e-mail domain changed (WP-057 S5d, REQ-SEC-010). IDs and codes only.\n\n`verified`, `lapsed` and `unverified` (deleted while verified) also drive the Keycloak\norganisation's routing, through the outbox (lane B (1)); `lapsed` tells the tenant's admins;\nthe screen refetches on any change.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "checked",
+              "verified",
+              "unverified",
+              "lapsed",
+              "deleted",
+              "refused"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "domain_id": {
+            "format": "uuid",
+            "title": "Domain Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_id",
+          "change"
+        ],
+        "title": "VerifiedDomainChanged",
+        "type": "object"
+      }
+    },
     "integrations.connector.failing": {
       "1": {
         "description": "A connector turned failing: its admins are told once per failure (REQ-INT-005, WP-040).\n\nReplaces `integrations.mailbox.failing` for mailboxes (kept, and still handled, until the\ncontract step).",

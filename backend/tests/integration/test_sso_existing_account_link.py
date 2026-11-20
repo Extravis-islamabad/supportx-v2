@@ -21,7 +21,7 @@ import pytest
 
 import tests.integration.test_sign_in_identity_provider_claim as claim_tests
 from app.modules.identity_access.domain import sso
-from tests.integration.keycloak_container import PrivateKeycloak
+from tests.integration.keycloak_container import CONSOLE_ORIGIN, PrivateKeycloak
 from tests.integration.test_sign_in_identity_provider_claim import (
     _FIELD,
     _FORM,
@@ -324,3 +324,48 @@ def test_the_first_broker_login_flow_never_links_by_e_mail_alone(
                 f["id"] for f in admin.get("/authentication/flows").json() if f["alias"] == copy
             )
             admin.delete(f"/authentication/flows/{flow_id}")
+
+
+def _first_step(private_keycloak: PrivateKeycloak, username: str) -> httpx.Response:
+    """The shared sign-in page (no organisation, no provider hint), its username submitted."""
+    query = {
+        "client_id": "supportx-console",
+        "response_type": "code",
+        "scope": "openid",
+        "redirect_uri": f"{CONSOLE_ORIGIN}/api/v1/auth/callback",
+        "state": secrets.token_urlsafe(8),
+        "code_challenge": claim_tests._pkce()[1],  # noqa: SLF001 - the client requires PKCE
+        "code_challenge_method": "S256",
+    }
+    browser = _Browser()
+    try:
+        page = browser.open(
+            f"{private_keycloak.issuer}/protocol/openid-connect/auth?"
+            + "&".join(f"{k}={v}" for k, v in query.items())
+        )
+        for _ in range(4):  # Keycloak's own redirects to its login page
+            if not page.is_redirect:
+                break
+            page = browser.open(urljoin(str(page.url), page.headers["location"]))
+        form = _FORM.search(page.text)
+        assert page.status_code == 200, _text(page.text)
+        assert form is not None, page.text[:400]
+        return browser._request(  # noqa: SLF001 - the test browser's own cookie-keeping request
+            "POST", html.unescape(form.group(1)), data={"username": username}
+        )
+    finally:
+        browser.close()
+
+
+def test_an_address_in_a_verified_domain_goes_to_its_tenants_provider(
+    private_keycloak: PrivateKeycloak, verified_domain: tuple[str, str, str]
+) -> None:
+    """WP-057 S5d, REQ-SEC-010 AC3 (lane B's condition 3, Keycloak's half): on the shared page,
+    an address in tenant A's verified domain is sent to A's provider; an address in a domain no
+    tenant has verified is asked for its password, as before."""
+    _existing, alias, email = verified_domain
+    routed = _first_step(private_keycloak, f"someone-{uuid.uuid4().hex[:6]}@{email.split('@')[1]}")
+    assert routed.is_redirect, _text(routed.text)
+    assert f"/broker/{alias}/" in routed.headers["location"], routed.headers["location"]
+    unknown = _first_step(private_keycloak, f"someone@unverified-{uuid.uuid4().hex[:6]}.test")
+    assert not (unknown.is_redirect and "/broker/" in unknown.headers.get("location", ""))

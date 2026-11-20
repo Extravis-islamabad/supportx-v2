@@ -479,6 +479,8 @@ ROUTES = [
             "identity_access.identity_settings.changed",
             "identity_access.sso_provider.changed",
             "identity_access.mfa.changed",
+            # Verified e-mail domains (WP-057 S5d): IDs and a change code only.
+            "identity_access.verified_domain.changed",
         ),
         _identity_changed,
     ),
