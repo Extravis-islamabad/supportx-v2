@@ -274,3 +274,53 @@ def test_a_verified_domain_never_links_an_existing_account_without_its_proof(
         assert all(link.get("identityProvider") != alias for link in links), links
         orgs = admin.get(f"/organizations/members/{existing}/organizations").json()
         assert orgs == [], "the existing account was made an organization member without proof"
+
+
+def _links_by_email_alone(steps: set[str]) -> bool:
+    """Whether a broker flow could link an existing account without its proof."""
+    return (
+        "idp-auto-link" in steps
+        or "idp-confirm-link" not in steps
+        or not ({"idp-email-verification", "idp-username-password-form"} & steps)
+    )
+
+
+def _steps(admin: httpx.Client, flow: str) -> set[str]:
+    found = admin.get(f"/authentication/flows/{flow}/executions")
+    assert found.status_code == 200, found.text
+    return {str(e.get("providerId")) for e in found.json() if e.get("providerId")}
+
+
+def test_the_first_broker_login_flow_never_links_by_e_mail_alone(
+    private_keycloak: PrivateKeycloak,
+) -> None:
+    """The realm property the tests above rest on (D-177; the coordinator, #568).
+
+    Tenant providers use "first broker login" (domain/sso.py `representation`, unit-tested with
+    `trustEmail: False` and this alias; the identity step repairs a provider that trusts its
+    e-mail). This pins the flow itself, from the dev realm: built in, so the admin API can't add
+    a step to it; it never auto-links an existing account; and it keeps the steps that make the
+    account prove itself. The check is shown to catch an auto-link on an editable copy.
+    """
+    with _admin(private_keycloak) as admin:
+        flows = {f["alias"]: f for f in admin.get("/authentication/flows").json()}
+        assert flows["first broker login"]["builtIn"] is True
+        assert not _links_by_email_alone(_steps(admin, "first%20broker%20login"))
+        # The control: a copy with Keycloak's auto-link step added is caught.
+        copy = f"broker-copy-{uuid.uuid4().hex[:6]}"
+        made = admin.post(
+            "/authentication/flows/first%20broker%20login/copy", json={"newName": copy}
+        )
+        assert made.status_code == 201, made.text
+        try:
+            added = admin.post(
+                f"/authentication/flows/{copy}/executions/execution",
+                json={"provider": "idp-auto-link"},
+            )
+            assert added.status_code in (201, 204), added.text
+            assert _links_by_email_alone(_steps(admin, copy))
+        finally:
+            flow_id = next(
+                f["id"] for f in admin.get("/authentication/flows").json() if f["alias"] == copy
+            )
+            admin.delete(f"/authentication/flows/{flow_id}")
