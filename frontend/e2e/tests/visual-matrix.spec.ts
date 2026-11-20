@@ -415,6 +415,124 @@ const generalCard = (testId: string) => async (page: Page) => {
   });
 };
 
+// WP-046b S3b (lane C's states): the incident list as cards, a board and a calendar. The layout
+// is picked from the toolbar's switch as a person does, and put back to the table by `close`
+// (it is the matrix admin's own setting, kept per view).
+const DUE_SUBJECT = 'Matrix: due the same day';
+
+async function pickLayout(page: Page, label: RegExp): Promise<void> {
+  await page.goto('/incidents');
+  const switcher = page.getByTestId('inc-layout');
+  await switcher.waitFor({ timeout: STATE_TIMEOUT });
+  // Usable once the person's setting is read.
+  await switcher
+    .locator('.ant-segmented-item:not(.ant-segmented-item-disabled)', { hasText: label })
+    .first()
+    .click({ timeout: STATE_TIMEOUT });
+}
+
+async function backToTable(page: Page): Promise<void> {
+  await pickLayout(page, /^(Table|جدول)$/u);
+}
+
+const seenOrSay = async (what: string, locator: ReturnType<Page['locator']>) => {
+  try {
+    await locator.first().waitFor({ timeout: STATE_TIMEOUT });
+  } catch {
+    throw new Error(`layouts: no ${what}`);
+  }
+};
+
+async function boardRefused(page: Page): Promise<void> {
+  await pickLayout(page, /^(Board|لوحة)$/u);
+  await seenOrSay('board', page.getByTestId('inc-board'));
+  // A card moved where its life cycle has no step (open to closed): it stays and says why.
+  const opener = page.locator('[data-testid^="inc-board-stage-move-"]').first();
+  await opener.click({ timeout: STATE_TIMEOUT });
+  const menu = page.locator('.ant-dropdown:not(.ant-dropdown-hidden) [role="menu"]').last();
+  await menu
+    .locator('[role="menuitem"]', { hasText: /Closed|مغلق/u })
+    .first()
+    .click({ timeout: STATE_TIMEOUT });
+  await seenOrSay('refusal', page.locator('[data-testid="inc-board-stage-refusal"]:not(:empty)'));
+}
+
+async function boardByTechnicianMore(page: Page): Promise<void> {
+  await pickLayout(page, /^(Board|لوحة)$/u);
+  await page
+    .getByTestId('inc-board-group-by')
+    .locator('.ant-segmented-item', { hasText: /technician|الفني/iu })
+    .first()
+    .click({ timeout: STATE_TIMEOUT });
+  // Only with more than twelve people holding records: said as a finding otherwise.
+  await seenOrSay(
+    '"More columns" (twelve people or fewer)',
+    page.getByTestId('inc-board-more-columns'),
+  );
+  await page.getByTestId('inc-board-more-columns').click({ timeout: STATE_TIMEOUT });
+  await seenOrSay(
+    'columns menu',
+    page.locator('.ant-dropdown:not(.ant-dropdown-hidden) [role="menu"]'),
+  );
+}
+
+const cards = (compact: boolean) => async (page: Page) => {
+  await pickLayout(page, /^(Cards|بطاقات)$/u);
+  await seenOrSay('cards', page.getByTestId('inc-cards'));
+  if (compact) {
+    await page
+      .getByTestId('inc-cards-density')
+      .locator('.ant-segmented-item', { hasText: /Compact|مضغوط/u })
+      .click({ timeout: STATE_TIMEOUT });
+  }
+};
+
+/** Five incidents of one priority, created together, so they fall due the same day. */
+async function dueTogether(page: Page): Promise<void> {
+  const filter = JSON.stringify({ field: 'subject', op: 'eq', value: DUE_SUBJECT });
+  const found = (await (
+    await page.request.post('/api/v1/incidents/list', {
+      data: { filter: JSON.parse(filter) as unknown, limit: 5 },
+      headers: { 'X-CSRF-Token': (await me(page)).csrf },
+    })
+  ).json()) as { items?: unknown[] };
+  const admin = await me(page);
+  for (let n = found.items?.length ?? 0; n < 5; n += 1) {
+    const made = await page.request.post('/api/v1/incidents', {
+      data: { subject: DUE_SUBJECT, requester_id: admin.id, impact: 'low', urgency: 'low' },
+      headers: {
+        'X-CSRF-Token': admin.csrf,
+        'X-SupportX-Client': 'console',
+        'Idempotency-Key': crypto.randomUUID(),
+      },
+    });
+    if (!made.ok()) throw new Error(`due incident: ${String(made.status())}`);
+  }
+}
+
+const calendar = (shown: 'month' | 'week' | 'more') => async (page: Page) => {
+  if (shown === 'more') await dueTogether(page);
+  await pickLayout(page, /^(Calendar|تقويم)$/u);
+  await seenOrSay('calendar', page.getByTestId('inc-calendar'));
+  if (shown === 'week') {
+    await page
+      .getByTestId('inc-cal-view')
+      .locator('.ant-segmented-item', { hasText: /Week|أسبوع/u })
+      .click({ timeout: STATE_TIMEOUT });
+  }
+  if (shown === 'more') {
+    // Forward to the month they fall due in, when it is not this one.
+    const more = page.locator('[data-testid^="inc-cal-more-"]');
+    for (let step = 0; step < 2 && (await more.count()) === 0; step += 1) {
+      await page.getByTestId('inc-cal-next').click({ timeout: STATE_TIMEOUT });
+      await page.waitForLoadState('networkidle');
+    }
+    await seenOrSay('"N more" (five due the same day)', more);
+    await more.first().click({ timeout: STATE_TIMEOUT });
+    await seenOrSay('day list', page.locator('[data-testid^="inc-cal-list-"]'));
+  }
+};
+
 export const SCREENS: Screen[] = [
   { key: 'home', path: '/', app: 'console' },
   { key: 'incidents', path: '/incidents', app: 'console' },
@@ -427,6 +545,48 @@ export const SCREENS: Screen[] = [
       open: starredUnreadColoured,
       close: restoreColouring,
     },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'board-refused', open: boardRefused, close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'board-technician-more', open: boardByTechnicianMore, close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'cards', open: cards(false), close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'cards-compact', open: cards(true), close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'calendar-month', open: calendar('month'), close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'calendar-week', open: calendar('week'), close: backToTable },
+  },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    app: 'console',
+    state: { name: 'calendar-more', open: calendar('more'), close: backToTable },
   },
   {
     key: 'admin-incidents-general',
