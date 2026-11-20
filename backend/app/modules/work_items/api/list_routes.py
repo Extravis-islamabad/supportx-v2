@@ -23,9 +23,11 @@ from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
     MAX_BULK,
     MAX_COLUMNS,
+    BoardGroupBy,
     BulkAction,
     BulkOutcome,
     BulkStatus,
+    ListLayout,
     RowColourBy,
     ViewVisibility,
 )
@@ -188,6 +190,13 @@ class ListSettingIn(BaseModel):
     row_colour_by: RowColourBy | None = Field(
         default=None, description="Your own row colouring for this view; null: the default."
     )
+    layout: ListLayout | None = Field(
+        default=None,
+        description="Table, cards, board or calendar for this view (REQ-INC-111/112); null: table.",
+    )
+    group_by: BoardGroupBy | None = Field(
+        default=None, description="The board's columns; null: status."
+    )
 
 
 class ListSettingOut(BaseModel):
@@ -198,6 +207,8 @@ class ListSettingOut(BaseModel):
     sort: str | None
     page_size: int
     row_colour_by: RowColourBy | None = None
+    layout: ListLayout | None = None
+    group_by: BoardGroupBy | None = None
     version: int | None
 
     @classmethod
@@ -211,6 +222,8 @@ class ListSettingOut(BaseModel):
             sort=row.sort,
             page_size=row.page_size,
             row_colour_by=RowColourBy(row.row_colour_by) if row.row_colour_by else None,
+            layout=ListLayout(row.layout) if row.layout else None,
+            group_by=BoardGroupBy(row.group_by) if row.group_by else None,
             version=row.version,
         )
 

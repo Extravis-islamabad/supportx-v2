@@ -21,6 +21,9 @@ export type BulkJob = components['schemas']['BulkJobOut'];
 export type BulkResult = components['schemas']['BulkResultOut'];
 export type ListDisplay = components['schemas']['ListDisplayOut'];
 export type RowColourBy = components['schemas']['RowColourBy'];
+// WP-046b S3b (0182): how a person shows a view's list, and the board's columns.
+export type ListLayout = components['schemas']['ListLayout'];
+export type BoardGroupBy = components['schemas']['BoardGroupBy'];
 export type ViewAudit = components['schemas']['ViewAuditOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
@@ -193,7 +196,15 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
       const latest: ListSettingInput =
         shown === undefined
           ? setting
-          : { columns: shown.columns, sort: shown.sort, page_size: shown.page_size };
+          : {
+              columns: shown.columns,
+              sort: shown.sort,
+              page_size: shown.page_size,
+              // Every choice of theirs, not only the columns (WP-046b S3b): nothing is lost.
+              row_colour_by: shown.row_colour_by ?? null,
+              layout: shown.layout ?? null,
+              group_by: shown.group_by ?? null,
+            };
       return put(viewKey, fresh.version, latest);
     }
   };
