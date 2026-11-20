@@ -496,6 +496,21 @@ class InvitationLinkCopied(DomainEvent):
     aggregate_type: ClassVar[str] = "invitation"
 
 
+class VerifiedDomainChanged(DomainEvent):
+    """A verified e-mail domain changed (WP-057 S5d, REQ-SEC-010). IDs and codes only.
+
+    `verified` and `unverified` (lapsed, or deleted while verified) also drive the Keycloak
+    organisation's routing, through the outbox (lane B (1)); the screen refetches on any change.
+    """
+
+    event_type: ClassVar[str] = "identity_access.verified_domain.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "verified_domain"
+
+    domain_id: uuid.UUID
+    change: Literal["added", "checked", "verified", "unverified", "deleted", "refused"]
+
+
 class SupportGrantChanged(DomainEvent):
     """A vendor support grant was made, extended, verified, first used or ended (WP-057 S4c-1).
 
@@ -575,5 +590,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SignInSecretExpiring,
     InvitationLinkCopied,
     SupportGrantChanged,
+    VerifiedDomainChanged,
     VendorSupportSettingChanged,
 )

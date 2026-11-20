@@ -113,6 +113,7 @@ from app.modules.identity_access.service import (
     sign_in_log,
     support_grant_job,
     support_grant_notifications,
+    verified_domains,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
@@ -497,6 +498,7 @@ module = ModuleSpec(
         sign_in_log.PERSON_ERASED,
         KEYCLOAK_SESSION_END,
         service_account_handover.OWNER_LEFT,
+        verified_domains.DOMAIN_SYNC,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
@@ -514,6 +516,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
         # Sign-in certificates and client secrets about to run out (WP-057 S2b-2, REQ-SEC-011).
         ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
+        # REQ-SEC-010 (WP-057 S5d): domain checks, lapses and the Keycloak reconcile.
+        ScheduleSpec("identity_access__verified_domains", 86400, verified_domains.check_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
         # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.

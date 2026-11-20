@@ -21,6 +21,7 @@ from base64 import b32encode
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Any
 
 from app.modules.identity_access.domain.sso import PUBLIC_MAIL_DOMAINS
 
@@ -154,3 +155,26 @@ def due(state: DomainState, last_checked: datetime | None, added: datetime, now:
     if state is DomainState.VERIFIED:
         return last_checked is None or now - last_checked >= RECHECK_EVERY
     return False
+
+
+def kc_verified(domains: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
+    """The organisation's Keycloak domains with `name` marked verified (added when missing).
+
+    An SSO set-up's routing (`identityProviderAlias`, `autoRedirect`) on it is kept as it is.
+    """
+    out = [dict(d) for d in domains]
+    for item in out:
+        if item.get("name") == name:
+            item["verified"] = True
+            return out
+    out.append({"name": name, "verified": True})
+    return out
+
+
+def kc_without(domains: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
+    """The organisation's Keycloak domains without `name`.
+
+    Lane B (2): a lapsed or deleted domain leaves the organisation, so it never blocks another
+    tenant.
+    """
+    return [dict(d) for d in domains if d.get("name") != name]
