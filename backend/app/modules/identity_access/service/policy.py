@@ -27,17 +27,21 @@ from fastapi import Request
 from sqlalchemy import ColumnElement, and_, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import Scope
 from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
-from app.modules.identity_access.domain import api_keys
+from app.modules.identity_access.domain import api_keys, support_access
 from app.modules.identity_access.domain import field_access as field_rules
+from app.modules.identity_access.domain import resource_access as resource_rules
+from app.modules.identity_access.domain import support_grants as support_rules
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     DEPARTMENT_VIEWER,
     REQUESTER,
+    SCOPE_RANK,
     SYSTEM_ROLES,
     TECHNICIAN,
     TENANT_ADMIN,
@@ -59,12 +63,22 @@ from app.modules.identity_access.infra.models import (
     Role,
     RoleFieldAccess,
     RolePermission,
+    SupportGrant,
     User,
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
+from app.modules.identity_access.service.masking import (
+    contacts_masked,
+    refuse_masked_person_search,
+)
+from app.modules.identity_access.service.resource_access import resource_access_of
+from app.modules.identity_access.service.resource_access import (
+    rules_predicate as resource_rules_predicate,
+)
 from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
+from app.shared.clock import system_clock
 from app.shared.search import ENGINE, SearchDocument
 
 log = get_logger(__name__)
@@ -136,6 +150,9 @@ class ResourceType:
     shared_actions: frozenset[str] = frozenset()
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
     sod_rules: Mapping[str, Sequence[SodRule]] = field(default_factory=lambda: MappingProxyType({}))
+    # Fine-grained access (ADR-053): the resource whose rules narrow this type (asset, ci);
+    # None: never narrowed. Applied inside `scope_filter`, so every path using it is narrowed.
+    narrowed_as: str | None = None
 
 
 def requested_it_yourself(subject: Subject, record: RecordFacts) -> bool:
@@ -189,20 +206,41 @@ def scope_filter(
     OR over the subject's grants; each grant is (scope predicate) AND (attribute condition,
     compiled by the filter DSL compiler). No grant → FALSE: the list is empty, never unfiltered.
     Combine it with the request's own filter: `.where(scope_filter(...)).where(query.where)`.
+
+    Fine-grained access (ADR-053 §2): when the person is narrowed for the type's resource, each
+    of their roles shows its own scope narrowed by its own rules, and the person sees the union
+    of those; one role's rules never combine with another role's scope.
     """
-    parts: list[ColumnElement[bool]] = []
-    for grant in subject.grants.get(permission, ()):
-        reach = _scope_predicate(subject, grant, resource_type)
-        if reach is None:
-            continue
-        if grant.condition is not None:
-            reach = reach & compile_filter(
-                dict(grant.condition),
-                resource_type.fields,
-                now=now or datetime.now(UTC),
-                path="condition",
-            )
-        parts.append(reach)
+    at = now or datetime.now(UTC)
+    reaches = (
+        resource_rules.narrowing(subject.resource_access, resource_type.narrowed_as)
+        if resource_type.narrowed_as is not None
+        else None
+    )
+    for hook in _SCOPE_HOOKS:
+        hook(resource_type.name, permission)
+    held = _grant_parts(subject, subject.grants.get(permission, ()), resource_type, at)
+    if reaches is None or not held:
+        # Not narrowed, or the subject itself lacks the permission: an API key's scopes trim
+        # only `subject.grants` (`for_key`), never the roles' reaches below (lane C, #560).
+        parts = held
+    else:
+        parts = []
+        # Narrow-only (ADR-053 §2): never wider than the subject's own grants, whatever trimmed
+        # them, so each role's narrowed reach is also held to those.
+        own_reach = or_(*held)
+        for reach in reaches:
+            own = [Grant(scope, condition) for scope, condition in reach.grants.get(permission, ())]
+            role_parts = _grant_parts(subject, own, resource_type, at)
+            if not role_parts:
+                continue
+            role_reach = and_(or_(*role_parts), own_reach)
+            if reach.rules is not None:
+                assert resource_type.narrowed_as is not None  # noqa: S101 - reaches imply it
+                role_reach = and_(
+                    role_reach, resource_rules_predicate(resource_type.narrowed_as, reach.rules)
+                )
+            parts.append(role_reach)
     if (
         resource_type.shared_scope is not None
         and permission.rsplit(".", 1)[-1] in resource_type.shared_actions
@@ -210,6 +248,40 @@ def scope_filter(
     ):
         parts.append(resource_type.shared_scope(subject))
     return or_(*parts) if parts else false()
+
+
+def _grant_parts(
+    subject: Subject, grants: Sequence[Grant], resource_type: ResourceType, now: datetime
+) -> list[ColumnElement[bool]]:
+    """Each grant's scope predicate AND its attribute condition (grants with no reach skipped)."""
+    parts: list[ColumnElement[bool]] = []
+    for grant in grants:
+        reach = _scope_predicate(subject, grant, resource_type)
+        if reach is None:
+            continue
+        if grant.condition is not None:
+            reach = reach & compile_filter(
+                dict(grant.condition), resource_type.fields, now=now, path="condition"
+            )
+        parts.append(reach)
+    return parts
+
+
+# Test-only observers of `scope_filter` (the route-walk guard, ADR-053 / lane C 6): each gets the
+# resource type's name and the permission. Empty in the running app.
+ScopeHook = Callable[[str, str], None]
+_SCOPE_HOOKS: list[ScopeHook] = []
+
+
+def add_scope_hook(hook: ScopeHook) -> None:
+    """Observe `scope_filter` calls (tests)."""
+    _SCOPE_HOOKS.append(hook)
+
+
+def remove_scope_hook(hook: ScopeHook) -> None:
+    """Stop observing (tests)."""
+    if hook in _SCOPE_HOOKS:
+        _SCOPE_HOOKS.remove(hook)
 
 
 def _scope_predicate(
@@ -242,7 +314,13 @@ def unrestricted(subject: Subject, permission: str) -> bool:
     For a caller that just saved a record and must confirm it is within reach (assets,
     `_within_scope`): with this true the confirming query can only say yes. Never a stand-in for
     an existence check of a record someone named: `authorize_stored` still does that.
+
+    Never true for a person narrowed by fine-grained access (ADR-053): their rules narrow even
+    a scope of "all", so a saved record could fall outside them (a create at a site the rule
+    leaves out).
     """
+    if subject.resource_access:
+        return False
     return any(
         grant.scope == "all" and grant.condition is None
         for grant in subject.grants.get(permission, ())
@@ -360,7 +438,11 @@ class ValkeySubjectCache:
         entry = json.loads(raw)
         if entry.get("gen") != generation:
             return None, generation
-        return Subject.from_dict(entry["subject"]), generation
+        try:
+            return Subject.from_dict(entry["subject"]), generation
+        except (KeyError, TypeError, ValueError):
+            # A form this code can't read (an older release's): compiled again, never guessed.
+            return None, generation
 
     async def put(self, subject: Subject, generation: int) -> None:
         """Store under the generation it was compiled for."""
@@ -458,9 +540,8 @@ class PolicyService:
             return _nobody(tenant_id, user_id)
         if user.user_type == SUPPORT_USER_TYPE:
             # A vendor support account's permissions are its grant's only (D-173, lane B): never
-            # a role, never a group's. Until the access levels' allow-lists come (S4c-2) that is
-            # nothing at all: it fails closed.
-            return _nobody(tenant_id, user_id)
+            # a role, never a group's, never a default.
+            return await self._support_subject(session, tenant_id, user_id)
         site_ids, group_ids = await self.memberships(session, user_id)
         # Roles of one's own and those of the active groups one belongs to (WP-042): a disabled
         # or deleted group grants nothing, at once.
@@ -482,26 +563,31 @@ class PolicyService:
         ).all()
         role_keys = {r.key for r in roles}
         role_ids = [r.id for r in roles]
+        # Each role by ID with its key, for fine-grained access (ADR-053): which roles count.
+        held: dict[uuid.UUID, str] = {r.id: r.key for r in roles}
         if not roles and user.roles_mapped_at is None:
             # A service identity has only the roles given to it (none: it may do nothing).
             default = UNMAPPED_DEFAULT.get(user.user_type)
             role_keys = {default} if default is not None else set()
-            role_ids = list(
-                (
-                    await session.scalars(
-                        select(Role.id).where(Role.key.in_(role_keys), Role.deleted_at.is_(None))
+            defaults = (
+                await session.execute(
+                    select(Role.id, Role.key).where(
+                        Role.key.in_(role_keys), Role.deleted_at.is_(None)
                     )
-                ).all()
-            )
+                )
+            ).all()
+            role_ids = [r.id for r in defaults]
+            held = {r.id: r.key for r in defaults}
         grants: list[tuple[str, Grant]] = []
         technician_scope = await tenant_technician_scope(session)
+        # Each role's own grants (ADR-053 §2: a role's rules narrow that role's scope only).
+        role_grants: dict[uuid.UUID, list[tuple[str, Scope, Any]]] = {role: [] for role in held}
         for key in role_keys & set(SYSTEM_ROLES):
-            grants += [
-                (permission, Grant(scope))
-                for permission, scope in self.catalogue.system_grants(
-                    key, technician_scope=technician_scope
-                )
-            ]
+            system = self.catalogue.system_grants(key, technician_scope=technician_scope)
+            grants += [(permission, Grant(scope)) for permission, scope in system]
+            for role, role_key in held.items():
+                if role_key == key:
+                    role_grants[role] += [(permission, scope, None) for permission, scope in system]
         # A department's head views its requests in the portal by default (D-152), computed
         # here, so a new head has it at once and a replaced one loses it (the department's save
         # makes compiled permissions stale).
@@ -518,19 +604,111 @@ class PolicyService:
                 ).where(RolePermission.role_id.in_(custom))
             )
             grants += [(row.permission, Grant(row.scope, row.condition)) for row in rows]
+            per_role = await session.execute(
+                select(
+                    RolePermission.role_id,
+                    RolePermission.permission,
+                    RolePermission.scope,
+                    RolePermission.condition,
+                ).where(RolePermission.role_id.in_(custom))
+            )
+            for row in per_role:
+                role_grants.setdefault(row.role_id, []).append(
+                    (row.permission, row.scope, row.condition)
+                )
+        features = await self.entitled_features(tenant_id, session)
         return compile_subject(
             tenant_id=tenant_id,
             user_id=user_id,
             role_keys=role_keys,
             grants=grants,
             catalogue=self.catalogue,
-            entitled_features=await self.entitled_features(tenant_id, session),
+            entitled_features=features,
             site_ids=site_ids,
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
             fields=await field_access_of(session, role_ids),
+            resources=await resource_access_of(
+                session, self._entitled_role_grants(role_grants, features)
+            ),
             person=user.user_type != UserType.SERVICE.value,
         )
+
+    def _entitled_role_grants(
+        self,
+        role_grants: Mapping[uuid.UUID, list[tuple[str, Scope, Any]]],
+        features: frozenset[str],
+    ) -> dict[uuid.UUID, resource_rules.RoleGrants]:
+        """Each role's grants as the merged subject keeps them: known, allowed scopes, licensed."""
+        result: dict[uuid.UUID, resource_rules.RoleGrants] = {}
+        for role, grants in role_grants.items():
+            kept: dict[str, list[tuple[Scope, Mapping[str, Any] | None]]] = {}
+            for permission, scope, condition in grants:
+                spec = self.catalogue.get(permission)
+                if spec is None or scope not in spec.scopes:
+                    continue
+                if spec.feature is not None and spec.feature not in features:
+                    continue
+                kept.setdefault(permission, []).append((scope, condition))
+            result[role] = MappingProxyType({p: tuple(g) for p, g in kept.items()})
+        return result
+
+    async def _support_subject(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
+    ) -> Subject:
+        """A support account: its open grant's level, from the allow-list only (WP-057 S4c-2).
+
+        No grant open and in time: nothing. Otherwise each permission the level allows, at the
+        broadest scope it has (the account belongs to no site or group: lane B (8)), through
+        the licence as for everyone. Never a tenant admin, and never a `never` key, whatever
+        went wrong upstream (checked here, lane B (1)).
+        """
+        grant = (
+            await session.execute(
+                select(
+                    SupportGrant.id,
+                    SupportGrant.access,
+                    SupportGrant.unmask_personal,
+                    SupportGrant.state,
+                    SupportGrant.starts_at,
+                    SupportGrant.ends_at,
+                )
+                .where(SupportGrant.support_user_id == user_id)
+                .order_by(SupportGrant.created_at.desc())
+                .limit(1)
+            )
+        ).one_or_none()
+        now = system_clock.now()
+        if (
+            grant is None
+            or not support_rules.is_open(grant.state)
+            or not (grant.starts_at <= now < grant.ends_at)
+        ):
+            return _nobody(tenant_id, user_id)
+        grants = [
+            (key, Grant(_broadest(spec.scopes)))
+            for key in support_access.permissions_for(grant.access)
+            if (spec := self.catalogue.get(key)) is not None
+        ]
+        subject = compile_subject(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            role_keys=frozenset(),
+            grants=grants,
+            catalogue=self.catalogue,
+            entitled_features=await self.entitled_features(tenant_id, session),
+            is_tenant_admin=False,
+            fields=await _support_fields(session, unmask_personal=grant.unmask_personal),
+        )
+        given = [
+            k
+            for k in subject.grants
+            if not support_access.allowed(grant.access, support_access.SUPPORT_ACCESS.get(k))
+        ]
+        if given or subject.is_tenant_admin:
+            msg = f"a support subject holds what its level never allows: {given}"
+            raise AssertionError(msg)
+        return replace(subject, support_grant_id=grant.id, mask_contacts=not grant.unmask_personal)
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""
@@ -599,6 +777,7 @@ class PolicyService:
         )
         order: list[Any] = [User.display_name, User.id]
         if search:
+            refuse_masked_person_search(session)  # a name typed would tell who matches (D-173)
             found = await ENGINE.match(session, PEOPLE, search)
             if found is None:
                 return []  # typed, but nothing searchable (only punctuation): nobody matches
@@ -606,8 +785,9 @@ class PolicyService:
             query = query.where(found.predicate)
             order.insert(0, found.rank.desc())
         rows = (await session.execute(query.order_by(*order).limit(limit))).all()
+        masked = contacts_masked(session)  # the UI labels an empty name (D-173)
         return [
-            (row.id, row.display_name)
+            (row.id, "" if masked else row.display_name)
             for row in rows
             if (await self.subject(tenant_id, row.id, session)).holds(permission)
         ]
@@ -681,6 +861,26 @@ def for_key(subject: Subject, scopes: frozenset[str]) -> Subject:
         grants=MappingProxyType(kept),
         extra=MappingProxyType({**subject.extra, OUT_OF_SCOPE: beyond}),
     )
+
+
+async def _support_fields(session: AsyncSession, *, unmask_personal: bool) -> field_rules.Compiled:
+    """Every record type's sensitive fields hidden, personal ones masked (WP-057 S4c-2)."""
+    # Imported here: the field-access service builds on this module's defaults.
+    from app.modules.identity_access.service import field_access  # noqa: PLC0415
+
+    marks = {
+        record_type: [
+            (f.key, f.personal_data, f.sensitive)
+            for f in await field_access.catalogue(session, record_type)
+        ]
+        for record_type in field_access.record_types()
+    }
+    return support_access.field_access(marks, unmask_personal=unmask_personal)
+
+
+def _broadest(scopes: Sequence[Scope]) -> Scope:
+    """The widest scope a permission allows (`all` wherever it has one)."""
+    return max(scopes, key=SCOPE_RANK.__getitem__)
 
 
 def _nobody(tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:

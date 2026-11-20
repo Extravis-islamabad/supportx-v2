@@ -16,7 +16,7 @@ from collections.abc import Collection, Sequence
 from sqlalchemy import ColumnElement, and_, case, false, func, literal, or_, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity_access import Subject, people_matching
+from app.modules.identity_access import Subject, contacts_masked, people_matching
 from app.modules.work_items.domain.types import WorkItemType, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import catalogue as config
@@ -96,7 +96,8 @@ async def search(  # noqa: PLR0913 - the query and its narrowing options, explic
             if plain is None
             else Match(predicate=and_(words.predicate, plain.predicate), rank=words.rank)
         )
-    people = await people_matching(session, text)
+    # A masked request (vendor support, D-173) never matches by a person's name or e-mail.
+    people = [] if contacts_masked(session) else await people_matching(session, text)
     by_person = (
         or_(WorkItem.requester_id.in_(people), WorkItem.on_behalf_of_id.in_(people))
         if people

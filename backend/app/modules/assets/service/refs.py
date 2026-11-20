@@ -140,8 +140,13 @@ async def picker(  # noqa: PLR0913 - the picker's options, explicit
         return []  # only staff pick for someone else
     # Your own assets are yours to see; someone else's only within your own asset scope, so
     # naming a person never shows assets outside your sites or groups (lane A's #307 review).
+    # A person narrowed by fine-grained access (ADR-053) attaches only what they may see, their
+    # own assets too: the record would otherwise name an asset their other screens hide.
+    narrowed = staff and subject.resource_access.get("asset") is not None
     base = (
-        staff_rows(subject) if for_someone_else else select(Asset).where(Asset.deleted_at.is_(None))
+        staff_rows(subject)
+        if for_someone_else or narrowed
+        else select(Asset).where(Asset.deleted_at.is_(None))
     )
     theirs = base.where(or_(*holders), *narrow)
     found: list[AssetRef] = [

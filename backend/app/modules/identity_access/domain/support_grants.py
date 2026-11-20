@@ -20,6 +20,8 @@ MAX_TOTAL = timedelta(
 )  # D-173 (3): never past 72 hours from the start, extensions included
 MIN_LENGTH = timedelta(hours=1)
 SUPPORT_USER_TYPE = "vendor_support"  # the temporary account's user type (0179)
+# The account's name wherever it acted (D-178): a product name, the same in every language.
+SUPPORT_DISPLAY_NAME = "Extravis support"
 MAX_OPEN_GRANTS = 3  # lane B (6)
 REASON_MAX = 500
 NAME_MAX = 200

@@ -441,6 +441,10 @@ export const ur: LabelResource = {
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
+  'errors.field.criteria_required': 'کم از کم ایک چیز بتائیں جسے اصول گزرنے دے۔',
+  'errors.field.criteria_too_large': 'یہ اصول بہت کچھ بتاتا ہے۔ اسے چھوٹے اصولوں میں بانٹیں۔',
+  'errors.field.criterion_invalid': 'یہ معیار درست نہیں۔',
+  'errors.field.criterion_unknown': 'یہ اصول یہ معیار استعمال نہیں کر سکتا۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
   'errors.field.custom_field_scope_unsupported':
@@ -545,6 +549,7 @@ export const ur: LabelResource = {
   'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
   'errors.field.host_name_invalid': 'صرف سرور کے نام لکھیں، جیسے mx.google.com۔',
+  'errors.field.https_required': 'https:// والا پتہ استعمال کریں۔',
   'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -719,6 +724,12 @@ export const ur: LabelResource = {
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.siem_cert_and_key_together': 'کلائنٹ سرٹیفکیٹ اور اس کی کلید ایک ساتھ دیں۔',
+  'errors.field.siem_kind_fixed': 'بھیجنے کا طریقہ نہیں بدل سکتا؛ اس کے بجائے نئی منزل شامل کریں۔',
+  'errors.field.siem_pem_invalid': 'یہ قابلِ استعمال سرٹیفکیٹ یا کلید (PEM) نہیں۔',
+  'errors.field.siem_port_not_allowed': 'TLS پر Syslog کا پورٹ استعمال کریں: 6514، 1514 یا 10514۔',
+  'errors.field.siem_secret_webhook_only': 'دستخطی راز صرف ویب ہک کا ہوتا ہے۔',
+  'errors.field.siem_webhook_json_only': 'ویب ہک صرف JSON بھیجتا ہے۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
   'errors.field.site_network_invalid':
     '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
@@ -1128,6 +1139,8 @@ export const ur: LabelResource = {
   'errors.person_erasure_in_progress':
     'اس فرد کو مٹایا جا رہا ہے؛ انہیں دوبارہ فعال یا تبدیل نہیں کیا جا سکتا۔',
   'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
+  'errors.person_search_masked':
+    'اس اکاؤنٹ کے لیے لوگوں کے نام اور ای میل پتے چھپے ہیں، اس لیے یہ ان سے تلاش نہیں کر سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
@@ -1184,6 +1197,9 @@ export const ur: LabelResource = {
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.resource_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} ریکارڈ رسائی اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.resource_access_rule_not_found': 'ریکارڈ تک رسائی کا یہ اصول اب موجود نہیں۔',
   'errors.restart_at_end': 'چلانے کے لیے کوئی مرحلہ چنیں، اختتام نہیں۔',
   'errors.role_in_use':
     'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',
@@ -1209,6 +1225,10 @@ export const ur: LabelResource = {
   'errors.session_key_still_in_use':
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
+  'errors.siem_destination_name_taken': 'کسی اور منزل کا پہلے سے یہی نام ہے۔',
+  'errors.siem_destination_not_found': 'یہ منزل اب موجود نہیں۔',
+  'errors.siem_destinations_limit': 'زیادہ سے زیادہ {{max}} منزلیں۔',
+  'errors.siem_rotation_open': 'ایک تبدیلی پہلے سے جاری ہے: پہلے پرانا راز ختم کریں۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',
@@ -1310,7 +1330,10 @@ export const ur: LabelResource = {
   'errors.vendor_in_use':
     'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.vendor_support_drafts_only':
+    'Extravis سپورٹ اکاؤنٹ صرف ورک فلو کے مسودے محفوظ کرتا ہے۔ ٹیننٹ ایڈمن انہیں شائع، فعال، حذف اور چلاتا ہے۔',
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_no_ai': 'Extravis سپورٹ اکاؤنٹ AI کی خصوصیات استعمال نہیں کر سکتا۔',
   'errors.vendor_support_roles_from_grant':
     'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
   'errors.vendor_support_tenant_admin_only':

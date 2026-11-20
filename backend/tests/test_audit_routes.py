@@ -125,12 +125,18 @@ def test_no_route_changes_or_deletes_audit_entries(app: FastAPI) -> None:
         if path.startswith("/api/v1/audit") and method != "GET"
     )
     # The only writes: ask for a verification, an export or a restored copy of an archive,
-    # change settings, keep or drop your own saved searches. Never an entry.
+    # change settings, keep or drop your own saved searches, and the SIEM destinations entries
+    # stream to (WP-057 S5a: a destination's own row). Never an entry.
     assert writes == [
         "DELETE /api/v1/audit/saved-searches/{search_id}",
+        "DELETE /api/v1/audit/siem/destinations/{destination_id}",
+        "PATCH /api/v1/audit/siem/destinations/{destination_id}",
         "POST /api/v1/audit/archives/{archive_id}/restore",
         "POST /api/v1/audit/exports",
         "POST /api/v1/audit/saved-searches",
+        "POST /api/v1/audit/siem/destinations",
+        "POST /api/v1/audit/siem/destinations/{destination_id}/rotate-secret",
+        "POST /api/v1/audit/siem/destinations/{destination_id}/test",
         "POST /api/v1/audit/verification-runs",
         "PUT /api/v1/audit/settings",
     ]

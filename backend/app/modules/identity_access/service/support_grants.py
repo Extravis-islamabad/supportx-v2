@@ -33,6 +33,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import access_changed
 from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -324,6 +325,7 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
         changes=[Change("state", before, row.state)],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -667,14 +669,14 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         else:
             password = _one_time_password()
             await admin.set_password(account, password, temporary=True)
-        person = await UserRepository(
-            session
-        ).add(
+        person = await UserRepository(session).add(
             User(
                 external_subject=account,
                 email=None,  # the real address lives on the grant only
-                display_name=row.engineer_name[:100],
-                first_name=row.engineer_name[:100],
+                # D-178: history, the audit and notices name the actor "Extravis support"; the
+                # engineer is named on the grant, which every entry ties to (grant_id).
+                display_name=rules.SUPPORT_DISPLAY_NAME,
+                first_name=rules.SUPPORT_DISPLAY_NAME,
                 user_type=rules.SUPPORT_USER_TYPE,
                 can_sign_in=True,
                 roles_mapped_at=now,  # SupportX's roles only, never Keycloak's (as S4a)
@@ -701,6 +703,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         ],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -763,6 +766,7 @@ async def extend_grant(  # noqa: PLR0913 - the grant, its version, the hours and
         changes=[Change("ends_at", before.isoformat(), new_end.isoformat())],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -793,6 +797,7 @@ class _Facts:
     ends_at: datetime | None
     networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
     until: datetime
+    unmask_personal: bool = False
 
 
 # In process only, keyed (tenant, user): a revoke ends the sessions through the store marker at
@@ -829,6 +834,7 @@ async def _facts(
             row.ends_at,
             tuple(ipaddress.ip_network(str(n), strict=False) for n in row.ip_allowlist),
             until,
+            row.unmask_personal,
         )
     _cache[(tenant_id, user_id)] = facts
     return facts
@@ -904,6 +910,7 @@ async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
         ],
         source="system",
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -946,6 +953,18 @@ async def request_refusal(
     if facts.state == rules.GrantState.PENDING_VERIFICATION.value:
         await mark_first_use(database, tenant_id, user_id)
     return None
+
+
+def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[uuid.UUID | None, bool]:
+    """The grant `request_refusal` just admitted the account under, and whether it unmasks.
+
+    Every write of the request names the grant in the audit (lane B (7)); people's contacts stay
+    masked unless the grant unmasks them, and when the facts are gone (fails closed). Memory only.
+    """
+    facts = _cache.get((tenant_id, user_id))
+    if facts is None:
+        return None, False
+    return facts.grant_id, facts.unmask_personal
 
 
 BROKERED = "support_sign_in_brokered"

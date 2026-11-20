@@ -46,6 +46,10 @@ class Feature(StrEnum):
     # Field access per role (ADR-047, REQ-WI-016): adding or changing a rule. Existing rules
     # always apply and may be viewed and removed without it, so a lapse never shows hidden data.
     FIELD_ACCESS = "field_access"
+    # Fine-grained access to assets and CIs (ADR-053, D-172): adding or changing a rule. The
+    # plain site/group/own scopes are Professional; existing rules always apply and may be
+    # viewed and removed without it, so a lapse never shows what a rule hides.
+    FINE_GRAINED_ACCESS = "fine_grained_access"
     PROJECTS = "projects"
     ESM = "esm"
     MSP = "msp"
@@ -57,6 +61,8 @@ class Feature(StrEnum):
     COMPLIANCE_PACKS = "compliance_packs"
     # WP-057 S3b (REQ-AUD-017, REQ-SEC-040; both Professional in file 11's edition tags).
     PERSONAL_DATA_LOG = "personal_data_log"
+    # REQ-AUD-011 (WP-057 S5a): audit and sign-in entries streamed to a SIEM.
+    SIEM_STREAM = "siem_stream"
     FIELD_ENCRYPTION = "field_encryption"
     # On-prem AD/LDAP sign-in through Keycloak federation (WP-040, D-118). In no edition: an
     # add-on of on-prem licences only (product owner 2026-11-03: never on SaaS), so the gate is
@@ -97,6 +103,7 @@ _PROFESSIONAL = _ESSENTIALS | {
     Feature.MONETX_INTEGRATION,
     Feature.FIELD_ACCESS,
     Feature.PERSONAL_DATA_LOG,
+    Feature.SIEM_STREAM,
     Feature.FIELD_ENCRYPTION,
 }
 _ENTERPRISE = _PROFESSIONAL | {
@@ -109,6 +116,7 @@ _ENTERPRISE = _PROFESSIONAL | {
     Feature.CUSTOM_FUNCTIONS,
     Feature.LOCAL_AI_RUNTIME,
     Feature.COMPLIANCE_PACKS,
+    Feature.FINE_GRAINED_ACCESS,
 }
 
 # Sold only as an add-on (a licence's `extra_features`), in no edition: what an edition carries

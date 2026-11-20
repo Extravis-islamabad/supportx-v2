@@ -103,6 +103,9 @@ class AssetOut(BaseModel):
     barcode: str | None
     vendor_id: uuid.UUID | None
     site_id: uuid.UUID | None
+    managed_by_group_id: uuid.UUID | None = Field(
+        default=None, description="The support group that manages it (its `group` scope)."
+    )
     owner_user_id: uuid.UUID | None = Field(default=None, description="Held by this person.")
     department_id: uuid.UUID | None = Field(default=None, description="Held by a department.")
     parent_asset_id: uuid.UUID | None = Field(default=None, description="Fitted to this asset.")
@@ -142,6 +145,7 @@ class AssetOut(BaseModel):
             barcode=row.barcode,
             vendor_id=row.vendor_id,
             site_id=row.site_id,
+            managed_by_group_id=row.managed_by_group_id,
             owner_user_id=row.owner_user_id,
             department_id=row.department_id,
             parent_asset_id=row.parent_asset_id,
@@ -177,6 +181,7 @@ class AssetIn(BaseModel):
     barcode: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
     vendor_id: uuid.UUID | None = None
     site_id: uuid.UUID | None = None
+    managed_by_group_id: uuid.UUID | None = None
     location: str | None = Field(default=None, max_length=LOCATION_MAX)
     purchase_order_id: uuid.UUID | None = None
     purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
@@ -208,6 +213,7 @@ class AssetPatch(BaseModel):
     barcode: str | None = Field(default=None, max_length=IDENTIFIER_MAX)
     vendor_id: uuid.UUID | None = None
     site_id: uuid.UUID | None = None
+    managed_by_group_id: uuid.UUID | None = None
     location: str | None = Field(default=None, max_length=LOCATION_MAX)
     purchase_order_id: uuid.UUID | None = None
     purchase_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)

@@ -39,6 +39,11 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/vendor-support/grants",
     "POST /api/v1/identity/vendor-support/grants/{grant_id}/extend",
     "PUT /api/v1/identity/vendor-support/setting",
+    # Where audit and sign-in entries stream, and its signing secret (WP-057 S5a).
+    "POST /api/v1/audit/siem/destinations",
+    "PATCH /api/v1/audit/siem/destinations/{destination_id}",
+    "POST /api/v1/audit/siem/destinations/{destination_id}/rotate-secret",
+    "DELETE /api/v1/audit/siem/destinations/{destination_id}",
     "PUT /api/v1/identity/mfa/roles/{role_id}",
     "PUT /api/v1/identity/break-glass/{user_id}",
     "POST /api/v1/identity/sso",
@@ -57,6 +62,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/field-access/rules",
     "PATCH /api/v1/field-access/rules/{rule_id}",
     "DELETE /api/v1/field-access/rules/{rule_id}",
+    # Fine-grained access to assets and CIs (ADR-053).
+    "POST /api/v1/resource-access/rules",
+    "PATCH /api/v1/resource-access/rules/{rule_id}",
+    "DELETE /api/v1/resource-access/rules/{rule_id}",
     # A custom field's sensitive mark: on seals values, off makes them readable (WP-057 S3b-2b).
     "PUT /api/v1/custom-fields/{field_id}/sensitivity",
     # Closed incidents locked fully, administrators included (WP-046b S1; lane B).

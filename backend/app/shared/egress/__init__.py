@@ -8,6 +8,7 @@ from app.shared.egress.client import (
     OutboundRequest,
     OutboundResponse,
     send,
+    tls_context,
 )
 
 
@@ -34,4 +35,5 @@ __all__ = [
     "embedded_ipv4",
     "installation_allowance",
     "send",
+    "tls_context",
 ]
