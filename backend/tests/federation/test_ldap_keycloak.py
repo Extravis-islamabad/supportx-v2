@@ -284,3 +284,86 @@ async def test_the_federation_account_has_no_user_rights(settings: Settings) -> 
             await federation.federated_users("any")
     finally:
         await federation.close()
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Keycloak asks every directory of the realm about a username it has no account for; "
+    "acceptable only where the realm serves one tenant (D-118/D-177: refused on a multi-tenant "
+    "installation by the integrations service and by put_ldap_federation). Per-organisation "
+    "sign-in routing (the WP item) removes this mark.",
+)
+async def test_a_name_never_imported_is_not_checked_against_a_directory(
+    settings: Settings, stack: Stack
+) -> None:
+    """Every tenant shares one realm (ADR-006); a tenant's directory is a realm component.
+
+    A sign-in for a username with no local account must not be checked against a directory that
+    never imported it: the typed password would go to a directory another tenant runs. Nothing is
+    synced here, so noor.khan exists only in the directory.
+    """
+    directory = _directory()
+    component_id = await put_ldap_federation(
+        settings,
+        component=lambda realm: ldap.component(
+            directory, name="supportx-realm-wide", realm_id=realm, bind_password=stack.ldap_password
+        ),
+        mappers=lambda found: ldap.mappers(directory, component_id=found),
+    )
+    try:
+        # Setting up the directory imports its people; noor.khan's local account is removed, so
+        # the name is again one Keycloak has no account for.
+        async with httpx.AsyncClient(base_url=stack.base_url) as http:
+            admin_token = (
+                await http.post(
+                    "/realms/master/protocol/openid-connect/token",
+                    data={
+                        "grant_type": "password",
+                        "client_id": "admin-cli",
+                        "username": "admin",
+                        "password": stack.admin_password,
+                    },
+                )
+            ).json()["access_token"]
+            auth = {"Authorization": f"Bearer {admin_token}"}
+            found = (
+                await http.get(
+                    "/admin/realms/supportx/users",
+                    params={"username": "noor.khan", "exact": "true"},
+                    headers=auth,
+                )
+            ).json()
+            for user in found:
+                removed = await http.delete(
+                    f"/admin/realms/supportx/users/{user['id']}", headers=auth
+                )
+                assert removed.status_code == 204, removed.text
+            left = await http.get(
+                "/admin/realms/supportx/users",
+                params={"username": "noor.khan", "exact": "true", "briefRepresentation": "true"},
+                headers=auth,
+            )
+            assert left.json() == []
+        password = "Dir-Pass-2026!" + secrets.token_hex(4)
+        _docker(
+            "exec", stack.slapd, "ldappasswd", "-x", "-H", "ldap://localhost:1389",
+            "-D", "cn=admin,dc=example,dc=org", "-w", stack.ldap_password,
+            "-s", password, "uid=noor.khan,ou=People,dc=example,dc=org",
+        )  # fmt: skip
+        async with httpx.AsyncClient() as http:
+            token = await http.post(
+                f"{stack.base_url}/realms/supportx/protocol/openid-connect/token",
+                data={
+                    "grant_type": "password",
+                    "client_id": "supportx-console",
+                    "client_secret": stack.console_secret,
+                    "username": "noor.khan",
+                    "password": password,
+                    "scope": "openid",
+                },
+            )
+        assert token.status_code != 200, (
+            "a username never imported was checked against a tenant's directory"
+        )
+    finally:
+        await remove_ldap_federation(settings, component_id)

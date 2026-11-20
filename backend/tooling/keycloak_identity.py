@@ -440,6 +440,34 @@ async def _ensure_refresh_rotation(
     return ["refresh-token rotation on"]
 
 
+async def _ensure_untrusted_provider_emails(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """D-177: no identity provider in the realm trusts its e-mail, existing ones included.
+
+    A trusted e-mail lets Keycloak's "first broker login" link a provider's person to an account
+    that already exists on the e-mail alone. Untrusted, the account must prove itself first. Each
+    provider still trusting it is read whole and written back with only that changed.
+    """
+    path = f"/admin/realms/{realm}/identity-provider/instances"
+    listed = await client.get(path, headers=headers)
+    listed.raise_for_status()
+    changes: list[str] = []
+    for provider in listed.json():
+        alias = str(provider.get("alias", ""))
+        if not alias or provider.get("trustEmail") is not True:
+            continue
+        one = await client.get(f"{path}/{alias}", headers=headers)
+        one.raise_for_status()
+        whole = one.json()
+        if whole.get("trustEmail") is not True:
+            continue
+        whole["trustEmail"] = False
+        (await client.put(f"{path}/{alias}", headers=headers, json=whole)).raise_for_status()
+        changes.append(f"identity provider {alias}: e-mail no longer trusted")
+    return changes
+
+
 async def _ensure_user_profile(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
@@ -649,6 +677,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _ensure_post_broker_flow(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_refresh_rotation(client, headers, target.realm)
+    changes += await _ensure_untrusted_provider_emails(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
     changes += await _ensure_email_theme(client, headers, target.realm)

@@ -242,6 +242,7 @@ export const ur: LabelResource = {
   'audit.action.identity_access.service_account_created': 'سروس اکاؤنٹ بنایا',
   'audit.action.identity_access.service_account_role_added': 'سروس اکاؤنٹ کو کردار دیا',
   'audit.action.identity_access.service_account_role_removed': 'سروس اکاؤنٹ سے کردار واپس لیا',
+  'audit.action.identity_provider.account_linked': 'اکاؤنٹ شناختی فراہم کنندہ سے جوڑا گیا',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.announced': 'واقعے سے اعلان کیا',
   'audit.action.incident.approval_decided': 'واقعے پر منظوری کا فیصلہ درج کیا',

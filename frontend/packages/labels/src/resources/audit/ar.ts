@@ -242,6 +242,7 @@ export const ar: LabelResource = {
   'audit.action.identity_access.service_account_created': 'أنشأ حساب خدمة',
   'audit.action.identity_access.service_account_role_added': 'منح حساب خدمة دورًا',
   'audit.action.identity_access.service_account_role_removed': 'سحب دورًا من حساب خدمة',
+  'audit.action.identity_provider.account_linked': 'رُبط الحساب بموفّر هوية',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.announced': 'نشر إعلانًا من حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',

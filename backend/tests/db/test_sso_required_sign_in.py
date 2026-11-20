@@ -253,3 +253,46 @@ async def test_a_password_sign_in_still_sees_every_tenant(bff: Bff) -> None:
     assert (await bff.login(person)).status_code == 302
     tenants = {t["id"] for t in (await bff.me()).json()["tenants"]}
     assert tenants == {str(a), str(b)}
+
+
+# --- D-177: an existing account's first sign-in through a provider is audited as a link ----------
+
+
+async def _links(bff: Bff, tenant: uuid.UUID) -> list[asyncpg.Record]:
+    return await _sql(
+        bff.db,
+        "SELECT object_type, object_id, details FROM audit_entries"
+        " WHERE tenant_id = $1 AND action = 'identity_provider.account_linked'",
+        tenant,
+    )
+
+
+async def test_d177_an_existing_accounts_first_provider_sign_in_is_audited_once(bff: Bff) -> None:
+    a, _b = bff.tenants
+    await _provider(bff.db, a, "a-link-idp")
+    email = _email("linked")
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302  # by password
+    before = len(await _links(bff, a))
+    brokered = bff.user("a", email=email, identity_provider="a-link-idp")
+    assert (await bff.login(brokered)).status_code == 302
+    rows = await _links(bff, a)
+    assert len(rows) == before + 1
+    (row,) = rows[before:]
+    assert row["object_type"] == "user"
+    assert json.loads(row["details"])["identity_provider"] == "a-link-idp"
+    person = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, email
+    )
+    assert row["object_id"] == str(person[0]["id"])
+    # Signing in through the same provider again is no new link.
+    assert (await bff.login(brokered)).status_code == 302
+    assert len(await _links(bff, a)) == before + 1
+
+
+async def test_d177_a_new_person_through_a_provider_is_no_link(bff: Bff) -> None:
+    a, _b = bff.tenants
+    await _provider(bff.db, a, "a-new-idp")
+    before = len(await _links(bff, a))
+    fresh = bff.user("a", email=_email("fresh"), identity_provider="a-new-idp")
+    assert (await bff.login(fresh)).status_code == 302
+    assert len(await _links(bff, a)) == before

@@ -57,6 +57,8 @@ class FakeKeycloak:
             },
         ]
         self.password = "right"
+        # D-177: the realm's identity providers by alias (tenants' single sign-on set-ups).
+        self.providers: dict[str, dict[str, Any]] = {}
         # WP-057 S1b: SupportX's post-broker flow (authentication/flows, its executions).
         self.flows: list[dict[str, Any]] = []
         self.flow_executions: list[dict[str, Any]] = []
@@ -91,7 +93,7 @@ class FakeKeycloak:
             return httpx.Response(202)
         return httpx.Response(200, json=self.flow_executions)
 
-    def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911, PLR0912 - one fake for the whole admin API
+    def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911, PLR0912, PLR0915 - one fake for the whole admin API
         path = request.url.path.removeprefix("/auth")
         method = request.method
         if path == "/realms/master/protocol/openid-connect/token":
@@ -149,6 +151,15 @@ class FakeKeycloak:
                         execution["requirement"] = body["requirement"]
                 return httpx.Response(202)
             return httpx.Response(200, json=self.executions)
+        if path == "/admin/realms/supportx/identity-provider/instances":
+            return httpx.Response(200, json=list(self.providers.values()))
+        if parts[0] == "identity-provider" and parts[1:2] == ["instances"] and len(parts) == 3:
+            if parts[2] not in self.providers:
+                return httpx.Response(404)
+            if method == "PUT":
+                self.providers[parts[2]] = body
+                return httpx.Response(204)
+            return httpx.Response(200, json=self.providers[parts[2]])
         if path == "/admin/realms/supportx/users/profile":
             if method == "PUT":
                 self.profile = body
@@ -464,3 +475,31 @@ async def test_adds_the_notice_event_types_once_and_keeps_a_longer_expiry() -> N
     keycloak.writes.clear()
     assert (await _run(keycloak)).outcome == Outcome.READY
     assert keycloak.writes == []
+
+
+async def test_d177_no_provider_keeps_a_trusted_email_and_a_second_run_changes_nothing() -> None:
+    """D-177: existing providers stop trusting their e-mail; only that field changes."""
+    keycloak = FakeKeycloak()
+    keycloak.providers = {
+        "sx-acme-1": {
+            "alias": "sx-acme-1",
+            "providerId": "oidc",
+            "trustEmail": True,
+            "config": {"clientId": "c"},
+        },
+        "sx-acme-2": {"alias": "sx-acme-2", "providerId": "saml", "trustEmail": False},
+    }
+    first = await _run(keycloak)
+    assert keycloak.providers["sx-acme-1"] == {
+        "alias": "sx-acme-1",
+        "providerId": "oidc",
+        "trustEmail": False,
+        "config": {"clientId": "c"},
+    }
+    assert keycloak.providers["sx-acme-2"]["trustEmail"] is False
+    assert "identity provider sx-acme-1: e-mail no longer trusted" in first.changes
+    puts = [w for w in keycloak.writes if "identity-provider" in w]
+    assert puts == ["PUT /admin/realms/supportx/identity-provider/instances/sx-acme-1"]
+    second = await _run(keycloak)
+    assert not [c for c in second.changes if c.startswith("identity provider")]
+    assert [w for w in keycloak.writes if "identity-provider" in w] == puts

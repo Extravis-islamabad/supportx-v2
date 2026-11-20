@@ -245,6 +245,7 @@ export const en = {
   'audit.action.identity_access.service_account_created': 'Made a service account',
   'audit.action.identity_access.service_account_role_added': 'Gave a service account a role',
   'audit.action.identity_access.service_account_role_removed': 'Took a role from a service account',
+  'audit.action.identity_provider.account_linked': 'Account linked to an identity provider',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.announced': 'Announced from an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',
