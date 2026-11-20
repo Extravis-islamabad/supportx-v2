@@ -9,7 +9,7 @@ for one view:
 The downgrade drops both columns: people's choice of layout goes back to the table.
 
 Revision ID: 0182
-Revises: 0181
+Revises: 0179
 Created: 2026-11-20
 """
 
@@ -19,8 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0182"
-# main's head now (… 0178 → 0181); re-pointed at its queue turn if 0179 lands first.
-down_revision: str | None = "0181"
+down_revision: str | None = "0179"  # main's head at its queue turn (0181 → 0179 → 0182)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
