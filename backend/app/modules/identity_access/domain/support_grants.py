@@ -26,8 +26,6 @@ NAME_MAX = 200
 TICKET_MAX = 100
 IP_LIST_MAX = 20
 DEFAULT_EMAIL_DOMAINS = ("extravis.com",)  # lane B (1): an instance setting may widen it
-# Any UUID gives a tag of the same length, so one probe tells whether an address can be tagged.
-_PROBE_ID = uuid.UUID(int=0)
 
 
 class Access(StrEnum):
@@ -76,8 +74,9 @@ WITH_MAIL = Delivery.ACTIONS_EMAIL
 
 # The order the engineer must complete before any session (lane B (2)); on the one-time path
 # Keycloak's own priorities decide the order, which is why that path carries its warning.
-REQUIRED_ACTIONS = ("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP")
-OUT_OF_BAND_ACTIONS = ("UPDATE_PASSWORD", "CONFIGURE_TOTP")
+# Before any session the engineer chooses their own password and enrols TOTP (D-177). The
+# account holds no address, so Keycloak never verifies one; the link proves the mailbox.
+FIRST_SIGN_IN_ACTIONS = ("UPDATE_PASSWORD", "CONFIGURE_TOTP")
 
 
 def delivery_for(verification: "Verification", *, mail_available: bool) -> Delivery:
@@ -94,11 +93,6 @@ def delivery_for(verification: "Verification", *, mail_available: bool) -> Deliv
 def admin_could_act_as_engineer(delivery: Delivery) -> bool:
     """Shown on the grant and in the audit: the admin held a credential (lane B (2))."""
     return delivery is Delivery.ONE_TIME_PASSWORD
-
-
-def actions_for(verification: "Verification") -> tuple[str, ...]:
-    """The Keycloak required actions on the account: verify the address only when e-mailed."""
-    return OUT_OF_BAND_ACTIONS if verification is Verification.OUT_OF_BAND else REQUIRED_ACTIONS
 
 
 def link_lifespan_seconds(now: datetime, ends_at: datetime) -> int:
@@ -160,8 +154,6 @@ def grant_problems(  # noqa: C901, PLR0912 - one check per field, flat, each its
         problems.append(("engineer_email", "support_email_invalid"))
     elif not domain_allowed(request.engineer_email, allowed_domains):
         problems.append(("engineer_email", "support_email_domain_not_allowed"))
-    elif account_email(request.engineer_email, _PROBE_ID) is None:
-        problems.append(("engineer_email", "support_email_not_taggable"))
     reason = request.reason.strip()
     if not reason or len(reason) > REASON_MAX:
         problems.append(("reason", "required" if not reason else "support_text_too_long"))
@@ -210,34 +202,6 @@ def is_open(state: str) -> bool:
 def due_to_end(state: str, ends_at: datetime, now: datetime) -> bool:
     """An open grant whose time is up (the 30-second schedule ends it)."""
     return is_open(state) and ends_at <= now
-
-
-LOCAL_PART_MAX = 64  # RFC 5321: the part before the @
-
-
-def account_email(engineer_email: str, grant_id: uuid.UUID) -> str | None:
-    """The support account's own address, or None when one can't be made (lane B (1)).
-
-    The shared realm allows one account per address (ADR-006, `duplicateEmailsAllowed` false),
-    so the engineer's own address would collide with their account or another tenant's grant. A
-    plus-address (`omar+sx-<grant hex>@extravis.com`) reaches the same mailbox, so Keycloak's
-    verify-e-mail step still proves the engineer (lane B's condition 2). The coordinator chose
-    it (2026-11-19); this one function is what changes if SupportX's own link replaces it.
-
-    Refused: an address that already has a `+` tag, and one whose local part would pass 64
-    characters. The grant ID is a UUIDv7 as lowercase hex (never guessable from a sequence); the
-    domain is the real address's, so the domain check on the real address covers it.
-    """
-    domain = email_domain(engineer_email)
-    if domain is None:
-        return None
-    local = engineer_email.strip().split("@")[0].lower()
-    if "+" in local:
-        return None
-    tagged = f"{local}+sx-{grant_id.hex}"
-    if len(tagged) > LOCAL_PART_MAX:
-        return None
-    return f"{tagged}@{domain}"
 
 
 LINK_TOKEN_BYTES = 32

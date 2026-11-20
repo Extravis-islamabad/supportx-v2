@@ -14,8 +14,6 @@ from app.modules.identity_access.domain.support_grants import (
     Delivery,
     GrantRequest,
     Verification,
-    account_email,
-    actions_for,
     admin_could_act_as_engineer,
     delivery_for,
     domain_allowed,
@@ -118,28 +116,6 @@ def test_the_account_name_is_per_grant() -> None:
     assert support_username("0193") == "extravis-support-0193"
 
 
-def test_the_account_address_is_per_grant_and_reaches_the_same_mailbox() -> None:
-    """Lane B (1): one function, lowercase, the grant's UUID as hex, the real address's domain."""
-    grant = uuid.UUID("0193f0aa-0000-7000-8000-00000000abcd")
-    made = account_email("Omar@Extravis.com", grant)
-    assert made == f"omar+sx-{grant.hex}@extravis.com"
-    assert made is not None
-    assert made.split("@")[1] == "extravis.com"  # same domain as the real address
-    other = account_email("omar@extravis.com", uuid.UUID(int=1))
-    assert other != made  # a second grant, a new address
-
-
-def test_a_tagged_or_too_long_address_is_refused() -> None:
-    """Lane B (1): never a second tag, never past 64 characters before the @."""
-    grant = uuid.UUID(int=7)
-    assert account_email("omar+old@extravis.com", grant) is None
-    assert account_email(("o" * 30) + "@extravis.com", grant) is None  # 30 + 36 > 64
-    assert account_email(("o" * 28) + "@extravis.com", grant) is not None  # 28 + 36 = 64
-    assert "support_email_not_taggable" in _codes(
-        dataclasses.replace(GOOD, engineer_email="omar+x@extravis.com")
-    )
-
-
 def test_one_place_decides_how_the_engineer_gets_in(monkeypatch: pytest.MonkeyPatch) -> None:
     """D-177: with mail, the engineer's own actions e-mail; without, the admin's password."""
     oob = Verification.OUT_OF_BAND
@@ -157,8 +133,7 @@ def test_one_place_decides_how_the_engineer_gets_in(monkeypatch: pytest.MonkeyPa
 
 
 def test_the_required_actions_and_the_link_lifespan() -> None:
-    assert actions_for(Verification.EMAIL) == ("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP")
-    assert "VERIFY_EMAIL" not in actions_for(Verification.OUT_OF_BAND)
+    assert support_grants.FIRST_SIGN_IN_ACTIONS == ("UPDATE_PASSWORD", "CONFIGURE_TOTP")
     assert link_lifespan_seconds(NOW, NOW + timedelta(hours=72)) == 24 * 3600
     assert link_lifespan_seconds(NOW, NOW + timedelta(hours=2)) == 2 * 3600
     assert link_lifespan_seconds(NOW, NOW) == 60

@@ -118,14 +118,15 @@ class IdentityAdmin(Protocol):
 
     async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
 
-    async def create_user(  # noqa: D102
+    async def create_user(  # noqa: D102, PLR0913 - Keycloak's user fields, keyword-only
         self,
         *,
-        email: str,
+        email: str | None,
         first_name: str,
         last_name: str,
         locale: str,
         email_verified: bool = True,
+        username: str | None = None,
     ) -> str: ...
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
@@ -146,7 +147,9 @@ class IdentityAdmin(Protocol):
 
     async def clear_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
 
-    async def set_password(self, user_id: str, password: str) -> None: ...  # noqa: D102
+    async def set_password(  # noqa: D102
+        self, user_id: str, password: str, *, temporary: bool = False
+    ) -> None: ...
 
     async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
 
@@ -552,14 +555,15 @@ class KeycloakAdmin:
                 )
         return None
 
-    async def create_user(
+    async def create_user(  # noqa: PLR0913 - Keycloak's user fields, keyword-only
         self,
         *,
-        email: str,
+        email: str | None,
         first_name: str,
         last_name: str,
         locale: str,
         email_verified: bool = True,
+        username: str | None = None,
     ) -> str:
         """A new realm user without a password (they set one from the e-mail); its ID.
 
@@ -570,13 +574,13 @@ class KeycloakAdmin:
             "POST",
             "/users",
             json={
-                "username": email,
-                "email": email,
+                # A person's sign-in name is their address; a vendor support account's is a
+                # generated login and it holds no address at all (WP-057 S4c-1, D-177).
+                "username": username or email,
+                **({"email": email, "emailVerified": email_verified} if email else {}),
                 "firstName": first_name,
                 "lastName": last_name,
                 "enabled": True,
-                # Reached through an e-mail SupportX asked for: the address is the person's.
-                "emailVerified": email_verified,
                 "attributes": {"locale": [locale]},
             },
         )
@@ -655,8 +659,11 @@ class KeycloakAdmin:
             # another change made to the user in between.
             await self._call("PUT", f"/users/{user_id}", json={"requiredActions": kept})
 
-    async def set_password(self, user_id: str, password: str) -> None:
-        """Set the user's password, not temporary; the realm's policy applies.
+    async def set_password(self, user_id: str, password: str, *, temporary: bool = False) -> None:
+        """Set the user's password; the realm's policy applies.
+
+        `temporary`: Keycloak makes the user choose their own at the next sign-in (a vendor support
+        account's first password, D-177).
 
         A policy refusal raises `IdentityAdminRefused` with Keycloak's message key (e.g.
         `invalidPasswordMinLengthMessage`), never the password. Signs nobody in.
@@ -664,7 +671,7 @@ class KeycloakAdmin:
         await self._call(
             "PUT",
             f"/users/{user_id}/reset-password",
-            json={"type": "password", "value": password, "temporary": False},
+            json={"type": "password", "value": password, "temporary": temporary},
         )
 
     async def credentials(self, user_id: str) -> list[Credential]:

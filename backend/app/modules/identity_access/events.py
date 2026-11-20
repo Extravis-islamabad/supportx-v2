@@ -518,6 +518,10 @@ class SupportGrantChanged(DomainEvent):
         "account_removed",
         "account_removal_failed",
         "account_removal_stuck",
+        "link_sent",
+        "link_opened",
+        "link_resent",
+        "link_expired",
     ]
     access: Literal["view", "view_and_change"]
     ends_at: datetime

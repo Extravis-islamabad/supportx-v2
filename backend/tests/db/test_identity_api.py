@@ -67,6 +67,8 @@ class FakeAdmin:
 
     accounts: dict[str, KeycloakUser] = field(default_factory=dict)  # by id
     enabled: dict[str, bool] = field(default_factory=dict)  # by id: the last set_enabled
+    usernames: dict[str, str] = field(default_factory=dict)  # generated login -> address
+    temporary_passwords: set[str] = field(default_factory=set)  # account IDs
     members: dict[str, set[str]] = field(default_factory=dict)  # org id -> user ids
     account_attributes: dict[str, dict[str, str]] = field(default_factory=dict)
     passwords_set: list[str] = field(default_factory=list)  # account IDs (never the password)
@@ -85,17 +87,22 @@ class FakeAdmin:
     async def create_user(
         self,
         *,
-        email: str,
+        email: str | None,
         first_name: str,
         last_name: str,
         locale: str,
         email_verified: bool = True,
+        username: str | None = None,
     ) -> str:
         del first_name, last_name
-        self.verified[email.lower()] = email_verified
+        address = (email or "").lower()
+        if username is not None:
+            self.usernames[username] = address  # a generated login (vendor support, D-177)
+        if address:
+            self.verified[address] = email_verified
         # Fresh IDs like Keycloak's: an account made again after a delete is a new one.
         account = KeycloakUser(
-            id=f"kc-{uuid.uuid4().hex[:8]}", email=email.lower(), enabled=True, has_password=False
+            id=f"kc-{uuid.uuid4().hex[:8]}", email=address, enabled=True, has_password=False
         )
         self.accounts[account.id] = account
         self.account_attributes[account.id] = {"locale": locale}
@@ -127,11 +134,13 @@ class FakeAdmin:
     async def clear_actions(self, user_id: str, actions: list[str]) -> None:
         self.required[user_id] = [a for a in self.required.get(user_id, []) if a not in actions]
 
-    async def set_password(self, user_id: str, password: str) -> None:
+    async def set_password(self, user_id: str, password: str, *, temporary: bool = False) -> None:
         """Keycloak's policy, as far as a test needs it: 12 characters at least."""
         if len(password) < 12:
             raise IdentityAdminRefused(400, "invalidPasswordMinLengthMessage")
         self.passwords_set.append(user_id)
+        if temporary:
+            self.temporary_passwords.add(user_id)
         account = self.accounts.get(user_id)
         if account is not None:
             self.accounts[user_id] = replace(account, has_password=True)

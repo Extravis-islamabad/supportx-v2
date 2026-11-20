@@ -1,9 +1,9 @@
 """Vendor support grants (WP-057 S4c-1, REQ-SEC-045, D-173): reading, the opt-out and the end.
 
 A tenant admin grants one named Extravis engineer temporary access; the grant makes a temporary
-`vendor_support` account in the shared realm, at a plus-address of the engineer's own
-(`domain.support_grants.account_email`). This part holds what does not depend on how the engineer
-gets in (`delivery_for`, which waits for the product owner's item 14):
+`vendor_support` account in the shared realm, under a generated login with no address
+(`domain.support_grants.support_login`, D-177). With mail, the engineer's own single-use link
+makes the first password (`delivery_for`); without, the admin is shown one once. This holds:
 
 - the grants a tenant admin sees, newest first, with "waiting for the engineer" until the engineer
   completes Keycloak's required actions (lane B (12)): never "active" before;
@@ -25,6 +25,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -56,11 +57,13 @@ from app.modules.identity_access.infra.models import (
 )
 from app.modules.identity_access.service.directory import UserRepository
 from app.modules.identity_access.service.sso import organization_of
+from app.modules.organization import email_branding, get_current_tenant
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.ids import new_id
-from app.shared.mail.service.outgoing import mail_configured
+from app.shared.mail.domain.message import OutgoingMail
+from app.shared.mail.service.outgoing import mail_configured, queue_mail
 
 log = get_logger(__name__)
 
@@ -495,6 +498,57 @@ def _refuse(problems: list[tuple[str, str]]) -> ValidationFailed:
     )
 
 
+SUPPORT_PAGE = "/vendor-support/start"  # the console page that opens a support link (S4c-3)
+
+
+async def _mail_link(
+    session: AsyncSession, settings: Settings, row: SupportGrant, login: str, token: str
+) -> None:
+    """The engineer's single-use link, through the one mail sender (lane B's condition 5).
+
+    No secret in the mail: the login, the grant's short ID, the tenant, when it expires and the
+    link, whose token sits in the fragment (a browser never sends it, so no server log sees it
+    and a mail scanner's GET can't use it; only the page's POST does).
+    """
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    brand = await email_branding(session, settings, tenant_id, "en")
+    query = "" if settings.tenant_base_domain else f"?t={quote(brand.tenant_slug)}"
+    link = f"{brand.console_url}{SUPPORT_PAGE}{query}#{token}"
+    short = rules.mail_subject_id(row.id)
+    tenant = await get_current_tenant(session)
+    expires = row.link_expires_at.strftime("%d %b %Y, %H:%M UTC") if row.link_expires_at else ""
+    text = (
+        f"{row.engineer_name},\n\n"
+        f"{tenant.name} has granted you temporary support access (grant {short}).\n\n"
+        f"Your sign-in name: {login}\n\n"
+        f"Open this link to set your own password and two-step sign-in. It works once and "
+        f"expires on {expires}:\n{link}\n\n"
+        "If you were not expecting this, ignore this message: nothing happens until the link "
+        "is used.\n"
+    )
+    await queue_mail(
+        session,
+        settings,
+        OutgoingMail(
+            kind="vendor_support_link",
+            to=(row.engineer_email,),
+            subject=f"Extravis support access: grant {short} for {tenant.name}",
+            text=text,
+        ),
+    )
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="link_sent",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+
+
 async def create_grant(  # noqa: PLR0913 - the request, its context and the account port
     session: AsyncSession,
     subject: Subject,
@@ -526,9 +580,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     networks = _networks(request.ip_allowlist)
     starts_at, ends_at = rules.window(now, request.hours)
     grant_id = new_id()
-    address = rules.account_email(request.engineer_email, grant_id)
-    if address is None:  # grant_problems refused it already; kept for the type checker
-        raise _refuse([("engineer_email", "support_email_not_taggable")])
+    login = rules.support_login(grant_id)
     out_of_band = request.verification is rules.Verification.OUT_OF_BAND
     row = SupportGrant(
         id=grant_id,
@@ -557,29 +609,36 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     session.add(row)
     await session.flush()
     organization = await organization_of(session, admin)
+    # A generated login and no address (D-177 fallback): the shared realm allows one account per
+    # address, so the engineer's real address stays on the grant, where SupportX's mail uses it.
     account = await admin.create_user(
-        email=address,
+        email=None,
+        username=login,
         first_name=row.engineer_name[:100],
         last_name="",
         locale="en",
-        email_verified=out_of_band,  # never proven by mail on that path; the warning says so
     )
     password: str | None = None
     try:
         await admin.add_member(organization.id, account)
-        actions = list(rules.actions_for(request.verification))
+        # Keycloak makes the engineer choose their own password and enrol TOTP before any session.
+        await admin.require_actions(account, list(rules.FIRST_SIGN_IN_ACTIONS))
         if delivery is rules.Delivery.ACTIONS_EMAIL:
-            await admin.send_actions_email(
-                account, actions, rules.link_lifespan_seconds(now, ends_at)
-            )
+            # No credential yet: the single-use link in SupportX's own mail makes one, for the
+            # mailbox holder only (lane B's fallback conditions).
+            token, stored = rules.new_link_token()
+            row.link_token_hash = stored
+            row.link_expires_at = now + timedelta(seconds=rules.link_lifespan_seconds(now, ends_at))
+            await _mail_link(session, settings, row, login, token)
         else:
             password = _one_time_password()
-            await admin.set_password(account, password)
-            await admin.require_actions(account, actions)
-        person = await UserRepository(session).add(
+            await admin.set_password(account, password, temporary=True)
+        person = await UserRepository(
+            session
+        ).add(
             User(
                 external_subject=account,
-                email=address,
+                email=None,  # the real address lives on the grant only
                 display_name=row.engineer_name[:100],
                 first_name=row.engineer_name[:100],
                 user_type=rules.SUPPORT_USER_TYPE,
