@@ -93,3 +93,11 @@ def test_keycloak_domains_follow_a_verify_and_an_unverify() -> None:
     kept = vd.kc_unverified([{**routed[0], "verified": True}], "acme.test")
     assert kept == [{**routed[0], "verified": False}]  # single tenant: the routing stays
     assert vd.kc_without(routed, "acme.test") == []  # multi-tenant: gone
+
+
+def test_a_hand_verified_domain_is_rechecked_only_on_a_multi_tenant_installation() -> None:
+    """Lane B's #569 review: turning multi-tenant on later brings hand-verified domains to DNS."""
+    assert not vd.scheduled("manual", multi_tenant=False)
+    assert vd.scheduled("manual", multi_tenant=True)
+    assert vd.scheduled("dns", multi_tenant=False)
+    assert vd.scheduled(None, multi_tenant=False)  # pending: always

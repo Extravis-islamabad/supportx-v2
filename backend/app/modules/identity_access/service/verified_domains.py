@@ -10,7 +10,8 @@ verified (AC2): the partial unique index decides, and a conflicting verify gets 
   found". Until a resolver is installed, every lookup says automatic checking isn't available yet
   (`dns_check_unavailable`, never a failure that counts towards a lapse), and on a single-tenant
   installation a tenant admin can verify by hand (recent sign-in, a reason, audited). A domain
-  verified by hand is never re-checked by the schedule: its proof was the admin's, not DNS.
+  verified by hand is not re-checked by DNS there; on a multi-tenant installation it is, like any
+  other (`rules.scheduled`).
 - **Keycloak follows our database** (lane B (1)): a verify or un-verify raises
   `VerifiedDomainChanged`, and its consumer marks the organisation's domain verified, or removes it
   (lane B (2)). If Keycloak refuses (another organisation holds it), the domain goes back to
@@ -322,8 +323,10 @@ async def check_schedule(database: Database, settings: Settings) -> None:
         try:
             async with database.tenant_session(TenantContext(tenant)) as session:
                 for row in await list_domains(session):
-                    if row.verified_by_method == "manual":
-                        continue  # vouched for by an admin, not DNS: never re-checked
+                    if not rules.scheduled(
+                        row.verified_by_method, multi_tenant=settings.multi_tenant
+                    ):
+                        continue  # vouched for by an admin on a single-tenant installation
                     state = DomainState(row.state)
                     failing = row.failing_since is not None
                     if failing or rules.due(state, row.last_checked_at, row.created_at, now):

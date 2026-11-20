@@ -191,3 +191,13 @@ def kc_unverified(domains: list[dict[str, Any]], name: str) -> list[dict[str, An
         if item.get("name") == name:
             item["verified"] = False
     return out
+
+
+def scheduled(verified_by: str | None, *, multi_tenant: bool) -> bool:
+    """Whether the schedule checks a domain by DNS at all.
+
+    A domain an admin verified by hand is not, on a single-tenant installation (its proof was the
+    admin's). On a multi-tenant one it is, like any other (lane B's #569 review): an installation
+    that turns multi-tenant later must not keep routing hand-verified domains with no DNS proof.
+    """
+    return multi_tenant or verified_by != "manual"
