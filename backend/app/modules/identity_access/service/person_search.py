@@ -45,7 +45,9 @@ async def person_match(session: AsyncSession, text: str) -> Match | None:
         if not typed:
             return None
         return Match(
-            predicate=User.display_name.ilike(_like(typed), escape="\\"),
+            # A name that is an address is never searchable for support (lane B's #566 review).
+            predicate=User.display_name.ilike(_like(typed), escape="\\")
+            & ~User.display_name.contains("@", autoescape=True),
             rank=func.similarity(User.display_name, typed),
         )
     return await ENGINE.match(session, PEOPLE, text)

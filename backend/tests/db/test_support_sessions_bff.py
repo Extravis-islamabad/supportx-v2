@@ -260,6 +260,35 @@ async def test_a_support_session_sees_names_but_never_an_address(
     assert item in by_address.text
 
 
+async def test_a_name_that_is_an_address_is_withheld_from_support(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B's #566 review: a first sign-in without a name claim stores the e-mail as the
+    name; support never sees it as a name, nor finds the person by it; staff see it as before."""
+    asker, _name, address = await _support_session(bff)
+    await _sql(bff.db, "UPDATE users SET display_name = email WHERE id = $1", asker)
+    console = {"X-SupportX-Client": "console"}
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Printer jam", "requester_id": str(asker)},
+        headers={"X-CSRF-Token": await _csrf(bff), **console},
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()["id"]
+    for path in (f"/api/v1/incidents/{item}", "/api/v1/incidents"):
+        read = await bff.client.get(path, headers=console)
+        assert read.status_code == 200, read.text
+        assert address not in read.text, path
+    for typed in (address, address.partition("@")[0]):
+        found = await bff.client.get(
+            "/api/v1/incidents/search", params={"q": typed}, headers=console
+        )
+        assert item not in found.text, typed
+    assert (await bff.login(bff.user("a", email=address))).status_code == 302
+    staff = await bff.client.get(f"/api/v1/incidents/{item}", headers=console)
+    assert address in staff.text
+
+
 async def test_an_unmasking_grant_still_never_shows_an_address(
     bff: Bff,  # noqa: F811 - the reused fixture
 ) -> None:

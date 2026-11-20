@@ -32,6 +32,20 @@ def names_masked(session: AsyncSession) -> bool:
     return isinstance(context, TenantContext) and context.mask_names
 
 
+def shown_name(session: AsyncSession, display_name: str) -> str:
+    """A person's name as this request may see it: "" when withheld (the console's stand-in).
+
+    Names are withheld when the grant masks them; and while contacts are masked, a name that is
+    an address (a first sign-in without a name claim stores the e-mail as the name) is withheld
+    too, or the address would show as the name (lane B's #566 review).
+    """
+    if names_masked(session):
+        return ""
+    if contacts_masked(session) and "@" in display_name:
+        return ""
+    return display_name
+
+
 def refuse_masked_person_search(session: AsyncSession) -> None:
     """A search by a person's name would tell who they are: refused while names are masked.
 

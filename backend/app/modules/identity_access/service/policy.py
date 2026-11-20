@@ -67,7 +67,7 @@ from app.modules.identity_access.infra.models import (
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
-from app.modules.identity_access.service.masking import names_masked
+from app.modules.identity_access.service.masking import shown_name
 from app.modules.identity_access.service.person_search import person_match
 from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
@@ -666,9 +666,9 @@ class PolicyService:
             query = query.where(found.predicate)
             order.insert(0, found.rank.desc())
         rows = (await session.execute(query.order_by(*order).limit(limit))).all()
-        masked = names_masked(session)  # the UI labels an empty name (D-173, D-180)
+        # The UI labels an empty name (D-173, D-180); an address used as a name is withheld too.
         return [
-            (row.id, "" if masked else row.display_name)
+            (row.id, shown_name(session, row.display_name))
             for row in rows
             if (await self.subject(tenant_id, row.id, session)).holds(permission)
         ]

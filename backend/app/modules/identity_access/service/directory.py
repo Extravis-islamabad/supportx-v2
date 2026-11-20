@@ -40,7 +40,7 @@ from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
-from app.modules.identity_access.service.masking import contacts_masked, names_masked
+from app.modules.identity_access.service.masking import contacts_masked, shown_name
 from app.modules.identity_access.service.person_search import person_match
 from app.modules.identity_access.service.policy import (
     FieldRule,
@@ -423,8 +423,8 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
     if not wanted:
         return {}
     rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
-    masked = names_masked(session)  # the UI labels an empty name (D-173, D-180)
-    return {str(row.id): "" if masked else row.display_name for row in rows}
+    # The UI labels an empty name (D-173, D-180); an address used as a name is withheld too.
+    return {str(row.id): shown_name(session, row.display_name) for row in rows}
 
 
 async def api_key_names(session: AsyncSession, key_ids: Sequence[str]) -> dict[str, str]:
@@ -464,12 +464,9 @@ async def user_contacts(
         select(User.id, User.display_name, User.email).where(User.id.in_(wanted))
     )
     # Removed, never hashed or partial (lane B (c)): e-mail always for support, names on request.
-    hide_names, hide_contacts = names_masked(session), contacts_masked(session)
+    hide_contacts = contacts_masked(session)
     return {
-        str(row.id): (
-            "" if hide_names else row.display_name,
-            "" if hide_contacts else row.email,
-        )
+        str(row.id): (shown_name(session, row.display_name), "" if hide_contacts else row.email)
         for row in rows
     }
 
