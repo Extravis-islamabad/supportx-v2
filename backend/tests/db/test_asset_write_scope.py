@@ -1,4 +1,6 @@
-"""Staff booking writes and CIs from assets never reach past the caller's asset scope (2026-11-20).
+"""Staff asset writes never reach past, or confirm, what lies outside the caller's scope.
+
+2026-11-20.
 
 Found by lane B's write walk (#560) and confirmed on main by lane C's own re-check, whose cases
 these are:
@@ -6,7 +8,9 @@ these are:
   version check (409 naming who changed it); both now answer the same 404 as an unknown booking,
   with the manage scope checked before the version and the status;
 - `POST /cmdb/cis/from-assets` skipped an unseen asset as "hidden" and a nonexistent one as
-  "gone", confirming the unseen one exists; both now read the same.
+  "gone", confirming the unseen one exists; both now read the same;
+- an audit fix by item ID answered "asset not found" for an item whose asset is unseen and "item
+  not found" for an unknown item; both now read as no item.
 
 The manager views assets everywhere (the built-in technician role) but manages only S2: the
 booking writes follow the manage scope, the right they need. Real PostgreSQL and Valkey on the
@@ -20,6 +24,7 @@ from typing import Any
 import pytest
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_asset_audits_api import _plan, _start
 from tests.db.test_asset_loans_api import _loanable
 from tests.db.test_assets_api import _add, _product
 from tests.db.test_cmdb_api import _types
@@ -123,3 +128,41 @@ async def test_cis_from_assets_never_tells_an_unseen_asset_from_none(world: Worl
         assert made.json()["created"] == []
     finally:
         await world.call("DELETE", f"/users/{a.requester2}/roles/{adder}", a, a.admin)
+
+
+async def test_an_audit_fix_never_tells_an_unseen_item_from_none(world: World) -> None:
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    await _asset_at(world, f"Audit near {tag}", a.s1)
+    far = await _asset_at(world, f"Audit far {tag}", a.s2)
+    audit = await _start(
+        world, a, await _plan(world, a, site_ids=[str(a.s1), str(a.s2)], name=f"{TAG} {tag}")
+    )
+    everyone = await world.call("GET", f"/assets/audits/{audit['id']}/items", a, a.admin)
+    assert everyone.status_code == 200, everyone.text
+    rows = everyone.json()
+    items = rows["items"] if isinstance(rows, dict) else rows
+    far_item = next(i for i in items if i["asset_id"] == far["id"])
+    # requester: a member of site S1 only (the incident world), managing assets there.
+    manager = await role(
+        world,
+        a,
+        f"{TAG} S1 audit fixer {tag}",
+        [("assets.view", "site"), ("assets.manage", "site")],
+    )
+    assigned = await world.call("PUT", f"/users/{a.requester}/roles/{manager}", a, a.admin)
+    assert assigned.status_code == 204, assigned.text
+    try:
+        nowhere = str(uuid.uuid4())
+        fixed = await world.call(
+            "POST", f"/assets/audits/{audit['id']}/fixes", a, a.requester,
+            json={"fix": "move_site", "item_ids": [far_item["id"], nowhere],
+                  "site_id": str(a.s1)},
+            headers={"Idempotency-Key": str(uuid.uuid4())},
+        )  # fmt: skip
+        assert fixed.status_code == 200, fixed.text
+        codes = {o["item_id"]: (o["applied"], o["code"]) for o in fixed.json()["outcomes"]}
+        missing = (False, "asset_audit_item_not_found")
+        assert codes == {far_item["id"]: missing, nowhere: missing}
+    finally:
+        await world.call("DELETE", f"/users/{a.requester}/roles/{manager}", a, a.admin)
