@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select, true
 from sqlalchemy.dialects.postgresql import array, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -142,8 +142,14 @@ async def _parents(session: AsyncSession) -> dict[str, str | None]:
     return {str(i): (str(p) if p else None) for i, p in rows}
 
 
-async def list_types(session: AsyncSession) -> list[TypeView]:
-    """Every live type, with counts (the type tree of the CMDB home)."""
+async def list_types(
+    session: AsyncSession, *, visible: ColumnElement[bool] | None = None
+) -> list[TypeView]:
+    """Every live type, with counts (the type tree of the CMDB home).
+
+    `visible`: the reader's CI scope (lane C 2, ADR-053): counted only within it, so a count
+    never tells anyone about CIs they may not see. Without it (configuration paths), all CIs.
+    """
     await ensure_defaults(session)
     rows = list(
         await session.scalars(
@@ -153,7 +159,9 @@ async def list_types(session: AsyncSession) -> list[TypeView]:
     counts = dict(
         (
             await session.execute(
-                select(Ci.type_id, func.count()).where(Ci.deleted_at.is_(None)).group_by(Ci.type_id)
+                select(Ci.type_id, func.count())
+                .where(Ci.deleted_at.is_(None), true() if visible is None else visible)
+                .group_by(Ci.type_id)
             )
         ).all()  # a Result has keys(): dict() would read it as a mapping
     )

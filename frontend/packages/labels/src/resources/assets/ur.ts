@@ -794,6 +794,7 @@ export const ur: LabelResource = {
   'assets.record.linked_work_item': 'منسلک ریکارڈ',
   'assets.record.loanable': 'ادھار کے قابل',
   'assets.record.location': 'مقام',
+  'assets.record.managed_by_group': 'انتظام کرنے والا گروپ',
   'assets.record.merged_from': 'اس سے ضم ہوا',
   'assets.record.merged_into': 'اس میں ضم ہوا',
   'assets.record.name': 'نام',

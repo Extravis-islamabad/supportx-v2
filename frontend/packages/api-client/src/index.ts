@@ -234,6 +234,17 @@ export {
   type RuleableField,
 } from './fieldAccess';
 export {
+  resourceAccessKeys,
+  usePersonResourceAccess,
+  useResourceCriteria,
+  useResourceRules,
+  useSaveResourceRule,
+  type AccessResource,
+  type PersonResourceAccess,
+  type ResourceCriteria,
+  type ResourceRule,
+} from './resourceAccess';
+export {
   useAssignIncident,
   useCreateIncident,
   useDecideIncidentApproval,

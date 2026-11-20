@@ -790,6 +790,7 @@ export const en = {
   'assets.record.linked_work_item': 'Linked record',
   'assets.record.loanable': 'Loanable',
   'assets.record.location': 'Location',
+  'assets.record.managed_by_group': 'Managing group',
   'assets.record.merged_from': 'Merged from',
   'assets.record.merged_into': 'Merged into',
   'assets.record.name': 'Name',

@@ -297,6 +297,8 @@ class Asset(TenantEntity):
         Index("ix_assets_state", "tenant_id", "state_id"),
         Index("ix_assets_vendor", "tenant_id", "vendor_id"),
         Index("ix_assets_site", "tenant_id", "site_id"),
+        # Its managing group (0183, D-172): the `group` scope, plain ID (organization's).
+        Index("ix_assets_managed_by_group", "tenant_id", "managed_by_group_id"),
         # Its holder (0111): a person, a department, or the asset it is fitted to.
         ForeignKeyConstraint(
             ["tenant_id", "owner_user_id"],
@@ -339,6 +341,7 @@ class Asset(TenantEntity):
     barcode: Mapped[str | None] = mapped_column(String(120))
     vendor_id: Mapped[uuid.UUID | None] = mapped_column()
     site_id: Mapped[uuid.UUID | None] = mapped_column()
+    managed_by_group_id: Mapped[uuid.UUID | None] = mapped_column()
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column()
     department_id: Mapped[uuid.UUID | None] = mapped_column()
     parent_asset_id: Mapped[uuid.UUID | None] = mapped_column()

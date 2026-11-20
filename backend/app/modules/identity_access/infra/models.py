@@ -354,6 +354,38 @@ class RoleFieldAccess(TenantEntity):
     mode: Mapped[str] = mapped_column(String(10))
 
 
+class RoleResourceAccess(TenantEntity):
+    """One role's rule narrowing which assets or CIs it shows (ADR-053; D-172; 0183).
+
+    `resource` is asset or ci; `criteria` names what passes ({criterion: [values]}, the owning
+    module's criteria). Rules only narrow a role's scope, never grant. Removing a rule
+    soft-deletes it; the person's next request has the change (the authz consumer).
+    """
+
+    __tablename__ = "role_resource_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_resource_access_role",
+        ),
+        Index(
+            "ix_rra_tenant_role_resource",
+            "tenant_id",
+            "role_id",
+            "resource",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("resource IN ('asset', 'ci')", name="resource_code"),
+        CheckConstraint("jsonb_typeof(criteria) = 'object'", name="criteria_object"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    resource: Mapped[str] = mapped_column(String(10))
+    criteria: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
 class GroupRole(TenantKeyed, Base):
     """A role a support group carries (WP-042, REQ-ADM-015 AC2).
 

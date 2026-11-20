@@ -27,7 +27,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -112,6 +112,7 @@ ASSET_FIELDS = ResourceFields(
         "state_id": FilterField(Asset.state_id, FieldType.UUID),
         "vendor_id": FilterField(Asset.vendor_id, FieldType.UUID),
         "site_id": FilterField(Asset.site_id, FieldType.UUID),
+        "managed_by_group_id": FilterField(Asset.managed_by_group_id, FieldType.UUID),
         # Its holder (0111): what a person or department holds, an asset's components.
         "owner_user_id": FilterField(Asset.owner_user_id, FieldType.UUID),
         "department_id": FilterField(Asset.department_id, FieldType.UUID),
@@ -135,19 +136,28 @@ def _at_sites(site_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
     return Asset.site_id.in_(site_ids)
 
 
+def _in_groups(group_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
+    # The real `group` scope (0183, D-172): the assets the member's groups manage, every edition.
+    return Asset.managed_by_group_id.in_(group_ids)
+
+
 def _group_reach(subject: Subject) -> ColumnElement[bool] | None:
-    # Assets have no managing group yet (ownership, session 4, names people and departments):
-    # until they do, `group` scope reaches the assets at the member's sites and those at none,
-    # so a technician can keep the assets they add without a site.
+    # An asset no group manages yet keeps the reach `group` scope gave before 0183: the assets
+    # at the member's sites and those at none, so nobody loses the assets they had the day the
+    # managing group arrived; setting one moves the asset to that group's members.
+    unmanaged = Asset.managed_by_group_id.is_(None)
     unsited = Asset.site_id.is_(None)
-    return or_(Asset.site_id.in_(subject.site_ids), unsited) if subject.site_ids else unsited
+    sites = or_(Asset.site_id.in_(subject.site_ids), unsited) if subject.site_ids else unsited
+    return and_(unmanaged, sites)
 
 
 ASSETS = ResourceType(
     name="assets",
     fields=ASSET_FIELDS,
     site_scope=_at_sites,
+    group_scope=_in_groups,
     group_scope_extra=_group_reach,
+    narrowed_as="asset",  # fine-grained access (ADR-053): applied inside scope_filter
 )
 
 # The fields a person sets (state: through the life cycle; discovered serial: by discovery).
@@ -161,7 +171,7 @@ _TEXT_FIELDS = {
 _IDENTIFIERS = ("tag", "serial_number", "barcode")
 _AMOUNTS = ("purchase_price", "purchase_tax")
 _DATES = ("acquired_on", "warranty_expires_on", "expires_on")
-_IDS = ("product_id", "vendor_id", "site_id", "purchase_order_id")
+_IDS = ("product_id", "vendor_id", "site_id", "managed_by_group_id", "purchase_order_id")
 
 
 # The asset as it is saved is one the person may manage (their scope: site, or group's sites and
@@ -176,6 +186,10 @@ async def _within_scope(session: AsyncSession, subject: Subject, row: Asset) -> 
     if unrestricted(subject, MANAGE):
         return  # scope "all", no condition: the query could only say yes (an import, per row)
     if not await authorize_stored(session, subject, MANAGE, ASSETS, Asset.id, row.id):
+        if subject.resource_access.get("asset") is not None:
+            # Fine-grained access (ADR-053): the values fall outside the person's rules, the
+            # same refusal as a CI written out of reach.
+            raise PermissionDenied(params={"permission": MANAGE, "reason": "out_of_scope"})
         raise PermissionDenied(code=SITE_NOT_MANAGED, params={"permission": MANAGE})
 
 
@@ -183,7 +197,8 @@ async def _site_change_within_scope(
     session: AsyncSession, subject: Subject, row: Asset, changes: list[Change]
 ) -> None:
     """A change of site never moves the asset out of the person's reach."""
-    if any(c.field == "site_id" for c in changes):
+    # The fields a scope or an ADR-053 rule reads: a change to any may move the asset out.
+    if any(c.field in ("site_id", "managed_by_group_id", "product_type_id") for c in changes):
         await _within_scope(session, subject, row)
 
 
@@ -414,6 +429,9 @@ async def _link_problems(
     site = cleaned.get("site_id")
     if site is not None and site not in await existing_unit_ids(session, "site", [site]):
         problems.append(Problem("site_id", "site_not_found"))
+    group = cleaned.get("managed_by_group_id")
+    if group is not None and group not in await existing_unit_ids(session, "group", [group]):
+        problems.append(Problem("managed_by_group_id", "group_not_found"))
     return problems
 
 
@@ -616,6 +634,15 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
     if action == "created" or VALUED_FIELDS & {c.field for c in changes}:
         # Reports see the new figures at once. A new asset has no cost lines or disposal yet.
         await valuations.refresh(session, row, new=action == "created")
+
+
+def visible_ids(subject: Subject, permission: str = VIEW) -> Select[uuid.UUID]:
+    """The ids of the assets the subject may see, trashed ones too.
+
+    For rows that name an asset (a booking, a loan line, an audit item), so they follow the
+    asset's own reach (ADR-053).
+    """
+    return select(Asset.id).where(scope_filter(subject, permission, ASSETS))
 
 
 def staff_rows(subject: Subject, *, trash: bool = False) -> Select[Asset]:
