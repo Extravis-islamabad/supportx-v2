@@ -550,6 +550,7 @@ class PolicyService:
             await session.execute(
                 select(
                     SupportGrant.access,
+                    SupportGrant.unmask_personal,
                     SupportGrant.state,
                     SupportGrant.starts_at,
                     SupportGrant.ends_at,
@@ -579,6 +580,7 @@ class PolicyService:
             catalogue=self.catalogue,
             entitled_features=await self.entitled_features(tenant_id, session),
             is_tenant_admin=False,
+            fields=await _support_fields(session, unmask_personal=grant.unmask_personal),
         )
         given = [
             k
@@ -739,6 +741,21 @@ def for_key(subject: Subject, scopes: frozenset[str]) -> Subject:
         grants=MappingProxyType(kept),
         extra=MappingProxyType({**subject.extra, OUT_OF_SCOPE: beyond}),
     )
+
+
+async def _support_fields(session: AsyncSession, *, unmask_personal: bool) -> field_rules.Compiled:
+    """Every record type's sensitive fields hidden, personal ones masked (WP-057 S4c-2)."""
+    # Imported here: the field-access service builds on this module's defaults.
+    from app.modules.identity_access.service import field_access  # noqa: PLC0415
+
+    marks = {
+        record_type: [
+            (f.key, f.personal_data, f.sensitive)
+            for f in await field_access.catalogue(session, record_type)
+        ]
+        for record_type in field_access.record_types()
+    }
+    return support_access.field_access(marks, unmask_personal=unmask_personal)
 
 
 def _broadest(scopes: Sequence[Scope]) -> Scope:

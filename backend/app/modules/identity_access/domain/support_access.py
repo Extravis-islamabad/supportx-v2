@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
 
+from app.modules.identity_access.domain import field_access as field_rules
+
 
 class Grantable(StrEnum):
     """A permission support may hold, and from which access level."""
@@ -225,3 +227,27 @@ def allowed(access: str, decision: Decision | None) -> bool:
 def permissions_for(access: str) -> frozenset[str]:
     """Every permission a grant at `access` holds (before the tenant's licence features)."""
     return frozenset(key for key, decision in SUPPORT_ACCESS.items() if allowed(access, decision))
+
+
+def field_access(
+    fields: Mapping[str, Iterable[tuple[str, bool, bool]]], *, unmask_personal: bool
+) -> field_rules.Compiled:
+    """A support subject's restricted fields (ADR-047), from each record type's rule-able ones.
+
+    `fields` is {record type: [(field, personal_data, sensitive)]}. Sensitive fields (sealed
+    custom values) are always hidden; personal-data fields are masked unless the grant unmasks
+    them (D-173). Built from the field marks, never from a role, so no role can clear them.
+    """
+    nested: dict[str, dict[str, str]] = {}
+    for record_type, found in fields.items():
+        for key, personal, sensitive in found:
+            if sensitive:
+                nested.setdefault(record_type, {})[key] = field_rules.FieldMode.HIDDEN.value
+            elif personal and not unmask_personal:
+                nested.setdefault(record_type, {})[key] = field_rules.FieldMode.MASKED.value
+    return MappingProxyType(
+        {
+            record_type: MappingProxyType(dict(sorted(f.items())))
+            for record_type, f in sorted(nested.items())
+        }
+    )

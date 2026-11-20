@@ -4,6 +4,7 @@ Every permission in the catalogue has a decision; a new permission without one f
 its name, so nothing reaches support by default. The forbidden groups are `never` whole.
 """
 
+from app.modules.identity_access.domain import support_access
 from app.modules.identity_access.domain.support_access import (
     REASONS,
     SUPPORT_ACCESS,
@@ -71,3 +72,25 @@ def test_a_permission_without_a_decision_is_denied() -> None:
     assert allowed("view", Grantable.VIEW)
     assert not allowed("view", Grantable.CHANGE)
     assert not allowed("view", Grantable.DRAFT)
+
+
+def test_sensitive_fields_are_hidden_and_personal_ones_masked_unless_unmasked() -> None:
+    marks = {
+        "incident": [
+            ("custom.salary", False, True),
+            ("custom.home_phone", True, False),
+            ("custom.both", True, True),
+            ("custom.colour", False, False),
+            ("impact_details", False, False),
+        ]
+    }
+    masked = support_access.field_access(marks, unmask_personal=False)
+    assert dict(masked["incident"]) == {
+        "custom.both": "hidden",
+        "custom.home_phone": "masked",
+        "custom.salary": "hidden",
+    }
+    unmasked = support_access.field_access(marks, unmask_personal=True)
+    # Unmasking never opens a sensitive field (D-173).
+    assert dict(unmasked["incident"]) == {"custom.both": "hidden", "custom.salary": "hidden"}
+    assert support_access.field_access({"ci": []}, unmask_personal=False) == {}

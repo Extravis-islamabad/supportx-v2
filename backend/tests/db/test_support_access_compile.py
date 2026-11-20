@@ -17,7 +17,9 @@ from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import support_access
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import SupportGrantChanged
+from app.modules.identity_access.service import field_access as field_access_service
 from app.modules.identity_access.service.authz_consumer import TRIGGERS
+from app.modules.identity_access.service.field_access import RuleableField
 from app.modules.identity_access.service.policy import PolicyService
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
 from tests.db.test_support_grants_api import _account, _grant, _sql
@@ -159,3 +161,34 @@ async def test_the_licence_still_applies(world: World) -> None:  # noqa: F811 - 
     assert gated, "the catalogue has licensed permissions"
     assert not (set(subject.grants) & gated)
     assert set(subject.not_entitled) & gated
+
+
+async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
+    world: World,  # noqa: F811 - the reused fixture
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every record type's marks reach the support subject; unmask_personal opens personal only."""
+
+    async def fields(session: object) -> list[RuleableField]:
+        del session
+        return [
+            RuleableField(key="custom.salary", custom=True, sensitive=True),
+            RuleableField(key="custom.home_phone", custom=True, personal_data=True),
+            RuleableField(key="custom.colour", custom=True),
+        ]
+
+    monkeypatch.setitem(field_access_service._CATALOGUES, "support_test", fields)  # noqa: SLF001 - a test record type
+    grant_id, user_id = await _support_user(world)
+    subject = await _compiled(world, user_id)
+    assert dict(subject.field_access["support_test"]) == {
+        "custom.home_phone": "masked",
+        "custom.salary": "hidden",
+    }
+    await _sql(
+        world,
+        "UPDATE support_grants SET unmask_personal = true WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        uuid.UUID(grant_id),
+    )
+    unmasked = await _compiled(world, user_id)
+    assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}
