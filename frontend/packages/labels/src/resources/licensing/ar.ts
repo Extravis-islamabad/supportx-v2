@@ -30,6 +30,7 @@ export const ar: LabelResource = {
   'feature.esm': 'إدارة خدمات المؤسسة',
   'feature.field_access': 'صلاحيات الحقول حسب الدور',
   'feature.field_encryption': 'تشفير الحقول',
+  'feature.fine_grained_access': 'الوصول الدقيق إلى السجلات',
   'feature.incident': 'إدارة الحوادث',
   'feature.knowledge': 'قاعدة المعرفة',
   'feature.local_ai_runtime': 'تشغيل الذكاء الاصطناعي محليًا',

@@ -443,6 +443,10 @@ export const ur: LabelResource = {
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
+  'errors.field.criteria_required': 'کم از کم ایک چیز بتائیں جسے اصول گزرنے دے۔',
+  'errors.field.criteria_too_large': 'یہ اصول بہت کچھ بتاتا ہے۔ اسے چھوٹے اصولوں میں بانٹیں۔',
+  'errors.field.criterion_invalid': 'یہ معیار درست نہیں۔',
+  'errors.field.criterion_unknown': 'یہ اصول یہ معیار استعمال نہیں کر سکتا۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
   'errors.field.custom_field_scope_unsupported':
@@ -1192,6 +1196,9 @@ export const ur: LabelResource = {
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.resource_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} ریکارڈ رسائی اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.resource_access_rule_not_found': 'ریکارڈ تک رسائی کا یہ اصول اب موجود نہیں۔',
   'errors.restart_at_end': 'چلانے کے لیے کوئی مرحلہ چنیں، اختتام نہیں۔',
   'errors.role_in_use':
     'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',

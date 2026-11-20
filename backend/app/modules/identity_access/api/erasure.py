@@ -469,13 +469,14 @@ async def get_erasure(
     erasure_id: uuid.UUID, response: Response, session: TenantSession, subject: Erase
 ) -> ErasureOut:
     """With its progress (`step` of `steps`) and the code of its last problem."""
-    del subject
     row = await erasure.get_erasure(session, erasure_id)
     set_etag(response, row.version)
     shown = ErasureOut.of(row)
     if row.state in {ErasureState.REQUESTED.value, ErasureState.APPROVED.value}:
         # Before the approver decides: what stays with the anonymised person (counts only).
-        shown.holdings = await person_holdings(session, row.person_id)
+        # The totals stay true; `*_outside_view` counts say how many the eraser may not see
+        # themselves (ADR-053; counts only).
+        shown.holdings = await person_holdings(session, row.person_id, subject)
     return shown
 
 

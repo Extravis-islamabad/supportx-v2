@@ -30,6 +30,7 @@ export const ur: LabelResource = {
   'feature.esm': 'انٹرپرائز سروس مینجمنٹ',
   'feature.field_access': 'کردار کے لحاظ سے فیلڈ تک رسائی',
   'feature.field_encryption': 'فیلڈ انکرپشن',
+  'feature.fine_grained_access': 'ریکارڈ تک باریک رسائی',
   'feature.incident': 'واقعات کا انتظام',
   'feature.knowledge': 'علمی ذخیرہ',
   'feature.local_ai_runtime': 'آن پریمیسز AI رن ٹائم',

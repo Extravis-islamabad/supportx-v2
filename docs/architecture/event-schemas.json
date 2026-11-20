@@ -3398,6 +3398,43 @@
         "type": "object"
       }
     },
+    "identity_access.resource_access.changed": {
+      "1": {
+        "description": "A role's rule narrowing assets or CIs was added, changed or removed (ADR-053, 0183).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only, never its criteria; `removed` once it is taken away.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "resource": {
+            "enum": [
+              "asset",
+              "ci"
+            ],
+            "title": "Resource",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "rule_id",
+          "resource",
+          "removed"
+        ],
+        "title": "ResourceAccessChanged",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",

@@ -8,6 +8,7 @@ import {
   useAssetProducts,
   useAssetProductTypes,
   useCustomFields,
+  useUnits,
   useVendors,
 } from '@supportx/api-client';
 import { lengthLimit, pickerFormat, useAccess, useAppearance, useLabel } from '@supportx/ui';
@@ -87,6 +88,10 @@ export function AssetFields({
   const vendorChoices = (vendors.data?.pages.flatMap((p) => p.items) ?? [])
     .filter((v) => v.is_active || v.id === draft.vendor_id)
     .map((v) => ({ value: v.id, label: v.name }));
+  // Its managing group (0183, D-172): who reaches it at `group` scope. Groups are listed for
+  // those who may view them; the saved one still shows by its ID's choice otherwise.
+  const groups = useUnits('groups', access.can('groups.view'));
+  const groupChoices = (groups.data ?? []).map((g) => ({ value: g.id, label: g.name }));
   const set = (patch: Partial<AssetDraft>) => {
     onChange({ ...draft, ...patch });
   };
@@ -212,6 +217,21 @@ export function AssetFields({
             set({ vendor_id: id ?? null });
           }}
           data-testid="asset-vendor"
+        />
+      </Form.Item>
+      <Form.Item label={t('assets.record.managed_by_group')} htmlFor="asset-managed-by-group">
+        <Select
+          id="asset-managed-by-group"
+          aria-label={t('assets.record.managed_by_group')}
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          value={draft.managed_by_group_id ?? undefined}
+          options={groupChoices}
+          onChange={(id: string | undefined) => {
+            set({ managed_by_group_id: id ?? null });
+          }}
+          data-testid="asset-managed-by-group"
         />
       </Form.Item>
       <Flex gap={16} wrap>
