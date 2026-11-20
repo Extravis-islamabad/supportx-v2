@@ -6,6 +6,7 @@ import type {
   IncidentTemplate,
   ListValue,
 } from '@supportx/api-client';
+import { shownName } from '../../maskedPeople';
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type Labels = Record<string, string> | null | undefined;
@@ -153,7 +154,9 @@ export function categoryPath(
 
 export function personName(people: Record<string, IncidentPerson>, id: string | null): string {
   if (id === null) return '';
-  return people[id]?.display_name ?? '';
+  const person = people[id];
+  // A masked support session gets the person with an empty name: the labelled stand-in (S4c-3).
+  return person === undefined ? '' : shownName(person.display_name);
 }
 
 /** Names that appear more than once in a list: those rows also show the email (Area 15). */

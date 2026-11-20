@@ -341,6 +341,23 @@ export {
   type ServiceAccountRoles,
 } from './serviceAccounts';
 export {
+  useCreateSupportGrant,
+  useEndSupportGrant,
+  useExtendSupportGrant,
+  useOpenSupportLink,
+  useResendSupportLink,
+  useSaveVendorSupportSetting,
+  useSupportActivity,
+  useSupportGrants,
+  useVendorSupportSetting,
+  vendorSupportKeys,
+  type SupportActivity,
+  type SupportGrant,
+  type SupportGrantInput,
+  type SupportGrantMade,
+  type SupportLinkOpened,
+} from './vendorSupport';
+export {
   useFieldSensitivity,
   useSetFieldSensitivity,
   type FieldSealState,
