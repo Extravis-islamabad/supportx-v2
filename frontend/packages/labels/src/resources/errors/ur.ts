@@ -270,6 +270,7 @@ export const ur: LabelResource = {
     'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.domain_address_not_allowed':
     'ڈومین ایسے پتے کی طرف اشارہ کرتا ہے جس سے SupportX رابطہ نہیں کرتا۔',
+  'errors.domain_already_added': 'یہ ڈومین پہلے سے آپ کی فہرست میں ہے۔',
   'errors.domain_check_failed': 'ڈومین نے جواب دیا، مگر اس SupportX کی طرح نہیں۔',
   'errors.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
   'errors.domain_limit': 'آپ زیادہ سے زیادہ {{max}} ڈومین شامل کر سکتے ہیں۔',
@@ -278,6 +279,7 @@ export const ur: LabelResource = {
   'errors.domain_not_resolving': 'ڈومین کا ابھی کوئی DNS ریکارڈ نہیں ہے۔',
   'errors.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
   'errors.domain_taken': 'یہ ڈومین پہلے سے استعمال میں ہے۔',
+  'errors.domain_verified_elsewhere': 'کسی اور ادارے نے یہ ڈومین پہلے ہی تصدیق کر لیا ہے۔',
   'errors.domain_wrong_answer':
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
@@ -470,7 +472,11 @@ export const ur: LabelResource = {
     'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
   'errors.field.disabled_cannot_be_default': 'ڈیفالٹ بنانے سے پہلے یہ سانچہ آن کریں۔',
   'errors.field.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
+  'errors.field.domain_public_mail': 'عوامی ای میل ڈومین کسی ایک ادارے کا نہیں ہو سکتا۔',
+  'errors.field.domain_public_suffix': 'یہ رجسٹری کا لاحقہ ہے، کسی ادارے کا ڈومین نہیں۔',
   'errors.field.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
+  'errors.field.domain_single_label': 'پورا ڈومین درج کریں، جیسے example.com۔',
+  'errors.field.domains_too_many': 'آپ ڈومینز کی حد تک پہنچ گئے ہیں۔',
   'errors.field.draft_not_values': 'مسودہ صرف فارم کی قدریں رکھتا ہے۔',
   'errors.field.draft_too_large': 'یہ مسودہ رکھنے کے لیے بہت بڑا ہے۔',
   'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
