@@ -102,6 +102,8 @@ export const ur: LabelResource = {
   'audit.action.audit.siem_destination_added': 'سیکیورٹی نگرانی کی منزل شامل کی',
   'audit.action.audit.siem_destination_changed': 'سیکیورٹی نگرانی کی منزل بدلی',
   'audit.action.audit.siem_destination_removed': 'سیکیورٹی نگرانی کی منزل ہٹائی',
+  'audit.action.audit.siem_entries_truncated': 'آڈٹ اندراجات کو UDP پیکٹوں میں سمانے کے لیے کاٹا',
+  'audit.action.audit.siem_plaintext_enabled': 'کسی منزل کے لیے بغیر خفیہ کاری کا syslog منتخب کیا',
   'audit.action.audit.siem_secret_rotated': 'سیکیورٹی نگرانی کا دستخطی راز بدلا',
   'audit.action.audit.siem_test_sent': 'سیکیورٹی نگرانی کو آزمائشی اندراج بھیجا',
   'audit.action.audit.subject_erased': 'کسی فرد کا ذاتی ڈیٹا مٹایا',
@@ -1273,6 +1275,10 @@ export const ur: LabelResource = {
   'siem.field.tls': 'محفوظ کنکشن',
   'siem.field.tls_help':
     'اختیاری: قابل اعتماد CA، اور اگر وصول کنندہ مانگے تو کلائنٹ سرٹیفکیٹ اور کلید۔ مہر بند محفوظ؛ دوبارہ کبھی نہیں دکھائے جاتے۔',
+  'siem.field.transport': 'بھیجنے کا طریقہ',
+  'siem.field.udp_max_bytes': 'سب سے بڑا پیغام (بائٹس)',
+  'siem.field.udp_max_bytes_help':
+    '480 سے 8,192 تک۔ لمبا اندراج ایک نظر آنے والے نشان کے ساتھ کاٹا جاتا ہے۔',
   'siem.field.url': 'پتہ (HTTPS)',
   'siem.field.url_help':
     'ہر بیچ پر دستخط ہوتے ہیں: ایک بار دکھائے گئے راز سے X-SupportX-Signature ہیڈر چیک کریں۔',
@@ -1281,9 +1287,15 @@ export const ur: LabelResource = {
   'siem.health.last': 'آخری بار پہنچایا {{time}}',
   'siem.health.off': 'بند',
   'siem.health.ok': 'پہنچا رہا ہے',
+  'siem.health.sent_unconfirmed': 'بھیجا گیا، تصدیق نہیں',
   'siem.health.waiting': 'ابھی کچھ نہیں بھیجا گیا',
   'siem.intro':
     'آڈٹ لاگ اور سائن اِن کو ہوتے ہی اپنے سیکیورٹی نگرانی کے نظام (SIEM) کو بھیجیں۔ اندراجات میں کوئی ذاتی ڈیٹا نہیں ہوتا: نہ پتے، نہ ڈیوائس، نہ نام۔',
+  'siem.plaintext.body_tcp':
+    'آڈٹ اندراجات نیٹ ورک پر سادہ متن میں جاتے ہیں۔ یہ صرف تب استعمال کریں جب آپ کا SIEM TLS وصول نہ کر سکے اور اس تک راستہ آپ کے اپنے نیٹ ورک کے اندر ہو۔ اسے منتخب کرنے پر سائن اِن کی تصدیق مانگی جاتی ہے، یہ آڈٹ لاگ میں درج ہوتا ہے اور سکیورٹی جائزے میں نمایاں ہوتا ہے۔',
+  'siem.plaintext.body_udp':
+    'آڈٹ اندراجات نیٹ ورک پر سادہ متن میں جاتے ہیں، اور UDP کبھی ترسیل کی تصدیق نہیں کرتا: کوئی اندراج کسی کو علم ہوئے بغیر گم ہو سکتا ہے، اور حالت صرف یہ بتا سکتی ہے کہ وہ بھیجا گیا۔ سب سے بڑے پیغام سے لمبا اندراج ایک نظر آنے والے نشان کے ساتھ کاٹا جاتا ہے، اور یہ آڈٹ لاگ میں درج ہوتا ہے۔ اسے منتخب کرنے پر سائن اِن کی تصدیق مانگی جاتی ہے، یہ درج ہوتا ہے اور سکیورٹی جائزے میں نمایاں ہوتا ہے۔',
+  'siem.plaintext.title': 'خفیہ کاری کے بغیر: صرف اندرونی نیٹ ورکس پر پرانے SIEM کے لیے',
   'siem.remove.confirm': '{{name}} کو بھیجنا بند کریں؟',
   'siem.rotating_notice':
     'ایک منزل نئے اور پرانے دونوں رازوں سے دستخط کرتی ہے۔ جب وصول کنندہ نیا استعمال کرے تو پرانا ختم کریں۔',
@@ -1294,7 +1306,7 @@ export const ur: LabelResource = {
     'ہر بیچ کا دستخط چیک کرنے کے لیے یہ وصول کنندہ کو دیں۔ یہ دوبارہ نہیں دکھایا جائے گا۔',
   'siem.secret.title': 'دستخطی راز',
   'siem.test.delivered': 'آزمائشی اندراج پہنچ گیا۔',
-  'siem_destination_kind.syslog': 'TLS پر Syslog',
+  'siem_destination_kind.syslog': 'Syslog',
   'siem_destination_kind.webhook': 'HTTPS ویب ہک',
   'siem_error.address_not_allowed': 'اس پتے کی اجازت نہیں',
   'siem_error.blocked': 'اس پتے کی اجازت نہیں',
@@ -1316,4 +1328,7 @@ export const ur: LabelResource = {
   'siem_stream.sign_ins': 'سائن اِن',
   'siem_test_result.delivered': 'پہنچ گیا',
   'siem_test_result.failed': 'ناکام',
+  'siem_transport.tcp': 'سادہ TCP (خفیہ کاری کے بغیر)',
+  'siem_transport.tls': 'TLS (خفیہ کاری شدہ)',
+  'siem_transport.udp': 'سادہ UDP (خفیہ کاری اور تصدیق کے بغیر)',
 };

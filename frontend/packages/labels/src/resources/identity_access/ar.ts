@@ -1668,6 +1668,7 @@ export const ar: LabelResource = {
   'security_area.passwords': 'كلمات المرور',
   'security_area.service_accounts': 'حسابات الخدمة',
   'security_area.sessions': 'الجلسات',
+  'security_area.siem': 'مراقبة الأمان',
   'security_area.sign_in': 'تسجيل الدخول الموحد',
   'security_area.sign_in_events': 'نشاط تسجيل الدخول',
   'security_area.vendor_support': 'دعم المورّد',
@@ -1687,6 +1688,7 @@ export const ar: LabelResource = {
     'يمكن أن تكون كلمات المرور أقصر من 12 حرفًا. الحد الأدنى الحالي: {{count}}',
   'security_flag.roles_without_mfa': 'أدوار أُوقف فيها التحقق متعدد العوامل: {{count}}',
   'security_flag.service_accounts_without_owner': 'حسابات خدمة تحتاج إلى مالك جديد: {{count}}',
+  'security_flag.siem_plaintext': 'وجهات مراقبة الأمان التي ترسل دون تشفير: {{count}}',
   'security_flag.sign_ins_locked': 'عمليات دخول مقفلة خلال آخر 7 أيام: {{count}}',
   'security_flag.sso_credential_expired': 'انتهت صلاحية شهادة أو سر لتسجيل الدخول الموحد.',
   'security_flag.sso_credential_expires':

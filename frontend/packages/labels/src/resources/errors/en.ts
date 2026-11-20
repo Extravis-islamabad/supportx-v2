@@ -725,6 +725,7 @@ export const en = {
   'errors.field.siem_pem_invalid': "This isn't a usable certificate or key (PEM).",
   'errors.field.siem_port_not_allowed': 'Use a syslog-over-TLS port: 6514, 1514 or 10514.',
   'errors.field.siem_secret_webhook_only': 'Only a webhook has a signing secret.',
+  'errors.field.siem_webhook_https_only': 'A webhook is always sent over HTTPS.',
   'errors.field.siem_webhook_json_only': 'A webhook sends JSON only.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
   'errors.field.site_network_invalid':
