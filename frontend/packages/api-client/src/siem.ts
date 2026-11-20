@@ -76,10 +76,13 @@ export function useRotateSiemSecret() {
   return useMutation({
     meta: { silent: true },
     gcTime: 0,
-    mutationFn: ({ id, finish }: { id: string; finish: boolean }) =>
+    mutationFn: ({ id, version, finish }: { id: string; version: number; finish: boolean }) =>
       call(
         api.POST('/api/v1/audit/siem/destinations/{destination_id}/rotate-secret', {
-          params: { path: { destination_id: id } },
+          params: {
+            path: { destination_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
           body: { finish },
         }),
       ),

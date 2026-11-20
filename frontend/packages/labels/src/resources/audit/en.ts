@@ -1293,6 +1293,7 @@ export const en = {
   'siem_destination_kind.webhook': 'HTTPS webhook',
   'siem_error.address_not_allowed': "This address isn't allowed",
   'siem_error.blocked': "This address isn't allowed",
+  'siem_error.failed': 'Sending failed',
   'siem_error.http_status': 'The destination answered with an error',
   'siem_error.insecure': 'Only HTTPS is allowed',
   'siem_error.invalid': "The destination's address isn't valid",

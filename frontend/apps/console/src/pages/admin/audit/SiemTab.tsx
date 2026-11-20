@@ -461,7 +461,7 @@ export function SiemTab() {
                     size="small"
                     onClick={() => {
                       rotate.mutate(
-                        { id: row.id, finish: row.rotating },
+                        { id: row.id, version: row.version, finish: row.rotating },
                         {
                           onSuccess: (made) => {
                             if (made.secret) setSecret(made.secret);

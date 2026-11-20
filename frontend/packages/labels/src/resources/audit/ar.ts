@@ -1294,6 +1294,7 @@ export const ar: LabelResource = {
   'siem_destination_kind.webhook': 'Webhook عبر HTTPS',
   'siem_error.address_not_allowed': 'هذا العنوان غير مسموح به',
   'siem_error.blocked': 'هذا العنوان غير مسموح به',
+  'siem_error.failed': 'فشل الإرسال',
   'siem_error.http_status': 'أجابت الوجهة بخطأ',
   'siem_error.insecure': 'يُسمح بـ HTTPS فقط',
   'siem_error.invalid': 'عنوان الوجهة غير صالح',

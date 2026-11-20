@@ -667,6 +667,7 @@ export const ar: LabelResource = {
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
   'errors.field.siem_cert_and_key_together': 'قدّم شهادة العميل ومفتاحها معًا.',
   'errors.field.siem_kind_fixed': 'لا يمكن تغيير طريقة الإرسال؛ أضف وجهة جديدة بدلًا من ذلك.',
+  'errors.field.siem_pem_invalid': 'هذه ليست شهادة أو مفتاحًا صالحًا للاستخدام (PEM).',
   'errors.field.siem_port_not_allowed': 'استخدم منفذ Syslog عبر TLS: 6514 أو 1514 أو 10514.',
   'errors.field.siem_secret_webhook_only': 'سر التوقيع للـWebhook فقط.',
   'errors.field.siem_webhook_json_only': 'يرسل الـWebhook بتنسيق JSON فقط.',
@@ -1120,8 +1121,10 @@ export const ar: LabelResource = {
   'errors.session_key_still_in_use':
     'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
+  'errors.siem_destination_name_taken': 'توجد وجهة أخرى بهذا الاسم بالفعل.',
   'errors.siem_destination_not_found': 'لم تعد هذه الوجهة موجودة.',
   'errors.siem_destinations_limit': '{{max}} وجهات كحد أقصى.',
+  'errors.siem_rotation_open': 'هناك تدوير جارٍ بالفعل: أوقف السر القديم أولًا.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unavailable':
     'تسجيل الدخول غير متاح مؤقتًا. إذا كنت مسجّل الدخول بالفعل، يمكنك متابعة العمل.',

@@ -1295,6 +1295,7 @@ export const ur: LabelResource = {
   'siem_destination_kind.webhook': 'HTTPS ویب ہک',
   'siem_error.address_not_allowed': 'اس پتے کی اجازت نہیں',
   'siem_error.blocked': 'اس پتے کی اجازت نہیں',
+  'siem_error.failed': 'بھیجنا ناکام ہوا',
   'siem_error.http_status': 'منزل نے خرابی کے ساتھ جواب دیا',
   'siem_error.insecure': 'صرف HTTPS کی اجازت ہے',
   'siem_error.invalid': 'منزل کا پتہ درست نہیں',

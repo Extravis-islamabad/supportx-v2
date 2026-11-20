@@ -722,6 +722,7 @@ export const ur: LabelResource = {
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
   'errors.field.siem_cert_and_key_together': 'کلائنٹ سرٹیفکیٹ اور اس کی کلید ایک ساتھ دیں۔',
   'errors.field.siem_kind_fixed': 'بھیجنے کا طریقہ نہیں بدل سکتا؛ اس کے بجائے نئی منزل شامل کریں۔',
+  'errors.field.siem_pem_invalid': 'یہ قابلِ استعمال سرٹیفکیٹ یا کلید (PEM) نہیں۔',
   'errors.field.siem_port_not_allowed': 'TLS پر Syslog کا پورٹ استعمال کریں: 6514، 1514 یا 10514۔',
   'errors.field.siem_secret_webhook_only': 'دستخطی راز صرف ویب ہک کا ہوتا ہے۔',
   'errors.field.siem_webhook_json_only': 'ویب ہک صرف JSON بھیجتا ہے۔',
@@ -1215,8 +1216,10 @@ export const ur: LabelResource = {
   'errors.session_key_still_in_use':
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
+  'errors.siem_destination_name_taken': 'کسی اور منزل کا پہلے سے یہی نام ہے۔',
   'errors.siem_destination_not_found': 'یہ منزل اب موجود نہیں۔',
   'errors.siem_destinations_limit': 'زیادہ سے زیادہ {{max}} منزلیں۔',
+  'errors.siem_rotation_open': 'ایک تبدیلی پہلے سے جاری ہے: پہلے پرانا راز ختم کریں۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',
