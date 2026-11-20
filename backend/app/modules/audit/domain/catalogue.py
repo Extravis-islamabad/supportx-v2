@@ -115,6 +115,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("identity_access.support_grant_extended", AuditCategory.SECURITY, "identity_access"),
     ("identity_access.support_grant_revoked", AuditCategory.SECURITY, "identity_access"),
     ("identity_access.vendor_support_setting_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.support_link_resent", AuditCategory.SECURITY, "identity_access"),
     ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
     # the installation's sign-in key ring (D-162, ADR-048): written by the system at start-up
     ("security.session_key_rotated", AuditCategory.SECURITY, "identity_access"),

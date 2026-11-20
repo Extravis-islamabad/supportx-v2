@@ -404,3 +404,82 @@ async def test_a_support_account_never_gets_a_role_a_group_or_any_permission(
     )
     seen = await world.call("GET", "/identity/vendor-support/grants", world.a, user=user_id)
     assert seen.status_code == 403, seen.text
+
+
+async def _mailed_token(world: World, grant_id: str) -> str:  # noqa: F811 - the reused fixture
+    """The newest link's token, read from the mail's link fragment (as the engineer would)."""
+    rows = await _sql(
+        world,
+        "SELECT text_body FROM mail_messages WHERE tenant_id = $1 AND subject LIKE $2"
+        " ORDER BY created_at DESC LIMIT 1",
+        world.a.tenant,
+        f"%{rules.mail_subject_id(uuid.UUID(grant_id))}%",
+    )
+    return str(rows[0]["text_body"]).split("#", 1)[1].split()[0]
+
+
+async def _open(world: World, token: str) -> Any:  # noqa: ANN401, F811 - the reused fixture
+    return await world.client.post(
+        "/api/v1/public/vendor-support/open",
+        json={"token": token, "tenant": await _slug_of(world)},
+    )
+
+
+async def _slug_of(world: World) -> str:  # noqa: F811 - the reused fixture
+    (row,) = await _sql(world, "SELECT slug FROM tenants WHERE id = $1", world.a.tenant)
+    return str(row["slug"])
+
+
+async def test_the_link_opens_once_and_every_failure_looks_the_same(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B (1)-(3): only the POST spends it; once; unknown, used and expired answer alike."""
+    body = (await _grant(world, verification="email", confirmation_note=None)).json()
+    token = await _mailed_token(world, body["id"])
+    account, _ = await _account(world, body["id"])
+    # Following the link changes nothing: there is no GET to spend it.
+    probe = await world.client.get("/api/v1/public/vendor-support/open")
+    assert probe.status_code == 405, probe.text
+    assert account not in world.admin.passwords_set
+    opened = await _open(world, token)
+    assert opened.status_code == 200, opened.text
+    assert opened.headers["cache-control"] == "no-store"
+    assert "default-src 'none'" in opened.headers["content-security-policy"]
+    assert opened.json()["login"] == rules.support_login(uuid.UUID(body["id"]))
+    assert account in world.admin.temporary_passwords  # Keycloak makes them choose their own
+    again = await _open(world, token)
+    wrong = await _open(world, "x" * 43)
+    assert again.status_code == wrong.status_code == 404
+    assert again.json()["code"] == wrong.json()["code"] == "support_link_invalid"
+    assert again.json()["message_key"] == wrong.json()["message_key"]
+    (grant,) = await _sql(
+        world,
+        "SELECT link_token_hash, link_used_at FROM support_grants WHERE id = $1",
+        uuid.UUID(body["id"]),
+    )
+    assert grant["link_token_hash"] is None
+    assert grant["link_used_at"] is not None
+
+
+async def test_a_resent_link_kills_the_old_one_and_an_expired_one_opens_nothing(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    body = (await _grant(world, verification="email", confirmation_note=None)).json()
+    first = await _mailed_token(world, body["id"])
+    resent = await world.call("POST", f"{BASE}/grants/{body['id']}/resend-link", world.a)
+    assert resent.status_code == 200, resent.text
+    second = await _mailed_token(world, body["id"])
+    assert first != second
+    assert (await _open(world, first)).status_code == 404  # the old one is dead
+    # The new one, left to expire: the schedule clears it, and it opens nothing.
+    await _sql(
+        world,
+        "UPDATE support_grants SET link_expires_at = now() - interval '1 minute' WHERE id = $1",
+        uuid.UUID(body["id"]),
+    )
+    await _run_schedule(world)
+    (grant,) = await _sql(
+        world, "SELECT link_token_hash FROM support_grants WHERE id = $1", uuid.UUID(body["id"])
+    )
+    assert grant["link_token_hash"] is None
+    assert (await _open(world, second)).status_code == 404

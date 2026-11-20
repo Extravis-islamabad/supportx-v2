@@ -18,22 +18,26 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authorization import require_permission
-from app.core.database import TenantSession, after_commit, get_database
+from app.core.authorization import public_route, require_permission
+from app.core.database import Database, TenantSession, after_commit, get_database
+from app.core.entitlements import entitlement_exempt
 from app.core.recent_auth import RecentAuth
 from app.core.tenancy import TenantContext
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service import support_grants as service
+from app.modules.organization import link_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.public_links import PublicLinks, private_answers
+from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 from app.shared.clock import system_clock
 from app.shared.history import source_of
 
 Manage = Annotated[Subject, Depends(require_permission("identity.manage"))]
 NO_STORE = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+DatabaseDep = Annotated[Database, Depends(get_database)]
 
 router = APIRouter(
     prefix="/identity/vendor-support",
@@ -350,3 +354,84 @@ async def put_setting(
     )
     note.details = {"never_allow": body.never_allow}
     return VendorSupportSettingOut(never_allow=body.never_allow, version=saved)
+
+
+@router.post(
+    "/grants/{grant_id}/resend-link",
+    summary="Send the engineer a new link",
+)
+async def resend_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    grant_id: uuid.UUID,
+    request: Request,
+    session: TenantSession,
+    subject: Manage,
+    response: Response,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "identity_access.support_link_resent",
+            object_type="support_grant",
+            object_param="grant_id",
+        ),
+    ],
+) -> SupportGrantOut:
+    """Before the engineer's first sign-in only; the earlier link stops working at once."""
+    del note
+    view = await service.resend_link(
+        session, subject, grant_id, settings=request.app.state.settings, now=system_clock.now()
+    )
+    set_etag(response, view.version)
+    return SupportGrantOut.of(view)
+
+
+# --- the engineer's link, without sign-in (D-177 fallback) ---------------------------------------
+
+PUBLIC = PublicLinks(
+    group="vendor_support_public", scope_name="vendor-support-address", resolver=link_tenant
+)
+LINKS_PER_ADDRESS = 30  # a minute: 32 random bytes are the protection; this only bites a flood
+public_router = APIRouter(
+    prefix="/public/vendor-support",
+    tags=["vendor-support"],
+    # Every answer, errors included, stays out of caches and sends no referrer (lane B).
+    dependencies=[
+        Depends(private_answers),
+        Depends(ip_rate_limit("vendor_support_public_address", LINKS_PER_ADDRESS)),
+    ],
+)
+
+
+class SupportLinkIn(BaseModel):
+    """The token from the link's fragment (never in a URL the server sees) and the tenant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=20, max_length=200)
+    tenant: str | None = Field(default=None, max_length=100, description="The link's ?t=.")
+
+
+class SupportLinkOpenedOut(BaseModel):
+    """Shown once: the sign-in name and a temporary password Keycloak makes them replace."""
+
+    login: str
+    password: str
+
+
+@public_router.post("/open", summary="Open an engineer's link (no sign-in)")
+@entitlement_exempt  # no session: a grant exists only where vendor support is allowed
+@public_route  # no sign-in on purpose: the single-use token is the credential (D-177)
+async def open_link(
+    payload: SupportLinkIn, request: Request, response: Response, database: DatabaseDep
+) -> SupportLinkOpenedOut:
+    """A temporary password, once. Unknown, used, expired or ended links all get the same 404.
+
+    Only this POST spends the link: the page opened by the mail's link changes nothing, so a mail
+    scanner that follows it can't use it (lane B (1)).
+    """
+    response.headers.update(NO_STORE)
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    tenant_id = await PUBLIC.tenant(request, response, database, payload.tenant)
+    opened = await service.open_link(
+        database, tenant_id, payload.token, getattr(request.app.state, "identity_admin", None)
+    )
+    return SupportLinkOpenedOut(login=opened.login, password=opened.password)

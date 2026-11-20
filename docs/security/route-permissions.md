@@ -577,6 +577,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/vendor-support/grants/{grant_id}` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants/{grant_id}/extend` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/resend-link` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants/{grant_id}/revoke` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
 | PUT | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
@@ -1043,6 +1044,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/public/invite-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/peek` | public | - |
 | POST | `/api/v1/public/notify-links/stop` | public | - |
+| POST | `/api/v1/public/vendor-support/open` | public | - |
 | GET | `/api/v1/ready` | public | - |
 | POST | `/api/v1/realtime/connection-token` | signed_in | - |
 | GET | `/api/v1/realtime/lists/{name}` | signed_in | - |

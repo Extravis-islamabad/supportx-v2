@@ -170,6 +170,14 @@ def upgrade() -> None:
     op.create_index(
         op.f(f"ix_{GRANTS}_tenant_state_ends"), GRANTS, ["tenant_id", "state", "ends_at"]
     )
+    # The engineer's link is found by its hash (indexed equality, lane B (2)).
+    op.create_index(
+        op.f(f"ix_{GRANTS}_tenant_link_token_hash"),
+        GRANTS,
+        ["tenant_id", "link_token_hash"],
+        unique=True,
+        postgresql_where=sa.text("link_token_hash IS NOT NULL"),
+    )
     enable_tenant_rls(GRANTS)
     grant_app(
         GRANTS, ("SELECT", "INSERT", "UPDATE")

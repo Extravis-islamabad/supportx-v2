@@ -273,6 +273,8 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
     row.state = (rules.GrantState.REVOKED if revoked_by else rules.GrantState.ENDED).value
     row.ended_at = now
     row.ended_by = revoked_by
+    row.link_token_hash = None  # an ended grant's link opens nothing (lane B (7))
+    row.link_expires_at = None
     row.version += 1
     keycloak_id: str | None = None
     if row.support_user_id is not None:
@@ -953,3 +955,141 @@ async def mark_first_use(database: Database, tenant_id: uuid.UUID, user_id: uuid
         # session (lane B).
         log.warning("support_grant_first_use_failed", user_id=str(user_id))
     forget(tenant_id, user_id)
+
+
+# --- the engineer's link (D-177 fallback; lane B's conditions) -----------------------------------
+
+LINK_INVALID = "support_link_invalid"  # one answer for unknown, used, expired or ended
+
+
+@dataclass(frozen=True)
+class Opened:
+    """What the engineer sees once: their sign-in name and a temporary password."""
+
+    login: str
+    password: str = field(repr=False)
+
+
+async def open_link(
+    database: Database, tenant_id: uuid.UUID, token: str, admin: IdentityAdmin | None
+) -> Opened:
+    """Use the engineer's link: a temporary password, shown once; the link is spent.
+
+    Looked up by the token's SHA-256 in the tenant's own session (RLS). Every way of failing gives
+    the same 404 `support_link_invalid`, so the answer never says why. Keycloak then makes the
+    engineer choose their own password and enrol TOTP before any session.
+    """
+    now = system_clock.now()
+    if admin is None:
+        raise NotFound(code=LINK_INVALID)
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        row = await session.scalar(
+            select(SupportGrant)
+            .where(SupportGrant.link_token_hash == rules.link_hash(token))
+            .with_for_update()
+        )
+        if (
+            row is None
+            or not rules.is_open(row.state)
+            or row.support_user_id is None
+            or not rules.link_usable(
+                row.link_token_hash, token, row.link_expires_at, row.link_used_at, now
+            )
+        ):
+            raise NotFound(code=LINK_INVALID)
+        account = await session.get(User, row.support_user_id)
+        if account is None or account.external_subject is None:
+            raise NotFound(code=LINK_INVALID)
+        password = _one_time_password()
+        await admin.set_password(account.external_subject, password, temporary=True)
+        await admin.require_actions(account.external_subject, list(rules.FIRST_SIGN_IN_ACTIONS))
+        row.link_used_at = now
+        row.link_token_hash = None  # spent: nothing left to match (lane B (7))
+        row.link_expires_at = None
+        row.version += 1
+        await session.flush()
+        await record_event(
+            session,
+            SupportGrantChanged(
+                grant_id=row.id,
+                change="link_opened",
+                access=rules.Access(row.access).value,
+                ends_at=row.ends_at,
+            ),
+            aggregate_id=row.id,
+            aggregate_version=row.version,
+        )
+        return Opened(rules.support_login(row.id), password)
+
+
+async def resend_link(
+    session: AsyncSession,
+    subject: Subject,
+    grant_id: uuid.UUID,
+    *,
+    settings: Settings,
+    now: datetime,
+) -> GrantView:
+    """A new link for an engineer who has not signed in yet; the old one stops working."""
+    await require_tenant_admin(session, subject)
+    row = await session.scalar(
+        select(SupportGrant).where(SupportGrant.id == grant_id).with_for_update()
+    )
+    if row is None:
+        raise NotFound(code="support_grant_not_found")
+    if (
+        row.state != rules.GrantState.PENDING_VERIFICATION.value
+        or row.verification != rules.Verification.EMAIL.value
+        or row.link_used_at is not None
+    ):
+        raise Conflict(code="support_link_not_resendable")
+    token, stored = rules.new_link_token()
+    row.link_token_hash = stored
+    row.link_expires_at = now + timedelta(seconds=rules.link_lifespan_seconds(now, row.ends_at))
+    row.version += 1
+    row.updated_by = subject.user_id
+    await session.flush()
+    await _mail_link(session, settings, row, rules.support_login(row.id), token)
+    await record_event(
+        session,
+        SupportGrantChanged(
+            grant_id=row.id,
+            change="link_resent",
+            access=rules.Access(row.access).value,
+            ends_at=row.ends_at,
+        ),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return _view(row)
+
+
+async def expire_links(session: AsyncSession, now: datetime) -> int:
+    """Links whose time ran out unused: cleared and audited (the schedule; lane B (4), (7))."""
+    rows = list(
+        await session.scalars(
+            select(SupportGrant)
+            .where(
+                SupportGrant.link_token_hash.is_not(None),
+                SupportGrant.link_expires_at <= now,
+            )
+            .with_for_update()
+        )
+    )
+    for row in rows:
+        row.link_token_hash = None
+        row.link_expires_at = None
+        row.version += 1
+        await session.flush()
+        await record_event(
+            session,
+            SupportGrantChanged(
+                grant_id=row.id,
+                change="link_expired",
+                access=rules.Access(row.access).value,
+                ends_at=row.ends_at,
+            ),
+            aggregate_id=row.id,
+            aggregate_version=row.version,
+        )
+    return len(rows)

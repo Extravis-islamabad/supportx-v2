@@ -589,6 +589,13 @@ class SupportGrant(TenantEntity):
 
     __tablename__ = "support_grants"
     __table_args__ = (
+        Index(
+            "ix_support_grants_tenant_link_token_hash",
+            "tenant_id",
+            "link_token_hash",
+            unique=True,
+            postgresql_where=text("link_token_hash IS NOT NULL"),
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "support_user_id"],
             ["users.tenant_id", "users.id"],

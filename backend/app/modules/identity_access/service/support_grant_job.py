@@ -53,6 +53,8 @@ async def run_tenant(
     now = system_clock.now()
     context = TenantContext(tenant)
     async with database.tenant_session(context) as session:
+        await grants.expire_links(session, now)
+    async with database.tenant_session(context) as session:
         due = await grants.due(session, now)
         pending = await grants.removal_pending(session, now)
         stuck = await grants.stuck_removals(session, now)
