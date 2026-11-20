@@ -31,8 +31,15 @@ const ONLY = (process.env.VISUAL_SCREENS ?? '')
 
 function wanted(screen: { key: string }): boolean {
   if (ONLY.length === 0) return true;
+  // A key also selects the screens split off it as `<key>-<part>` (lane C, #559): `incidents`
+  // still shoots the board, cards and calendar states, kept apart so they can run alone.
+  const parts: Record<string, readonly string[]> = {
+    incidents: ['incidents-board', 'incidents-cards', 'incidents-calendar'],
+  };
   return ONLY.some((key) =>
-    key.endsWith('*') ? screen.key.startsWith(key.slice(0, -1)) : screen.key === key,
+    key.endsWith('*')
+      ? screen.key.startsWith(key.slice(0, -1))
+      : screen.key === key || (parts[key] ?? []).includes(screen.key),
   );
 }
 
@@ -421,7 +428,8 @@ const generalCard = (testId: string) => async (page: Page) => {
 const DUE_SUBJECT = 'Matrix: due the same day';
 
 async function pickLayout(page: Page, label: RegExp): Promise<void> {
-  await page.goto('/incidents');
+  // The shot has already opened the list: no second navigation (each one costs seconds, for
+  // every layout, theme, language and width).
   const switcher = page.getByTestId('inc-layout');
   await switcher.waitFor({ timeout: STATE_TIMEOUT });
   // Usable once the person's setting is read.
@@ -448,8 +456,10 @@ async function boardRefused(page: Page): Promise<void> {
   await seenOrSay('board', page.getByTestId('inc-board'));
   // A card moved where its life cycle has no step (open to closed): it stays and says why.
   const opener = page.locator('[data-testid^="inc-board-stage-move-"]').first();
+  await seenOrSay('card on the board', opener);
   await opener.click({ timeout: STATE_TIMEOUT });
   const menu = page.locator('.ant-dropdown:not(.ant-dropdown-hidden) [role="menu"]').last();
+  await seenOrSay('"Move to" menu', menu);
   await menu
     .locator('[role="menuitem"]', { hasText: /Closed|مغلق/u })
     .first()
@@ -464,11 +474,16 @@ async function boardByTechnicianMore(page: Page): Promise<void> {
     .locator('.ant-segmented-item', { hasText: /technician|الفني/iu })
     .first()
     .click({ timeout: STATE_TIMEOUT });
-  // Only with more than twelve people holding records: said as a finding otherwise.
-  await seenOrSay(
-    '"More columns" (twelve people or fewer)',
-    page.getByTestId('inc-board-more-columns'),
-  );
+  // Only with more than twelve people holding records: said as a finding at once otherwise,
+  // never waited out on every layout, theme, language and width.
+  await seenOrSay('board by technician', page.locator('[data-testid^="inc-board-stage-heading-"]'));
+  if ((await page.getByTestId('inc-board-more-columns').count()) === 0) {
+    // Recorded as a finding with the number, never a skip (lane C).
+    const people = await page
+      .locator('[data-testid^="inc-board-stage-heading-"]:not([data-testid$="__none__"])')
+      .count();
+    throw new Error(`layouts: no "More columns": ${String(people)} technicians hold records`);
+  }
   await page.getByTestId('inc-board-more-columns').click({ timeout: STATE_TIMEOUT });
   await seenOrSay(
     'columns menu',
@@ -547,43 +562,43 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    key: 'incidents',
+    key: 'incidents-board',
     path: '/incidents',
     app: 'console',
     state: { name: 'board-refused', open: boardRefused, close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-board',
     path: '/incidents',
     app: 'console',
     state: { name: 'board-technician-more', open: boardByTechnicianMore, close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-cards',
     path: '/incidents',
     app: 'console',
     state: { name: 'cards', open: cards(false), close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-cards',
     path: '/incidents',
     app: 'console',
     state: { name: 'cards-compact', open: cards(true), close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-calendar',
     path: '/incidents',
     app: 'console',
     state: { name: 'calendar-month', open: calendar('month'), close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-calendar',
     path: '/incidents',
     app: 'console',
     state: { name: 'calendar-week', open: calendar('week'), close: backToTable },
   },
   {
-    key: 'incidents',
+    key: 'incidents-calendar',
     path: '/incidents',
     app: 'console',
     state: { name: 'calendar-more', open: calendar('more'), close: backToTable },
@@ -1954,6 +1969,9 @@ async function shoot(main: Page, shot: Shot, screen: Screen): Promise<void> {
   } catch (error) {
     // A screen that breaks is a finding, not a crash of the run.
     shot.error = error instanceof Error ? error.message.split('\n')[0] : String(error);
+    // Also said at once: a run cut off by its time limit writes no index, and kept nothing of
+    // why its shots failed (#559's run 44725524374).
+    console.log(`visual-matrix: ${shot.file}: ${String(shot.error)}`);
   } finally {
     if (screen.state?.close) await screen.state.close(page).catch(() => undefined);
     if (screen.loading) await page.close().catch(() => undefined);
