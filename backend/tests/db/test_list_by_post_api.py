@@ -15,6 +15,7 @@ import structlog
 
 from app.core.tenancy import TenantContext
 from app.modules.work_items.service import view_audit
+from app.shared.api.listing import CursorScope
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_incidents_api import BASE, CONSOLE, Org, World, field_codes, problem
 from tests.db.test_view_filters_api import _forget, _sealed_field, _with_keys
@@ -183,3 +184,42 @@ async def test_a_sort_on_a_field_turned_sensitive_is_cleared_not_refused(world: 
     shown = await world.call("GET", f"{BASE}/list-settings/open", a, a.admin)
     assert shown.json()["sort"] is None
     assert (await _post(world, a, a.admin)).status_code == 200
+
+
+def _main_fingerprint(tree: object, simple: dict[str, list[str]], own: dict[str, list[str]]) -> str:
+    """The GET cursor's filter fingerprint exactly as main (2f027f064) computes it. Copied, not
+    imported: a later edit to listing.py's formula fails this test, never issued cursors."""
+    parts = (
+        [tree, sorted(simple.items()), sorted(own.items())]
+        if own
+        else [tree, sorted(simple.items())]
+    )
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()
+
+
+async def test_a_cursor_issued_by_main_still_pages_the_get(world: World) -> None:
+    """Lane B: the GET's cursor scope is pinned (endpoint, tenant, user, sort, fingerprint)."""
+    a = world.a
+    for _ in range(3):
+        await world.create(a, a.admin, group_id=str(a.ga), subject="Pinned cursor batch")
+    tree = {"field": "subject", "op": "contains", "value": "Pinned cursor batch"}
+    query = f"filter={json.dumps(tree)}&sort=-created_at&limit=1&view=all"
+    first = await world.call("GET", f"{BASE}?{query}", a, a.admin)
+    assert first.status_code == 200, first.text
+    issued = first.json()["next_cursor"]
+    payload, _, signature = issued.partition(".")
+    codec = world.app.state.cursor_codec
+    main_scope = CursorScope(
+        endpoint=f"GET {BASE}",  # the route template (this test app mounts it at BASE)
+        tenant_id=a.tenant,
+        user_id=a.admin,
+        sort="-created_at,id",
+        filter_fingerprint=_main_fingerprint(tree, {}, {"view": ["all"]}),
+    )
+    assert signature == codec._sign(main_scope, payload)  # noqa: SLF001 - the signature is the pin
+    # A cursor encoded as main encodes it (same scope, same payload) pages on.
+    forged = f"{payload}.{codec._sign(main_scope, payload)}"  # noqa: SLF001 - as above
+    second = await world.call("GET", f"{BASE}?{query}&cursor={forged}", a, a.admin)
+    assert second.status_code == 200, second.text
+    assert _ids(second)
+    assert _ids(second) != _ids(first)

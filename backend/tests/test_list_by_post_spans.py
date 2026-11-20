@@ -17,7 +17,7 @@ from app.core import telemetry
 from app.core.config import Settings
 from app.main import create_app
 
-SECRET = "ZX-9081-SEALED"
+SENTINEL_VALUE = "ZX 9081!"  # a space and "!": no key or base64 text holds them
 
 
 async def test_no_span_holds_a_sealed_value_by_get_or_post(
@@ -34,15 +34,17 @@ async def test_no_span_holds_a_sealed_value_by_get_or_post(
         return provider
 
     monkeypatch.setattr(telemetry, "build_tracer_provider", with_memory)
-    tree = {"field": "custom.national_id", "op": "eq", "value": SECRET}
+    tree = {"field": "custom.national_id", "op": "eq", "value": SENTINEL_VALUE}
     async with run_app(create_app(settings_factory(tracing_enabled=True))) as client:
         await client.get(
             "/api/v1/incidents",
-            params={"filter": f'{{"field":"custom.national_id","op":"eq","value":"{SECRET}"}}'},
+            params={
+                "filter": f'{{"field":"custom.national_id","op":"eq","value":"{SENTINEL_VALUE}"}}'
+            },
         )
         await client.post("/api/v1/incidents/list", json={"filter": tree, "limit": 50})
     spans = exported.get_finished_spans()
     assert len(spans) >= 2, "each request makes a span"
     for span in spans:
         for value in (span.attributes or {}).values():
-            assert SECRET not in str(value)
+            assert SENTINEL_VALUE not in str(value)
