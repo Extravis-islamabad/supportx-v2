@@ -46,6 +46,7 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/change-type-preview": CIS,
     "/cmdb/cis/{ci_id}/compare": CIS,
     "/cmdb/cis/{ci_id}/history": CIS,
+    "/cmdb/cis/{ci_id}/impact": CIS,  # S3b: redacts through the same filter
     "/cmdb/cis/{ci_id}/neighbours": CIS,
     "/cmdb/cis/{ci_id}/versions": CIS,
     "/assets": ASSETS,
