@@ -242,16 +242,26 @@ async def _organization_domains(
     return organization, list(organization.raw.get("domains") or [])
 
 
-async def sync_one(session: AsyncSession, admin: IdentityAdmin, row: VerifiedDomain) -> None:
-    """Make Keycloak match one row: verified there iff verified here (idempotent)."""
+async def sync_one(
+    session: AsyncSession, admin: IdentityAdmin, row: VerifiedDomain, *, multi_tenant: bool
+) -> None:
+    """Make Keycloak match one row: verified there iff verified here (idempotent).
+
+    Un-verifying removes the domain from a multi-tenant realm's organisation (lane B (2): never
+    left to block another tenant); a single-tenant realm keeps it, only no longer verified, so an
+    SSO set-up's own routing stays (lane B's #569 review).
+    """
     found = await _organization_domains(session, admin)
     if found is None:
         return
     organization, current = found
     live = row.state == DomainState.VERIFIED.value and row.deleted_at is None
-    wanted = (
-        rules.kc_verified(current, row.domain) if live else rules.kc_without(current, row.domain)
-    )
+    if live:
+        wanted = rules.kc_verified(current, row.domain)
+    elif multi_tenant:
+        wanted = rules.kc_without(current, row.domain)
+    else:
+        wanted = rules.kc_unverified(current, row.domain)
     if wanted == current:
         return
     try:
@@ -269,12 +279,14 @@ async def on_domain_changed(envelope: EventEnvelope, session: AsyncSession | Non
     assert session is not None  # noqa: S101 - transactional consumer
     if envelope.payload.get("change") not in {"verified", "unverified", "lapsed"}:
         return
-    admin = admin_factory(get_settings())
+    settings = get_settings()
+    admin = admin_factory(settings)
     if admin is None:
         return
     row = await session.get(VerifiedDomain, uuid.UUID(str(envelope.payload["domain_id"])))
     if row is not None:
-        await sync_one(session, admin, row)  # an unreachable Keycloak raises: the worker retries
+        # An unreachable Keycloak raises: the worker retries.
+        await sync_one(session, admin, row, multi_tenant=settings.multi_tenant)
 
 
 DOMAIN_SYNC = ConsumerSpec(
@@ -307,6 +319,6 @@ async def check_schedule(database: Database, settings: Settings) -> None:
             if admin is not None:
                 async with database.tenant_session(TenantContext(tenant)) as session:
                     for row in await list_domains(session):
-                        await sync_one(session, admin, row)
+                        await sync_one(session, admin, row, multi_tenant=settings.multi_tenant)
         except Exception:  # one tenant's failure never stops the others; it is logged
             log.exception("verified_domains_schedule_failed", tenant_id=str(tenant))

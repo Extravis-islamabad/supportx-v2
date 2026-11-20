@@ -16,11 +16,12 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.errors import PermissionDenied
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain import verified_domains as rules
@@ -37,6 +38,17 @@ router = APIRouter(
     dependencies=[Depends(rate_limit("identity"))],
 )
 Manage = Annotated[Subject, Depends(require_permission("identity.manage"))]
+MANUAL_NOT_ALLOWED = "domain_manual_verify_not_allowed"
+
+
+def _single_tenant(request: Request) -> None:
+    """A manual verify only where one organisation owns the realm (D-098; lane B's #569 review).
+
+    On a multi-tenant installation, an admin vouching for a domain would let their provider take
+    every sign-in of it from the shared page: there only the DNS proof counts.
+    """
+    if request.app.state.settings.multi_tenant:
+        raise PermissionDenied(code=MANUAL_NOT_ALLOWED)
 
 
 class VerifiedDomainOut(BaseModel):
@@ -153,7 +165,9 @@ async def check_domain(
 
 
 @router.post(
-    "/{domain_id}/verify", summary="Verify a domain without DNS", dependencies=[RecentAuth]
+    "/{domain_id}/verify",
+    summary="Verify a domain without DNS (single-tenant installations only)",
+    dependencies=[RecentAuth, Depends(_single_tenant)],
 )
 async def verify_domain(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     domain_id: uuid.UUID,

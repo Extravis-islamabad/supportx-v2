@@ -69,12 +69,12 @@ def _publish(dns: Dns, added: dict[str, Any]) -> None:
     dns.records[added["record_name"]] = ["v=spf1 -all", added["record_value"]]
 
 
-async def _sync(world: World, org: Any, domain_id: str) -> None:  # noqa: ANN401
+async def _sync(world: World, org: Any, domain_id: str, *, multi_tenant: bool = True) -> None:  # noqa: ANN401
     """What the outbox consumer does after a verify or un-verify."""
     async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
         row = await session.get(VerifiedDomain, uuid.UUID(domain_id))
         assert row is not None
-        await domains.sync_one(session, world.admin, row)
+        await domains.sync_one(session, world.admin, row, multi_tenant=multi_tenant)
 
 
 def _kc_domains(world: World, org: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -157,8 +157,11 @@ async def test_a_lost_record_lapses_only_after_three_failures_over_72_hours(
         assert row.state == "verified"
         await domains.check(session, row, now=start + timedelta(hours=73))
         assert row.state == "lapsed"
-    await _sync(world, world.a, added["id"])
-    assert "lapsing.test" not in _kc_domains(world, world.a)  # removed, never left to squat
+    await _sync(world, world.a, added["id"], multi_tenant=False)
+    # One organisation per realm: the domain stays (an SSO set-up's routing with it), unverified.
+    assert _kc_domains(world, world.a)["lapsing.test"]["verified"] is False
+    await _sync(world, world.a, added["id"], multi_tenant=True)
+    assert "lapsing.test" not in _kc_domains(world, world.a)  # shared realm: removed, never squats
 
 
 async def test_a_manual_verify_needs_a_reason_and_is_audited(world: World, dns: Dns) -> None:
@@ -222,3 +225,30 @@ async def test_a_tenant_sees_and_touches_its_own_domains_only(world: World, dns:
         "DELETE", f"{BASE}/{mine['id']}", world.a, headers={"If-Match": f'"{mine["version"]}"'}
     )
     assert removed.status_code == 204, removed.text
+
+
+async def test_a_manual_verify_is_refused_on_a_multi_tenant_installation(
+    world: World,
+    dns: Dns,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B's #569 review: on a shared realm only the DNS proof counts (D-098)."""
+    dns.down = True
+    added = await _add(world, world.a, "claimed.test")
+    shared = world.app.state.settings.model_copy(update={"multi_tenant": True})
+    monkeypatch.setattr(world.app.state, "settings", shared)
+    refused = await world.call(
+        "POST",
+        f"{BASE}/{added['id']}/verify",
+        world.a,
+        json={"reason": "Ours, honestly"},
+        headers={"If-Match": f'"{added["version"]}"'},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (
+        403,
+        "domain_manual_verify_not_allowed",
+    )
+    (row,) = await _sql(
+        world, "SELECT state FROM verified_domains WHERE id = $1", uuid.UUID(added["id"])
+    )
+    assert row["state"] == "pending"

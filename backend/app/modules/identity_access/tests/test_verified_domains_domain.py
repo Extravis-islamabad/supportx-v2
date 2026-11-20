@@ -80,3 +80,16 @@ def test_which_domains_the_schedule_checks() -> None:
     assert vd.due(verified, NOW - timedelta(days=31), NOW - timedelta(days=60), NOW)
     assert not vd.due(verified, NOW - day, NOW - timedelta(days=60), NOW)
     assert not vd.due(vd.DomainState.LAPSED, None, NOW - day, NOW)
+
+
+def test_keycloak_domains_follow_a_verify_and_an_unverify() -> None:
+    routed = [{"name": "acme.test", "verified": False, "identityProviderAlias": "x"}]
+    assert vd.kc_verified(routed, "acme.test")[0] == {
+        "name": "acme.test",
+        "verified": True,
+        "identityProviderAlias": "x",
+    }
+    assert vd.kc_verified([], "new.test") == [{"name": "new.test", "verified": True}]
+    kept = vd.kc_unverified([{**routed[0], "verified": True}], "acme.test")
+    assert kept == [{**routed[0], "verified": False}]  # single tenant: the routing stays
+    assert vd.kc_without(routed, "acme.test") == []  # multi-tenant: gone

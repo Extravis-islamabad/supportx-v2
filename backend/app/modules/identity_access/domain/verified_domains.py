@@ -178,3 +178,16 @@ def kc_without(domains: list[dict[str, Any]], name: str) -> list[dict[str, Any]]
     tenant.
     """
     return [dict(d) for d in domains if d.get("name") != name]
+
+
+def kc_unverified(domains: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
+    """The organisation's Keycloak domains with `name` no longer verified, its routing kept.
+
+    Single-tenant installations (lane B's #569 review): the organisation owns the realm, so an SSO
+    set-up's own routing of the domain stays; only the proof goes.
+    """
+    out = [dict(d) for d in domains]
+    for item in out:
+        if item.get("name") == name:
+            item["verified"] = False
+    return out
