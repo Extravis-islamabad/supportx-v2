@@ -124,7 +124,9 @@ describe('Incident list layouts (WP-046b S3b)', () => {
     // Priority is not among this reader's list fields: never on a card.
     expect(within(card).queryByText('Priority:')).toBeNull();
     fireEvent.click(within(screen.getByTestId('inc-cards-density')).getByText('Compact'));
-    expect(screen.queryByText('Status:')).toBeNull(); // compact: values only, names for AT
+    // Compact: the values shown; each field's name is still said, as hidden text (not aria-label).
+    const name = screen.getByText('Status:');
+    expect(name.className).toContain('sx-visually-hidden');
   });
 
   it("the board counts by the server, and each column asks the list with the column's condition", async () => {

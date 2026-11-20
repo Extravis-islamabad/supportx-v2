@@ -451,9 +451,27 @@ const seenOrSay = async (what: string, locator: ReturnType<Page['locator']>) => 
   }
 };
 
+/** The board's grouping, picked as a person does (it is kept in their list settings). */
+async function groupBy(page: Page, label: RegExp): Promise<void> {
+  await page
+    .getByTestId('inc-board-group-by')
+    .locator('.ant-segmented-item', { hasText: label })
+    .first()
+    .click({ timeout: STATE_TIMEOUT });
+}
+
+/** Back to the board by status, then the table: the grouping is the person's too. */
+async function backToStatusAndTable(page: Page): Promise<void> {
+  await groupBy(page, /status|الحالة/iu);
+  await backToTable(page);
+}
+
 async function boardRefused(page: Page): Promise<void> {
   await pickLayout(page, /^(Board|لوحة)$/u);
   await seenOrSay('board', page.getByTestId('inc-board'));
+  // By status whatever was kept: a board by technician has no "Closed" to move to (the first
+  // run: every shot after the technician state timed out here).
+  await groupBy(page, /status|الحالة/iu);
   // A card moved where its life cycle has no step (open to closed): it stays and says why.
   const opener = page.locator('[data-testid^="inc-board-stage-move-"]').first();
   await seenOrSay('card on the board', opener);
@@ -469,11 +487,7 @@ async function boardRefused(page: Page): Promise<void> {
 
 async function boardByTechnicianMore(page: Page): Promise<void> {
   await pickLayout(page, /^(Board|لوحة)$/u);
-  await page
-    .getByTestId('inc-board-group-by')
-    .locator('.ant-segmented-item', { hasText: /technician|الفني/iu })
-    .first()
-    .click({ timeout: STATE_TIMEOUT });
+  await groupBy(page, /technician|الفني/iu);
   // Only with more than twelve people holding records: said as a finding at once otherwise,
   // never waited out on every layout, theme, language and width.
   await seenOrSay('board by technician', page.locator('[data-testid^="inc-board-stage-heading-"]'));
@@ -514,7 +528,8 @@ async function dueTogether(page: Page): Promise<void> {
   const admin = await me(page);
   for (let n = found.items?.length ?? 0; n < 5; n += 1) {
     const made = await page.request.post('/api/v1/incidents', {
-      data: { subject: DUE_SUBJECT, requester_id: admin.id, impact: 'low', urgency: 'low' },
+      // The tenant's default priority for all five: the same targets, so the same due day.
+      data: { subject: DUE_SUBJECT, requester_id: admin.id },
       headers: {
         'X-CSRF-Token': admin.csrf,
         'X-SupportX-Client': 'console',
@@ -571,7 +586,11 @@ export const SCREENS: Screen[] = [
     key: 'incidents-board',
     path: '/incidents',
     app: 'console',
-    state: { name: 'board-technician-more', open: boardByTechnicianMore, close: backToTable },
+    state: {
+      name: 'board-technician-more',
+      open: boardByTechnicianMore,
+      close: backToStatusAndTable,
+    },
   },
   {
     key: 'incidents-cards',

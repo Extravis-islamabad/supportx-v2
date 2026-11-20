@@ -216,7 +216,6 @@ export function IncidentCalendar({
           else cells.current.set(key, node);
         }}
         role="gridcell"
-        aria-label={fullDate}
         aria-selected={key === focused}
         tabIndex={key === focused ? 0 : -1}
         onFocus={() => {
@@ -240,7 +239,14 @@ export function IncidentCalendar({
           outlineOffset: -2,
         }}
       >
-        <Typography.Text strong={key === today} type={outside ? 'secondary' : undefined}>
+        {/* The cell's name is its content (axe: no label that hides what it shows); the full
+            date is said, the short one shown. */}
+        <span className="sx-visually-hidden">{fullDate}</span>
+        <Typography.Text
+          aria-hidden="true"
+          strong={key === today}
+          type={outside ? 'secondary' : undefined}
+        >
           {shown === 'month'
             ? fmt(d, { day: 'numeric' })
             : fmt(d, { weekday: 'short', day: 'numeric' })}
@@ -266,7 +272,6 @@ export function IncidentCalendar({
                 type="link"
                 size="small"
                 style={{ padding: 0, height: 'auto', alignSelf: 'start' }}
-                aria-label={t('incidents.calendar.more_on', { count: extra, day: fullDate })}
                 aria-expanded={open === key}
                 data-testid={`inc-cal-more-${key}`}
                 onKeyDown={(event) => {
@@ -277,6 +282,11 @@ export function IncidentCalendar({
                 }}
               >
                 {t('incidents.calendar.more', { count: extra })}
+                {/* Its name starts with the words shown, then the day (axe: name contains the label). */}
+                <span className="sx-visually-hidden">
+                  {' '}
+                  {t('incidents.calendar.due_on', { day: fullDate })}
+                </span>
               </Button>
             </Popover>
           )}

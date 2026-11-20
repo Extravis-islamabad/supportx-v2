@@ -128,9 +128,12 @@ export function IncidentCards({
                               {spec.title(context)}:
                             </Typography.Text>
                           )}
-                          <span aria-label={compact ? spec.title(context) : undefined}>
-                            {spec.render(row, context)}
-                          </span>
+                          {compact && (
+                            // The field's name for a screen reader (no aria-label on a plain
+                            // span: axe aria-prohibited-attr).
+                            <span className="sx-visually-hidden">{spec.title(context)}: </span>
+                          )}
+                          <span>{spec.render(row, context)}</span>
                         </Flex>
                       ))}
                     </Flex>
