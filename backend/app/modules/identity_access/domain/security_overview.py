@@ -46,6 +46,7 @@ class SecurityArea(StrEnum):
     SERVICE_ACCOUNTS = "service_accounts"
     ENCRYPTION = "encryption"
     SIGN_IN_EVENTS = "sign_in_events"
+    VENDOR_SUPPORT = "vendor_support"  # WP-057 S4c (D-173)
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,8 @@ class Choices:
     fields_not_sealed: int  # sensitive fields still `sealing` or `opening`
     failed_sign_ins: int  # in the last FAILED_SIGN_INS_WINDOW_DAYS
     locked_sign_ins: int
+    # Vendor support grants ended over 24 hours ago whose account is not confirmed gone (lane B).
+    support_removals_stuck: int = 0
 
 
 def _expiry_flags(days_left: int | None) -> Iterable[Flag]:
@@ -169,6 +172,12 @@ def _count_flags(c: Choices) -> Iterable[Flag]:
             "sign_ins_locked",
             SecurityArea.SIGN_IN_EVENTS,
             SecuritySeverity.MEDIUM,
+        ),
+        (
+            c.support_removals_stuck,
+            "support_removals_stuck",
+            SecurityArea.VENDOR_SUPPORT,
+            SecuritySeverity.HIGH,
         ),
     )
     for count, code, area, severity in counted:

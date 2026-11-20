@@ -31,7 +31,13 @@ from app.modules.identity_access.domain.permissions import TENANT_ADMIN
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.domain.sign_in import SignInOutcome
 from app.modules.identity_access.infra.models import SsoProvider
-from app.modules.identity_access.service import api_keys, mfa, service_accounts, sign_in_log
+from app.modules.identity_access.service import (
+    api_keys,
+    mfa,
+    service_accounts,
+    sign_in_log,
+    support_grants,
+)
 from app.modules.identity_access.service.break_glass import get_sso_policy
 from app.modules.identity_access.service.expiry_alerts import expiry_items
 from app.modules.identity_access.service.identity_settings import get_identity_settings
@@ -198,6 +204,7 @@ async def overview(
         fields_not_sealed=seal_states.get("sealing", 0) + seal_states.get("opening", 0),
         failed_sign_ins=failed or 0,
         locked_sign_ins=locked or 0,
+        support_removals_stuck=len(await support_grants.stuck_removals(session, now)),
     )
     return Overview(
         sso_required=sso_policy.required,

@@ -25,6 +25,7 @@ from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFa
 from app.modules.identity_access.domain.identity import (
     DATE_FORMATS,
     DIGITS,
+    NOT_PEOPLE,
     PERSON_TYPES,
     TEXT_SCALES,
     TIME_FORMATS,
@@ -33,7 +34,6 @@ from app.modules.identity_access.domain.identity import (
     FormDensity,
     NavLayout,
     ThemeMode,
-    UserType,
 )
 from app.modules.identity_access.domain.people import clean_text, person_problems
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
@@ -171,7 +171,7 @@ async def list_users(
     """
     visible_rows = select(User).where(
         User.deleted_at.is_(None),
-        User.user_type != UserType.SERVICE.value,  # connectors' own identities: not people
+        User.user_type.not_in(NOT_PEOPLE),  # service and vendor support accounts: not people
         scope_filter(subject, "users.view", USERS),
     )
     if text:
@@ -192,7 +192,7 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
         return []
     rows = await session.scalars(
         select(User.id)
-        .where(User.deleted_at.is_(None), User.user_type != UserType.SERVICE.value, found.predicate)
+        .where(User.deleted_at.is_(None), User.user_type.not_in(NOT_PEOPLE), found.predicate)
         .order_by(found.rank.desc(), User.id)
         .limit(limit)
     )
@@ -563,7 +563,7 @@ async def people_by_site(session: AsyncSession) -> dict[uuid.UUID, int]:
         select(User.site_id, func.count())
         .where(
             User.deleted_at.is_(None),
-            User.user_type != UserType.SERVICE.value,
+            User.user_type.not_in(NOT_PEOPLE),
             User.site_id.is_not(None),
         )
         .group_by(User.site_id)
@@ -586,7 +586,7 @@ async def active_user_ids(
             User.id.in_(list(user_ids)),
             User.deleted_at.is_(None),  # a removed user may still say "active" (lane B)
             User.status == "active",
-            User.user_type != UserType.SERVICE.value,
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     return frozenset(rows)

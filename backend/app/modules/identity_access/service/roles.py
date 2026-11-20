@@ -34,6 +34,7 @@ from app.core.errors import (
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import SYSTEM_ROLES, TENANT_ADMIN, Catalogue
 from app.modules.identity_access.domain.policy import Subject, can_delegate
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import GroupRoleChanged, RoleChanged, UserRoleChanged
 from app.modules.identity_access.infra.models import (
     GroupRole,
@@ -611,6 +612,9 @@ async def assign_role(  # noqa: PLR0913 - the request, the two IDs and which rou
     user_type = await session.scalar(select(User.user_type).where(User.id == user_id))
     if user_type is None:
         raise NotFound(code="user_not_found")
+    if user_type == SUPPORT_USER_TYPE:
+        # A vendor support account's access is its grant's alone (D-173, lane B): never a role.
+        raise PermissionDenied(code=SUPPORT_NO_ROLES)
     if user_type == UserType.SERVICE.value:
         if people_only:
             raise PermissionDenied(code=SERVICE_IDENTITY_OWN_PATH)
@@ -784,6 +788,9 @@ async def check_group_grantable(
         await _assignable(session, _POLICY[0], subject, role_id)
 
 
+SUPPORT_NO_ROLES = "vendor_support_roles_from_grant"
+
+
 def member_guard(
     policy: PolicyService,
 ) -> Callable[[AsyncSession, object, uuid.UUID, uuid.UUID], Awaitable[None]]:
@@ -798,6 +805,9 @@ def member_guard(
     ) -> None:
         if not isinstance(by, Subject):
             raise TypeError(by)
+        joining = await session.scalar(select(User.user_type).where(User.id == user_id))
+        if joining == SUPPORT_USER_TYPE:  # never in a group: groups carry roles (lane B)
+            raise PermissionDenied(code=SUPPORT_NO_ROLES)
         carried = list(
             await session.scalars(select(GroupRole.role_id).where(GroupRole.group_id == group_id))
         )

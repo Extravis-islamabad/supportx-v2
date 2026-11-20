@@ -1613,6 +1613,7 @@ export const ur: LabelResource = {
   'security_area.sessions': 'سیشن',
   'security_area.sign_in': 'واحد سائن اِن',
   'security_area.sign_in_events': 'سائن اِن سرگرمی',
+  'security_area.vendor_support': 'وینڈر سپورٹ',
   'security_flag.admins_without_mfa':
     'ٹیننٹ منتظمین کثیر عنصری تصدیق کے بغیر سائن اِن کر سکتے ہیں۔',
   'security_flag.api_open_network': 'API کلیدیں کسی بھی نیٹ ورک پتے سے کام کرتی ہیں۔',
@@ -1639,6 +1640,8 @@ export const ur: LabelResource = {
     'واحد سائن اِن کا سرٹیفکیٹ یا راز ایک مہینے میں ختم ہوگا۔ باقی دن: {{count}}',
   'security_flag.sso_credential_expires_soon':
     'واحد سائن اِن کا سرٹیفکیٹ یا راز جلد ختم ہوگا۔ باقی دن: {{count}}',
+  'security_flag.support_removals_stuck':
+    'Extravis سپورٹ اکاؤنٹس جو رسائی ختم ہونے کے ایک دن بعد بھی نہیں ہٹائے گئے: {{count}}',
   'security_severity.high': 'ابھی کارروائی کریں',
   'security_severity.low': 'غور کریں',
   'security_severity.medium': 'دیکھنے کے لائق',
@@ -1753,6 +1756,16 @@ export const ur: LabelResource = {
   'sso_test_status.failed': 'ناکام',
   'sso_test_status.passed': 'کامیاب',
   'sso_test_status.pending': 'انتظار',
+  'support_grant_access.view': 'صرف دیکھنا',
+  'support_grant_access.view_and_change': 'دیکھنا اور تبدیل کرنا',
+  'support_grant_delivery.actions_email': 'انجینئر ای میل سے اپنا سائن اِن خود سیٹ کرتا ہے',
+  'support_grant_delivery.one_time_password': 'ایک بار کا پاس ورڈ، جو آپ کو ایک بار دکھایا جاتا ہے',
+  'support_grant_state.active': 'زیرِ استعمال',
+  'support_grant_state.ended': 'ختم',
+  'support_grant_state.pending_verification': 'انجینئر کا انتظار',
+  'support_grant_state.revoked': 'جلد ختم کیا گیا',
+  'support_grant_verification.email': 'ای میل لنک کے ذریعے',
+  'support_grant_verification.out_of_band': 'فون یا بالمشافہ تصدیق',
   'technician_scope.all': 'سب کچھ',
   'technician_scope.all.description': 'ادارے کے تمام ریکارڈ۔',
   'technician_scope.group': 'ان کے گروپ (تجویز کردہ)',

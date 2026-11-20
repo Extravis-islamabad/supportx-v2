@@ -1616,6 +1616,7 @@ export const en = {
   'security_area.sessions': 'Sessions',
   'security_area.sign_in': 'Single sign-on',
   'security_area.sign_in_events': 'Sign-in activity',
+  'security_area.vendor_support': 'Vendor support',
   'security_flag.admins_without_mfa':
     'Tenant administrators can sign in without multi-factor sign-in.',
   'security_flag.api_open_network': 'API keys work from any network address.',
@@ -1642,6 +1643,8 @@ export const en = {
     'A single sign-on certificate or secret runs out within a month. Days left: {{count}}',
   'security_flag.sso_credential_expires_soon':
     'A single sign-on certificate or secret runs out soon. Days left: {{count}}',
+  'security_flag.support_removals_stuck':
+    'Extravis support accounts not yet removed a day after their access ended: {{count}}',
   'security_severity.high': 'Act now',
   'security_severity.low': 'Consider',
   'security_severity.medium': 'Worth a look',
@@ -1756,6 +1759,16 @@ export const en = {
   'sso_test_status.failed': 'Did not work',
   'sso_test_status.passed': 'Worked',
   'sso_test_status.pending': 'Waiting',
+  'support_grant_access.view': 'View only',
+  'support_grant_access.view_and_change': 'View and change',
+  'support_grant_delivery.actions_email': 'The engineer sets up their own sign-in from an e-mail',
+  'support_grant_delivery.one_time_password': 'A one-time password, shown to you once',
+  'support_grant_state.active': 'In use',
+  'support_grant_state.ended': 'Ended',
+  'support_grant_state.pending_verification': 'Waiting for the engineer',
+  'support_grant_state.revoked': 'Ended early',
+  'support_grant_verification.email': 'By e-mail link',
+  'support_grant_verification.out_of_band': 'Confirmed by phone or in person',
   'technician_scope.all': 'Everything',
   'technician_scope.all.description': 'Every record in the organisation.',
   'technician_scope.group': 'Their groups (recommended)',

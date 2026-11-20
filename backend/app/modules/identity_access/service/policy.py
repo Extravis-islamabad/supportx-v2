@@ -53,6 +53,7 @@ from app.modules.identity_access.domain.policy import (
     decide,
     meets,
 )
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.infra.models import (
     GroupRole,
     Role,
@@ -454,6 +455,11 @@ class PolicyService:
             )
         ).one_or_none()
         if user is None or user.status != "active":
+            return _nobody(tenant_id, user_id)
+        if user.user_type == SUPPORT_USER_TYPE:
+            # A vendor support account's permissions are its grant's only (D-173, lane B): never
+            # a role, never a group's. Until the access levels' allow-lists come (S4c-2) that is
+            # nothing at all: it fails closed.
             return _nobody(tenant_id, user_id)
         site_ids, group_ids = await self.memberships(session, user_id)
         # Roles of one's own and those of the active groups one belongs to (WP-042): a disabled

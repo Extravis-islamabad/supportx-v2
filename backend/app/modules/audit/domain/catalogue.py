@@ -110,6 +110,18 @@ ACTIONS: dict[str, Action] = _actions(
     ("api_key.created", AuditCategory.SECURITY, "identity_access"),
     ("api_key.revoked", AuditCategory.SECURITY, "identity_access"),
     ("api_key.refused", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.request_refused", AuditCategory.SECURITY, "identity_access"),  # S4c-1
+    ("identity_access.support_grant_created", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.support_grant_extended", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.support_grant_revoked", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.vendor_support_setting_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity_access.support_link_resent", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.link_opened", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.link_expired", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.first_used", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.ended", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.account_removed", AuditCategory.SECURITY, "identity_access"),
+    ("support_grant.account_removal_failed", AuditCategory.SECURITY, "identity_access"),
     ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
     # D-177: an existing account first signs in through an identity provider (a link).
     ("identity_provider.account_linked", AuditCategory.SECURITY, "identity_access"),

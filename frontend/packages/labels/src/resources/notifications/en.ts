@@ -60,6 +60,7 @@ export const en = {
   'notification_area.service_account': 'Service accounts',
   'notification_area.service_request': 'Service requests',
   'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
+  'notification_area.support_grant': 'Vendor support access',
   'notification_area.task': 'Tasks',
   'notification_area.work_item_view': 'Saved views',
   'notification_category.approval': 'Approvals',
@@ -172,6 +173,11 @@ export const en = {
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
   'notification_event.sign_in_secret.expiring': 'A sign-in certificate or secret is running out',
+  'notification_event.support_grant.ended': 'Vendor support access ended',
+  'notification_event.support_grant.extended': 'Vendor support access extended',
+  'notification_event.support_grant.first_used': 'A support engineer signed in for the first time',
+  'notification_event.support_grant.granted': 'Vendor support access granted',
+  'notification_event.support_grant.removal_stuck': 'A support account is still not removed',
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
@@ -819,6 +825,35 @@ export const en = {
     '{{ record.title }}: the {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
   'notification_template.sign_in_secret.expiring.subject':
     'Single sign-on {{ record.title }}: the {{ notice.item }} {{ notice.left }}',
+  'notification_template.support_grant.ended.body':
+    'Hello {{ recipient.name }},\n\nThe Extravis support access of {{ record.title }} has ended and their account is being removed. See what was done during it: {{ record.link }}',
+  'notification_template.support_grant.ended.in_app':
+    'The support access of {{ record.title }} has ended',
+  'notification_template.support_grant.ended.subject': 'Vendor support ended: {{ record.title }}',
+  'notification_template.support_grant.extended.body':
+    'Hello {{ recipient.name }},\n\nThe Extravis support access of {{ record.title }} was extended. See the new end time: {{ record.link }}',
+  'notification_template.support_grant.extended.in_app':
+    'The support access of {{ record.title }} was extended',
+  'notification_template.support_grant.extended.subject':
+    'Vendor support extended: {{ record.title }}',
+  'notification_template.support_grant.first_used.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} has signed in with their Extravis support access for the first time. Their actions are in the audit log as Extravis support: {{ record.link }}',
+  'notification_template.support_grant.first_used.in_app':
+    '{{ record.title }} signed in with their support access for the first time',
+  'notification_template.support_grant.first_used.subject':
+    'Support engineer signed in: {{ record.title }}',
+  'notification_template.support_grant.granted.body':
+    'Hello {{ recipient.name }},\n\nTemporary Extravis support access was granted to {{ record.title }}. See who granted it, why and until when: {{ record.link }}',
+  'notification_template.support_grant.granted.in_app':
+    'Extravis support access was granted to {{ record.title }}',
+  'notification_template.support_grant.granted.subject':
+    'Vendor support granted: {{ record.title }}',
+  'notification_template.support_grant.removal_stuck.body':
+    'Hello {{ recipient.name }},\n\nThe access of {{ record.title }} ended over a day ago, but their sign-in account could not be removed yet. It cannot be used, and SupportX keeps trying. If this continues, check that sign-in is reachable: {{ record.link }}',
+  'notification_template.support_grant.removal_stuck.in_app':
+    'The support account of {{ record.title }} is still not removed a day after its access ended',
+  'notification_template.support_grant.removal_stuck.subject':
+    'Support account not removed: {{ record.title }}',
   'notification_template.task.assigned.body':
     'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
   'notification_template.task.assigned.in_app':
@@ -898,6 +933,7 @@ export const en = {
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',
   'notification_variable.stock.quantity': 'Stock › Quantity',
+  'notification_variable.support_grant.engineer': 'Vendor support › Engineer',
   'notification_variable.task.due_at': 'Task due time',
   'notification_variable.task.starts_at': 'Task scheduled start',
   'notification_variable.task.title': 'Task title',

@@ -62,6 +62,7 @@ export const ur: LabelResource = {
   'notification_area.service_account': 'سروس اکاؤنٹس',
   'notification_area.service_request': 'سروس کی درخواستیں',
   'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
+  'notification_area.support_grant': 'وینڈر سپورٹ رسائی',
   'notification_area.task': 'کام',
   'notification_area.work_item_view': 'محفوظ منظر',
   'notification_category.approval': 'منظوریاں',
@@ -178,6 +179,11 @@ export const ur: LabelResource = {
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
   'notification_event.sign_in_secret.expiring':
     'سائن اِن کا سرٹیفکیٹ یا خفیہ کلید ختم ہونے والی ہے',
+  'notification_event.support_grant.ended': 'وینڈر سپورٹ رسائی ختم ہوئی',
+  'notification_event.support_grant.extended': 'وینڈر سپورٹ رسائی میں توسیع',
+  'notification_event.support_grant.first_used': 'سپورٹ انجینئر نے پہلی بار سائن اِن کیا',
+  'notification_event.support_grant.granted': 'وینڈر سپورٹ رسائی دی گئی',
+  'notification_event.support_grant.removal_stuck': 'سپورٹ اکاؤنٹ ابھی تک نہیں ہٹایا گیا',
   'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
   'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
   'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
@@ -824,6 +830,34 @@ export const ur: LabelResource = {
     '{{ record.title }}: {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
   'notification_template.sign_in_secret.expiring.subject':
     'سنگل سائن آن {{ record.title }}: {{ notice.item }} {{ notice.left }}',
+  'notification_template.support_grant.ended.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی Extravis سپورٹ رسائی ختم ہو گئی ہے اور ان کا اکاؤنٹ ہٹایا جا رہا ہے۔ دیکھیں اس دوران کیا کیا گیا: {{ record.link }}',
+  'notification_template.support_grant.ended.in_app':
+    '{{ record.title }} کی سپورٹ رسائی ختم ہو گئی',
+  'notification_template.support_grant.ended.subject': 'وینڈر سپورٹ ختم: {{ record.title }}',
+  'notification_template.support_grant.extended.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی Extravis سپورٹ رسائی میں توسیع کی گئی۔ ختم ہونے کا نیا وقت دیکھیں: {{ record.link }}',
+  'notification_template.support_grant.extended.in_app':
+    '{{ record.title }} کی سپورٹ رسائی میں توسیع کی گئی',
+  'notification_template.support_grant.extended.subject':
+    'وینڈر سپورٹ میں توسیع: {{ record.title }}',
+  'notification_template.support_grant.first_used.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} نے پہلی بار اپنی Extravis سپورٹ رسائی سے سائن اِن کیا ہے۔ ان کے کام آڈٹ لاگ میں Extravis سپورٹ کے نام سے ہیں: {{ record.link }}',
+  'notification_template.support_grant.first_used.in_app':
+    '{{ record.title }} نے پہلی بار اپنی سپورٹ رسائی سے سائن اِن کیا',
+  'notification_template.support_grant.first_used.subject':
+    'سپورٹ انجینئر نے سائن اِن کیا: {{ record.title }}',
+  'notification_template.support_grant.granted.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کو Extravis سپورٹ کی عارضی رسائی دی گئی۔ دیکھیں کس نے دی، کیوں اور کب تک: {{ record.link }}',
+  'notification_template.support_grant.granted.in_app':
+    'Extravis سپورٹ رسائی {{ record.title }} کو دی گئی',
+  'notification_template.support_grant.granted.subject': 'وینڈر سپورٹ دی گئی: {{ record.title }}',
+  'notification_template.support_grant.removal_stuck.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی رسائی ایک دن سے زیادہ پہلے ختم ہو گئی، لیکن ان کا سائن اِن اکاؤنٹ ابھی تک ہٹایا نہیں جا سکا۔ یہ استعمال نہیں ہو سکتا، اور SupportX کوشش جاری رکھتا ہے۔ اگر یہ جاری رہے تو جانچیں کہ سائن اِن سروس دستیاب ہے: {{ record.link }}',
+  'notification_template.support_grant.removal_stuck.in_app':
+    '{{ record.title }} کا سپورٹ اکاؤنٹ رسائی ختم ہونے کے ایک دن بعد بھی نہیں ہٹایا گیا',
+  'notification_template.support_grant.removal_stuck.subject':
+    'سپورٹ اکاؤنٹ نہیں ہٹایا گیا: {{ record.title }}',
   'notification_template.task.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
   'notification_template.task.assigned.in_app':
@@ -903,6 +937,7 @@ export const ur: LabelResource = {
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
   'notification_variable.stock.quantity': 'اسٹاک › مقدار',
+  'notification_variable.support_grant.engineer': 'وینڈر سپورٹ › انجینئر',
   'notification_variable.task.due_at': 'کام کا مقررہ وقت',
   'notification_variable.task.starts_at': 'کام کا طے شدہ آغاز',
   'notification_variable.task.title': 'کام کا عنوان',
