@@ -1,5 +1,6 @@
 import {
   useIncident,
+  useIncidentAssignees,
   useIncidentBoard,
   useIncidentCatalogue,
   useIncidents,
@@ -193,6 +194,10 @@ export function IncidentBoard({
   const navigate = useNavigate();
   const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
+  // People's names for a board by technician: those who can be assigned, then the loaded rows'
+  // (a column under "More columns" has no rows loaded; matrix run 44751058148 named one
+  // "someone you can't see").
+  const assignable = useIncidentAssignees(null, '', groupBy === 'technician');
   const counts = useIncidentBoard({ view, tag, filter }, groupBy);
   // Kept by the query they were asked for: a new grouping or query reads afresh, never an
   // older answer (by the filter's text, not its identity).
@@ -235,7 +240,11 @@ export function IncidentBoard({
     if (groupBy === 'priority') return scaleLabel(t, catalogue.data, 'priority', key, locale);
     if (groupBy === 'group')
       return groups.data?.find((g) => g.id === key)?.name ?? t('incidents.board.unknown_group');
-    return people[key]?.display_name ?? t('incidents.board.unknown_person');
+    return (
+      assignable.data?.find((p) => p.id === key)?.display_name ??
+      people[key]?.display_name ??
+      t('incidents.board.unknown_person')
+    );
   };
   const columns: BoardColumn[] = shown.map((c) => ({
     key: c.key ?? NONE,

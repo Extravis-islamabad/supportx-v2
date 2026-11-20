@@ -1122,7 +1122,9 @@ export function IncidentsPage() {
           ]}
         />
       )}
-      {list.hasNextPage && (
+      {/* The table's and the cards' next page only: the board's columns and the calendar load
+          their own (the table's pages stay cached behind them; matrix run 44751058148). */}
+      {list.hasNextPage && (layout === 'table' || layout === 'cards') && (
         <Flex justify="center">
           <Button
             onClick={() => void list.fetchNextPage()}
