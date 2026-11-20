@@ -5,7 +5,8 @@ the dev stack's SUPPORTX_EVENTS stream and cannot see another test's messages. T
 created are deleted afterwards (it made them, CLAUDE.md rule h). The outbox table of the
 session's throwaway database is emptied before each test for the same reason.
 
-NATS location: SUPPORTX_TEST_NATS_URL, otherwise the dev stack's NATS_PORT. Locally the tests
+NATS location: SUPPORTX_TEST_NATS_URL, otherwise (only with SUPPORTX_TEST_ALLOW_DEV_STACK=1) the
+dev stack's NATS_PORT. Locally the tests
 skip when NATS is down; with SUPPORTX_REQUIRE_NATS_TESTS=1 (CI) that is a failure instead.
 """
 
@@ -52,8 +53,7 @@ def nats_url() -> str | None:
     """Where the test NATS server is, if configured."""
     if url := os.environ.get("SUPPORTX_TEST_NATS_URL"):
         return url
-    if db_testing.STACK_ENV.is_file():
-        env = db_testing._read_env_file(db_testing.STACK_ENV)  # noqa: SLF001 - shared test helper
+    if (env := db_testing.dev_stack_env()) is not None:
         return f"nats://127.0.0.1:{env.get('NATS_PORT', '24222')}"
     return None
 

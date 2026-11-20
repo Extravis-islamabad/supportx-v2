@@ -524,6 +524,16 @@ export {
   type SignInOutcome,
 } from './identity';
 export {
+  useAddVerifiedDomain,
+  useCheckVerifiedDomain,
+  useRemoveVerifiedDomain,
+  useVerifiedDomains,
+  useVerifyDomainManually,
+  type DomainCheck,
+  type VerifiedDomain,
+  type VerifiedDomainAdded,
+} from './domains';
+export {
   useAiSettings,
   useAiOutcome,
   useAiSummary,

@@ -195,6 +195,12 @@ export const ar: LabelResource = {
     'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
+  'domain_check.dns_check_unavailable': 'التحقق التلقائي غير متاح في هذا التثبيت بعد.',
+  'domain_check.dns_unreachable':
+    'تعذّر الوصول إلى DNS من هذا التثبيت. يمكنك توثيق النطاق يدويًا بدلًا من ذلك.',
+  'domain_check.domain_verified_elsewhere': 'وثّقت مؤسسة أخرى هذا النطاق بالفعل.',
+  'domain_check.found': 'عُثر على السجل.',
+  'domain_check.not_found': 'لم يُعثر على السجل بعد. قد يستغرق ظهور تغييرات DNS بعض الوقت.',
   'erasure_count.action_links_revoked': 'روابط الإجراءات الملغاة',
   'erasure_count.ai_call_texts_cleared': 'نصوص طلبات الذكاء الاصطناعي الممسوحة',
   'erasure_count.ai_embeddings_removed': 'متجهات بحث الذكاء الاصطناعي المُزالة',
@@ -1854,4 +1860,38 @@ export const ar: LabelResource = {
   'users.total_other': '{{count}} مستخدم',
   'users.total_two': 'مستخدمان',
   'users.total_zero': 'لا يوجد مستخدمون',
+  'verified_domain_state.lapsed': 'لم يعد موثّقًا',
+  'verified_domain_state.pending': 'بانتظار سجله',
+  'verified_domain_state.verified': 'موثّق',
+  'verified_domains.add.button': 'إضافة نطاق',
+  'verified_domains.add.label': 'النطاق المراد توثيقه',
+  'verified_domains.add.placeholder': 'example.com',
+  'verified_domains.check': 'تحقّق الآن',
+  'verified_domains.column.actions': 'الإجراءات',
+  'verified_domains.column.checked': 'آخر تحقق',
+  'verified_domains.column.domain': 'النطاق',
+  'verified_domains.column.state': 'الحالة',
+  'verified_domains.intro':
+    'أثبتوا ملكية مؤسستكم لنطاقات البريد الإلكتروني بسجل DNS. تُوجَّه عمليات تسجيل الدخول في نطاق موثّق إلى تسجيل الدخول الموحّد لديكم، ولا يمكن لمؤسسة أخرى المطالبة به.',
+  'verified_domains.manual.button': 'توثيق يدوي',
+  'verified_domains.manual.confirm': 'توثيق',
+  'verified_domains.manual.intro':
+    'استخدم هذا فقط عندما يتعذّر على هذا التثبيت الوصول إلى DNS. أنت تؤكد أن مؤسستك تملك النطاق، ويُحفظ سببك في سجل التدقيق.',
+  'verified_domains.manual.reason': 'سبب تأكّدك من أن مؤسستك تملكه',
+  'verified_domains.manual.title': 'توثيق {{domain}} دون DNS',
+  'verified_domains.never_checked': 'لم يُتحقق منه بعد',
+  'verified_domains.none': 'لا توجد نطاقات بعد.',
+  'verified_domains.record.intro':
+    'أضف سجل TXT لدى مزوّد DNS لديك، ثم اختر «تحقّق الآن». قد يستغرق ظهور تغييرات DNS بعض الوقت.',
+  'verified_domains.record.name': 'الاسم',
+  'verified_domains.record.once':
+    'تظهر هذه القيمة الآن فقط. إن فقدتها، فأزل النطاق ثم أضفه مرة أخرى.',
+  'verified_domains.record.title': 'انشر هذا السجل للنطاق {{domain}}',
+  'verified_domains.record.value': 'القيمة',
+  'verified_domains.remove.body':
+    'لن تُوجَّه عمليات تسجيل الدخول في هذا النطاق إلى تسجيل الدخول الموحّد لديك بعد الآن. يبقى إعداد تسجيل الدخول الموحّد كما هو.',
+  'verified_domains.remove.button': 'إزالة',
+  'verified_domains.remove.confirm': 'إزالة',
+  'verified_domains.remove.title': 'إزالة {{domain}}؟',
+  'verified_domains.title': 'النطاقات الموثّقة',
 };
