@@ -79,6 +79,12 @@ class _Linker(_Browser):
         raise _Stopped(reason)
 
 
+def _victim_password() -> str:
+    """A random password that always meets the realm policy (a digit, upper, lower, a symbol,
+    length): a bare `token_urlsafe` can lack a digit, which Keycloak refuses (a CI flake)."""
+    return "Victim-" + secrets.token_hex(8) + "Aa9!"
+
+
 class _Stopped(Exception):
     """Keycloak stopped the sign-in (asked for proof the provider's person doesn't have)."""
 
@@ -107,7 +113,7 @@ def existing_and_provider(private_keycloak: PrivateKeycloak) -> Iterator[tuple[s
                 "credentials": [
                     {
                         "type": "password",
-                        "value": "Victim-" + secrets.token_urlsafe(12),
+                        "value": _victim_password(),
                         "temporary": False,
                     }
                 ],
