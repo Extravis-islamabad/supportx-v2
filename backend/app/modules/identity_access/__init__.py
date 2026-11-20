@@ -112,6 +112,7 @@ from app.modules.identity_access.service import (
     sign_in_import,
     sign_in_log,
     support_grant_job,
+    support_grant_notifications,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
@@ -454,6 +455,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+support_grant_notifications.register()  # every admin hears of vendor support access (D-173 (8))
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
