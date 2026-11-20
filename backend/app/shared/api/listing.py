@@ -393,7 +393,9 @@ async def _allowed(  # noqa: PLR0913 - a list's allowlist and its two hooks, exp
     return allowed, withheld
 
 
-# The body form's own cap (lane B): the filter keeps the DSL's limits on top.
+# The body form's own cap (lane B): the filter keeps the DSL's limits on top. What bounds the
+# cost of parsing a large body is the app-wide request limit (core/body_limit.py), which reads no
+# more than its cap; this check is the list's own, smaller limit on an already-read body.
 BODY_MAX_BYTES = 64 * 1024
 
 
