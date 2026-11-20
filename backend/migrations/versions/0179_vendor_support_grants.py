@@ -191,7 +191,7 @@ def downgrade() -> None:
     tenants = conn.execute(sa.text("SELECT audit_tenant_ids()")).scalars().all()
     for tenant in tenants:
         conn.execute(sa.text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant)})
-        grants = conn.execute(sa.text(f"SELECT count(*) FROM {GRANTS}")).scalar_one()  # noqa: S608 - fixed name
+        grants = conn.execute(sa.text("SELECT count(*) FROM support_grants")).scalar_one()
         accounts = conn.execute(
             sa.text("SELECT count(*) FROM users WHERE user_type = 'vendor_support'")
         ).scalar_one()
