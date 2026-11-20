@@ -276,6 +276,8 @@ export const en = {
   'errors.domain_check_failed': 'The domain answered, but not like this SupportX.',
   'errors.domain_invalid': 'Enter a domain name such as help.example.com.',
   'errors.domain_limit': 'You can add at most {{max}} domains.',
+  'errors.domain_manual_verify_not_allowed':
+    "Verifying a domain by hand isn't allowed on this installation: publish its DNS record instead.",
   'errors.domain_not_found': 'This domain was not found.',
   'errors.domain_not_reachable': 'The domain could not be reached.',
   'errors.domain_not_resolving': 'The domain has no DNS record yet.',

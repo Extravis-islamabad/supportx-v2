@@ -253,6 +253,8 @@ export const ar: LabelResource = {
   'errors.domain_check_failed': 'أجاب النطاق، ولكن ليس مثل SupportX هذا.',
   'errors.domain_invalid': 'أدخل اسم نطاق مثل help.example.com.',
   'errors.domain_limit': 'يمكنك إضافة {{max}} نطاقًا كحد أقصى.',
+  'errors.domain_manual_verify_not_allowed':
+    'لا يُسمح بتوثيق النطاق يدويًا في هذا التثبيت: انشر سجل DNS الخاص به بدلًا من ذلك.',
   'errors.domain_not_found': 'لم يتم العثور على هذا النطاق.',
   'errors.domain_not_reachable': 'تعذّر الوصول إلى النطاق.',
   'errors.domain_not_resolving': 'ليس للنطاق سجل DNS بعد.',

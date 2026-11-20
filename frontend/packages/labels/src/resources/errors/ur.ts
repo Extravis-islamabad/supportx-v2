@@ -274,6 +274,8 @@ export const ur: LabelResource = {
   'errors.domain_check_failed': 'ڈومین نے جواب دیا، مگر اس SupportX کی طرح نہیں۔',
   'errors.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
   'errors.domain_limit': 'آپ زیادہ سے زیادہ {{max}} ڈومین شامل کر سکتے ہیں۔',
+  'errors.domain_manual_verify_not_allowed':
+    'اس انسٹالیشن پر ڈومین کی ہاتھ سے تصدیق کی اجازت نہیں: اس کے بجائے اس کا DNS ریکارڈ شائع کریں۔',
   'errors.domain_not_found': 'یہ ڈومین نہیں ملا۔',
   'errors.domain_not_reachable': 'ڈومین تک رسائی نہیں ہو سکی۔',
   'errors.domain_not_resolving': 'ڈومین کا ابھی کوئی DNS ریکارڈ نہیں ہے۔',
