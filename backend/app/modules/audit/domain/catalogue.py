@@ -304,6 +304,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
@@ -477,6 +478,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.purged", AuditCategory.DATA, "system"),
     ("file_settings.changed", AuditCategory.CONFIGURATION, "system"),
     ("audit.settings_changed", AuditCategory.SECURITY, "audit"),
+    # REQ-AUD-011 (WP-057 S5a): streaming to a SIEM; codes and IDs only, never a secret.
+    ("audit.siem_destination_added", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_destination_changed", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_destination_removed", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_secret_rotated", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_test_sent", AuditCategory.SECURITY, "audit"),
     ("audit.verification_requested", AuditCategory.SECURITY, "audit"),
     ("audit.verification_failed", AuditCategory.SECURITY, "audit"),
     ("audit.probing_detected", AuditCategory.SECURITY, "audit"),

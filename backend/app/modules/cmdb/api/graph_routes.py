@@ -22,10 +22,18 @@ from app.modules.cmdb.api.routes import RefNameOut, names_out
 from app.modules.cmdb.domain import impact as impact_domain
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain import types as domain
-from app.modules.cmdb.infra.models import BusinessView, RelationshipTypeRule
-from app.modules.cmdb.service import business_views, catalogue, impact, relationships, versions
+from app.modules.cmdb.infra.models import BusinessView, Ci, RelationshipTypeRule
+from app.modules.cmdb.service import (
+    business_views,
+    catalogue,
+    impact,
+    relationships,
+    subscribers,
+    versions,
+)
 from app.modules.cmdb.service.relationships import NodeInfo
 from app.modules.identity_access import Subject
+from app.modules.organization import AudienceKind, count_people, people_in
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query
@@ -311,11 +319,21 @@ class ImpactServiceOut(BaseModel):
     name: str
 
 
+class AudiencePersonOut(BaseModel):
+    """One person a service reaches (for `users.view` holders only)."""
+
+    id: uuid.UUID
+    display_name: str
+
+
 class ImpactOut(BaseModel):
     """What a failure of the CI reaches (`dependents`), or what it relies on (`dependencies`).
 
-    `affected_users` is null with `affected_users_reason` `not_configured` until business
-    services have subscribers. `truncated`: the 5,000-CI cap or a read limit cut the walk.
+    `affected_users`: the active people the subscribers of the affected business services you
+    may see reach, each once; `affected_users_partial` when any CI here is restricted (the count
+    is "of services you can see"). Null with `affected_users_reason` `not_configured` when none
+    of them has subscribers. `affected_people`: up to 50 by name, with `users.view` only.
+    `truncated`: the 5,000-CI cap or a read limit cut the walk.
     """
 
     start: ImpactCiOut
@@ -323,7 +341,9 @@ class ImpactOut(BaseModel):
     services: list[ImpactServiceOut]
     restricted: int = Field(description="How many affected CIs you may not see.")
     affected_users: int | None
+    affected_users_partial: bool = False
     affected_users_reason: Literal["not_configured"] | None
+    affected_people: list[AudiencePersonOut] | None = None
     truncated: bool
     depth: int
     ci_max: int
@@ -763,6 +783,118 @@ async def neighbours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     return _graph(graph)
 
 
+# --- business service subscribers (0185, D-172 (3)) -----------------------------------------------
+
+SubscriberKind = AudienceKind  # labelled `audience_kind.<code>`
+
+
+class SubscriberIn(BaseModel):
+    """One department, site or group the service serves."""
+
+    kind: SubscriberKind
+    ref_id: uuid.UUID
+
+
+class SubscribersIn(BaseModel):
+    """The whole list (at most 100): it replaces what is there."""
+
+    subscribers: list[SubscriberIn] = Field(max_length=subscribers.SUBSCRIBERS_MAX)
+
+
+class SubscriberOut(BaseModel):
+    """One subscriber as you may know it: its name, or why not; `removed` if the unit is gone."""
+
+    kind: SubscriberKind
+    ref_id: uuid.UUID
+    name: RefNameOut
+    removed: bool
+
+
+class SubscribersOut(BaseModel):
+    """A business service's subscribers, and how many active people they reach (each once)."""
+
+    business_service: bool = Field(description="Whether this CI takes subscribers at all.")
+    items: list[SubscriberOut]
+    people: int = Field(description="Active people the live refs reach, each counted once.")
+
+
+async def _subscribers_out(
+    session: TenantSession, ci_id: uuid.UUID, found: list[subscribers.Subscriber]
+) -> SubscribersOut:
+    record = await session.get(Ci, ci_id)
+    is_service = record is not None and record.type_id in await subscribers.service_type_ids(
+        session
+    )
+    return SubscribersOut(
+        business_service=is_service,
+        items=[
+            SubscriberOut(
+                kind=s.kind, ref_id=s.ref_id, name=RefNameOut.of(s.name), removed=s.removed
+            )
+            for s in found
+        ],
+        people=await count_people(session, await subscribers.audience_of(session, [ci_id])),
+    )
+
+
+@router.get("/cis/{ci_id}/subscribers", summary="A business service's subscribers")
+async def get_subscribers(
+    ci_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+) -> SubscribersOut:
+    """The departments, sites and groups the service serves (empty for any other CI)."""
+    found = await subscribers.subscribers(session, subject, ci_id)
+    record = await session.get(Ci, ci_id)
+    if record is not None:
+        set_etag(response, record.version)
+    return await _subscribers_out(session, ci_id, found)
+
+
+@router.put(
+    "/cis/{ci_id}/subscribers",
+    summary="Set a business service's subscribers",
+    responses=CONFLICT,
+    dependencies=[audited("cmdb.subscribers_changed", object_type="cmdb_ci", object_param="ci_id")],
+)
+async def put_subscribers(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    ci_id: uuid.UUID,
+    body: SubscribersIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Edit,
+    response: Response,
+    request: Request,
+) -> SubscribersOut:
+    """Replace the list (If-Match on the CI). Only a business service; each unit must exist."""
+    found = await subscribers.set_subscribers(
+        session,
+        subject,
+        ci_id,
+        [(s.kind, s.ref_id) for s in body.subscribers],
+        expected_version=version,
+        source=source_of(request),
+    )
+    record = await session.get(Ci, ci_id)
+    if record is not None:
+        set_etag(response, record.version)
+    return await _subscribers_out(session, ci_id, found)
+
+
+@router.get("/cis/{ci_id}/subscribers/people", summary="The people a business service reaches")
+async def subscriber_people(
+    ci_id: uuid.UUID,
+    session: TenantSession,
+    subject: View,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[AudiencePersonOut]:
+    """Up to `limit` of them by name; needs `users.view` as well (403 without it)."""
+    await subscribers.subscribers(session, subject, ci_id)  # the CI's read check first
+    audience = await subscribers.audience_of(session, [ci_id])
+    return [
+        AudiencePersonOut(id=i, display_name=name)
+        for i, name in await people_in(session, subject, audience, limit=limit)
+    ]
+
+
 @router.get("/cis/{ci_id}/impact", summary="What a CI's failure reaches")
 async def ci_impact(
     ci_id: uuid.UUID,
@@ -783,7 +915,16 @@ async def ci_impact(
         services=[ImpactServiceOut(id=s.id, name=s.name) for s in found.services],
         restricted=sum(1 for c in found.cis if c.restricted),
         affected_users=None if found.affected_users is None else found.affected_users.count,
+        affected_users_partial=found.affected_users is not None and found.affected_users.partial,
         affected_users_reason="not_configured" if found.affected_users is None else None,
+        affected_people=(
+            None
+            if found.affected_users is None or found.affected_users.people is None
+            else [
+                AudiencePersonOut(id=i, display_name=name)
+                for i, name in found.affected_users.people
+            ]
+        ),
         truncated=found.truncated,
         depth=depth,
         ci_max=impact_domain.CI_MAX,

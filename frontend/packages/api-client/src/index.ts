@@ -79,6 +79,7 @@ export {
   useBusinessViews,
   useCiAsOf,
   useCiCompare,
+  useCiSubscribers,
   useCiImpact,
   useCiVersions,
   useCreateBusinessView,
@@ -89,6 +90,7 @@ export {
   useRelationshipTypes,
   useRemoveRelationship,
   useSaveBusinessViewAsNew,
+  useSetCiSubscribers,
   useUpdateBusinessView,
   useUpdateRelationshipType,
   type BusinessView,
@@ -114,6 +116,9 @@ export {
   type RelationshipType,
   type RelationshipTypeInput,
   type RelationshipTypePatch,
+  type CiSubscriber,
+  type CiSubscribers,
+  type SubscriberKind,
 } from './cmdbGraph';
 export {
   downloadAuditExport,
@@ -259,6 +264,8 @@ export {
   useIncidentCategories,
   useIncidentHistory,
   useIncidents,
+  useIncidentBoard,
+  type IncidentBoardColumn,
   useIncidentSla,
   useIncidentSearch,
   useIncidentViews,
@@ -355,6 +362,19 @@ export {
   type ServiceAccountPatch,
   type ServiceAccountRoles,
 } from './serviceAccounts';
+export {
+  siemKeys,
+  useAddSiemDestination,
+  useChangeSiemDestination,
+  useRemoveSiemDestination,
+  useRotateSiemSecret,
+  useSiemDestinations,
+  useTestSiemDestination,
+  type SiemDestination,
+  type SiemDestinationInput,
+  type SiemDestinationMade,
+  type SiemTest,
+} from './siem';
 export {
   useFieldSensitivity,
   useSetFieldSensitivity,
@@ -570,6 +590,8 @@ export {
   useRerunIncidentViewAudit,
   type ListDisplay,
   type RowColourBy,
+  type ListLayout,
+  type BoardGroupBy,
   type ViewAudit,
   useStartBulk,
   type BulkAction,

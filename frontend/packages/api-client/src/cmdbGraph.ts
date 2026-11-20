@@ -26,6 +26,9 @@ export type BusinessViewListItem = components['schemas']['BusinessViewListItem']
 export type BusinessView = components['schemas']['BusinessViewOut'];
 export type BusinessViewInput = components['schemas']['BusinessViewIn'];
 export type BusinessViewPatch = components['schemas']['BusinessViewPatch'];
+export type CiSubscribers = components['schemas']['SubscribersOut'];
+export type CiSubscriber = components['schemas']['SubscriberOut'];
+export type SubscriberKind = components['schemas']['AudienceKind'];
 export type CiImpact = components['schemas']['ImpactOut'];
 export type CiImpactNode = components['schemas']['ImpactCiOut'];
 export type ImpactDirection = components['schemas']['ImpactDirection'];
@@ -80,6 +83,46 @@ export function neighbours(ciId: string, query: NeighboursQuery): Promise<CiGrap
       },
     }),
   );
+}
+
+/** A business service's subscribers and how many people they reach (0185, D-172 (3)). */
+export function useCiSubscribers(ciId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.cmdb.subscribers(ciId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/cmdb/cis/{ci_id}/subscribers', {
+          params: { path: { ci_id: ciId ?? '' } },
+        }),
+      ),
+    enabled: ciId !== undefined,
+  });
+}
+
+/** Replace the list (If-Match: the CI's version); the CI's record and history refetch. */
+export function useSetCiSubscribers(ciId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      version,
+      subscribers,
+    }: {
+      version: number;
+      subscribers: { kind: SubscriberKind; ref_id: string }[];
+    }) =>
+      call(
+        api.PUT('/api/v1/cmdb/cis/{ci_id}/subscribers', {
+          params: { path: { ci_id: ciId }, header: ifMatch(version) },
+          body: { subscribers },
+        }),
+      ),
+    onSuccess: (found) => {
+      queryClient.setQueryData(queryKeys.cmdb.subscribers(ciId), found);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(ciId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(ciId) });
+    },
+  });
 }
 
 /**

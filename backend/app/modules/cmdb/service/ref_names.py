@@ -37,8 +37,10 @@ REFERENCE_FIELDS = (*SITE_FIELDS, *GROUP_FIELDS, *PERSON_FIELDS, *ASSET_FIELDS)
 
 SITES_VIEW = "sites.view"
 GROUPS_VIEW = "groups.view"
+DEPARTMENTS_VIEW = "departments.view"
 # Organization registers its group names with the shared names port (app/shared/reporting).
 GROUP_KIND = "group"
+DEPARTMENT_KIND = "department"
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,7 @@ class Refs:
 
     sites: set[str] = field(default_factory=set)
     groups: set[str] = field(default_factory=set)
+    departments: set[str] = field(default_factory=set)
     people: set[str] = field(default_factory=set)
     assets: set[str] = field(default_factory=set)
 
@@ -106,20 +109,32 @@ async def _sites(session: AsyncSession, subject: Subject, ids: set[str]) -> dict
     }
 
 
-async def _groups(session: AsyncSession, subject: Subject, ids: set[str]) -> dict[str, RefName]:
+async def _named_units(
+    session: AsyncSession, subject: Subject, ids: set[str], *, kind: str, right: str
+) -> dict[str, RefName]:
+    """Groups or departments by the names organization registered (their admins' own words)."""
     if not ids:
         return {}
-    resolver = names_resolver(GROUP_KIND)
-    if not subject.holds(GROUPS_VIEW) or resolver is None:
+    resolver = names_resolver(kind)
+    if not subject.holds(right) or resolver is None:
         return dict.fromkeys(ids, RefName(restricted=True))
-    # Group names are the admins' own words, the same in every language. A resolver that fails
-    # leaves every group restricted, never its ID as text (lane C).
+    # A resolver that fails leaves every unit restricted, never its ID as text (lane C).
     try:
-        named = await resolver(session, sorted(ids), "en", GROUP_KIND)
+        named = await resolver(session, sorted(ids), "en", kind)
     except Exception:  # noqa: BLE001 - any failure of another module's port fails closed
-        log.warning("cmdb_group_names_failed")
+        log.warning("cmdb_unit_names_failed", kind=kind)
         return dict.fromkeys(ids, RefName(restricted=True))
     return {i: RefName(label=named[i]) if i in named else RefName(gone=True) for i in ids}
+
+
+async def _groups(session: AsyncSession, subject: Subject, ids: set[str]) -> dict[str, RefName]:
+    return await _named_units(session, subject, ids, kind=GROUP_KIND, right=GROUPS_VIEW)
+
+
+async def _departments(
+    session: AsyncSession, subject: Subject, ids: set[str]
+) -> dict[str, RefName]:
+    return await _named_units(session, subject, ids, kind=DEPARTMENT_KIND, right=DEPARTMENTS_VIEW)
 
 
 async def _people(session: AsyncSession, ids: set[str]) -> dict[str, RefName]:
@@ -157,6 +172,7 @@ async def resolve(session: AsyncSession, subject: Subject, refs: Refs) -> dict[s
     return {
         **await _sites(session, subject, refs.sites),
         **await _groups(session, subject, refs.groups),
+        **await _departments(session, subject, refs.departments),
         **await _people(session, refs.people),
         **await _assets(session, subject, refs.assets),
     }

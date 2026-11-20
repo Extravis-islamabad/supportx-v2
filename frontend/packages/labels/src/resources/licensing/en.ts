@@ -41,6 +41,7 @@ export const en = {
   'feature.release': 'Release Management',
   'feature.sandbox': 'Sandbox Environments',
   'feature.service_request': 'Service Requests',
+  'feature.siem_stream': 'Security Monitoring Stream',
   'feature.sla': 'Service Level Agreements',
   'feature.workflows': 'Visual Workflows',
   'licence.ask_admin': 'Ask your administrator about upgrading the plan.',

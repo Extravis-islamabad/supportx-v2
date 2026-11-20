@@ -152,6 +152,7 @@ export const queryKeys = {
     relationshipTypes: (forType: string | null) => ['cmdb', 'relationship-types', forType] as const,
     neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
     neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
+    subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
     impactOf: (id: string) => ['cmdb', 'impact', id] as const,
     impact: (id: string, direction: string, depth: number) =>
       ['cmdb', 'impact', id, direction, depth] as const,
@@ -204,6 +205,9 @@ export const queryKeys = {
     // Under the list key: a list refresh (a record created or closed) refreshes them too.
     duplicates: (query: PossibleDuplicatesQuery) =>
       ['incidents', 'list', 'duplicates', query] as const,
+    // Under 'list' too: a change that refreshes the lists refreshes the board's counts.
+    board: (query: IncidentsQuery, groupBy: string) =>
+      ['incidents', 'list', 'board', query, groupBy] as const,
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,

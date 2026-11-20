@@ -59,7 +59,14 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
-from app.modules.work_items.domain.lists import BulkAction, BulkStatus, RowColourBy, ViewVisibility
+from app.modules.work_items.domain.lists import (
+    BoardGroupBy,
+    BulkAction,
+    BulkStatus,
+    ListLayout,
+    RowColourBy,
+    ViewVisibility,
+)
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
@@ -1252,6 +1259,10 @@ class WorkItemListSetting(TenantEntity):
             f"row_colour_by IS NULL OR {_codes('row_colour_by', RowColourBy)}",
             name="row_colour_by_code",
         ),
+        CheckConstraint(f"layout IS NULL OR {_codes('layout', ListLayout)}", name="layout_code"),
+        CheckConstraint(
+            f"group_by IS NULL OR {_codes('group_by', BoardGroupBy)}", name="group_by_code"
+        ),
         CheckConstraint("jsonb_array_length(columns) <= 40", name="columns_limit"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wils_user"
@@ -1275,6 +1286,10 @@ class WorkItemListSetting(TenantEntity):
     page_size: Mapped[int] = mapped_column(Integer, server_default="50")
     # REQ-INC-115 AC1: their own row colouring for this view; NULL: the tenant's default.
     row_colour_by: Mapped[str | None] = mapped_column(String(10))
+    # REQ-INC-111 (0182): their own layout for this view (NULL: the table) and the board's columns
+    # (NULL: status).
+    layout: Mapped[str | None] = mapped_column(String(10))
+    group_by: Mapped[str | None] = mapped_column(String(12))
 
 
 class WorkItemBulkJob(TenantEntity):

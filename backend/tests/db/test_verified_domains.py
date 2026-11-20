@@ -22,6 +22,7 @@ from app.modules.identity_access.domain import verified_domains as rules
 from app.modules.identity_access.infra.models import VerifiedDomain
 from app.modules.identity_access.service import verified_domains as domains
 from app.shared.clock import system_clock
+from tests.app_state import set_state
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
 
 pytestmark = pytest.mark.db
@@ -236,7 +237,7 @@ async def test_a_manual_verify_is_refused_on_a_multi_tenant_installation(
     dns.down = True
     added = await _add(world, world.a, "claimed.test")
     shared = world.app.state.settings.model_copy(update={"multi_tenant": True})
-    monkeypatch.setattr(world.app.state, "settings", shared)
+    set_state(monkeypatch, world.app.state, "settings", shared)
     refused = await world.call(
         "POST",
         f"{BASE}/{added['id']}/verify",

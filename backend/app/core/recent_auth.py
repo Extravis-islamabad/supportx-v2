@@ -43,6 +43,11 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/domains",
     "POST /api/v1/identity/domains/{domain_id}/verify",
     "DELETE /api/v1/identity/domains/{domain_id}",
+    # Where audit and sign-in entries stream, and its signing secret (WP-057 S5a).
+    "POST /api/v1/audit/siem/destinations",
+    "PATCH /api/v1/audit/siem/destinations/{destination_id}",
+    "POST /api/v1/audit/siem/destinations/{destination_id}/rotate-secret",
+    "DELETE /api/v1/audit/siem/destinations/{destination_id}",
     "PUT /api/v1/identity/mfa/roles/{role_id}",
     "PUT /api/v1/identity/break-glass/{user_id}",
     "POST /api/v1/identity/sso",
