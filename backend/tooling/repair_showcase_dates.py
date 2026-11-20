@@ -218,8 +218,10 @@ async def _seed_defined(session: AsyncSession) -> Any:  # noqa: ANN401 - a predi
 
     def defined(kind: str, subject: str, requester: str | None) -> bool:
         if kind == "incident":
-            return len(people) == len(emails) and seed.is_seed_incident(
-                {"subject": subject, "requester_id": requester}, people
+            # Lane A's board technicians' incidents (WP-046b S3b) are the seed's own too.
+            return subject in lane_a.BOARD_SUBJECTS or (
+                len(people) == len(emails)
+                and seed.is_seed_incident({"subject": subject, "requester_id": requester}, people)
             )
         if kind == "service_request":
             return subject in requests

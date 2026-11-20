@@ -100,6 +100,33 @@ export function useIncidents(query: IncidentsQuery, enabled = true) {
   });
 }
 
+export type IncidentBoardColumn = components['schemas']['WorkItemBoardColumnOut'];
+
+/**
+ * A board's column counts (REQ-INC-111): the list's own query counted per column, by POST like
+ * the list, in a stable order. Each column's cards are `useIncidents` with its condition added.
+ */
+export function useIncidentBoard(query: IncidentsQuery, groupBy: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.board(query, groupBy),
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/incidents/board', {
+          body: {
+            filter: query.filter,
+            include_total: false,
+            params: {
+              group_by: [groupBy],
+              ...(query.view === undefined ? {} : { view: [query.view] }),
+              ...(query.tag === undefined ? {} : { tag: [query.tag] }),
+            },
+          },
+        }),
+      ),
+    enabled,
+  });
+}
+
 /** Every built-in view with how many records the user sees in it (capped). */
 export function useIncidentViews(enabled = true) {
   return useQuery({

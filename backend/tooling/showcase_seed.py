@@ -1372,6 +1372,14 @@ async def fill_lane_a(
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
     report.featured = await lane_a.ensure_featured(admin)
+    report.board_incidents = await lane_a.ensure_board_technicians(
+        admin,
+        known=people,
+        # Where the signed-in technician works (the seed puts Omar at headquarters).
+        site_id=str((await admin.call("GET", f"/api/v1/users/{omar}"))["site_id"]),
+        group_id=groups["Service desk"],
+        requester_id=requesters[0],
+    )
 
 
 @dataclass
@@ -1387,6 +1395,7 @@ class Report:
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    board_incidents: int = 0  # WP-046b S3b: more than twelve technicians holding records
     featured: int = 0  # catalog items featured on the portal's home now
     sla_policies: int = 0
     sla_from_creation: int = 0
@@ -1638,8 +1647,12 @@ async def _seed_owned(conn: asyncpg.Connection) -> list[asyncpg.Record]:
 
     def defined(row: asyncpg.Record) -> bool:
         if row["type"] == "incident":
-            return len(people) == len(PEOPLE) and is_seed_incident(
-                {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+            # Lane A's board technicians' incidents (WP-046b S3b) are the seed's own too.
+            return row["subject"] in lane_a.BOARD_SUBJECTS or (
+                len(people) == len(PEOPLE)
+                and is_seed_incident(
+                    {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+                )
             )
         if row["type"] == "service_request":
             return row["subject"] in requests

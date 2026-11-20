@@ -115,6 +115,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.lists import BoardGroupBy
 from app.modules.work_items.domain.parts import TaskStatus
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.stages import (
@@ -1295,6 +1296,58 @@ async def view_counts(
         total = int(await session.scalar(select(func.count()).select_from(limited.subquery())) or 0)
         found.append((code, min(total, COUNT_CAP), total > COUNT_CAP))
     return found
+
+
+# A board's columns by what they group on (REQ-INC-111): the record's own column.
+BOARD_COLUMNS: dict[BoardGroupBy, Any] = {
+    BoardGroupBy.STATUS: WorkItem.status,
+    BoardGroupBy.PRIORITY: WorkItem.priority,
+    BoardGroupBy.TECHNICIAN: WorkItem.technician_id,
+    BoardGroupBy.GROUP: WorkItem.group_id,
+}
+
+
+async def board_counts(  # noqa: PLR0913 - the list's own narrowing, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    query: ListQuery,
+    *,
+    group_by: BoardGroupBy,
+    view: str | None,
+    zone: tzinfo,
+    tag: str | None = None,
+) -> list[tuple[str | None, int]]:
+    """(column key, count) for a board: the list's own query, counted per column.
+
+    Lane C's condition 1: the count is of the same statement the list pages (scope, view, tag
+    and filter), so it only ever counts records the reader may see. Column order is stable,
+    never by count, so cards don't jump about (the coordinator): statuses in their workflow
+    order and priorities by rank, every one shown even when empty; technicians and groups by
+    key, with the unassigned column (None) last.
+    """
+    await config.ensure_seeded(session, wtype)
+    statement = await narrowed(
+        session, subject, staff_rows(subject, wtype), view=view, zone=zone, tag=tag
+    )
+    column = BOARD_COLUMNS[group_by]
+    filtered = statement.where(query.where).with_only_columns(column.label("key"), WorkItem.id)
+    counted = filtered.subquery()
+    rows = (
+        await session.execute(select(counted.c.key, func.count()).group_by(counted.c.key))
+    ).all()
+    found: dict[str | None, int] = {(None if key is None else str(key)): int(n) for key, n in rows}
+    if group_by in {BoardGroupBy.STATUS, BoardGroupBy.PRIORITY}:
+        cat = await config.load(session, wtype)
+        if group_by is BoardGroupBy.STATUS:
+            fixed = [s.code for s in cat.statuses if not s.disabled or s.code in found]
+        else:
+            ranked = sorted((v for v in cat.scales if v.scale == "priority"), key=lambda v: v.rank)
+            fixed = [v.code for v in ranked]
+        extra = sorted(k for k in found if k is not None and k not in fixed)
+        return [(k, found.get(k, 0)) for k in (*fixed, *extra)]
+    keyed = sorted(k for k in found if k is not None)
+    return [(k, found[k]) for k in keyed] + ([(None, found[None])] if None in found else [])
 
 
 # Fields whose history values are user IDs: the page names them (QA BUG-03).

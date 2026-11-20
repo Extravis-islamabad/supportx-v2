@@ -311,6 +311,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/changes` | `changes.create` | changes.create: all |
 | POST | `/api/v1/changes/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/changes/assignees` | `changes.view` | changes.view: all/site/group/own |
+| POST | `/api/v1/changes/board` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/bulk` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/bulk-jobs` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/bulk-jobs/{job_id}` | `changes.view` | changes.view: all/site/group/own |
@@ -594,6 +595,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/board` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/bulk-jobs` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/bulk-jobs/{job_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -899,6 +901,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems` | `problems.create` | problems.create: all |
 | POST | `/api/v1/problems/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/problems/assignees` | `problems.view` | problems.view: all/site/group/own |
+| POST | `/api/v1/problems/board` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/bulk` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/bulk-jobs` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/bulk-jobs/{job_id}` | `problems.view` | problems.view: all/site/group/own |
@@ -1065,6 +1068,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/releases` | `releases.create` | releases.create: all |
 | POST | `/api/v1/releases/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/releases/assignees` | `releases.view` | releases.view: all/site/group/own |
+| POST | `/api/v1/releases/board` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/bulk` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/bulk-jobs` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/bulk-jobs/{job_id}` | `releases.view` | releases.view: all/site/group/own |
@@ -1256,6 +1260,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/alias/{value}` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - |
 | GET | `/api/v1/service-requests/assignees` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/board` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/bulk` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/bulk-jobs` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/bulk-jobs/{job_id}` | `requests.view` | requests.view: all/site/group/own |

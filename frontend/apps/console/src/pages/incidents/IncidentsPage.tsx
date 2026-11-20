@@ -1,6 +1,6 @@
 import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Select, Space, Table, theme, Tooltip } from 'antd';
+import { Alert, App, Button, Flex, Segmented, Select, Space, Table, theme, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
@@ -23,11 +23,13 @@ import {
   useStarView,
   useIncidentListDisplay,
   useUnits,
+  type BoardGroupBy,
   type BulkAction,
   type BulkJob,
   type FilterExpression,
   type IncidentListItem,
   type ListColumn,
+  type ListLayout,
   type SavedView,
 } from '@supportx/api-client';
 import {
@@ -70,6 +72,10 @@ import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
 import { ColumnChooser, SelectPageBox } from './list/ColumnChooser';
+import { IncidentCalendar } from './IncidentCalendar';
+import { IncidentBoard } from './list/IncidentBoard';
+import { cardSpecs } from './list/cardModel';
+import { IncidentCards } from './list/IncidentCards';
 import {
   chosenColumns,
   columnCatalogue,
@@ -247,14 +253,26 @@ export function IncidentsPage() {
   const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
-  const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
+  const saveSettings = (change: {
+    columns?: ListColumn[];
+    sort?: string;
+    page_size?: number;
+    layout?: ListLayout | null;
+    group_by?: BoardGroupBy | null;
+  }) => {
     saveSetting.mutate(
       {
         viewKey: settingKey,
+        // The whole setting is replaced: keep what this change does not touch, or a column
+        // change would drop the person's row colouring and layout.
         setting: {
           columns: change.columns ?? columns,
           sort: change.sort ?? sort,
           page_size: change.page_size ?? pageSize,
+          row_colour_by: setting.data?.row_colour_by ?? null,
+          layout: change.layout === undefined ? (setting.data?.layout ?? null) : change.layout,
+          group_by:
+            change.group_by === undefined ? (setting.data?.group_by ?? null) : change.group_by,
         },
       },
       { onError: reportError },
@@ -263,7 +281,10 @@ export function IncidentsPage() {
 
   const list = useIncidents(
     { view: builtIn ?? undefined, filter, sort, limit: pageSize, trash },
-    allowed && (builtIn !== null || saved !== undefined || trash),
+    // The calendar and the board ask for their own; the table's pages are not fetched behind.
+    allowed &&
+      (builtIn !== null || saved !== undefined || trash) &&
+      (trash || (setting.data?.layout !== 'calendar' && setting.data?.layout !== 'board')),
   );
   const views = useIncidentViews(allowed && !trash);
   // A link to a view (`?view=open`, `?view=custom:<id>`, the D-176 notice's link): opened once
@@ -325,6 +346,8 @@ export function IncidentsPage() {
     [list.data],
   );
   const colourBy = setting.data?.row_colour_by ?? listDisplay.data?.row_colour_by ?? 'none';
+  // REQ-INC-111/112 (S3b): the person's own layout for this view; the trash is always the table.
+  const layout: ListLayout = trash ? 'table' : (setting.data?.layout ?? 'table');
   // AC1: the status's or priority's own colour as a mark at the row's start, darkened (lightened
   // in dark mode) until it reads against the row (3:1).
   const markOf = (row: IncidentListItem): string | undefined => {
@@ -740,6 +763,21 @@ export function IncidentsPage() {
           // The trash shows its fixed columns; choosing columns there would change the list's.
           trash ? undefined : (
             <>
+              {/* Template B: a labelled switch in the toolbar row, not a header action (lane C). */}
+              <Segmented<ListLayout>
+                aria-label={t('incidents.layout')}
+                value={layout}
+                // Until the person's setting is read, a save would replace what it holds.
+                disabled={setting.data === undefined}
+                onChange={(next) => {
+                  saveSettings({ layout: next === 'table' ? null : next });
+                }}
+                options={(['table', 'cards', 'board', 'calendar'] as const).map((value) => ({
+                  value,
+                  label: t(`list_layout.${value}`),
+                }))}
+                data-testid="inc-layout"
+              />
               <ColumnChooser
                 columns={columns}
                 catalogue={columnSpecs}
@@ -894,170 +932,199 @@ export function IncidentsPage() {
           }}
         />
       )}
-      <Table<IncidentListItem>
-        rowKey="id"
-        data-testid="inc-table"
-        loading={list.isPending && list.fetchStatus === 'fetching'}
-        dataSource={rows}
-        pagination={false}
-        // At least the columns' own widths: wider boxes give the room to the subject, narrower
-        // ones scroll with a visible scrollbar while the ID and subject stay put (QA 2026-11-05 V1).
-        scroll={{ x: tableWidth }}
-        components={{ header: { cell: ResizableHeader } }}
-        rowSelection={
-          trash
-            ? undefined
-            : {
-                fixed: true, // stays with the ID and subject when the table scrolls sideways
-                columnWidth: SELECT_WIDTH, // the width the table's least width counts
-                selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
-                columnTitle: (
-                  <SelectPageBox
-                    checked={
-                      rows.length > 0 && (selection.all || selection.ids.length === rows.length)
-                    }
-                    indeterminate={
-                      !selection.all &&
-                      selection.ids.length > 0 &&
-                      selection.ids.length < rows.length
-                    }
-                    onChange={(checked) => {
-                      setSelection({ ids: checked ? rows.map((r) => r.id) : [], all: false });
-                    }}
-                    label={t('incidents.bulk.select_page')}
-                  />
-                ),
-                onChange: (keys) => {
-                  setSelection({ ids: keys.map(String), all: false });
-                },
-                getCheckboxProps: (row) => ({
-                  title: t('incidents.bulk.select_row', { id: row.display_id }),
-                }),
-              }
-        }
-        locale={{
-          emptyText: loadedEmpty(
-            list.isPending,
-            t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
-          ),
-        }}
-        onChange={(_pagination, _filters, sorter) => {
-          const one = Array.isArray(sorter) ? sorter[0] : sorter;
-          const spec = columnSpecs.get(String(one?.columnKey ?? ''));
-          if (spec?.sortField === undefined) return;
-          const next =
-            one?.order === 'ascend'
-              ? spec.sortField
-              : one?.order === 'descend'
-                ? `-${spec.sortField}`
-                : '-updated_at';
-          saveSettings({ sort: next });
-        }}
-        onRow={(row) =>
-          trash
-            ? { 'data-testid': `inc-row-${row.display_id}` }
-            : {
-                onClick: () => void navigate(`/incidents/${row.id}`),
-                style: { cursor: 'pointer', fontWeight: unread.has(row.id) ? 600 : undefined },
-                'data-testid': `inc-row-${row.display_id}`,
-                'data-unread': unread.has(row.id) ? 'true' : undefined,
-              }
-        }
-        columns={[
-          ...columns.flatMap((column, index) => {
-            const spec = columnSpecs.get(column.key);
-            if (spec === undefined) return [];
-            const own = column.width ?? spec.width;
-            const width = dragged?.key === column.key ? dragged.width : own;
-            return [
-              {
-                key: spec.key,
-                title: spec.title(context),
-                // The subject takes what is left over; the others keep their width.
-                width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
-                // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
-                ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
-                fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
-                // Server-side sort, across every page (REQ-INC-104 AC2).
-                sorter: spec.sortField !== undefined,
-                sortOrder:
-                  spec.sortField !== undefined && current.field === spec.sortField
-                    ? current.descending
-                      ? ('descend' as const)
-                      : ('ascend' as const)
-                    : null,
-                render: (_: unknown, row: IncidentListItem) =>
-                  // Unread is said in words too, not by bold alone (lane C): a dot for the eye,
-                  // "Unread" for a screen reader, in the row's first cell.
-                  index === 0 && unread.has(row.id) ? (
-                    <>
-                      <span
-                        aria-hidden="true"
-                        data-testid="inc-unread-dot"
-                        style={{
-                          display: 'inline-block',
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          background: token.colorPrimary,
-                          marginInlineEnd: 6,
-                        }}
-                      />
-                      <span className="sx-visually-hidden">{t('incidents.unread')}</span>
-                      {spec.render(row, context)}
-                    </>
-                  ) : (
-                    spec.render(row, context)
+      {layout === 'calendar' ? (
+        <IncidentCalendar view={builtIn ?? undefined} filter={filter} />
+      ) : layout === 'board' ? (
+        <IncidentBoard
+          view={builtIn ?? undefined}
+          filter={filter}
+          groupBy={setting.data?.group_by ?? 'status'}
+          onGroupBy={(next) => {
+            saveSettings({ group_by: next === 'status' ? null : next });
+          }}
+        />
+      ) : layout === 'cards' ? (
+        <IncidentCards
+          rows={rows}
+          specs={cardSpecs(columnSpecs, fields)}
+          context={context}
+          unread={unread}
+          markOf={markOf}
+          selected={new Set(selection.all ? rows.map((r) => r.id) : selection.ids)}
+          onSelect={(id, on) => {
+            const ids = selection.all ? rows.map((r) => r.id) : selection.ids;
+            setSelection({ ids: on ? [...ids, id] : ids.filter((x) => x !== id), all: false });
+          }}
+          empty={loadedEmpty(list.isPending, t('incidents.empty'))}
+        />
+      ) : (
+        <Table<IncidentListItem>
+          rowKey="id"
+          data-testid="inc-table"
+          loading={list.isPending && list.fetchStatus === 'fetching'}
+          dataSource={rows}
+          pagination={false}
+          // At least the columns' own widths: wider boxes give the room to the subject, narrower
+          // ones scroll with a visible scrollbar while the ID and subject stay put (QA 2026-11-05 V1).
+          scroll={{ x: tableWidth }}
+          components={{ header: { cell: ResizableHeader } }}
+          rowSelection={
+            trash
+              ? undefined
+              : {
+                  fixed: true, // stays with the ID and subject when the table scrolls sideways
+                  columnWidth: SELECT_WIDTH, // the width the table's least width counts
+                  selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
+                  columnTitle: (
+                    <SelectPageBox
+                      checked={
+                        rows.length > 0 && (selection.all || selection.ids.length === rows.length)
+                      }
+                      indeterminate={
+                        !selection.all &&
+                        selection.ids.length > 0 &&
+                        selection.ids.length < rows.length
+                      }
+                      onChange={(checked) => {
+                        setSelection({ ids: checked ? rows.map((r) => r.id) : [], all: false });
+                      }}
+                      label={t('incidents.bulk.select_page')}
+                    />
                   ),
-                // The row's colour mark sits at the start of its first column (RTL follows).
-                ...(index === 0 && colourBy !== 'none'
-                  ? {
-                      onCell: (row: IncidentListItem) => {
-                        const mark = markOf(row);
-                        return mark === undefined
-                          ? {}
-                          : {
-                              style: { borderInlineStart: `4px solid ${mark}` },
-                              'data-row-mark': mark,
-                            };
-                      },
-                    }
-                  : {}),
-                onHeaderCell: () =>
-                  ({
-                    width: own,
-                    defaultWidth: spec.width,
-                    // The subject never gets too narrow to read (Haider, 2026-11-10).
-                    minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
-                    resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
-                    onPreview: (next: number | null) => {
-                      setDragged(next === null ? null : { key: column.key, width: next });
-                    },
-                    onResize: (next: number) => {
-                      saveSettings({
-                        columns: columns.map((c) =>
-                          c.key === column.key ? { ...c, width: next } : c,
-                        ),
-                      });
-                    },
-                  }) as React.HTMLAttributes<HTMLElement>,
-              },
-            ];
-          }),
-          ...(trash
-            ? [
+                  onChange: (keys) => {
+                    setSelection({ ids: keys.map(String), all: false });
+                  },
+                  getCheckboxProps: (row) => ({
+                    title: t('incidents.bulk.select_row', { id: row.display_id }),
+                  }),
+                }
+          }
+          locale={{
+            emptyText: loadedEmpty(
+              list.isPending,
+              t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
+            ),
+          }}
+          onChange={(_pagination, _filters, sorter) => {
+            const one = Array.isArray(sorter) ? sorter[0] : sorter;
+            const spec = columnSpecs.get(String(one?.columnKey ?? ''));
+            if (spec?.sortField === undefined) return;
+            const next =
+              one?.order === 'ascend'
+                ? spec.sortField
+                : one?.order === 'descend'
+                  ? `-${spec.sortField}`
+                  : '-updated_at';
+            saveSettings({ sort: next });
+          }}
+          onRow={(row) =>
+            trash
+              ? { 'data-testid': `inc-row-${row.display_id}` }
+              : {
+                  onClick: () => void navigate(`/incidents/${row.id}`),
+                  style: { cursor: 'pointer', fontWeight: unread.has(row.id) ? 600 : undefined },
+                  'data-testid': `inc-row-${row.display_id}`,
+                  'data-unread': unread.has(row.id) ? 'true' : undefined,
+                }
+          }
+          columns={[
+            ...columns.flatMap((column, index) => {
+              const spec = columnSpecs.get(column.key);
+              if (spec === undefined) return [];
+              const own = column.width ?? spec.width;
+              const width = dragged?.key === column.key ? dragged.width : own;
+              return [
                 {
-                  key: 'restore',
-                  title: t('incidents.restore'),
-                  fixed: 'right' as const, // always in view, however wide the table (QA BUG-16)
-                  width: 130,
-                  render: (_: unknown, row: IncidentListItem) => <RestoreButton row={row} />,
+                  key: spec.key,
+                  title: spec.title(context),
+                  // The subject takes what is left over; the others keep their width.
+                  width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
+                  // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
+                  ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
+                  fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
+                  // Server-side sort, across every page (REQ-INC-104 AC2).
+                  sorter: spec.sortField !== undefined,
+                  sortOrder:
+                    spec.sortField !== undefined && current.field === spec.sortField
+                      ? current.descending
+                        ? ('descend' as const)
+                        : ('ascend' as const)
+                      : null,
+                  render: (_: unknown, row: IncidentListItem) =>
+                    // Unread is said in words too, not by bold alone (lane C): a dot for the eye,
+                    // "Unread" for a screen reader, in the row's first cell.
+                    index === 0 && unread.has(row.id) ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          data-testid="inc-unread-dot"
+                          style={{
+                            display: 'inline-block',
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: token.colorPrimary,
+                            marginInlineEnd: 6,
+                          }}
+                        />
+                        <span className="sx-visually-hidden">{t('incidents.unread')}</span>
+                        {spec.render(row, context)}
+                      </>
+                    ) : (
+                      spec.render(row, context)
+                    ),
+                  // The row's colour mark sits at the start of its first column (RTL follows).
+                  ...(index === 0 && colourBy !== 'none'
+                    ? {
+                        onCell: (row: IncidentListItem) => {
+                          const mark = markOf(row);
+                          return mark === undefined
+                            ? {}
+                            : {
+                                style: { borderInlineStart: `4px solid ${mark}` },
+                                'data-row-mark': mark,
+                              };
+                        },
+                      }
+                    : {}),
+                  onHeaderCell: () =>
+                    ({
+                      width: own,
+                      defaultWidth: spec.width,
+                      // The subject never gets too narrow to read (Haider, 2026-11-10).
+                      minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
+                      resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
+                      onPreview: (next: number | null) => {
+                        setDragged(next === null ? null : { key: column.key, width: next });
+                      },
+                      onResize: (next: number) => {
+                        saveSettings({
+                          columns: columns.map((c) =>
+                            c.key === column.key ? { ...c, width: next } : c,
+                          ),
+                        });
+                      },
+                    }) as React.HTMLAttributes<HTMLElement>,
                 },
-              ]
-            : []),
-        ]}
-      />
-      {list.hasNextPage && (
+              ];
+            }),
+            ...(trash
+              ? [
+                  {
+                    key: 'restore',
+                    title: t('incidents.restore'),
+                    fixed: 'right' as const, // always in view, however wide the table (QA BUG-16)
+                    width: 130,
+                    render: (_: unknown, row: IncidentListItem) => <RestoreButton row={row} />,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
+      {/* The table's and the cards' next page only: the board's columns and the calendar load
+          their own (the table's pages stay cached behind them; matrix run 44751058148). */}
+      {list.hasNextPage && (layout === 'table' || layout === 'cards') && (
         <Flex justify="center">
           <Button
             onClick={() => void list.fetchNextPage()}
