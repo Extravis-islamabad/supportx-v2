@@ -245,6 +245,7 @@ export const ur: LabelResource = {
   'audit.action.identity_access.support_grant_created': 'وینڈر سپورٹ رسائی دی گئی',
   'audit.action.identity_access.support_grant_extended': 'وینڈر سپورٹ رسائی میں توسیع',
   'audit.action.identity_access.support_grant_revoked': 'وینڈر سپورٹ رسائی جلد ختم کی گئی',
+  'audit.action.identity_access.support_link_resent': 'وینڈر سپورٹ لنک دوبارہ بھیجا گیا',
   'audit.action.identity_access.vendor_support_setting_changed': 'وینڈر سپورٹ کی ترتیب تبدیل ہوئی',
   'audit.action.incident.access_changed': 'واقعے تک رسائی رکھنے والے بدلے',
   'audit.action.incident.announced': 'واقعے سے اعلان کیا',

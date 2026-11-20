@@ -760,8 +760,6 @@ export const ur: LabelResource = {
   'errors.field.support_email_domain_not_allowed':
     'سپورٹ انجینئرز کو Extravis کے کسی اجازت یافتہ ڈومین کا پتہ استعمال کرنا ہوگا۔',
   'errors.field.support_email_invalid': 'ایک ای میل پتہ درج کریں۔',
-  'errors.field.support_email_not_taggable':
-    'انجینئر کا سادہ پتہ + ٹیگ کے بغیر استعمال کریں، اور @ سے پہلے کا حصہ مختصر رکھیں۔',
   'errors.field.support_grant_length':
     'رسائی کل ملا کر 1 گھنٹے سے 72 گھنٹے تک رہتی ہے، توسیع سمیت۔',
   'errors.field.support_grants_limit':
@@ -1253,6 +1251,10 @@ export const ur: LabelResource = {
   'errors.support_grant_not_found': 'یہ سپورٹ رسائی نہیں ملی۔',
   'errors.support_grant_not_open':
     'یہ سپورٹ رسائی پہلے ہی ختم ہو چکی ہے، اس لیے اسے بدلا نہیں جا سکتا۔',
+  'errors.support_link_invalid':
+    'یہ لنک استعمال نہیں ہو سکتا۔ ہو سکتا ہے یہ استعمال ہو چکا ہو، اس کی میعاد ختم ہو گئی ہو یا رسائی ختم ہو گئی ہو۔ ادارے کے منتظم سے نیا لنک بھیجنے کو کہیں۔',
+  'errors.support_link_not_resendable':
+    'نیا لنک صرف انجینئر کے پہلے سائن اِن سے پہلے، اور ای میل سے تصدیق شدہ رسائی کے لیے بھیجا جا سکتا ہے۔',
   'errors.support_sign_in_brokered':
     'Extravis سپورٹ اکاؤنٹ صرف اپنے پاس ورڈ اور دوسرے مرحلے سے سائن اِن کرتا ہے، آپ کے ادارے کے سائن اِن فراہم کنندہ سے کبھی نہیں۔',
   'errors.survivor_is_a_child':
@@ -1298,9 +1300,9 @@ export const ur: LabelResource = {
   'errors.vendor_in_use':
     'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
-  'errors.vendor_support_email_pending_decision':
-    'ای میل کے ذریعے وینڈر سپورٹ ایک فیصلے کی منتظر ہے۔ ابھی ضرورت ہو تو فون یا بالمشافہ تصدیق استعمال کریں۔',
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_roles_from_grant':
+    'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
   'errors.vendor_support_tenant_admin_only':
     'صرف ادارے کے منتظمین وینڈر سپورٹ رسائی کا انتظام کر سکتے ہیں۔',
   'errors.vendor_support_type_fixed': 'Extravis سپورٹ اکاؤنٹ کی قسم تبدیل نہیں کی جا سکتی۔',

@@ -754,8 +754,6 @@ export const en = {
   'errors.field.support_email_domain_not_allowed':
     'Support engineers must use an address at an allowed Extravis domain.',
   'errors.field.support_email_invalid': 'Enter one e-mail address.',
-  'errors.field.support_email_not_taggable':
-    "Use the engineer's plain address, without a +tag, and keep the part before the @ short.",
   'errors.field.support_grant_length':
     'Access lasts from 1 hour up to 72 hours in total, extensions included.',
   'errors.field.support_grants_limit':
@@ -1243,6 +1241,10 @@ export const en = {
     "This support access has ended or hasn't started. Ask the organisation's administrator.",
   'errors.support_grant_not_found': 'That support access was not found.',
   'errors.support_grant_not_open': "This support access has already ended, so it can't be changed.",
+  'errors.support_link_invalid':
+    "This link can't be used. It may have been used already, have expired, or the access may have ended. Ask the organisation's administrator to send a new one.",
+  'errors.support_link_not_resendable':
+    "A new link can only be sent before the engineer's first sign-in, for access confirmed by e-mail.",
   'errors.support_sign_in_brokered':
     "An Extravis support account signs in with its own password and second step, never through your organisation's sign-in provider.",
   'errors.survivor_is_a_child':
@@ -1287,10 +1289,10 @@ export const en = {
   'errors.validation_failed': 'Some fields need your attention.',
   'errors.vendor_in_use': 'Records still name this vendor ({{used}}). Make it inactive instead.',
   'errors.vendor_not_found': 'This vendor no longer exists.',
-  'errors.vendor_support_email_pending_decision':
-    'Vendor support by e-mail waits for a decision. Use confirmation by phone or in person if you need it now.',
   'errors.vendor_support_grants_open':
     'End the open support access first, then turn vendor support off.',
+  'errors.vendor_support_roles_from_grant':
+    'An Extravis support account gets its access from its grant only, never from a role or a group.',
   'errors.vendor_support_tenant_admin_only':
     "Only the organisation's administrators can manage vendor support access.",
   'errors.vendor_support_type_fixed': "An Extravis support account's type can't be changed.",

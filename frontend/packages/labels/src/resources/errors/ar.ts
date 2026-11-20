@@ -702,8 +702,6 @@ export const ar: LabelResource = {
   'errors.field.support_email_domain_not_allowed':
     'يجب أن يستخدم مهندسو الدعم عنوانًا في نطاق مسموح من Extravis.',
   'errors.field.support_email_invalid': 'أدخل عنوان بريد إلكتروني واحدًا.',
-  'errors.field.support_email_not_taggable':
-    'استخدم عنوان المهندس العادي دون علامة إضافية بعد +، واجعل الجزء قبل @ قصيرًا.',
   'errors.field.support_grant_length':
     'يستمر الوصول من ساعة واحدة حتى 72 ساعة إجمالًا، بما في ذلك التمديدات.',
   'errors.field.support_grants_limit':
@@ -1153,6 +1151,10 @@ export const ar: LabelResource = {
   'errors.support_grant_inactive': 'انتهى وصول الدعم هذا أو لم يبدأ بعد. اسأل مسؤول المؤسسة.',
   'errors.support_grant_not_found': 'لم يُعثر على وصول الدعم هذا.',
   'errors.support_grant_not_open': 'انتهى وصول الدعم هذا بالفعل، لذا لا يمكن تغييره.',
+  'errors.support_link_invalid':
+    'لا يمكن استخدام هذا الرابط. ربما استُخدم أو انتهت صلاحيته أو انتهى الوصول. اطلب من مسؤول المؤسسة إرسال رابط جديد.',
+  'errors.support_link_not_resendable':
+    'لا يمكن إرسال رابط جديد إلا قبل أول تسجيل دخول للمهندس، وللوصول المؤكَّد بالبريد الإلكتروني.',
   'errors.support_sign_in_brokered':
     'يسجّل حساب دعم Extravis الدخول بكلمة مروره وخطوته الثانية فقط، ولا يستخدم أبدًا موفّر تسجيل الدخول لمؤسستك.',
   'errors.survivor_is_a_child': '{{display_id}} حادث فرعي لحادث آخر، فلا يمكن أن يأخذ حوادث فرعية.',
@@ -1189,9 +1191,9 @@ export const ar: LabelResource = {
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
   'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
-  'errors.vendor_support_email_pending_decision':
-    'دعم المورّد عبر البريد الإلكتروني بانتظار قرار. استخدم التأكيد بالهاتف أو شخصيًا إن احتجت إليه الآن.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
+  'errors.vendor_support_roles_from_grant':
+    'يحصل حساب دعم Extravis على وصوله من المنحة فقط، ولا يحصل عليه أبدًا من دور أو مجموعة.',
   'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',
   'errors.vendor_support_type_fixed': 'لا يمكن تغيير نوع حساب دعم Extravis.',
   'errors.version_conflict':
