@@ -39,6 +39,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/vendor-support/grants",
     "POST /api/v1/identity/vendor-support/grants/{grant_id}/extend",
     "PUT /api/v1/identity/vendor-support/setting",
+    # Verified e-mail domains (WP-057 S5d): adding one, vouching for one, removing one.
+    "POST /api/v1/identity/domains",
+    "POST /api/v1/identity/domains/{domain_id}/verify",
+    "DELETE /api/v1/identity/domains/{domain_id}",
     "PUT /api/v1/identity/mfa/roles/{role_id}",
     "PUT /api/v1/identity/break-glass/{user_id}",
     "POST /api/v1/identity/sso",

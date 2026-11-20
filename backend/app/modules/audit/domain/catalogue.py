@@ -249,6 +249,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
     ("sso.added", AuditCategory.SECURITY, "identity_access"),
+    # REQ-SEC-010 (WP-057 S5d): verified e-mail domains.
+    ("identity.domain_added", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_checked", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_verified_manually", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_removed", AuditCategory.SECURITY, "identity_access"),
     ("sso.updated", AuditCategory.SECURITY, "identity_access"),
     ("sso.tested", AuditCategory.SECURITY, "identity_access"),
     ("sso.switched_on", AuditCategory.SECURITY, "identity_access"),

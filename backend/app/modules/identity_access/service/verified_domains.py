@@ -138,9 +138,10 @@ async def add(session: AsyncSession, raw: str) -> Added:
         state=DomainState.PENDING.value,
         token_digest=token.digest,
     )
-    session.add(row)
+    await session.flush()  # anything pending first, outside the savepoint
     try:
         async with session.begin_nested():
+            session.add(row)
             await session.flush()
     except IntegrityError:
         raise Conflict(code="domain_already_added") from None
@@ -158,17 +159,20 @@ async def _lookup(domain: str) -> list[str] | None:
 
 
 async def _verify(session: AsyncSession, row: VerifiedDomain, method: str, now: datetime) -> str:
-    """Mark verified; 409 when another tenant holds the domain verified (AC2)."""
-    row.state = DomainState.VERIFIED.value
-    row.verified_at, row.verified_by_method = now, method
-    row.failing_since, row.failure_count = None, 0
-    row.last_outcome = FOUND
+    """Mark verified; when another tenant holds the domain verified (AC2), it stays pending."""
+    await session.flush()  # anything pending first, outside the savepoint
     try:
+        # The change is made inside the savepoint, so the unique index's refusal undoes only it.
         async with session.begin_nested():
+            row.state = DomainState.VERIFIED.value
+            row.verified_at, row.verified_by_method = now, method
+            row.failing_since, row.failure_count = None, 0
+            row.last_outcome = FOUND
             await session.flush()
     except IntegrityError:
-        row.state, row.verified_at, row.verified_by_method = DomainState.PENDING.value, None, None
-        row.last_outcome = ELSEWHERE
+        # The savepoint rolled back and expired the row: read it again before marking it.
+        await session.refresh(row)
+        row.last_checked_at, row.last_outcome = now, ELSEWHERE
         await session.flush()
         await _changed(session, row, "checked")
         return ELSEWHERE

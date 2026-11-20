@@ -64,6 +64,7 @@ from app.modules.identity_access.api.service_roles import (
 )
 from app.modules.identity_access.api.support_grants import public_router as support_public_router
 from app.modules.identity_access.api.support_grants import router as support_grants_router
+from app.modules.identity_access.api.verified_domains import router as verified_domains_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -468,6 +469,7 @@ module = ModuleSpec(
     name="identity_access",
     routers=[
         security_overview_router,  # WP-057 S4d: the security overview
+        verified_domains_router,  # WP-057 S5d: verified e-mail domains (REQ-SEC-010)
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
