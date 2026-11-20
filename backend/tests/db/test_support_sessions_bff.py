@@ -117,6 +117,8 @@ async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_
         "UPDATE users SET user_type = 'vendor_support', roles_mapped_at = now() WHERE id = $1",
         user_id,
     )
+    # As #552 makes them: no role at all (its first sign-in here gave it one).
+    await _sql(bff.db, "DELETE FROM user_roles WHERE tenant_id = $1 AND user_id = $2", a, user_id)
     await _sql(
         bff.db,
         "INSERT INTO support_grants (id, tenant_id, engineer_name, engineer_email, reason, access,"
@@ -129,8 +131,9 @@ async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_
     )
     # Its own sign-in again, now as the support account (the session keeps the account's type).
     assert (await bff.login(bff.user("a", email=email))).status_code == 302
-    # #552's bug: /auth/me answered 500 for a support account (no vendor_support user type).
-    me = await bff.me()
+    # #552's bugs: /auth/me answered 500 for a support account (no vendor_support user type),
+    # and the console refused it as requester-only (no role at all); lane B (i).
+    me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
     assert me.status_code == 200, me.text
     assert me.json()["user"]["user_type"] == "vendor_support"
     made = await bff.client.post(

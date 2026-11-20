@@ -337,18 +337,20 @@ async def requester_only(database: Database, tenant_id: uuid.UUID, user_id: uuid
                 )
             )
         )
-        if not keys:  # as the policy compiles it: never mapped = the type's default role
-            person = (
-                await session.execute(
-                    select(User.user_type, User.roles_mapped_at).where(User.id == user_id)
-                )
-            ).one_or_none()
-            if person is not None and person.roles_mapped_at is None:
-                keys = {
-                    "technician"
-                    if person.user_type == UserType.TECHNICIAN.value
-                    else REQUESTER_ROLE
-                }
+        person = (
+            await session.execute(
+                select(User.user_type, User.roles_mapped_at).where(User.id == user_id)
+            )
+        ).one_or_none()
+        if person is not None and person.user_type == UserType.VENDOR_SUPPORT.value:
+            # A vendor support account holds no role (its grant gives its access, WP-057 S4c-2)
+            # and works in the console: what it may do there is the grant's, checked per request.
+            return False
+        # As the policy compiles it: never mapped = the type's default role.
+        if not keys and person is not None and person.roles_mapped_at is None:
+            keys = {
+                "technician" if person.user_type == UserType.TECHNICIAN.value else REQUESTER_ROLE
+            }
     return keys <= {REQUESTER_ROLE}
 
 
