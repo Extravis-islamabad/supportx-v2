@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0181"  # 0183's down revision for now (re-pointed with it at the lane's queue turn)
+BEFORE = "0179"  # 0183's down revision for now (re-pointed with it at the lane's queue turn)
 
 
 async def _shape(url: str) -> tuple[bool, bool]:
