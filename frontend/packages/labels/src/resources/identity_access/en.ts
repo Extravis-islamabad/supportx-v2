@@ -1779,6 +1779,7 @@ export const en = {
   'user_type.requester': 'Requester',
   'user_type.service': 'Integration',
   'user_type.technician': 'Technician',
+  'user_type.vendor_support': 'Extravis support',
   'users.any': 'Any',
   'users.col.email': 'Email',
   'users.col.last_login': 'Last sign-in',
