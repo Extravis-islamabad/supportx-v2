@@ -226,9 +226,14 @@ export function IncidentBoard({
   // Statuses and priorities: every one, in their order. People and groups: the first twelve in
   // their stable order, plus any picked from "More columns".
   const fixed = groupBy === 'status' || groupBy === 'priority';
-  const shown = fixed
-    ? all
-    : all.filter((c, i) => i < BOARD_COLUMNS_SHOWN || extra.includes(c.key ?? NONE));
+  // Unassigned is always a column (lane C): only named people or groups fold away.
+  const named = all.filter((c) => c.key !== null);
+  const kept = new Set(
+    named
+      .filter((c, i) => i < BOARD_COLUMNS_SHOWN || extra.includes(c.key ?? NONE))
+      .map((c) => c.key),
+  );
+  const shown = fixed ? all : all.filter((c) => c.key === null || kept.has(c.key));
   const hidden = fixed ? [] : all.filter((c) => !shown.includes(c));
   const people = Object.assign(
     {},

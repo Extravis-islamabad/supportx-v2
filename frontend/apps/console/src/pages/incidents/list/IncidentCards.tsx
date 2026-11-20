@@ -138,7 +138,23 @@ export function IncidentCards({
                           key={spec.key}
                           gap={4}
                           align="center"
-                          style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}
+                          // The technician has its own row: a name cut short is worse than one
+                          // more row (lane C); a name that still overflows keeps its title.
+                          title={
+                            spec.key === 'technician_id'
+                              ? row.technician_id === null
+                                ? t('incidents.unassigned')
+                                : (context.people[row.technician_id]?.display_name ?? undefined)
+                              : undefined
+                          }
+                          style={{
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            ...(!compact && spec.key === 'technician_id'
+                              ? { gridColumn: '1 / -1' }
+                              : {}),
+                          }}
                         >
                           {!compact && (
                             <Typography.Text type="secondary">

@@ -125,13 +125,17 @@ export function IncidentCalendar({
     requestAnimationFrame(() => cells.current.get(key)?.focus());
   };
   const current = days.find((d) => dayKey(d) === focused) ?? days[0] ?? anchor;
+  // A phone's week is a list of days, one under another (as the staged calendar's; lane C:
+  // seven columns cut every chip to a clipped ID at 390).
+  const listed = shown === 'week' && !wide;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const ahead = direction === 'rtl' ? -1 : 1;
+    const down = listed ? 1 : 7;
     const moves: Record<string, () => Day> = {
       ArrowRight: () => addDays(current, ahead),
       ArrowLeft: () => addDays(current, -ahead),
-      ArrowDown: () => addDays(current, 7),
-      ArrowUp: () => addDays(current, -7),
+      ArrowDown: () => addDays(current, down),
+      ArrowUp: () => addDays(current, -down),
       Home: () => weekStart(current, firstDay),
       End: () => addDays(weekStart(current, firstDay), 6),
       PageDown: () => ({ ...current, month: current.month + 1 }),
@@ -255,6 +259,8 @@ export function IncidentCalendar({
           {list.slice(0, cap).map(chip)}
           {extra > 0 && (
             <Popover
+              // The list says which day it is (lane C).
+              title={fullDate}
               open={open === key}
               onOpenChange={(next) => {
                 if (next) setOpen(key);
@@ -271,7 +277,17 @@ export function IncidentCalendar({
                 }}
                 type="link"
                 size="small"
-                style={{ padding: 0, height: 'auto', alignSelf: 'start' }}
+                // Its words wrap inside the day: at 390 a day is a seventh of the width, and the
+                // Arabic "one more" ran into the next day's (matrix run 44762732484).
+                style={{
+                  padding: 0,
+                  height: 'auto',
+                  alignSelf: 'start',
+                  maxWidth: '100%',
+                  whiteSpace: 'normal',
+                  textAlign: 'start',
+                  overflowWrap: 'anywhere',
+                }}
                 aria-expanded={open === key}
                 data-testid={`inc-cal-more-${key}`}
                 onKeyDown={(event) => {
@@ -361,9 +377,12 @@ export function IncidentCalendar({
         aria-label={t('incidents.calendar.label', { period })}
         aria-busy={inRange.isFetching}
         onKeyDown={onKeyDown}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: listed ? 'minmax(0, 1fr)' : 'repeat(7, minmax(0, 1fr))',
+        }}
       >
-        <div role="row" style={{ display: 'contents' }}>
+        <div role="row" style={{ display: listed ? 'none' : 'contents' }}>
           {weekDays.map((d) => (
             <div
               key={`head-${dayKey(d)}`}
@@ -376,11 +395,17 @@ export function IncidentCalendar({
             </div>
           ))}
         </div>
-        {Array.from({ length: Math.ceil(days.length / 7) }, (_, week) => (
-          <div key={`week-${String(week)}`} role="row" style={{ display: 'contents' }}>
-            {days.slice(week * 7, week * 7 + 7).map(cell)}
-          </div>
-        ))}
+        {listed
+          ? days.map((d) => (
+              <div key={`day-${dayKey(d)}`} role="row" style={{ display: 'contents' }}>
+                {cell(d)}
+              </div>
+            ))
+          : Array.from({ length: Math.ceil(days.length / 7) }, (_, week) => (
+              <div key={`week-${String(week)}`} role="row" style={{ display: 'contents' }}>
+                {days.slice(week * 7, week * 7 + 7).map(cell)}
+              </div>
+            ))}
       </div>
     </Flex>
   );

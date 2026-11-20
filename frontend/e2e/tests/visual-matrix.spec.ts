@@ -491,6 +491,12 @@ async function boardByTechnicianMore(page: Page): Promise<void> {
   // Only with more than twelve people holding records: said as a finding at once otherwise,
   // never waited out on every layout, theme, language and width.
   await seenOrSay('board by technician', page.locator('[data-testid^="inc-board-stage-heading-"]'));
+  // The counts arrive after the columns: a short wait before saying there is none (one shot
+  // of run 44762732484 counted while they loaded).
+  await page
+    .getByTestId('inc-board-more-columns')
+    .waitFor({ timeout: 5_000 })
+    .catch(() => undefined);
   if ((await page.getByTestId('inc-board-more-columns').count()) === 0) {
     // Recorded as a finding with the number, never a skip (lane C).
     const people = await page
@@ -553,6 +559,11 @@ const calendar = (shown: 'month' | 'week' | 'more') => async (page: Page) => {
   if (shown === 'more') {
     // Forward to the month they fall due in, when it is not this one.
     const more = page.locator('[data-testid^="inc-cal-more-"]');
+    // This month's records first (one shot of run 44762732484 looked before they loaded).
+    await more
+      .first()
+      .waitFor({ timeout: 5_000 })
+      .catch(() => undefined);
     for (let step = 0; step < 2 && (await more.count()) === 0; step += 1) {
       await page.getByTestId('inc-cal-next').click({ timeout: STATE_TIMEOUT });
       await page.waitForLoadState('networkidle');
@@ -560,6 +571,11 @@ const calendar = (shown: 'month' | 'week' | 'more') => async (page: Page) => {
     await seenOrSay('"N more" (five due the same day)', more);
     await more.first().click({ timeout: STATE_TIMEOUT });
     await seenOrSay('day list', page.locator('[data-testid^="inc-cal-list-"]'));
+    // Back to the top for the full-page shot: a scrolled page drew the sticky side navigation
+    // part-way down (lane C, run 44762732484; as generalCard does).
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+    });
   }
 };
 
