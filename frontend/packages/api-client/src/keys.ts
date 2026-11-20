@@ -204,6 +204,9 @@ export const queryKeys = {
     // Under the list key: a list refresh (a record created or closed) refreshes them too.
     duplicates: (query: PossibleDuplicatesQuery) =>
       ['incidents', 'list', 'duplicates', query] as const,
+    // Under 'list' too: a change that refreshes the lists refreshes the board's counts.
+    board: (query: IncidentsQuery, groupBy: string) =>
+      ['incidents', 'list', 'board', query, groupBy] as const,
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,

@@ -53,6 +53,24 @@ class BulkOutcome(StrEnum):
     SKIPPED = "skipped"  # with the reason as an error code and params, shown in words
 
 
+class ListLayout(StrEnum):
+    """How a person shows one view's list: table, cards, board (REQ-INC-111) or calendar (112)."""
+
+    TABLE = "table"
+    CARDS = "cards"
+    BOARD = "board"
+    CALENDAR = "calendar"
+
+
+class BoardGroupBy(StrEnum):
+    """What a board's columns are (REQ-INC-111)."""
+
+    STATUS = "status"
+    PRIORITY = "priority"
+    TECHNICIAN = "technician"
+    GROUP = "group"
+
+
 class RowColourBy(StrEnum):
     """What list rows are coloured by (REQ-INC-115 AC1): the tenant's default, a person's own."""
 
