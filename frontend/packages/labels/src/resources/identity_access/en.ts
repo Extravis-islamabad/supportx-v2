@@ -187,6 +187,8 @@ export const en = {
     'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
+  'domain_check.dns_check_unavailable':
+    "Automatic checking isn't available on this installation yet.",
   'domain_check.dns_unreachable':
     "DNS couldn't be reached from this installation. You can verify the domain by hand instead.",
   'domain_check.domain_verified_elsewhere':
