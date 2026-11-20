@@ -52,7 +52,8 @@ from app.modules.identity_access.domain.mobile import (
     valid_challenge,
 )
 from app.modules.identity_access.domain.session import Session
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
+from app.modules.identity_access.infra.models import SupportGrant, User
 from app.modules.identity_access.infra.oidc import IdentityProviderUnavailable
 from app.modules.identity_access.service import confirm as confirm_service
 from app.modules.identity_access.service import password_reset as password_reset_service
@@ -239,6 +240,15 @@ class EffectivePermission(BaseModel):
     conditional: bool = Field(description="Some grants only apply to records matching a rule.")
 
 
+class SupportSessionOut(BaseModel):
+    """What the console's support banner needs: the grant, its level and its end. No contact."""
+
+    grant_id: uuid.UUID
+    access: Literal["view", "view_and_change"]
+    ends_at: datetime
+    contacts_masked: bool = Field(description="People's names and addresses are withheld.")
+
+
 class MeResponse(BaseModel):
     """Session summary for the UI.
 
@@ -252,6 +262,10 @@ class MeResponse(BaseModel):
     tenants: list[TenantOut]
     csrf_token: str
     permissions: list[EffectivePermission] = Field(default_factory=list)
+    support: SupportSessionOut | None = Field(
+        default=None,
+        description="A vendor support session's grant (WP-057 S4c-3); null for everyone else.",
+    )
     idle_timeout_seconds: int | None = Field(
         default=None,
         description="Signed out after this long without activity (warned 2 minutes ahead).",
@@ -681,6 +695,27 @@ async def _describe(request: Request, session: Session) -> MeResponse:
             ).first()
             offered, default = await offered_languages(db)
             regional = await regional_defaults(db, row.site_id if row else None)
+            if session.user_type == SUPPORT_USER_TYPE:
+                grant = (
+                    await db.execute(
+                        select(
+                            SupportGrant.id,
+                            SupportGrant.access,
+                            SupportGrant.ends_at,
+                            SupportGrant.unmask_personal,
+                        )
+                        .where(SupportGrant.support_user_id == session.user_uuid)
+                        .order_by(SupportGrant.created_at.desc())
+                        .limit(1)
+                    )
+                ).first()
+                if grant is not None:
+                    described["support"] = {
+                        "grant_id": grant.id,
+                        "access": grant.access,
+                        "ends_at": grant.ends_at,
+                        "contacts_masked": not grant.unmask_personal,
+                    }
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None

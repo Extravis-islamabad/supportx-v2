@@ -39,7 +39,14 @@ from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.audit import WORKER, AuditActorType, RequestFacts, record
+from app.modules.audit import (
+    WORKER,
+    ActorEntry,
+    AuditActorType,
+    RequestFacts,
+    actor_entries,
+    record,
+)
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.network import address_of
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
@@ -61,6 +68,7 @@ from app.modules.identity_access.infra.models import (
 from app.modules.identity_access.service.directory import UserRepository
 from app.modules.identity_access.service.sso import organization_of
 from app.modules.organization import email_branding, get_current_tenant
+from app.shared.api.listing import ListQuery, PageResult
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -144,6 +152,9 @@ async def _audit(
     )
 
 
+AUDIT_VIEW = "audit.view"
+
+
 async def require_tenant_admin(session: AsyncSession, subject: Subject) -> None:
     """A tenant admin, by their own role (a group's or a custom role's rights are not enough)."""
     found = await session.scalar(
@@ -181,6 +192,25 @@ async def get_grant(session: AsyncSession, subject: Subject, grant_id: uuid.UUID
     if row is None:
         raise NotFound(code="support_grant_not_found")
     return _view(row)
+
+
+async def grant_activity(
+    session: AsyncSession, subject: Subject, grant_id: uuid.UUID, query: ListQuery
+) -> tuple[list[ActorEntry], PageResult[Any]]:
+    """What the grant's support account did, newest first (WP-057 S4c-3; the coordinator's Q1).
+
+    A tenant admin who may also read the audit (`audit.view`). The account is the grant's own
+    (one per grant), so its entries are exactly the grant's; RLS keeps them to the tenant.
+    """
+    await require_tenant_admin(session, subject)
+    if not subject.holds(AUDIT_VIEW):
+        raise PermissionDenied(params={"permission": AUDIT_VIEW, "reason": "no_permission"})
+    row = await session.get(SupportGrant, grant_id)
+    if row is None:
+        raise NotFound(code="support_grant_not_found")
+    if row.support_user_id is None:  # the account was never made: nothing was done
+        return [], PageResult(rows=[], next_cursor=None, has_more=False, estimated_total=0)
+    return await actor_entries(session, row.support_user_id, query)
 
 
 async def open_grants(session: AsyncSession) -> int:

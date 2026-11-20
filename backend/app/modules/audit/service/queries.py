@@ -121,6 +121,46 @@ async def list_entries(
     return await _views(session, page.rows), page
 
 
+@dataclass(frozen=True)
+class ActorEntry:
+    """One entry of an actor's activity, as another module shows it: codes and IDs only."""
+
+    id: uuid.UUID
+    occurred_at: datetime
+    action: str
+    outcome: str
+    object_type: str | None
+    object_id: str | None
+
+
+# What an actor's activity may be sorted and paged by: the time only (the actor is fixed).
+ACTOR_FIELDS = ResourceFields(
+    name="audit_actor_entries",
+    fields={
+        "occurred_at": FilterField(
+            AuditEntry.occurred_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+    },
+    id_column=AuditEntry.id,
+    default_sort=("-occurred_at",),
+)
+
+
+async def actor_entries(
+    session: AsyncSession, actor_id: uuid.UUID, query: ListQuery
+) -> tuple[list[ActorEntry], PageResult[Any]]:
+    """One page of everything one actor did, newest first (WP-057 S4c-3: a support grant's).
+
+    The caller decides who may read it; the tenant's RLS keeps it to the tenant. Never the
+    entry's details or personal values: what was done, when, to what, and how it ended.
+    """
+    page = await paginate(session, select(AuditEntry).where(AuditEntry.actor_id == actor_id), query)
+    return [
+        ActorEntry(e.id, e.occurred_at, e.action, e.outcome, e.object_type, e.object_id)
+        for e in page.rows
+    ], page
+
+
 async def get_entry(session: AsyncSession, entry_id: uuid.UUID) -> EntryDetail:
     """One entry with its chain position and personal values, or 404."""
     entry = await session.scalar(select(AuditEntry).where(AuditEntry.id == entry_id))

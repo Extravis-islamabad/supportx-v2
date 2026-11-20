@@ -308,3 +308,43 @@ async def test_a_support_account_is_never_notified_or_mailed(world: World) -> No
         assert await notifiable_people(session, [user_id, world.a.admin]) != {}
         assert user_id not in await notifiable_people(session, [user_id, world.a.admin])
         assert user_id not in await mail_recipients(session, [user_id])
+
+
+async def _incident_by(world: World, user_id: uuid.UUID) -> str:  # noqa: F811 - the reused fixture
+    made = await world.call(
+        "POST",
+        "/incidents",
+        world.a,
+        user=user_id,
+        json={"subject": "Mail is down", "requester_id": str(world.a.admin)},
+        headers={"Idempotency-Key": str(uuid.uuid4()), "X-SupportX-Client": "console"},
+    )
+    assert made.status_code == 201, made.text
+    return str(made.json()["id"])
+
+
+async def test_a_grants_activity_is_its_own_accounts_only(world: World) -> None:  # noqa: F811 - the reused fixture
+    """The coordinator's Q1: never another grant's, another tenant's, or without audit.view."""
+    change = {"access": "view_and_change", "change_reason": "Fix the stuck workflow on INC-12"}
+    first, first_user = await _support_user(world, **change)
+    second, second_user = await _support_user(
+        world, engineer_email="sara@extravis.com", engineer_name="Sara Engineer", **change
+    )
+    mine = await _incident_by(world, first_user)
+    theirs = await _incident_by(world, second_user)
+    found = await world.call("GET", f"/identity/vendor-support/grants/{first}/activity", world.a)
+    assert found.status_code == 200, found.text
+    objects = {item["object_id"] for item in found.json()["items"]}
+    assert mine in objects
+    assert theirs not in objects
+    assert all(set(item) == {"id", "occurred_at", "action", "outcome", "object_type",
+                             "object_id"} for item in found.json()["items"])  # fmt: skip
+    # Another tenant's admin finds no such grant.
+    other = await world.call("GET", f"/identity/vendor-support/grants/{first}/activity", world.b)
+    assert other.status_code in {403, 404}, other.text
+    # The second grant's activity is its own.
+    second_found = await world.call(
+        "GET", f"/identity/vendor-support/grants/{second}/activity", world.a
+    )
+    assert {i["object_id"] for i in second_found.json()["items"]} >= {theirs}
+    assert mine not in {i["object_id"] for i in second_found.json()["items"]}

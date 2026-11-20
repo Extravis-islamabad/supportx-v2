@@ -11,6 +11,7 @@ D-128). The answer is never cached.
 
 import json
 import uuid
+from datetime import datetime
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -23,13 +24,14 @@ from app.core.database import Database, TenantSession, after_commit, get_databas
 from app.core.entitlements import entitlement_exempt
 from app.core.recent_auth import RecentAuth
 from app.core.tenancy import TenantContext
-from app.modules.audit import AuditNote, RequestFacts, audited
+from app.modules.audit import ACTOR_FIELDS, AuditNote, RequestFacts, audited
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service import support_grants as service
 from app.modules.organization import link_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
+from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.public_links import PublicLinks, private_answers
 from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 from app.shared.clock import system_clock
@@ -174,6 +176,48 @@ async def get_grant(
     view = await service.get_grant(session, subject, grant_id)
     set_etag(response, view.version)
     return SupportGrantOut.of(view)
+
+
+class SupportActivityOut(BaseModel):
+    """One thing the grant's support account did (labels: `audit.action.<code>`)."""
+
+    id: uuid.UUID
+    occurred_at: datetime
+    action: str = Field(description="Action code; labels: `audit.action.<code>`.")
+    outcome: str = Field(description="done or refused; labels: `audit_outcome.<code>`.")
+    object_type: str | None
+    object_id: str | None
+
+
+class SupportActivityPage(Page[SupportActivityOut]):
+    """A page of a grant's activity, newest first."""
+
+
+ActivityQuery = Annotated[ListQuery, Depends(list_query(ACTOR_FIELDS))]
+
+
+@router.get("/grants/{grant_id}/activity", summary="What a vendor support grant's account did")
+async def grant_activity(
+    grant_id: uuid.UUID, session: TenantSession, subject: Manage, query: ActivityQuery
+) -> SupportActivityPage:
+    """A tenant admin who may read the audit (`audit.view`); codes and IDs, never details."""
+    entries, page = await service.grant_activity(session, subject, grant_id, query)
+    return SupportActivityPage(
+        items=[
+            SupportActivityOut(
+                id=e.id,
+                occurred_at=e.occurred_at,
+                action=e.action,
+                outcome=e.outcome,
+                object_type=e.object_type,
+                object_id=e.object_id,
+            )
+            for e in entries
+        ],
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
+        estimated_total=page.estimated_total,
+    )
 
 
 @router.post(

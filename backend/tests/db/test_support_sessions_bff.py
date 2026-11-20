@@ -136,6 +136,11 @@ async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_
     me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
     assert me.status_code == 200, me.text
     assert me.json()["user"]["user_type"] == "vendor_support"
+    # S4c-3's banner: the grant, its level and end; never the engineer's contact (condition 3).
+    support = me.json()["support"]
+    assert set(support) == {"grant_id", "access", "ends_at", "contacts_masked"}
+    assert (support["grant_id"], support["access"]) == (str(grant_id), "view_and_change")
+    assert "omar@extravis.com" not in me.text
     made = await bff.client.post(
         "/api/v1/incidents",
         json={"subject": "Mail is down", "requester_id": str(asker["id"])},
