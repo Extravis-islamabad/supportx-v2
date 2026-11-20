@@ -70,6 +70,7 @@ from app.modules.assets.service.file_access import FILE_ACCESS
 from app.modules.assets.service.imports import run_asset_imports
 from app.modules.assets.service.labels import on_label_requested
 from app.modules.assets.service.linked import (
+    VISIBLE_IDS_MAX,
     LinkedRecord,
     LinkedRecords,
     on_asset_link_changed,
@@ -212,6 +213,7 @@ for _list in LIST_SPECS:
     register_list(_list)
 
 __all__ = [
+    "VISIBLE_IDS_MAX",
     "AssetRef",
     "DraftPurchaseRequests",
     "LinkedRecord",
