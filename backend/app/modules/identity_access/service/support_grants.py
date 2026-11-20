@@ -33,6 +33,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import access_changed
 from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -324,6 +325,7 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
         changes=[Change("state", before, row.state)],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -701,6 +703,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         ],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -763,6 +766,7 @@ async def extend_grant(  # noqa: PLR0913 - the grant, its version, the hours and
         changes=[Change("ends_at", before.isoformat(), new_end.isoformat())],
         source=source,
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
@@ -904,6 +908,7 @@ async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
         ],
         source="system",
     )
+    access_changed(session)  # the account's permissions follow the grant (S4c-2, lane B (2))
     await record_event(
         session,
         SupportGrantChanged(
