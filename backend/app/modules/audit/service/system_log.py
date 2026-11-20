@@ -7,6 +7,10 @@ The public way in for every module (exported by `app.modules.audit`):
 * `record_system_alone(database, tenant_id, entry)`: in a transaction of its own, for a failure
   whose work rolled back (a mailbox check that raised). It never raises: a log line that can't
   be written is logged to the process log and the caller carries on.
+* `record_system_coalesced(session, entry, window=...)`: for something that can fail many times
+  a minute (every refused message): at most one entry per code and params per window, in a
+  savepoint of the caller's transaction, never raising, so the caller's work goes on whatever
+  happens to the log line.
 
 Entries are a code and small params (domain/system_log.py), the object they're about, the job's
 reference and the request's ID. The table is append-only by grants; `purge()` (the retention
@@ -16,10 +20,12 @@ job) is the one way rows leave, through `system_log_purge()`, which picks the cu
 import uuid
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Select, select, text
+from sqlalchemy import Select, exists, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.expression import cast
 
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
@@ -86,6 +92,39 @@ async def record_system_alone(
             code=entry.code.value,
             error=type(exc).__name__,
         )
+        return None
+
+
+COALESCE_WINDOW = timedelta(hours=1)
+
+
+async def record_system_coalesced(
+    session: AsyncSession,
+    entry: SystemLogEntryIn,
+    *,
+    window: timedelta = COALESCE_WINDOW,
+    now: datetime | None = None,
+) -> uuid.UUID | None:
+    """Write `entry` unless the same code and params were logged within `window`; never raises."""
+    at = now or datetime.now(UTC)
+    params = check_params(entry.params)
+    try:
+        async with session.begin_nested():
+            seen = await session.scalar(
+                select(
+                    exists().where(
+                        SystemLogEntry.code == entry.code.value,
+                        SystemLogEntry.occurred_at >= at - window,
+                        SystemLogEntry.params.op("@>")(cast(params, JSONB)),
+                        SystemLogEntry.params.op("<@")(cast(params, JSONB)),
+                    )
+                )
+            )
+            if seen:
+                return None
+            return await record_system(session, entry, now=at)
+    except Exception as exc:  # noqa: BLE001 - a log line must never break its writer
+        log.warning("system_log_write_failed", code=entry.code.value, error=type(exc).__name__)
         return None
 
 

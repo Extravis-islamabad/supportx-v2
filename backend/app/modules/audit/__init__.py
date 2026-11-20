@@ -78,7 +78,11 @@ from app.modules.audit.service.recording import (
     record_alone,
 )
 from app.modules.audit.service.redaction import redact_signed_history
-from app.modules.audit.service.system_log import record_system, record_system_alone
+from app.modules.audit.service.system_log import (
+    record_system,
+    record_system_alone,
+    record_system_coalesced,
+)
 from app.shared.events import ConsumerSpec
 from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
@@ -186,5 +190,6 @@ __all__ = [
     "record_alone",
     "record_system",
     "record_system_alone",
+    "record_system_coalesced",
     "redact_signed_history",
 ]

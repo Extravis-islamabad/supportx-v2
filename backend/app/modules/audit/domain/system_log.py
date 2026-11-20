@@ -45,8 +45,11 @@ class SystemLogCode(StrEnum):
     FILES_SCAN_INFECTED = "files.scan.infected"
     # integrations: mailboxes, connectors, outbound calls.
     MAILBOX_CHECK_FAILED = "integrations.mailbox.check_failed"
+    MAILBOX_RECOVERED = "integrations.mailbox.recovered"
     MAILBOX_SEND_FAILED = "integrations.mailbox.send_failed"
     CONNECTOR_CALL_FAILED = "integrations.connector.call_failed"
+    # notifications: an e-mail it could not queue (one per reason per hour, never per message).
+    NOTIFICATION_MAIL_REFUSED = "notifications.mail.refused"
     # identity_access: the directory.
     DIRECTORY_SYNC_FINISHED = "identity_access.directory.sync_finished"
     DIRECTORY_SYNC_FAILED = "identity_access.directory.sync_failed"

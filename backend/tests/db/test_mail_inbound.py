@@ -4,6 +4,7 @@ Real PostgreSQL (the ledger, RLS, people) with a fake record owner registered on
 so these pin what integrations decides; the incident side is tested with lane A's code.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
@@ -374,6 +375,47 @@ async def test_a_mailbox_that_cannot_be_reached_says_so(world: World) -> None:
         world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=reader
     )
     assert await _state(world) == ("failing", "imap_login_failed")
+
+
+async def _system_log(world: World) -> list[tuple[str, str, dict[str, object]]]:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT code, severity, params::text AS params FROM system_log_entries"
+            " WHERE tenant_id = $1 AND object_type = 'mailbox' AND object_id = $2"
+            " ORDER BY occurred_at, id",
+            world.tenant,
+            world.mailbox,
+        )
+        return [(r["code"], r["severity"], json.loads(r["params"])) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def test_the_system_log_hears_of_a_failing_mailbox_once_and_of_its_recovery(
+    world: World,
+) -> None:
+    """REQ-AUD-016 AC1 (WP-057 S5b), lane A's conditions: a change of state only, never per
+    poll; the reason code alone, nothing personal."""
+    ring = KeyRing.parse(KeyRing.generate())
+    broken = FakeReader([], fail="imap_login_failed")
+    for _ in range(2):  # two failed polls in a row
+        await fetch_mailbox(
+            world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=broken
+        )
+    assert await _system_log(world) == [
+        ("integrations.mailbox.check_failed", "error", {"reason": "imap_login_failed"})
+    ]
+    working = FakeReader([])
+    for _ in range(2):  # recovered, then a quiet poll
+        await fetch_mailbox(
+            world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=working
+        )
+    assert [c for c, _, _ in await _system_log(world)] == [
+        "integrations.mailbox.check_failed",
+        "integrations.mailbox.recovered",
+    ]
+    assert (await _system_log(world))[1][1:] == ("info", {})
 
 
 # --- The review queue (D-109 (9): held mail is never invisible) ------------------------------

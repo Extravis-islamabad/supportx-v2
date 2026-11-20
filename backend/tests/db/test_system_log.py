@@ -261,3 +261,23 @@ def test_a_writer_cannot_log_free_text_or_another_modules_code() -> None:
             severity=SystemLogSeverity.ERROR,
             params={"language": "en"},
         )
+
+
+async def test_a_burst_of_refused_mail_writes_one_entry_per_reason(world: World) -> None:
+    """Lane A's conditions: refused e-mails coalesce per reason per hour, with the refusal's
+    code only (never an address); the caller's transaction goes on."""
+    from app.modules.notifications.service.engine import _log_refused  # noqa: PLC0415
+    from app.shared.mail.domain.message import MailRefused  # noqa: PLC0415
+
+    tenant = world.b.tenant
+    async with world.app.state.db.tenant_session(TenantContext(tenant)) as session:
+        for reason in ("too_many_recipients",) * 5 + ("subject_too_long",) * 3:
+            await _log_refused(session, MailRefused(code=reason))
+        assert await session.scalar(text("SELECT 1")) == 1  # the transaction is still usable
+    rows = await world.sql(
+        "SELECT params->>'reason' AS reason, params::text AS raw FROM system_log_entries"
+        " WHERE tenant_id = $1 AND code = 'notifications.mail.refused' ORDER BY reason",
+        tenant,
+    )
+    assert [r["reason"] for r in rows] == ["subject_too_long", "too_many_recipients"]
+    assert all("@" not in r["raw"] for r in rows)
