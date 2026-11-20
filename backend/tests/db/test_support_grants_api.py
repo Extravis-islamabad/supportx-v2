@@ -367,3 +367,40 @@ async def test_a_support_account_is_never_in_the_people_list(
         headers={"If-Match": '"1"'},
     )
     assert edited.status_code == 409, edited.text  # the people screens never change it
+
+
+async def test_a_support_account_never_gets_a_role_a_group_or_any_permission(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B: never tenant admin or security; its access is its grant's alone (fails closed)."""
+    body = (await _grant(world)).json()
+    _, user_id = await _account(world, body["id"])
+    (admin_role,) = await _sql(
+        world, "SELECT id FROM roles WHERE tenant_id = $1 AND key = 'tenant_admin'", world.a.tenant
+    )
+    role = await world.call("PUT", f"/users/{user_id}/roles/{admin_role['id']}", world.a)
+    assert role.status_code == 403, role.text
+    assert role.json()["code"] == "vendor_support_roles_from_grant"
+    group = await world.call(
+        "POST",
+        "/organization/groups",
+        world.a,
+        json={"name": "Support desk"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert group.status_code == 201, group.text
+    joined = await world.call(
+        "PUT", f"/organization/groups/{group.json()['id']}/members/{user_id}", world.a
+    )
+    assert joined.status_code == 403, joined.text
+    assert joined.json()["code"] == "vendor_support_roles_from_grant"
+    # Even a role put there behind the API's back gives it nothing (the compile ceiling).
+    await _sql(
+        world,
+        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
+        world.a.tenant,
+        user_id,
+        admin_role["id"],
+    )
+    seen = await world.call("GET", "/identity/vendor-support/grants", world.a, user=user_id)
+    assert seen.status_code == 403, seen.text
