@@ -8,7 +8,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession, problem } from '../../test/api';
+import { consoleApi, fakeSession, problem, listCalls } from '../../test/api';
 import { duplicateNames } from './labels';
 import { previewPriority } from './form';
 import { rememberTab } from './tabs';
@@ -98,7 +98,7 @@ describe('Incidents list', () => {
       target: { value: 'INC-7' },
     });
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
         or: [
           { field: 'subject', op: 'contains', value: 'INC-7' },
@@ -106,7 +106,7 @@ describe('Incidents list', () => {
         ],
       });
     });
-    expect(fake.find('GET', '/api/v1/incidents')[0]?.url.searchParams.get('view')).toBe('open');
+    expect(listCalls(fake, '/api/v1/incidents')[0]?.url.searchParams.get('view')).toBe('open');
   });
 });
 

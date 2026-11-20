@@ -706,6 +706,8 @@ export const en = {
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
+  'errors.field.sealed_filter_needs_post':
+    'This field is protected, so it can only be filtered on in the list itself, not in a link.',
   'errors.field.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
@@ -1006,6 +1008,8 @@ export const en = {
     'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.link_not_found': 'This link does not exist, or it was removed.',
   'errors.linked_records_not_available': 'Linked records are not available yet.',
+  'errors.list_body_too_large':
+    'This list request is too large. Make the filter shorter and try again.',
   'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.login_not_this_browser':

@@ -317,6 +317,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/changes/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/changes/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/changes/counters` | `changes.view` | changes.view: all/site/group/own |
+| POST | `/api/v1/changes/list` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/list-fields` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own |
 | PUT | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own |
@@ -590,6 +591,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/incidents/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/incidents/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/incidents/counters` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/list` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/list-fields` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
 | PUT | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -897,6 +899,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/from-incidents/preview` | `problems.create` | problems.create: all |
 | GET | `/api/v1/problems/known-errors` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/known-errors/suggestions` | `problems.view` | problems.view: all/site/group/own |
+| POST | `/api/v1/problems/list` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/list-fields` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own |
 | PUT | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own |
@@ -1057,6 +1060,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/releases/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/releases/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/releases/counters` | `releases.view` | releases.view: all/site/group/own |
+| POST | `/api/v1/releases/list` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/list-fields` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own |
 | PUT | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own |
@@ -1242,6 +1246,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PATCH | `/api/v1/service-requests/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | GET | `/api/v1/service-requests/counters` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/list` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/list-fields` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own |
 | PUT | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own |

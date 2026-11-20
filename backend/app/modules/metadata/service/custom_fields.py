@@ -907,7 +907,11 @@ async def filter_fields(session: AsyncSession, entity: str, table: str) -> dict[
             column,
             _FILTER_TYPES.get(kind, FilterType.STRING),
             values=frozenset(c["code"] for c in row.choices),
-            sortable=kind not in {FieldType.MULTI_CHOICE, FieldType.LONG_TEXT},
+            # A sealed field never sorts (lane C): its stored values are ciphertext with a random
+            # nonce, so the order means nothing and a cursor would carry a value.
+            sortable=kind not in {FieldType.MULTI_CHOICE, FieldType.LONG_TEXT}
+            and not row.sensitive
+            and row.seal_state == "plain",
             simple=True,
             array=kind == FieldType.MULTI_CHOICE,
         )

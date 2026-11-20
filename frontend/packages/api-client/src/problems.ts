@@ -54,14 +54,14 @@ export function useProblems(query: ProblemsQuery, enabled = true) {
     enabled,
     queryFn: () =>
       call(
-        api.GET('/api/v1/problems', {
-          params: {
-            query: {
-              view: query.view,
-              cursor: query.cursor,
-              sort: query.sort,
-              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
-            },
+        // By POST (lane C): a filter may hold a protected value, never put in a URL.
+        api.POST('/api/v1/problems/list', {
+          body: {
+            include_total: false,
+            cursor: query.cursor,
+            sort: query.sort,
+            filter: query.filter,
+            params: query.view === undefined ? {} : { view: [query.view] },
           },
         }),
       ),

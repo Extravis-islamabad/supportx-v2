@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession } from '../../test/api';
+import { consoleApi, fakeSession, listCalls } from '../../test/api';
 import { recordsQuery, widgetDefinition, withViewer } from './widgetDefinition';
 
 // The dashboard widget library (D-114): the catalogue, records widgets and flow reports.
@@ -210,7 +210,7 @@ describe('widget library on screen (D-114)', () => {
     const list = await screen.findByTestId('widget-my_open_list');
     expect(await within(list).findByText('Mail is down')).toBeDefined();
     expect(within(list).getByTestId('widget-record-INC-8')).toBeDefined();
-    const asked = fake.find('GET', '/api/v1/incidents')[0]?.url.toString() ?? '';
+    const asked = listCalls(fake, '/api/v1/incidents')[0]?.url.toString() ?? '';
     expect(decodeURIComponent(asked)).toContain(ME); // "me" is the viewer
     expect(decodeURIComponent(asked)).toContain('sort=priority');
     expect(screen.getByTestId('widget-title-my_open_list').textContent).toBe('My open work');

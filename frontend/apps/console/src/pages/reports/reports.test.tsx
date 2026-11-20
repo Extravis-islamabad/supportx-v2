@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession, problem } from '../../test/api';
+import { consoleApi, fakeSession, problem, listCalls } from '../../test/api';
 
 // jsdom has no canvas: charts get a stand-in instance (their options are unit-tested in charts).
 // The path is the chart package's own ECharts (the console does not depend on it directly).
@@ -367,7 +367,7 @@ describe('Reports', () => {
 
       fireEvent.click(within(table).getByText('P1 – Critical'));
       expect(await screen.findByText('Printer down')).toBeDefined();
-      const drill = fake.find('GET', '/api/v1/incidents').at(-1);
+      const drill = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
         RESULT.rows[0]?.drill,
       );
@@ -390,11 +390,11 @@ describe('Reports', () => {
       fireEvent.click(within(table).getByText('P1 – Critical'));
       const link = await screen.findByRole('link', { name: /Core switch firmware/ });
       expect(link.getAttribute('href')).toBe(`/changes/${change.id}`);
-      const drill = fake.find('GET', '/api/v1/changes').at(-1);
+      const drill = listCalls(fake, '/api/v1/changes').at(-1);
       expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
         RESULT.rows[0]?.drill,
       );
-      expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(0);
+      expect(listCalls(fake, '/api/v1/incidents')).toHaveLength(0);
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
     });
 
@@ -426,11 +426,11 @@ describe('Reports', () => {
         fireEvent.click(within(table).getByText('P1 – Critical'));
         const link = await screen.findByRole('link', { name: /Payroll 4\.2/ });
         expect(link.getAttribute('href')).toBe(`/${route}/${row.id}`);
-        const drill = fake.find('GET', `/api/v1/${listPath}`).at(-1);
+        const drill = listCalls(fake, `/api/v1/${listPath}`).at(-1);
         expect(JSON.parse(drill?.url.searchParams.get('filter') ?? 'null')).toEqual(
           RESULT.rows[0]?.drill,
         );
-        expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(0);
+        expect(listCalls(fake, '/api/v1/incidents')).toHaveLength(0);
       },
     );
 

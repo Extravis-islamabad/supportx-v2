@@ -41,7 +41,21 @@ export interface ChangesQuery {
 export function useChanges(query: ChangesQuery) {
   return useQuery({
     queryKey: changeKeys.query(query),
-    queryFn: () => call(api.GET('/api/v1/changes', { params: { query } })),
+    // By POST (lane C): a filter may hold a protected value, never put in a URL.
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/changes/list', {
+          body: {
+            cursor: query.cursor,
+            include_total: query.include_total ?? false,
+            filter:
+              query.filter === undefined
+                ? undefined
+                : (JSON.parse(query.filter) as Record<string, unknown>),
+            params: query.view === undefined ? {} : { view: [query.view] },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
   });
 }

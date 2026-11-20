@@ -5,7 +5,7 @@ import type { CatalogItem } from '@supportx/api-client';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { consoleApi, listCalls } from '../../test/api';
 import { actionItem, clickAction } from '../../test/actions';
 
 // WP-030 s1: service requests in the console: the list, raising one from the catalog, one record.
@@ -180,7 +180,7 @@ describe('console: service requests', () => {
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'View' }));
     fireEvent.click(await screen.findByTitle('Pending approval (1)'));
     await waitFor(() => {
-      const asked = fake.find('GET', '/api/v1/service-requests');
+      const asked = listCalls(fake, '/api/v1/service-requests');
       expect(asked.some((r) => r.url.searchParams.get('view') === 'pending_approval')).toBe(true);
     });
   });
@@ -199,8 +199,7 @@ describe('console: service requests', () => {
       },
     );
     await waitFor(() => {
-      const filters = fake
-        .find('GET', '/api/v1/service-requests')
+      const filters = listCalls(fake, '/api/v1/service-requests')
         .map((r) => r.url.searchParams.get('filter'))
         .filter((f): f is string => f !== null)
         .map((f) => JSON.parse(f) as unknown);
@@ -213,9 +212,9 @@ describe('console: service requests', () => {
     });
     // Never the old parameter the route does not read.
     expect(
-      fake
-        .find('GET', '/api/v1/service-requests')
-        .some((r) => r.url.searchParams.has('approval_status')),
+      listCalls(fake, '/api/v1/service-requests').some((r) =>
+        r.url.searchParams.has('approval_status'),
+      ),
     ).toBe(false);
   });
 
