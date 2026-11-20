@@ -126,6 +126,8 @@ export {
   useAuditSavedSearchMutations,
   useAuditSettings,
   usePersonalDataAccess,
+  useSystemLog,
+  downloadSystemLog,
   useAuditStatus,
   useRestoreAuditArchive,
   useRestoredAuditEntries,
@@ -149,6 +151,9 @@ export {
   type AuditSavedSearch,
   type AuditSettings,
   type PersonalDataAccessEntry,
+  type SystemLogEntry,
+  type SystemLogFilters,
+  type SystemLogSeverity,
   type AuditSettingsInput,
   type AuditStatus,
 } from './audit';
