@@ -42,6 +42,7 @@ export const ur: LabelResource = {
   'feature.release': 'ریلیز کا انتظام',
   'feature.sandbox': 'سینڈ باکس ماحول',
   'feature.service_request': 'سروس کی درخواستیں',
+  'feature.siem_stream': 'سیکیورٹی نگرانی اسٹریم',
   'feature.sla': 'سروس لیول معاہدے',
   'feature.workflows': 'بصری ورک فلوز',
   'licence.ask_admin': 'پلان اپ گریڈ کرنے کے بارے میں اپنے منتظم سے پوچھیں۔',

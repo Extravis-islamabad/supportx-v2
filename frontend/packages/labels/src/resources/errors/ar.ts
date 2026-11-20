@@ -499,6 +499,7 @@ export const ar: LabelResource = {
   'errors.field.holiday_range_order': 'يجب أن يكون اليوم الأخير في اليوم الأول أو بعده.',
   'errors.field.holiday_range_too_long': 'يمكن أن تمتد العطلة سنة واحدة على الأكثر.',
   'errors.field.host_name_invalid': 'أدخل أسماء خوادم فقط، مثل mx.google.com.',
+  'errors.field.https_required': 'استخدم عنوانًا يبدأ بـ https://.',
   'errors.field.ical_invalid': 'هذا ليس ملف iCalendar (.ics).',
   'errors.field.ical_not_utf8': 'الملف ليس ملف تقويم نصيًا (UTF-8).',
   'errors.field.ical_too_large': 'حجم الملف أكبر من 1 ميغابايت.',
@@ -664,6 +665,11 @@ export const ar: LabelResource = {
   'errors.field.session_absolute_out_of_range':
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
   'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
+  'errors.field.siem_cert_and_key_together': 'قدّم شهادة العميل ومفتاحها معًا.',
+  'errors.field.siem_kind_fixed': 'لا يمكن تغيير طريقة الإرسال؛ أضف وجهة جديدة بدلًا من ذلك.',
+  'errors.field.siem_port_not_allowed': 'استخدم منفذ Syslog عبر TLS: 6514 أو 1514 أو 10514.',
+  'errors.field.siem_secret_webhook_only': 'سر التوقيع للـWebhook فقط.',
+  'errors.field.siem_webhook_json_only': 'يرسل الـWebhook بتنسيق JSON فقط.',
   'errors.field.site_inactive': 'هذا الموقع غير نشط. اختر موقعًا نشطًا.',
   'errors.field.site_network_invalid':
     'أدخل نطاقًا مثل 10.1.0.0/16 (مع جعل جزء المضيف صفرًا)، أو عنوانًا واحدًا.',
@@ -1114,6 +1120,8 @@ export const ar: LabelResource = {
   'errors.session_key_still_in_use':
     'لا يمكن تشغيل هذا الخادم: مفتاح تسجيل دخول لم يعد مُدرجًا ما زال مطلوبًا. أدرِج المفتاح مرة أخرى.',
   'errors.session_not_found': 'هذه الجلسة انتهت بالفعل أو ليست من جلساتك.',
+  'errors.siem_destination_not_found': 'لم تعد هذه الوجهة موجودة.',
+  'errors.siem_destinations_limit': '{{max}} وجهات كحد أقصى.',
   'errors.sign_in_not_allowed': 'تسجيل الدخول متوقف لحسابك. تواصل مع المسؤول.',
   'errors.sign_in_unavailable':
     'تسجيل الدخول غير متاح مؤقتًا. إذا كنت مسجّل الدخول بالفعل، يمكنك متابعة العمل.',
