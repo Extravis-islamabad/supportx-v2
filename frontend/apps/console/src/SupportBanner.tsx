@@ -47,7 +47,10 @@ export function SupportBanner() {
       role="status"
       data-testid="support-banner"
       message={t('vendor_support.banner.text', { time: format(support.ends_at) })}
-      description={support.contacts_masked ? t('vendor_support.banner.masked') : undefined}
+      // D-180: e-mail and phone are always withheld; names only when the grant masks them.
+      description={t(
+        support.names_masked ? 'vendor_support.banner.masked' : 'vendor_support.banner.contacts',
+      )}
     />
   );
 }

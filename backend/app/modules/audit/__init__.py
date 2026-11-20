@@ -31,6 +31,7 @@ from app.modules.audit.api.routes import (
     VIEW_PERSONAL_ACCESS,
     router,
 )
+from app.modules.audit.api.siem import router as siem_router
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
@@ -42,6 +43,7 @@ from app.modules.audit.service.access_log import Accessor as AccessAccessor
 from app.modules.audit.service.access_log import record_access
 from app.modules.audit.service.erasure import erase_saved_searches, erase_subject
 from app.modules.audit.service.jobs import (
+    SIEM_EVERY_SECONDS,
     anchor_all,
     ensure_partitions,
     expire_all_exports,
@@ -52,6 +54,7 @@ from app.modules.audit.service.jobs import (
     on_verification_requested,
     run_retention,
     seal_sweep,
+    siem_delivery,
     verify_due,
 )
 from app.modules.audit.service.queries import (
@@ -73,6 +76,7 @@ from app.modules.audit.service.recording import (
     record_alone,
 )
 from app.modules.audit.service.redaction import redact_signed_history
+from app.modules.audit.service.siem import SignInRow, register_sign_in_source
 from app.shared.events import ConsumerSpec
 from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
@@ -111,7 +115,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="audit",
-    routers=[router],
+    routers=[router, siem_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
@@ -151,6 +155,7 @@ module = ModuleSpec(
         ScheduleSpec("audit__exports_expire", 3600, expire_all_exports),
         ScheduleSpec("audit__retention", 86400, run_retention),
         ScheduleSpec("audit__restored_expire", 3600, expire_all_restored),
+        ScheduleSpec("audit__siem_delivery", SIEM_EVERY_SECONDS, siem_delivery),
     ],
 )
 
@@ -167,6 +172,7 @@ __all__ = [
     "AuditOutcome",
     "ReadCategory",
     "RequestFacts",
+    "SignInRow",
     "actor_entries",
     "audit_read",
     "audited",
@@ -178,4 +184,5 @@ __all__ = [
     "record_access",
     "record_alone",
     "redact_signed_history",
+    "register_sign_in_source",
 ]

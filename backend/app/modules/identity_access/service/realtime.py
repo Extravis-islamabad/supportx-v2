@@ -59,6 +59,8 @@ API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
 COST_RATES_LIST = LiveList("user_cost_rates", "users.view_cost_rates")
 # Field access rules (ADR-047): the role editor's field access tab.
 FIELD_ACCESS_LIST = LiveList("field_access", "roles.view")
+# Fine-grained access rules (ADR-053): the role editor's Records tab.
+RESOURCE_ACCESS_LIST = LiveList("resource_access", "roles.view")
 # The sign-in log (REQ-AUD-015): only for those who may read it; the message names nothing.
 SIGN_INS_LIST = LiveList("sign_ins", "identity.view_sign_ins")
 # GDPR erasures (ADR-052): for those who may erase; the message names the erasure only.
@@ -115,6 +117,7 @@ CHANNELS = [
     API_KEYS_LIST.spec(),
     COST_RATES_LIST.spec(),
     FIELD_ACCESS_LIST.spec(),
+    RESOURCE_ACCESS_LIST.spec(),
     SIGN_INS_LIST.spec(),
     ERASURES_LIST.spec(),
 ]
@@ -278,6 +281,27 @@ async def _field_access_changed(envelope: EventEnvelope, session: AsyncSession) 
         publications=[
             *FIELD_ACCESS_LIST.publications(
                 tenant, "field_access.changed", role_id, actor_id=_actor(envelope)
+            ),
+            *_access_changed(tenant, await _role_holders(session, role_id)),
+        ]
+    )
+
+
+async def _resource_access_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """A fine-grained access rule changed (ADR-053): subjects stale, the list, the role's holders.
+
+    Holders refetch what they hold open; a record now outside their set answers 404, and every
+    record message carries IDs only, so nothing outside the set is ever delivered.
+    """
+    await _fresh_access(envelope)
+    tenant = envelope.tenant_id
+    role_id = uuid.UUID(str(envelope.payload["role_id"]))
+    return RealtimeEffects(
+        publications=[
+            *RESOURCE_ACCESS_LIST.publications(
+                tenant, "resource_access.changed", role_id, actor_id=_actor(envelope)
             ),
             *_access_changed(tenant, await _role_holders(session, role_id)),
         ]
@@ -469,6 +493,7 @@ ROUTES = [
     RealtimeRoute(("identity_access.group_role.changed",), _group_role_changed),
     RealtimeRoute(("identity_access.role.changed",), _role_changed),
     RealtimeRoute(("identity_access.field_access.changed",), _field_access_changed),
+    RealtimeRoute(("identity_access.resource_access.changed",), _resource_access_changed),
     RealtimeRoute(("organization.membership.changed",), _membership_changed),
     RealtimeRoute(("licensing.entitlement.changed",), _plan_changed),
     # The technician defaults changed (D-073): like a plan change, everyone's access is redone.

@@ -47,6 +47,7 @@ export function AssignDialog({
   onClose,
   refresh,
   base = 'incidents',
+  preset,
 }: {
   item: Incident;
   open: boolean;
@@ -55,9 +56,14 @@ export function AssignDialog({
   refresh: () => Promise<unknown>;
   /** The record type's prefix (WP-044c: a problem's group and owner, the same dialog). */
   base?: 'incidents' | 'problems' | 'service-requests';
+  /**
+   * A choice made before the dialog opened (a card dropped on a board column, WP-046b S3b): the
+   * dialog opens with it picked, and everything else (reason, hand-over, D-154's group) as usual.
+   */
+  preset?: { groupId?: string | null; technicianId?: string | null };
 }) {
   if (!open) return null;
-  return <AssignBody item={item} onClose={onClose} refresh={refresh} base={base} />;
+  return <AssignBody item={item} onClose={onClose} refresh={refresh} base={base} preset={preset} />;
 }
 
 interface Choice {
@@ -70,11 +76,13 @@ function AssignBody({
   onClose,
   refresh,
   base,
+  preset,
 }: {
   item: Incident;
   onClose: () => void;
   refresh: () => Promise<unknown>;
   base: 'incidents' | 'problems' | 'service-requests';
+  preset?: { groupId?: string | null; technicianId?: string | null };
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -100,8 +108,16 @@ function AssignBody({
       : base === 'service-requests'
         ? assignRequest
         : assignIncident;
-  const [groupChoice, setGroupChoice] = useState<Choice>({ touched: false, value: null });
-  const [techChoice, setTechChoice] = useState<Choice>({ touched: false, value: null });
+  const [groupChoice, setGroupChoice] = useState<Choice>(() =>
+    preset?.groupId === undefined
+      ? { touched: false, value: null }
+      : { touched: true, value: preset.groupId },
+  );
+  const [techChoice, setTechChoice] = useState<Choice>(() =>
+    preset?.technicianId === undefined
+      ? { touched: false, value: null }
+      : { touched: true, value: preset.technicianId },
+  );
   const [reasonCode, setReasonCode] = useState<string>();
   const [reasonText, setReasonText] = useState('');
   const [handover, setHandover] = useState(false);

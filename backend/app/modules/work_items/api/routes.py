@@ -74,6 +74,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.lists import BoardGroupBy
 from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
@@ -1208,6 +1209,13 @@ class RequesterChannelOut(BaseModel):
 
     channel: str
     reason: str | None = Field(description="Null: it reaches; else why not (a labelled code).")
+
+
+class WorkItemBoardColumnOut(BaseModel):
+    """One board column (REQ-INC-111): its key, and how many records you see in it."""
+
+    key: str | None = Field(description="A status, priority, person or group ID; null: none.")
+    count: int
 
 
 class WorkItemTransitionOut(BaseModel):
@@ -2598,6 +2606,47 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         response.headers["Cache-Control"] = "no-store"
         return await _page(session, subject, page)
+
+    @router.post("/board", summary=f"Board column counts for {wtype.path}")
+    async def board(
+        session: TenantSession,
+        query: BodyQuery,
+        subject: View,
+        request: Request,
+        response: Response,
+    ) -> list[WorkItemBoardColumnOut]:
+        """Each column's count, by the list's own query (REQ-INC-111; WP-046b S3b).
+
+        The same body as `POST /list` (filter, simple, `params.view`, `params.tag`), plus
+        `params.group_by`: status (default), priority, technician or group. Only records you may
+        see are counted (lane C). Columns keep a stable order, never by count: statuses in their
+        workflow order and priorities by rank, every one even when empty; technicians and groups
+        by ID, with "none" (key null) last. Each column's cards are `POST /list` with the
+        column's own condition added.
+        """
+        sent = await request.json()
+        params = sent.get("params", {}) if isinstance(sent, dict) else {}
+
+        def first(name: str) -> str | None:
+            values = params.get(name) if isinstance(params, dict) else None
+            return str(values[0]) if isinstance(values, list) and values else None
+
+        try:
+            group_by = BoardGroupBy(first("group_by") or BoardGroupBy.STATUS)
+        except ValueError:
+            raise service.field_errors([("params.group_by", "invalid_choice")]) from None
+        found = await service.board_counts(
+            session,
+            subject,
+            wtype,
+            query,
+            group_by=group_by,
+            view=first("view"),
+            zone=request_zone(request),
+            tag=first("tag"),
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return [WorkItemBoardColumnOut(key=k, count=n) for k, n in found]
 
     @router.post(
         "/{record_id}/read",

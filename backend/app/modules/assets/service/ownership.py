@@ -41,6 +41,7 @@ from app.modules.assets.service.assets import (
     _site_change_within_scope,
     _tenant,
     _visible,
+    visible_ids,
 )
 from app.modules.assets.service.ticket_access import refuse_field, ticket_grants
 from app.modules.identity_access import Subject, active_user_ids, person_placement
@@ -272,28 +273,19 @@ async def held_by(
 
     Only the assets the person asking may see (the list's own scope rule).
     """
-    rows = (
-        (
-            await session.execute(
-                select(AssetAssignment)
-                .where(
-                    AssetAssignment.holder_kind == holder.kind,
-                    AssetAssignment.holder_id == holder.id,
-                    AssetAssignment.deleted_at.is_(None),
-                )
-                .order_by(AssetAssignment.started_at.desc(), AssetAssignment.id.desc())
-            )
+    rows = await session.execute(
+        select(Asset, AssetAssignment)
+        .join(Asset, Asset.id == AssetAssignment.asset_id)
+        .where(
+            AssetAssignment.holder_kind == holder.kind,
+            AssetAssignment.holder_id == holder.id,
+            AssetAssignment.deleted_at.is_(None),
+            Asset.deleted_at.is_(None),  # removed: left out
+            Asset.id.in_(visible_ids(subject)),  # hidden: left out, never named (ADR-053)
         )
-        .scalars()
-        .all()
+        .order_by(AssetAssignment.started_at.desc(), AssetAssignment.id.desc())
     )
-    found: list[tuple[Asset, AssetAssignment]] = []
-    for holding in rows:
-        try:
-            found.append((await _visible(session, subject, holding.asset_id), holding))
-        except (NotFound, PermissionDenied):  # hidden or removed: left out, never named
-            continue
-    return found
+    return [(asset, holding) for asset, holding in rows.tuples()]
 
 
 async def move_with_owner(session: AsyncSession, user_id: uuid.UUID) -> int:

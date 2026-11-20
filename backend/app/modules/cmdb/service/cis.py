@@ -131,6 +131,7 @@ CIS = ResourceType(
     owner_columns=(Ci.owner_user_id,),
     site_scope=_in_sites,
     group_scope=_in_groups,
+    narrowed_as="ci",  # fine-grained access (ADR-053): applied inside scope_filter
 )
 
 

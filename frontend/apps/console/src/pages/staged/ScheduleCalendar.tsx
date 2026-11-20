@@ -120,6 +120,8 @@ export interface ScheduleKind {
   testId: string;
 }
 
+// Its incident counterpart is pages/incidents/IncidentCalendar.tsx (same look, calendarMath only;
+// one shared grid for both is on the polish list, lane C 2026-11-20).
 /**
  * A staged type's calendar (WP-045c S3, generalised in WP-058b S1; ADR-042 §5): the records you
  * may see, by their planned stage's window and planned downtimes, with the freeze and maintenance

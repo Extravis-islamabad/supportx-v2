@@ -38,6 +38,8 @@ from app.modules.work_items.domain.lists import (
     MAX_COLUMNS,
     MAX_VIEW_GROUPS,
     PAGE_SIZES,
+    BoardGroupBy,
+    ListLayout,
     RowColourBy,
     ViewVisibility,
     view_key_valid,
@@ -672,6 +674,13 @@ async def save_list_setting(  # noqa: PLR0913 - the view, its version and the se
     colour = values.get("row_colour_by")
     if colour is not None and colour not in {c.value for c in RowColourBy}:
         problems.append(("row_colour_by", "invalid_choice"))
+    # REQ-INC-111 (0182): the layout and the board's columns, codes only.
+    layout = values.get("layout")
+    if layout is not None and layout not in {c.value for c in ListLayout}:
+        problems.append(("layout", "invalid_choice"))
+    group_by = values.get("group_by")
+    if group_by is not None and group_by not in {c.value for c in BoardGroupBy}:
+        problems.append(("group_by", "invalid_choice"))
     if problems:
         raise items.field_errors(problems)
     clean = {
@@ -679,6 +688,8 @@ async def save_list_setting(  # noqa: PLR0913 - the view, its version and the se
         "sort": _sort(values.get("sort"), await allowed_fields(session, wtype)),
         "page_size": page_size,
         "row_colour_by": colour,
+        "layout": layout,
+        "group_by": group_by,
     }
     repository = SettingRepository(session)
     if existing is None:

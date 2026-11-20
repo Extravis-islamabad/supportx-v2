@@ -172,6 +172,7 @@ describe('a vendor support session', () => {
           access: 'view',
           ends_at: '2099-01-01T10:00:00Z',
           contacts_masked: true,
+          names_masked: false,
         },
       },
     });
@@ -180,7 +181,9 @@ describe('a vendor support session', () => {
     render(<App />);
     const banner = await screen.findByTestId('support-banner');
     expect(banner.textContent).toContain("You're signed in as Extravis support");
-    expect(banner.textContent).toContain('hidden');
+    // D-180: names are shown by default; e-mail and phone never are.
+    expect(banner.textContent).toContain('e-mail addresses and phone numbers are hidden');
+    expect(banner.textContent).not.toContain('names');
   });
 
   it('shows the stand-in only for an empty name in a masked session (pure, no shared state)', () => {

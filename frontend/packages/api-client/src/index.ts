@@ -234,6 +234,17 @@ export {
   type RuleableField,
 } from './fieldAccess';
 export {
+  resourceAccessKeys,
+  usePersonResourceAccess,
+  useResourceCriteria,
+  useResourceRules,
+  useSaveResourceRule,
+  type AccessResource,
+  type PersonResourceAccess,
+  type ResourceCriteria,
+  type ResourceRule,
+} from './resourceAccess';
+export {
   useAssignIncident,
   useCreateIncident,
   useDecideIncidentApproval,
@@ -248,6 +259,8 @@ export {
   useIncidentCategories,
   useIncidentHistory,
   useIncidents,
+  useIncidentBoard,
+  type IncidentBoardColumn,
   useIncidentSla,
   useIncidentSearch,
   useIncidentViews,
@@ -361,6 +374,19 @@ export {
   type SupportGrantMade,
   type SupportLinkOpened,
 } from './vendorSupport';
+export {
+  siemKeys,
+  useAddSiemDestination,
+  useChangeSiemDestination,
+  useRemoveSiemDestination,
+  useRotateSiemSecret,
+  useSiemDestinations,
+  useTestSiemDestination,
+  type SiemDestination,
+  type SiemDestinationInput,
+  type SiemDestinationMade,
+  type SiemTest,
+} from './siem';
 export {
   useFieldSensitivity,
   useSetFieldSensitivity,
@@ -566,6 +592,8 @@ export {
   useRerunIncidentViewAudit,
   type ListDisplay,
   type RowColourBy,
+  type ListLayout,
+  type BoardGroupBy,
   type ViewAudit,
   useStartBulk,
   type BulkAction,

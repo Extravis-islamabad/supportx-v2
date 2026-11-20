@@ -681,7 +681,9 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     found = asyncio.run(_first_assets(first, database.migrator_url))
     stock = asyncio.run(_first_stock(first, database))
     audit = _first_audit(first, database)
-    assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
+    # Spread over the past 30 days (choice (b)); not releases. 75, plus the six incidents of
+    # lane A's board technicians (WP-046b S3b).
+    assert first.backdated == 81
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
     # The password is the environment's, set only on the users made here.
@@ -690,8 +692,11 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     keycloak.passwords[imported] = "Changed-By-Hand-1!"  # never overwritten
     assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
     counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
-    assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-    assert counts["work_items"] == 75 + len(seed.RELEASES)
+    # Plus lane A's board technicians (WP-046b S3b).
+    assert counts["users"] == (
+        len(seed.PEOPLE) + len(seed.SIGN_INS) + len(lane_a.BOARD_TECHNICIANS)
+    )
+    assert counts["work_items"] == 81 + len(seed.RELEASES)
     assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
     # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
     # has targets, the urgent ones and the network ones on the showcase's own policies.
@@ -711,7 +716,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         "problem assigned known error": 3,  # the creator owns a new problem (#267)
         "problem assigned": 2,
         "new unassigned": 10,
-        "assigned": 14,
+        "assigned": 20,  # 14, plus the six of lane A's board technicians (WP-046b S3b)
         "in_progress": 12,
         "awaiting_requester": 6,
         "resolved": 10,

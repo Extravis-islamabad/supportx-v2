@@ -201,6 +201,8 @@ async def test_req_inc_104_ac1_ac3_columns_per_user_per_view(world: World) -> No
         "sort": None,
         "page_size": 50,
         "row_colour_by": None,  # REQ-INC-115: no choice of theirs, the tenant's default applies
+        "layout": None,  # REQ-INC-111: the table
+        "group_by": None,  # the board by status
         "version": None,
     }
     columns = [{"key": "display_id", "width": 120}, {"key": "custom.asset_tag", "width": None}]
@@ -1080,3 +1082,44 @@ async def test_d176_the_owner_is_told_and_the_audit_runs_on_its_own(world: World
         uuid.UUID(view["id"]),
     )
     assert row["visibility"] == "private"
+
+
+async def test_req_inc_111_the_layout_and_board_columns_are_kept_per_person_and_view(
+    world: World,
+) -> None:
+    """WP-046b S3b (0182): table, cards or board, and the board's columns, are the person's own."""
+    a = world.a
+    path = f"{BASE}/list-settings/open"
+    first = await world.call(
+        "PUT", path, a, a.tech_a, json={"page_size": 25, "layout": "board", "group_by": "priority"}
+    )
+    assert first.status_code == 200, first.text
+    assert (first.json()["layout"], first.json()["group_by"]) == ("board", "priority")
+    shown = (await world.call("GET", path, a, a.tech_a)).json()
+    assert (shown["layout"], shown["group_by"]) == ("board", "priority")
+    # Another person, and another view, keep their own (the table).
+    assert (await world.call("GET", path, a, a.tech_b)).json()["layout"] is None
+    other = await world.call("GET", f"{BASE}/list-settings/my_open", a, a.tech_a)
+    assert other.json()["layout"] is None
+    # Only the known codes (the schema refuses the rest; nothing is echoed).
+    bad = await world.call(
+        "PUT",
+        path,
+        a,
+        a.tech_a,
+        json={"page_size": 25, "layout": "kanban", "group_by": "site"},
+        headers={"If-Match": f'"{first.json()["version"]}"'},
+    )
+    assert set(field_codes(bad)) == {"layout", "group_by"}
+    assert "kanban" not in bad.text
+    # Back to the table (null) with the version read.
+    back = await world.call(
+        "PUT",
+        path,
+        a,
+        a.tech_a,
+        json={"page_size": 25, "layout": None, "group_by": None},
+        headers={"If-Match": f'"{first.json()["version"]}"'},
+    )
+    assert back.status_code == 200, back.text
+    assert back.json()["layout"] is None
