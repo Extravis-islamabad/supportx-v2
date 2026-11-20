@@ -7,8 +7,10 @@ verified (AC2): the partial unique index decides, and a conflicting verify gets 
 
 - **The lookup** goes through `resolver`, a port (`lookup(name) -> TXT strings`). It raises
   `DnsUnreachable` when DNS can't be asked; that's a labelled outcome of its own, never "not
-  found". Until a resolver is installed, every lookup says DNS is unreachable, and a tenant admin
-  can verify by hand (recent sign-in, a reason, audited; the coordinator's on-prem fallback).
+  found". Until a resolver is installed, every lookup says automatic checking isn't available yet
+  (`dns_check_unavailable`, never a failure that counts towards a lapse), and on a single-tenant
+  installation a tenant admin can verify by hand (recent sign-in, a reason, audited). A domain
+  verified by hand is never re-checked by the schedule: its proof was the admin's, not DNS.
 - **Keycloak follows our database** (lane B (1)): a verify or un-verify raises
   `VerifiedDomainChanged`, and its consumer marks the organisation's domain verified, or removes it
   (lane B (2)). If Keycloak refuses (another organisation holds it), the domain goes back to
@@ -56,16 +58,21 @@ ELSEWHERE = "domain_verified_elsewhere"
 FOUND = "found"
 NOT_FOUND = "not_found"
 UNREACHABLE = "dns_unreachable"
+UNAVAILABLE = "dns_check_unavailable"  # no TXT lookup installed yet (the dependency decision)
 TOO_MANY = "domains_too_many"
 
 
 class DnsUnreachable(Exception):
-    """DNS could not be asked (no resolver, a timeout, a refused query)."""
+    """DNS could not be asked (a timeout, a refused query)."""
+
+
+class DnsCheckUnavailable(DnsUnreachable):
+    """No TXT lookup is installed yet (the coordinator: never worded as a network fault)."""
 
 
 async def _no_resolver(name: str) -> list[str]:
     del name
-    raise DnsUnreachable
+    raise DnsCheckUnavailable
 
 
 # The installed TXT lookup (swapped in tests; a real one comes once its library is approved).
@@ -149,12 +156,14 @@ async def add(session: AsyncSession, raw: str) -> Added:
     return Added(row, token.value)
 
 
-async def _lookup(domain: str) -> list[str] | None:
-    """The TXT strings at `_supportx.<domain>`, at most 20; None when DNS can't be asked."""
+async def _lookup(domain: str) -> list[str] | str:
+    """The TXT strings at `_supportx.<domain>` (at most 20), or why there are none to read."""
     try:
         found = await resolver(rules.record_name(domain))
+    except DnsCheckUnavailable:
+        return UNAVAILABLE
     except DnsUnreachable:
-        return None
+        return UNREACHABLE
     return found[:TXT_ANSWERS_MAX]
 
 
@@ -185,16 +194,17 @@ async def check(session: AsyncSession, row: VerifiedDomain, *, now: datetime | N
     at = now or system_clock.now()
     texts = await _lookup(row.domain)
     row.last_checked_at = at
-    if texts is not None and rules.proves(texts, row.token_digest):
+    if not isinstance(texts, str) and rules.proves(texts, row.token_digest):
         if row.state == DomainState.VERIFIED.value:
             row.failing_since, row.failure_count, row.last_outcome = None, 0, FOUND
             await session.flush()
             await _changed(session, row, "checked")
             return FOUND
         return await _verify(session, row, "dns", at)
-    outcome = UNREACHABLE if texts is None else NOT_FOUND
+    outcome = texts if isinstance(texts, str) else NOT_FOUND
     row.last_outcome = outcome
-    if row.state == DomainState.VERIFIED.value:
+    # No lookup installed says nothing about the record: it never counts towards a lapse.
+    if row.state == DomainState.VERIFIED.value and outcome != UNAVAILABLE:
         row.failure_count += 1
         row.failing_since = row.failing_since or at
         if rules.lapses(row.failure_count, row.failing_since, at):
@@ -312,6 +322,8 @@ async def check_schedule(database: Database, settings: Settings) -> None:
         try:
             async with database.tenant_session(TenantContext(tenant)) as session:
                 for row in await list_domains(session):
+                    if row.verified_by_method == "manual":
+                        continue  # vouched for by an admin, not DNS: never re-checked
                     state = DomainState(row.state)
                     failing = row.failing_since is not None
                     if failing or rules.due(state, row.last_checked_at, row.created_at, now):

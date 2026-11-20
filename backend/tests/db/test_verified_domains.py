@@ -252,3 +252,30 @@ async def test_a_manual_verify_is_refused_on_a_multi_tenant_installation(
         world, "SELECT state FROM verified_domains WHERE id = $1", uuid.UUID(added["id"])
     )
     assert row["state"] == "pending"
+
+
+async def test_without_a_lookup_installed_nothing_lapses(
+    world: World,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The coordinator: until the TXT lookup is installed, a check says automatic checking isn't
+    available (never a network fault), and that never counts towards a lapse."""
+    monkeypatch.setattr(domains, "resolver", domains._no_resolver)  # noqa: SLF001 - the default
+    added = await _add(world, world.a, "unavailable.test")
+    checked = await world.call("POST", f"{BASE}/{added['id']}/check", world.a)
+    assert checked.json()["outcome"] == "dns_check_unavailable"
+    vouched = await world.call(
+        "POST",
+        f"{BASE}/{added['id']}/verify",
+        world.a,
+        json={"reason": "Single-tenant, ours"},
+        headers={"If-Match": f'"{checked.json()["domain"]["version"]}"'},
+    )
+    assert vouched.status_code == 200, vouched.text
+    start = system_clock.now()
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        row = await session.get(VerifiedDomain, uuid.UUID(added["id"]))
+        assert row is not None
+        for hours in (0, 48, 96):
+            await domains.check(session, row, now=start + timedelta(hours=hours))
+        assert (row.state, row.failure_count) == ("verified", 0)
