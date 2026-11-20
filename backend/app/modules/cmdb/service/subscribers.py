@@ -35,6 +35,11 @@ from app.shared.ids import new_id
 SUBSCRIBERS_MAX = 100
 BUSINESS_SERVICE = "business_service"  # the built-in CI type (domain/types.py BUILT_IN_TYPES)
 NOT_A_SERVICE = "cmdb_not_business_service"  # a field code: only business services subscribe
+VIEW_RIGHT = {  # the right to see each kind of unit (ref_names names them by the same rights)
+    AudienceKind.DEPARTMENT: ref_names.DEPARTMENTS_VIEW,
+    AudienceKind.SITE: ref_names.SITES_VIEW,
+    AudienceKind.GROUP: ref_names.GROUPS_VIEW,
+}
 
 
 @dataclass(frozen=True)
@@ -146,7 +151,8 @@ async def set_subscribers(  # noqa: PLR0913 - the CI, its version, the list and 
     have = {(AudienceKind(r.kind), r.ref_id): r for r in current}
     added = [ref for ref in wanted if ref not in have]
     live = await _live(session, added)
-    missing = [ref for ref in added if ref not in live]
+    # A unit the writer may not view reads like one that doesn't exist (lane C on #565).
+    missing = [ref for ref in added if ref not in live or not subject.holds(VIEW_RIGHT[ref[0]])]
     if missing:
         raise invalid([Problem("subscribers", "not_found")])
     gone = [row for key, row in have.items() if key not in set(wanted)]

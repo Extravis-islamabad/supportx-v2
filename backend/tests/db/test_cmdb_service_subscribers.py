@@ -243,3 +243,31 @@ async def test_impact_counts_only_the_subscribers_of_services_the_reader_can_see
     assert part["affected_users_partial"] is True  # "of services you can see"
     assert part["affected_people"] is None  # no users.view: the count only
     assert "Secret team" not in narrowed.text
+
+
+async def test_a_unit_the_writer_cannot_view_reads_like_one_that_does_not_exist(
+    world: World,
+) -> None:
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    service = await _made(world, a, f"Writer check {tag}", "business_service")
+    await _given(
+        world,
+        a,
+        a.requester2,
+        f"CMDB editor, no groups {tag}",
+        [("cmdb.view", "all"), ("cmdb.edit", "all")],
+    )
+    version = int((await _get(world, a, service, a.admin)).headers["ETag"].strip('"'))
+    answers = []
+    for ref in (a.ga, uuid.uuid4()):  # a real group they can't view, and none at all
+        put = await world.call(
+            "PUT",
+            f"/cmdb/cis/{service['id']}/subscribers",
+            a,
+            a.requester2,
+            json={"subscribers": [{"kind": "group", "ref_id": str(ref)}]},
+            headers=_match(version),
+        )
+        answers.append((put.status_code, field_codes(put)))
+    assert answers[0] == answers[1] == (422, {"subscribers": "not_found"})
