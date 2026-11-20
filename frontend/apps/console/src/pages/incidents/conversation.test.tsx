@@ -9,7 +9,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { consoleApi, listCalls } from '../../test/api';
 import { rememberTab } from './tabs';
 
 // The fake session's user (api-client testing fixtures).
@@ -383,7 +383,7 @@ describe('Personal counters', () => {
     });
     fireEvent.click(waiting);
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(last?.url.searchParams.get('view')).toBe('waiting_on_me');
     });
     expect(waiting.getAttribute('aria-pressed')).toBe('true');

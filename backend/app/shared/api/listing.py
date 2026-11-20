@@ -368,6 +368,10 @@ RewriteFor = Callable[
 ]
 
 
+# A form may refuse a filter it must not carry (a sealed value in a URL: lane C).
+RefuseFor = Callable[[AsyncSession, Any, Mapping[str, Sequence[str]]], Awaitable[None]]
+
+
 async def _allowed(  # noqa: PLR0913 - a list's allowlist and its two hooks, explicit
     resource: ResourceFields,
     session: AsyncSession,
@@ -389,13 +393,115 @@ async def _allowed(  # noqa: PLR0913 - a list's allowlist and its two hooks, exp
     return allowed, withheld
 
 
-def list_query(
+# The body form's own cap (lane B): the filter keeps the DSL's limits on top. What bounds the
+# cost of parsing a large body is the app-wide request limit (core/body_limit.py), which reads no
+# more than its cap; this check is the list's own, smaller limit on an already-read body.
+BODY_MAX_BYTES = 64 * 1024
+
+
+class ListQueryBody(BaseModel):
+    """A list's options as a JSON body (`POST .../list`): the same as its query parameters.
+
+    For filters that may carry a protected value (a sealed field's), so nothing is in a URL.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    filter: dict[str, Any] | None = Field(
+        default=None, description="Filter DSL (schema: FilterExpression)."
+    )
+    sort: str | None = Field(default=None, max_length=200)
+    limit: int | None = None
+    cursor: str | None = Field(default=None, max_length=4096)
+    include_total: bool = False
+    simple: dict[str, list[str]] = Field(
+        default_factory=dict, description="Simple filters, as the GET's other query parameters."
+    )
+    params: dict[str, list[str]] = Field(
+        default_factory=dict, description="The endpoint's own parameters (e.g. view, tag)."
+    )
+
+
+async def _build(  # noqa: PLR0913 - one list query's parts, explicit
+    request: Request,
+    response: Response,
+    tenant: TenantContext,
+    session: AsyncSession,
+    codec: CursorCodec,
+    *,
+    resource: ResourceFields,
+    fields_for: FieldsFor | None,
+    exclude_for: ExcludeFor | None,
+    rewrite_for: RewriteFor | None,
+    tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+    sort: str | None,
+    limit: int | None,
+    cursor: str | None,
+    include_total: bool,
+    simple: dict[str, list[str]],
+    own: dict[str, list[str]],
+) -> ListQuery:
+    """One list query, from either form (the GET's query string or the POST's body)."""
+    settings: Settings = request.app.state.settings
+    allowed, withheld = await _allowed(
+        resource, session, request, tenant, fields_for=fields_for, exclude_for=exclude_for
+    )
+    size = settings.page_size_default if limit is None else limit
+    if size > settings.page_size_max:
+        # Too large is reduced to the maximum and said so, never refused (REQ-INT-024 AC3).
+        size = settings.page_size_max
+        response.headers[PAGE_SIZE_CAPPED] = str(settings.page_size_max)
+    if size < 1:
+        raise _invalid(
+            at="limit",
+            field_code="out_of_range",
+            problem="invalid_page_size",
+            params={"max": settings.page_size_max},
+        )
+    # Calendar filters ("today", "this week") use the requester's time zone (WP-012).
+    now = datetime.now(request_zone(request))
+    # The cursor's fingerprint is the filter as asked, not as rewritten: a rewrite may name
+    # records (a blind-index match) that change between pages.
+    asked_tree, asked_simple = tree, dict(simple)
+    if rewrite_for is not None:
+        tree, simple, added = await rewrite_for(session, tree, simple, withheld)
+        if added:
+            allowed = replace(allowed, fields={**allowed.fields, **added})
+    where = and_(
+        compile_simple(simple, allowed),
+        compile_filter(tree, allowed, now=now) if tree is not None else true(),
+    )
+    keys = parse_sort(sort, allowed)
+    # Only ever an input to the cursor's HMAC (CursorCodec._sign), never in its readable payload:
+    # a plain hash of a low-entropy sealed value could be brute-forced (lane C).
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            [asked_tree, sorted(asked_simple.items()), sorted(own.items())]
+            if own
+            else [asked_tree, sorted(asked_simple.items())],
+            sort_keys=True,
+            default=str,
+        ).encode()
+    ).hexdigest()
+    scope = CursorScope(
+        endpoint=_route_path(request),
+        tenant_id=tenant.tenant_id,
+        user_id=tenant.user_id,
+        sort=sort_signature(keys),
+        filter_fingerprint=fingerprint,
+    )
+    after = codec.decode(cursor, scope, keys) if cursor else None
+    return ListQuery(allowed, where, keys, size, after, include_total, scope, codec)
+
+
+def list_query(  # noqa: PLR0913 - a list's allowlist and its hooks, explicit
     resource: ResourceFields,
     *,
     extra_parameters: frozenset[str] = frozenset(),
     fields_for: FieldsFor | None = None,
     exclude_for: ExcludeFor | None = None,
     rewrite_for: RewriteFor | None = None,
+    refuse_for: RefuseFor | None = None,
 ) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
     """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`.
 
@@ -405,6 +511,7 @@ def list_query(
     for this request (WP-026: custom fields as `custom.<key>`), read in the request's session.
     `exclude_for` names fields the caller may not filter or sort on (ADR-047): taken out.
     `rewrite_for` may rewrite the parsed filter before it compiles (WP-057 S3b-2).
+    `refuse_for` may refuse a filter this form must not carry (a sealed value in a URL).
     """
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
@@ -431,22 +538,6 @@ def list_query(
         ] = None,
         include_total: Annotated[bool, Query(description="Also count matches (capped).")] = False,  # noqa: FBT002 - query flag
     ) -> ListQuery:
-        settings: Settings = request.app.state.settings
-        allowed, withheld = await _allowed(
-            resource, session, request, tenant, fields_for=fields_for, exclude_for=exclude_for
-        )
-        size = settings.page_size_default if limit is None else limit
-        if size > settings.page_size_max:
-            # Too large is reduced to the maximum and said so, never refused (REQ-INT-024 AC3).
-            size = settings.page_size_max
-            response.headers[PAGE_SIZE_CAPPED] = str(settings.page_size_max)
-        if size < 1:
-            raise _invalid(
-                at="limit",
-                field_code="out_of_range",
-                problem="invalid_page_size",
-                params={"max": settings.page_size_max},
-            )
         simple: dict[str, list[str]] = {}
         own: dict[str, list[str]] = {}
         for name, value in request.query_params.multi_items():
@@ -454,39 +545,78 @@ def list_query(
                 own.setdefault(name, []).append(value)
             elif name not in RESERVED_PARAMETERS:
                 simple.setdefault(name, []).append(value)
-        # Calendar filters ("today", "this week") use the requester's time zone (WP-012).
-        now = datetime.now(request_zone(request))
         tree = parse_filter_json(filter_) if filter_ is not None else None
-        # The cursor's fingerprint is the filter as asked, not as rewritten: a rewrite may name
-        # records (a blind-index match) that change between pages.
-        asked_tree, asked_simple = tree, dict(simple)
-        if rewrite_for is not None:
-            tree, simple, added = await rewrite_for(session, tree, simple, withheld)
-            if added:
-                allowed = replace(allowed, fields={**allowed.fields, **added})
-        where = and_(
-            compile_simple(simple, allowed),
-            compile_filter(tree, allowed, now=now) if tree is not None else true(),
+        if refuse_for is not None:
+            await refuse_for(session, tree, simple)
+        return await _build(
+            request,
+            response,
+            tenant,
+            session,
+            codec,
+            resource=resource,
+            fields_for=fields_for,
+            exclude_for=exclude_for,
+            rewrite_for=rewrite_for,
+            tree=tree,
+            sort=sort,
+            limit=limit,
+            cursor=cursor,
+            include_total=include_total,
+            simple=simple,
+            own=own,
         )
-        keys = parse_sort(sort, allowed)
-        fingerprint = hashlib.sha256(
-            json.dumps(
-                [asked_tree, sorted(asked_simple.items()), sorted(own.items())]
-                if own
-                else [asked_tree, sorted(asked_simple.items())],
-                sort_keys=True,
-                default=str,
-            ).encode()
-        ).hexdigest()
-        scope = CursorScope(
-            endpoint=_route_path(request),
-            tenant_id=tenant.tenant_id,
-            user_id=tenant.user_id,
-            sort=sort_signature(keys),
-            filter_fingerprint=fingerprint,
+
+    return dependency
+
+
+def list_query_body(
+    resource: ResourceFields,
+    *,
+    extra_parameters: frozenset[str] = frozenset(),
+    fields_for: FieldsFor | None = None,
+    exclude_for: ExcludeFor | None = None,
+    rewrite_for: RewriteFor | None = None,
+) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
+    """The same list query from a JSON body (`ListQueryBody`), for `POST .../list`.
+
+    A read, not a create: no Idempotency-Key. The body is capped (`BODY_MAX_BYTES`) and its
+    filter goes through the DSL's own limits, as the GET's does.
+    """
+
+    async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
+        request: Request,
+        response: Response,
+        tenant: Annotated[TenantContext, Depends(resolve_tenant)],
+        session: TenantSession,
+        codec: Annotated[CursorCodec, Depends(get_cursor_codec)],
+        body: ListQueryBody,
+    ) -> ListQuery:
+        raw = await request.body()
+        if len(raw) > BODY_MAX_BYTES:
+            raise _invalid(
+                at="body", field_code="value_too_long", problem="list_body_too_large", params={}
+            )
+        tree = parse_filter_json(json.dumps(body.filter)) if body.filter is not None else None
+        own = {k: v for k, v in body.params.items() if k in extra_parameters}
+        return await _build(
+            request,
+            response,
+            tenant,
+            session,
+            codec,
+            resource=resource,
+            fields_for=fields_for,
+            exclude_for=exclude_for,
+            rewrite_for=rewrite_for,
+            tree=tree,
+            sort=body.sort,
+            limit=body.limit,
+            cursor=body.cursor,
+            include_total=body.include_total,
+            simple={k: v for k, v in body.simple.items() if k not in RESERVED_PARAMETERS},
+            own=own,
         )
-        after = codec.decode(cursor, scope, keys) if cursor else None
-        return ListQuery(allowed, where, keys, size, after, include_total, scope, codec)
 
     return dependency
 

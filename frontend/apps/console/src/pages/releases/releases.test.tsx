@@ -10,7 +10,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { consoleApi, listCalls } from '../../test/api';
 
 // WP-058a s6: releases in the console: the list (stage, status, the emergency flag), the stage
 // rail with its moves, a move's dialog asking only for what the move needs, and If-Match on it.
@@ -235,7 +235,7 @@ describe('console: releases', () => {
     const bar = screen.getByTestId('releases-filters');
     expect(within(bar).getByTestId('releases-view')).toBeTruthy();
     expect(within(bar).getByTestId('releases-search')).toBeTruthy();
-    const first = fake.find('GET', '/api/v1/releases')[0];
+    const first = listCalls(fake, '/api/v1/releases')[0];
     expect(first?.url.searchParams.get('view')).toBe('open');
     expect(first?.url.searchParams.get('include_total')).toBe('true');
     // The view select, as on every list (QA10V-06; it was segmented tabs).
@@ -245,7 +245,7 @@ describe('console: releases', () => {
     fireEvent.click(await screen.findByTitle('All'));
     fireEvent.change(within(bar).getByRole('searchbox'), { target: { value: 'rel-1' } });
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      const last = listCalls(fake, '/api/v1/releases').at(-1);
       expect(last?.url.searchParams.get('view')).toBeNull();
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
         or: [
@@ -1230,7 +1230,7 @@ describe('console: the release list (WP-058b S5a)', () => {
     expect(await screen.findByTitle('My releases')).toBeTruthy();
     fireEvent.click(await screen.findByTitle('Unscheduled'));
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/releases').at(-1);
+      const last = listCalls(fake, '/api/v1/releases').at(-1);
       expect(last?.url.searchParams.get('view')).toBe('unscheduled');
     });
   });

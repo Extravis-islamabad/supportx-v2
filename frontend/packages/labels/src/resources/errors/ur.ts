@@ -711,6 +711,8 @@ export const ur: LabelResource = {
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
+  'errors.field.sealed_filter_needs_post':
+    'یہ فیلڈ محفوظ ہے، اس لیے اس پر فلٹر صرف فہرست کے اندر ہو سکتا ہے، کسی لنک میں نہیں۔',
   'errors.field.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
@@ -1011,6 +1013,8 @@ export const ur: LabelResource = {
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
   'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
+  'errors.list_body_too_large':
+    'فہرست کی یہ درخواست بہت بڑی ہے۔ فلٹر مختصر کریں اور دوبارہ کوشش کریں۔',
   'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.login_not_this_browser':

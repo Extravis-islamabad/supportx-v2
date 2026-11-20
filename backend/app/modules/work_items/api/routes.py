@@ -37,7 +37,11 @@ from app.modules.work_items.api.conversation_routes import (
 )
 from app.modules.work_items.api.convert_routes import add_convert_routes
 from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
-from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.list_routes import (
+    add_list_routes,
+    list_body_dependency,
+    list_dependency,
+)
 from app.modules.work_items.api.major_routes import add_major_routes
 from app.modules.work_items.api.merge_routes import add_incident_merge_routes
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
@@ -2514,6 +2518,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     # The record's own requester (no console permission): the service checks it is theirs.
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
+    BodyQuery = Annotated[ListQuery, Depends(list_body_dependency(wtype))]  # noqa: N806 - alias
     location = f"/api/v1/{wtype.path}"
     name = wtype.code.replace("_", " ")
     audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
@@ -2560,6 +2565,38 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         page = await service.list_page(
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
+        return await _page(session, subject, page)
+
+    @router.post("/list", summary=f"List {wtype.path} (options in the body)")
+    async def list_items_by_body(
+        session: TenantSession,
+        query: BodyQuery,
+        subject: View,
+        request: Request,
+        response: Response,
+    ) -> WorkItemPage:
+        """The same page as the GET, with its options in a JSON body.
+
+        A read, not a create (no Idempotency-Key). A filter on a sealed field comes this way, so
+        its value is in no URL; the answer is not stored by caches.
+        """
+        sent = await request.json()
+        params = sent.get("params", {}) if isinstance(sent, dict) else {}
+
+        def first(name: str) -> str | None:
+            values = params.get(name) if isinstance(params, dict) else None
+            return str(values[0]) if isinstance(values, list) and values else None
+
+        page = await service.list_page(
+            session,
+            subject,
+            wtype,
+            query,
+            view=first("view"),
+            zone=request_zone(request),
+            tag=first("tag"),
+        )
+        response.headers["Cache-Control"] = "no-store"
         return await _page(session, subject, page)
 
     @router.post(
