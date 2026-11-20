@@ -8,6 +8,8 @@ export interface AssetDraft {
   serial_number: string;
   barcode: string;
   vendor_id: string | null;
+  /** The support group managing it (0183, D-172): its `group` scope. */
+  managed_by_group_id: string | null;
   location: string;
   /** REQ-AST-038: free text until real cost centres arrive (WP-054). */
   cost_centre: string;
@@ -30,6 +32,7 @@ export function draftOf(asset: AssetRecord | null): AssetDraft {
     serial_number: asset?.serial_number ?? '',
     barcode: asset?.barcode ?? '',
     vendor_id: asset?.vendor_id ?? null,
+    managed_by_group_id: asset?.managed_by_group_id ?? null,
     location: asset?.location ?? '',
     cost_centre: asset?.cost_centre ?? '',
     gl_code: asset?.gl_code ?? '',
@@ -53,6 +56,7 @@ export function bodyOf(draft: AssetDraft, before?: AssetDraft): Record<string, u
     serial_number: blank(draft.serial_number),
     barcode: blank(draft.barcode),
     vendor_id: draft.vendor_id,
+    managed_by_group_id: draft.managed_by_group_id,
     location: blank(draft.location),
     cost_centre: blank(draft.cost_centre),
     gl_code: blank(draft.gl_code),

@@ -405,6 +405,10 @@ export const ar: LabelResource = {
     'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
+  'errors.field.criteria_required': 'حدّد شيئًا واحدًا على الأقل تسمح به القاعدة.',
+  'errors.field.criteria_too_large': 'تتضمن هذه القاعدة الكثير. قسّمها إلى قواعد أصغر.',
+  'errors.field.criterion_invalid': 'هذا المعيار غير صالح.',
+  'errors.field.criterion_unknown': 'لا يمكن لهذه القاعدة استخدام هذا المعيار.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.custom_field_scope_unknown': 'هذا النوع غير موجود (بعد الآن).',
   'errors.field.custom_field_scope_unsupported':
@@ -1077,6 +1081,9 @@ export const ar: LabelResource = {
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
   'errors.required': 'هذا الحقل مطلوب.',
+  'errors.resource_access_limit_reached':
+    'لدى مؤسستك بالفعل {{limit}} قاعدة للوصول إلى السجلات، وهو الحد الأقصى. احذف قاعدة أولاً.',
+  'errors.resource_access_rule_not_found': 'قاعدة الوصول إلى السجلات هذه لم تعد موجودة.',
   'errors.restart_at_end': 'اختر خطوة للتشغيل منها، لا نهاية.',
   'errors.role_in_use': 'هذا الدور ما زال مسندًا إلى مستخدمين. اختر دورًا لنقلهم إليه أولًا.',
   'errors.role_not_found': 'لم يُعثر على هذا الدور.',

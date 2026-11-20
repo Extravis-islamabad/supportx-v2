@@ -844,7 +844,7 @@ async def hand_over(
     row, loan = await bookings.hand_over(
         session, subject, booking_id, expected_version=version, source=source_of(request)
     )
-    return AssetHandoverOut(booking=_booking_out(row), loan=await _loan_out(session, loan))
+    return AssetHandoverOut(booking=_booking_out(row), loan=await _loan_out(session, subject, loan))
 
 
 class AssetHeldOut(BaseModel):
@@ -888,8 +888,9 @@ async def availability(
     q: Annotated[str | None, Query(max_length=200)] = None,
 ) -> list[AssetAvailabilityOut]:
     """Loanable assets not retired or disposed, 50 at most (the booking calendar)."""
-    del subject
-    found = await bookings.availability(session, product_id=product_id, site_id=site_id, text_=q)
+    found = await bookings.availability(
+        session, subject=subject, product_id=product_id, site_id=site_id, text_=q
+    )
     return _availability(found)
 
 
@@ -942,7 +943,10 @@ async def bookable(
     """Only while the organisation allows booking from the portal (403 otherwise)."""
     del subject
     await _portal_on(session)
-    found = await bookings.availability(session, product_id=None, site_id=None, text_=q)
+    # The portal's list: alike for every signed-in person (no staff scope, so no ADR-053 set).
+    found = await bookings.availability(
+        session, subject=None, product_id=None, site_id=None, text_=q
+    )
     return _availability(found)
 
 

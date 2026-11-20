@@ -20,7 +20,7 @@ from app.modules.audit import audited
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import Ci, CiState
 from app.modules.cmdb.service import catalogue, cis
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, scope_filter
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query
@@ -404,9 +404,11 @@ def _page(page: PageResult[Ci]) -> CiPage:
 
 @router.get("/ci-types", summary="CI types")
 async def list_types(session: TenantSession, subject: View) -> CiTypeList:
-    """Every CI type with its counts."""
-    del subject
-    return CiTypeList(items=[CiTypeOut.of(v) for v in await catalogue.list_types(session)])
+    """Every CI type with its counts, counted within what the reader may see."""
+    visible = scope_filter(subject, catalogue.VIEW, cis.CIS)
+    return CiTypeList(
+        items=[CiTypeOut.of(v) for v in await catalogue.list_types(session, visible=visible)]
+    )
 
 
 @router.post(

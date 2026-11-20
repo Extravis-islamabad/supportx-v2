@@ -453,6 +453,8 @@ export const ur: LabelResource = {
   'audit.action.role.field_access_changed': 'کسی فیلڈ کو دیکھنے کی رسائی بدلی',
   'audit.action.role.group_added': 'گروپ کو کردار دیا',
   'audit.action.role.group_removed': 'گروپ سے کردار لیا',
+  'audit.action.role.resource_access_changed':
+    'بدلا کہ کوئی کردار کون سے اثاثے یا کنفیگریشن آئٹمز دیکھتا ہے',
   'audit.action.role.updated': 'کردار تبدیل کیا',
   'audit.action.security.session_key_retired': 'تنصیب کی پرانی سائن اِن کلید ریٹائر کی گئی',
   'audit.action.security.session_key_rotated': 'تنصیب کی سائن اِن کلید بدلی گئی',
@@ -1078,6 +1080,7 @@ export const ur: LabelResource = {
   'event_type.identity_access.people_import.progressed': 'افراد کی درآمد آگے بڑھی',
   'event_type.identity_access.person_erasure.changed': 'فرد کا ڈیٹا مٹانا تبدیل ہوا',
   'event_type.identity_access.person_erasure.completed': 'فرد کا ڈیٹا مٹا دیا گیا',
+  'event_type.identity_access.resource_access.changed': 'ریکارڈ تک رسائی کا اصول بدلا گیا',
   'event_type.identity_access.role.changed': 'کردار تبدیل ہوا',
   'event_type.identity_access.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'event_type.identity_access.session.tenant_switched': 'ادارہ تبدیل کیا',

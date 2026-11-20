@@ -21,6 +21,7 @@ log = get_logger(__name__)
 TRIGGERS = (
     "identity_access.role.changed",
     "identity_access.field_access.changed",  # ADR-047: a rule reaches the next request
+    "identity_access.resource_access.changed",  # ADR-053: the same for asset and CI rules
     "identity_access.user_role.changed",
     "identity_access.user.updated",
     "identity_access.user.status_changed",

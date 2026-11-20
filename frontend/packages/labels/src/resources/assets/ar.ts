@@ -848,6 +848,7 @@ export const ar: LabelResource = {
   'assets.record.linked_work_item': 'سجل مرتبط',
   'assets.record.loanable': 'قابل للإعارة',
   'assets.record.location': 'الموقع التفصيلي',
+  'assets.record.managed_by_group': 'المجموعة المسؤولة',
   'assets.record.merged_from': 'دُمج منه',
   'assets.record.merged_into': 'دُمج في',
   'assets.record.name': 'الاسم',

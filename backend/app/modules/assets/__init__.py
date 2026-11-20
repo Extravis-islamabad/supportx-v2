@@ -46,6 +46,7 @@ from app.modules.assets.api.stock import router as stock_router
 from app.modules.assets.domain.scans import ScanFailure, ScanResult, ScanSource, ScanType
 from app.modules.assets.events import EVENTS
 from app.modules.assets.service import (
+    access_criteria,
     erasure_mentions,
     notifications,
     person_data,
@@ -125,6 +126,7 @@ register_vendor_usage(assets_naming_vendor)
 # Assets in the reports library, with their states, product types and products named (lane C's
 # P6 review): at import, so the consumers worker that runs report exports has them too.
 reporting.register()
+access_criteria.register()  # what fine-grained access rules may narrow assets to (ADR-053)
 
 
 async def _startup(app: FastAPI) -> None:

@@ -40,6 +40,7 @@ from app.modules.assets.service.assets import (
     _require,
     _tenant,
     _visible,
+    visible_ids,
 )
 from app.modules.assets.service.loans import COMMENT_MAX, create_loan
 from app.modules.assets.service.refs import ASSET_SEARCH
@@ -315,7 +316,9 @@ async def list_bookings(  # noqa: PLR0913 - the calendar's filters
         if site_id is not None:
             assets = assets.where(Asset.site_id == site_id)
         asset_ids = list(await session.scalars(assets))
-    query = _listing(asset_ids=asset_ids, start=start, end=end)
+    query = _listing(asset_ids=asset_ids, start=start, end=end).where(
+        AssetBooking.asset_id.in_(visible_ids(subject))  # never an unseen asset's (ADR-053)
+    )
     if not include_closed:
         query = query.where(AssetBooking.status == "booked")
     return list(
@@ -350,9 +353,10 @@ class Availability:
     held: list[Period]
 
 
-async def availability(
+async def availability(  # noqa: PLR0913 - the filters and who asks, explicit
     session: AsyncSession,
     *,
+    subject: Subject | None,
     product_id: uuid.UUID | None,
     site_id: uuid.UUID | None,
     text_: str | None,
@@ -361,7 +365,9 @@ async def availability(
     """Loanable assets that are not retired or disposed, with their held periods (AC1's view).
 
     No permission check here: the routes decide who may ask (staff, or the portal when booking
-    there is on), and only tags, names and periods leave this function.
+    there is on), and only tags, names and periods leave this function. `subject`: staff, so
+    only the assets they may see (ADR-053); None for the portal's bookable list, which every
+    signed-in person gets alike.
     """
     query = (
         select(Asset)
@@ -372,6 +378,8 @@ async def availability(
             AssetState.category.not_in(_GONE),
         )
     )
+    if subject is not None:
+        query = query.where(Asset.id.in_(visible_ids(subject)))
     if product_id is not None:
         query = query.where(Asset.product_id == product_id)
     if site_id is not None:

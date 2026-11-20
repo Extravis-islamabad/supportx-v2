@@ -1285,17 +1285,23 @@ class LoanOut(BaseModel):
     comment: str | None
     status: Literal["open", "overdue", "closed"]
     outstanding: list[uuid.UUID]
-    assets: list[LoanAssetOut] = Field(description="Every asset of the loan, by tag.")
+    assets: list[LoanAssetOut] = Field(description="The loan's assets you may see, by tag.")
     version: int
 
 
 async def _loan_out(
-    session: TenantSession, row: AssetLoan, items: list[loans.LoanAsset] | None = None
+    session: TenantSession,
+    subject: Subject,
+    row: AssetLoan,
+    items: list[loans.LoanAsset] | None = None,
 ) -> LoanOut:
     if items is None:
-        items = (await loans.loan_assets(session, [row.id]))[row.id]
+        items = (await loans.loan_assets(session, subject, [row.id]))[row.id]
+    # The status counts every line; only the assets the person may see are named (ADR-053).
+    pending = sum(1 for a in items if a.returned_at is None)
+    status = loan_status(due_at=row.due_at, outstanding=pending, now=system_clock.now())
+    items = [a for a in items if a.seen]
     out = [a.id for a in items if a.returned_at is None]
-    status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
     return LoanOut(
         id=row.id,
         display_id=row.display_id,
@@ -1369,8 +1375,8 @@ async def list_loans(
 ) -> list[LoanOut]:
     """Loans still out, those past due first; or one status (closed: latest first, 200 at most)."""
     rows = await loans.open_loans(session, subject, status=wanted, site_id=site_id)
-    items = await loans.loan_assets(session, [r.id for r in rows])
-    return [await _loan_out(session, r, items[r.id]) for r in rows]
+    items = await loans.loan_assets(session, subject, [r.id for r in rows])
+    return [await _loan_out(session, subject, r, items[r.id]) for r in rows]
 
 
 @router.post(
@@ -1401,7 +1407,7 @@ async def create_loan(
             due_at=body.due_at, comment=body.comment, source=source_of(request),
             department_id=body.department_id, site_id=body.site_id,
         )  # fmt: skip
-        return Created(body=await _loan_out(session, row))
+        return Created(body=await _loan_out(session, subject, row))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -1421,4 +1427,4 @@ async def return_loan_items(
         session, subject, loan_id, body.asset_ids, outcome=body.outcome, comment=body.comment,
         source=source_of(request),
     )  # fmt: skip
-    return await _loan_out(session, row)
+    return await _loan_out(session, subject, row)

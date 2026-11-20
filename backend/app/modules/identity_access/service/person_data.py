@@ -35,14 +35,12 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionTerms
-
-if TYPE_CHECKING:
-    from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.policy import Subject
 
 # Batches (lane A's review): one call does at most this many rows and returns a cursor; the job
 # commits, stores the cursor and calls again in a fresh transaction until it is None.
@@ -196,18 +194,48 @@ def register_holdings(key: str, holdings: Holdings) -> None:
 def unregister_holdings(key: str) -> None:
     """Take a holdings count out (tests only)."""
     _HOLDINGS.pop(key, None)
+    _OUTSIDE.pop(key, None)
 
 
-async def person_holdings(session: AsyncSession, person_id: uuid.UUID) -> dict[str, int]:
-    """Every module's counts of what the person holds, by kind; kinds with none left out."""
+# Of what the person holds, how much the eraser may not see (ADR-053 fine-grained access; the
+# coordinator 2026-11-20): the totals stay true (the job moves everything), and these counts say
+# how many of them are outside the eraser's own view. Counts only, never a name or an ID; each
+# kind is labelled `erasure_holding.<kind>` like the others.
+OutsideView = Callable[[AsyncSession, uuid.UUID, Subject], Awaitable[Mapping[str, int]]]
+_OUTSIDE: dict[str, OutsideView] = {}
+
+
+def register_outside_view(key: str, outside: OutsideView) -> None:
+    """A module's count of the person's holdings the eraser can't see (at module import)."""
+    if not _KEY.fullmatch(key):
+        msg = f"holdings need a key like 'module', got {key!r}"
+        raise PortRegistrationError(msg)
+    _OUTSIDE[key] = outside
+
+
+def _add(found: dict[str, int], key: str, counts: Mapping[str, int]) -> None:
+    for kind, count in counts.items():
+        if not _KIND.fullmatch(kind):
+            msg = f"holdings {key!r} gave a kind that is not a code: {kind!r}"
+            raise PortRegistrationError(msg)
+        if count:
+            found[kind] = found.get(kind, 0) + int(count)
+
+
+async def person_holdings(
+    session: AsyncSession, person_id: uuid.UUID, subject: Subject | None = None
+) -> dict[str, int]:
+    """Every module's counts of what the person holds, by kind; kinds with none left out.
+
+    With `subject` (the eraser), also how many of those the eraser may not see (`*_outside_view`
+    kinds): the totals never shrink to what the eraser sees.
+    """
     found: dict[str, int] = {}
     for key in sorted(_HOLDINGS):
-        for kind, count in (await _HOLDINGS[key](session, person_id)).items():
-            if not _KIND.fullmatch(kind):
-                msg = f"holdings {key!r} gave a kind that is not a code: {kind!r}"
-                raise PortRegistrationError(msg)
-            if count:
-                found[kind] = found.get(kind, 0) + int(count)
+        _add(found, key, await _HOLDINGS[key](session, person_id))
+    if subject is not None:
+        for key in sorted(_OUTSIDE):
+            _add(found, key, await _OUTSIDE[key](session, person_id, subject))
     return found
 
 

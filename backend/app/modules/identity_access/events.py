@@ -130,6 +130,23 @@ class FieldAccessChanged(DomainEvent):
     mode: Literal["read_only", "masked", "hidden"] | None
 
 
+class ResourceAccessChanged(DomainEvent):
+    """A role's rule narrowing assets or CIs was added, changed or removed (ADR-053, 0183).
+
+    Compiled subjects go stale (authz consumer), so the person's next request has it. Names the
+    rule only, never its criteria; `removed` once it is taken away.
+    """
+
+    event_type: ClassVar[str] = "identity_access.resource_access.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "role"
+
+    role_id: uuid.UUID
+    rule_id: uuid.UUID
+    resource: Literal["asset", "ci"]
+    removed: bool
+
+
 class UserRoleChanged(DomainEvent):
     """A role was assigned to or removed from a user (WP-016)."""
 
@@ -505,6 +522,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SessionTenantSwitched,
     RoleChanged,
     FieldAccessChanged,
+    ResourceAccessChanged,
     UserRoleChanged,
     GroupRoleChanged,
     UserCreated,

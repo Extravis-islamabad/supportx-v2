@@ -54,6 +54,7 @@ from app.modules.assets.service.assets import (
     _saved,
     _visible,
     staff_rows,
+    visible_ids,
 )
 from app.modules.assets.service.moves import move_asset
 from app.modules.assets.service.ownership import Holder, set_holder
@@ -476,6 +477,14 @@ async def open_loans(
             query = query.where(AssetLoan.due_at <= now)
     if site_id is not None:
         query = query.where(AssetLoan.site_id == site_id)
+    # Only loans of an asset the person may see (ADR-053); `loan_assets` lists only those.
+    query = query.where(
+        AssetLoan.id.in_(
+            select(AssetLoanItem.loan_id).where(
+                AssetLoanItem.deleted_at.is_(None), AssetLoanItem.asset_id.in_(visible_ids(subject))
+            )
+        )
+    )
     return list(await session.scalars(query.limit(limit)))
 
 
@@ -488,24 +497,29 @@ class LoanAsset:
     name: str
     returned_at: datetime | None
     outcome: str | None
+    seen: bool = True  # False: outside the person's set (ADR-053), counted, never shown
 
 
 async def loan_assets(
-    session: AsyncSession, loan_ids: Sequence[uuid.UUID]
+    session: AsyncSession, subject: Subject, loan_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, list[LoanAsset]]:
-    """Each loan's assets in one query, by tag (the register's rows)."""
+    """Each loan's assets in one query, by tag (the register's rows).
+
+    Every line comes back so the loan's status stays true; `seen` marks those the person may
+    see, the only ones a caller may name (ADR-053).
+    """
     found: dict[uuid.UUID, list[LoanAsset]] = {loan_id: [] for loan_id in loan_ids}
     if not loan_ids:
         return found
     rows = await session.execute(
         select(AssetLoanItem.loan_id, Asset.id, Asset.tag, Asset.name, AssetLoanItem.returned_at,
-               AssetLoanItem.outcome)
+               AssetLoanItem.outcome, Asset.id.in_(visible_ids(subject)).label("seen"))
         .join(Asset, Asset.id == AssetLoanItem.asset_id)
         .where(AssetLoanItem.loan_id.in_(loan_ids), AssetLoanItem.deleted_at.is_(None))
         .order_by(AssetLoanItem.loan_id, Asset.tag, Asset.id)
     )  # fmt: skip
-    for loan_id, asset_id, tag, name, returned_at, outcome in rows:
-        found[loan_id].append(LoanAsset(asset_id, tag, name, returned_at, outcome))
+    for loan_id, asset_id, tag, name, returned_at, outcome, seen in rows:
+        found[loan_id].append(LoanAsset(asset_id, tag, name, returned_at, outcome, bool(seen)))
     return found
 
 

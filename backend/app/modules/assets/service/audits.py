@@ -67,6 +67,7 @@ from app.modules.assets.service.assets import (
     _visible,
     staff_rows,
     update_asset,
+    visible_ids,
 )
 from app.modules.assets.service.groups import _members
 from app.modules.assets.service.moves import REASON_MAX, move_asset
@@ -248,7 +249,8 @@ async def list_items(
         await session.execute(
             select(AssetAuditItem, Asset.tag, Asset.name, Asset.site_id, Asset.state_id)
             .join(Asset, Asset.id == AssetAuditItem.asset_id)
-            .where(AssetAuditItem.audit_id == audit.id)
+            # An auditor narrowed by fine-grained access sees only their own set (ADR-053).
+            .where(AssetAuditItem.audit_id == audit.id, Asset.id.in_(visible_ids(subject)))
             .order_by(AssetAuditItem.kind, Asset.tag, AssetAuditItem.id)
             .limit(ITEMS_LISTED)
         )
