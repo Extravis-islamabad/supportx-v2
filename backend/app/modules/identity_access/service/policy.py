@@ -211,16 +211,22 @@ def scope_filter(
     )
     for hook in _SCOPE_HOOKS:
         hook(resource_type.name, permission)
-    if reaches is None:
-        parts = _grant_parts(subject, subject.grants.get(permission, ()), resource_type, at)
+    held = _grant_parts(subject, subject.grants.get(permission, ()), resource_type, at)
+    if reaches is None or not held:
+        # Not narrowed, or the subject itself lacks the permission: an API key's scopes trim
+        # only `subject.grants` (`for_key`), never the roles' reaches below (lane C, #560).
+        parts = held
     else:
         parts = []
+        # Narrow-only (ADR-053 §2): never wider than the subject's own grants, whatever trimmed
+        # them, so each role's narrowed reach is also held to those.
+        own_reach = or_(*held)
         for reach in reaches:
             own = [Grant(scope, condition) for scope, condition in reach.grants.get(permission, ())]
             role_parts = _grant_parts(subject, own, resource_type, at)
             if not role_parts:
                 continue
-            role_reach = or_(*role_parts)
+            role_reach = and_(or_(*role_parts), own_reach)
             if reach.rules is not None:
                 assert resource_type.narrowed_as is not None  # noqa: S101 - reaches imply it
                 role_reach = and_(

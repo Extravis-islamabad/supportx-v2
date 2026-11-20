@@ -320,3 +320,32 @@ async def test_a_role_without_a_rule_widens_nothing_beyond_its_own_scope(world: 
         assert await _sees(world, a, a.requester, s1_server)  # A: its site, whole
         assert await _sees(world, a, a.requester, s2_database)  # B: databases everywhere
         assert not await _sees(world, a, a.requester, s2_server)  # never: no role allows it
+
+
+async def test_an_api_keys_scopes_still_apply_under_narrowing(world: World) -> None:
+    """Lane C's #560 finding: a key without a scope gets nothing, narrowed owner or not.
+
+    The narrowed branch of `scope_filter` built each role's reach from the role's own grants; an
+    API key trims only the subject's grants (`for_key`). Without the check, a key lacking
+    `cmdb:read` read its narrowed owner's CIs wherever a service filters by `cmdb.view` with no
+    route check of its own (here cmdb's public `visible_ci_ids`, which other modules call). The
+    control: a key with `cmdb:read` sees exactly the owner's narrowed set.
+    """
+    from app.modules.identity_access.service.policy import for_key  # noqa: PLC0415
+
+    a = world.a
+    await _edition(world, a, "enterprise")
+    types = await _types(world, a)
+    server = await _made(world, a, f"Key server {uuid.uuid4().hex[:6]}", "server")
+    printer = await _made(world, a, f"Key printer {uuid.uuid4().hex[:6]}", "printer")
+    wanted = [uuid.UUID(server["id"]), uuid.UUID(printer["id"])]
+    async with _holding(world, a, a.requester, [("cmdb.view", "all")]) as narrowed:
+        made = await _rule(world, a, narrowed, "ci", {"type_ids": [types["server"]["id"]]})
+        assert made.status_code == 201, made.text
+        owner = await world.app.state.policy.subject(a.tenant, a.requester)
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+            assert await visible_ci_ids(session, owner, wanted) == {wanted[0]}  # narrowed
+            full = for_key(owner, frozenset({"cmdb:read"}))
+            assert await visible_ci_ids(session, full, wanted) == {wanted[0]}  # the control
+            other = for_key(owner, frozenset({"incidents:read"}))
+            assert await visible_ci_ids(session, other, wanted) == frozenset()  # no cmdb scope

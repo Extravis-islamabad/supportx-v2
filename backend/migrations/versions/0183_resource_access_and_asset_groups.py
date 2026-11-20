@@ -36,21 +36,21 @@ TABLE = "role_resource_access"
 ASSETS = "assets"
 
 # Business tables force RLS: the check runs once per tenant (D-113).
-GUARD = f"""
+GUARD = """
 DO $$
 DECLARE t uuid;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
-        IF EXISTS (SELECT 1 FROM {TABLE})
-           OR EXISTS (SELECT 1 FROM {ASSETS} WHERE managed_by_group_id IS NOT NULL)
+        IF EXISTS (SELECT 1 FROM role_resource_access)
+           OR EXISTS (SELECT 1 FROM assets WHERE managed_by_group_id IS NOT NULL)
         THEN
             RAISE EXCEPTION 'downgrade refused: tenant % uses fine-grained access (rule 5h)', t;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
 END $$;
-"""  # noqa: S608 - fixed table names, no input
+"""  # a fixed statement: no interpolation (Semgrep, lane C on #560)
 
 
 def upgrade() -> None:

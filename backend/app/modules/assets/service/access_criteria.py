@@ -40,7 +40,7 @@ def subtree(type_ids: Sequence[uuid.UUID]) -> Any:  # noqa: ANN401 - a SQLAlchem
         .cte(f"ra_asset_roots_{next(_CTE_SEQ)}", recursive=True)
     )
     below = select(AssetProductType.id).join(roots, AssetProductType.parent_id == roots.c.id)
-    tree = roots.union_all(below)
+    tree = roots.union(below)  # UNION, not ALL: a parent cycle ends instead of recursing
     return select(tree.c.id)
 
 

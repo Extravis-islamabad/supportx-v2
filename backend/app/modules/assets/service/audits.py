@@ -68,6 +68,7 @@ from app.modules.assets.service.assets import (
     _visible,
     staff_rows,
     update_asset,
+    visible_ids,
 )
 from app.modules.assets.service.groups import _members
 from app.modules.assets.service.moves import REASON_MAX, move_asset
@@ -1033,6 +1034,8 @@ async def apply_fixes(
             select(AssetAuditItem).where(
                 AssetAuditItem.audit_id == audit.id,
                 AssetAuditItem.id.in_(list(dict.fromkeys(request.item_ids))),
+                # An item whose asset the person may not see reads as no item at all (ADR-053).
+                AssetAuditItem.asset_id.in_(visible_ids(subject)),
             )
         )
     }
