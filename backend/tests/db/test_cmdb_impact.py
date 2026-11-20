@@ -12,6 +12,7 @@ Real PostgreSQL and Valkey on the incident world: every organisation is new (rul
 """
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -184,3 +185,69 @@ async def test_an_unknown_direction_is_a_field_problem(world: World) -> None:
     ci = await _made(world, a, "Direction check", "application")
     bad = await _impact(world, ci, direction="sideways")
     assert "direction" in str(field_codes(bad))
+
+
+# Fields a placeholder may carry with a value: its per-answer key, the flag, and where it sits on
+# a walk (depth, the key it was reached from). Everything else must be empty.
+PLACEHOLDER_FIELDS = frozenset({"key", "restricted", "depth", "via"})
+
+
+def _placeholders(value: Any, found: list[dict[str, Any]]) -> list[dict[str, Any]]:  # noqa: ANN401 - JSON
+    if isinstance(value, dict):
+        if value.get("restricted") is True:
+            found.append(value)
+        for item in value.values():
+            _placeholders(item, found)
+    elif isinstance(value, list):
+        for item in value:
+            _placeholders(item, found)
+    return found
+
+
+async def test_a_placeholder_carries_nothing_in_any_answer(world: World) -> None:
+    """REQ-CMDB-030: impact, the map, versions and business views redact alike (one helper)."""
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    base = await _made(world, a, f"Shape base {tag}", "application", site_id=str(a.s2))
+    hidden = await _made(world, a, f"Shape secret {tag}", "database", site_id=str(a.s1))
+    await _linked(world, base, "depends_on", [hidden])
+    view = await world.call(
+        "POST", "/cmdb/business-views", a, a.admin,
+        json={"base_ci_id": base["id"], "name": f"Shape view {tag}", "layout": "radial"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert view.status_code == 201, view.text
+    await _given(world, a, a.requester2, f"Shape viewer {tag}", [("cmdb.view", "site")])
+    now = datetime.now(UTC).isoformat()
+    answers = {
+        "neighbours": await world.call(
+            "GET", f"/cmdb/cis/{base['id']}/neighbours", a, a.requester2
+        ),
+        "impact": await _impact(world, base, a.requester2, direction="dependencies"),
+        "as-of": await world.call(
+            "GET", f"/cmdb/cis/{base['id']}/as-of", a, a.requester2, params={"at": now}
+        ),
+        "compare": await world.call(
+            "GET",
+            f"/cmdb/cis/{base['id']}/compare",
+            a,
+            a.requester2,
+            params={"from": "1", "to": "2"},
+        ),
+        "business view": await world.call(
+            "GET", f"/cmdb/business-views/{view.json()['id']}", a, a.requester2
+        ),
+    }
+    seen_any = False
+    for name, answer in answers.items():
+        assert answer.status_code == 200, (name, answer.text)
+        assert hidden["id"] not in answer.text, name
+        assert "Shape secret" not in answer.text, name
+        for placeholder in _placeholders(answer.json(), []):
+            seen_any = True
+            extra = {
+                k: v for k, v in placeholder.items()
+                if k not in PLACEHOLDER_FIELDS and v not in (None, {}, [], "") and v is not False
+            }  # fmt: skip
+            assert extra == {}, (name, extra)
+    assert seen_any, "no answer held a placeholder: the test proves nothing"
