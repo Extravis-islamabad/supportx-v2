@@ -120,9 +120,26 @@ export function IncidentCards({
                       </bdi>{' '}
                       {row.subject}
                     </Typography.Link>
-                    <Flex gap={compact ? 6 : 12} wrap>
+                    <div
+                      style={
+                        compact
+                          ? { display: 'flex', flexWrap: 'wrap', gap: 6 }
+                          : // Two fixed columns: every card's fields line up in the same rows
+                            // (lane C: wrapping by width made the cards' heights jump).
+                            {
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                              gap: '4px 12px',
+                            }
+                      }
+                    >
                       {specs.map((spec) => (
-                        <Flex key={spec.key} gap={4} align="center" style={{ minWidth: 0 }}>
+                        <Flex
+                          key={spec.key}
+                          gap={4}
+                          align="center"
+                          style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}
+                        >
                           {!compact && (
                             <Typography.Text type="secondary">
                               {spec.title(context)}:
@@ -133,10 +150,21 @@ export function IncidentCards({
                             // span: axe aria-prohibited-attr).
                             <span className="sx-visually-hidden">{spec.title(context)}: </span>
                           )}
-                          <span>{spec.render(row, context)}</span>
+                          <span
+                            style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          >
+                            {spec.key === 'technician_id' && row.technician_id === null ? (
+                              // Unassigned: said, as the record does, never an empty value.
+                              <Typography.Text type="secondary">
+                                {t('incidents.unassigned')}
+                              </Typography.Text>
+                            ) : (
+                              spec.render(row, context)
+                            )}
+                          </span>
                         </Flex>
                       ))}
-                    </Flex>
+                    </div>
                   </Flex>
                 </Flex>
               </Card>
