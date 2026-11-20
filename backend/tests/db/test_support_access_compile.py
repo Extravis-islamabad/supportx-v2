@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from app.core.tenancy import TenantContext
+from app.modules.automation.service import workflow_admin
 from app.modules.identity_access.domain import support_access
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import SupportGrantChanged
@@ -198,3 +199,57 @@ async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
     unmasked = await _compiled(world, user_id)
     assert not unmasked.mask_contacts
     assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}
+
+
+async def test_support_saves_workflow_drafts_and_never_publishes_or_runs_them(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """D-173: drafts only. A tenant admin publishes, switches on, deletes, exports and runs."""
+    _, user_id = await _support_user(
+        world, access="view_and_change", change_reason="Fix the stuck workflow on INC-12"
+    )
+    console = {"X-SupportX-Client": "console"}
+    made = await world.call(
+        "POST",
+        "/automation/workflows",
+        world.a,
+        user=user_id,
+        json={"record_type": "incident", "name": "Escalate"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **console},
+    )
+    assert made.status_code == 201, made.text
+    flow = made.json()
+    base = f"/automation/workflows/{flow['id']}"
+    saved = await world.call(
+        "PUT",
+        f"{base}/draft",
+        world.a,
+        user=user_id,
+        json={"definition": dict(workflow_admin.STARTER)},
+        headers={"If-Match": '"1"', **console},
+    )
+    assert saved.status_code == 200, saved.text
+    refused: list[tuple[str, str, dict[str, object] | None]] = [
+        ("POST", f"{base}/publish", None),
+        ("PUT", f"{base}/enabled", {"enabled": True}),
+        ("PUT", f"{base}/start-templates", {"template_ids": []}),
+        ("POST", f"{base}/jobs", {}),
+        ("GET", f"{base}/export", None),
+        ("DELETE", base, None),
+    ]
+    for method, path, body in refused:
+        found = await world.call(
+            method,
+            path,
+            world.a,
+            user=user_id,
+            json=body,
+            headers={"If-Match": '"2"', "Idempotency-Key": str(uuid.uuid4()), **console},
+        )
+        assert found.status_code == 403, (path, found.text)
+        assert found.json()["code"] == "vendor_support_drafts_only", path
+    # The tenant admin still publishes it.
+    published = await world.call(
+        "POST", f"{base}/publish", world.a, headers={"If-Match": '"2"', **console}
+    )
+    assert published.status_code == 200, published.text

@@ -1299,6 +1299,8 @@ export const en = {
   'errors.validation_failed': 'Some fields need your attention.',
   'errors.vendor_in_use': 'Records still name this vendor ({{used}}). Make it inactive instead.',
   'errors.vendor_not_found': 'This vendor no longer exists.',
+  'errors.vendor_support_drafts_only':
+    'An Extravis support account saves workflow drafts only. A tenant admin publishes, switches on, deletes and runs them.',
   'errors.vendor_support_grants_open':
     'End the open support access first, then turn vendor support off.',
   'errors.vendor_support_roles_from_grant':

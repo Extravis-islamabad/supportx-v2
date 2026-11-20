@@ -66,6 +66,21 @@ router = APIRouter(
     dependencies=[Depends(rate_limit("workflows"))],
 )
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
+DRAFTS_ONLY = "vendor_support_drafts_only"
+
+
+def _beyond_drafts(subject: Manage) -> Subject:
+    """`workflows.manage` past a draft's save: what runs, switches or changes identity.
+
+    A vendor support account designs drafts only (D-173, WP-057 S4c-2): a tenant admin publishes,
+    switches on, deletes, bulk-runs, sets Runs-as, exports and makes live test calls.
+    """
+    if subject.is_vendor_support:
+        raise PermissionDenied(code=DRAFTS_ONLY)
+    return subject
+
+
+Publish = Annotated[Subject, Depends(_beyond_drafts)]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
 Policy = Annotated[PolicyService, Depends(get_policy)]
 
@@ -567,7 +582,7 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
 @router.post("/{workflow_id}/publish", summary="Publish the draft as the next version")
 async def publish(
-    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Publish
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
     await workflow_admin.publish(
@@ -585,7 +600,7 @@ async def set_start_templates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> WorkflowOut:
     """A record made from one of them starts the workflow, when it is on (REQ-WF-010 AC1)."""
     del subject
@@ -603,7 +618,7 @@ async def set_enabled(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> WorkflowOut:
     """Off: no new instances; running ones keep going (REQ-WF-010 AC3)."""
     del subject
@@ -975,7 +990,7 @@ async def queue_job(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     workflow_id: uuid.UUID,
     body: JobIn,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     idempotency: Idempotency,
     note: Annotated[
         AuditNote,
@@ -1162,7 +1177,7 @@ async def copy_workflow(
     ],
 )
 async def export_workflow(
-    workflow_id: uuid.UUID, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, session: TenantSession, subject: Publish
 ) -> Response:
     """Its draft and start templates, to import here again (REQ-WF-027 AC2)."""
     del subject
@@ -1183,7 +1198,7 @@ async def export_workflow(
     ],
 )
 async def delete_workflow(
-    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Publish
 ) -> Response:
     """409 workflow_has_running_instances while runs are live: disable it instead (AC3)."""
     del subject
@@ -1221,7 +1236,7 @@ async def add_run_as_role(
     workflow_id: uuid.UUID,
     role_id: uuid.UUID,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     policy: Policy,
 ) -> Response:
     """Idempotent, and only roles a run-as identity may hold.
@@ -1250,7 +1265,7 @@ async def remove_run_as_role(
     workflow_id: uuid.UUID,
     role_id: uuid.UUID,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     policy: Policy,
 ) -> Response:
     """Idempotent; through the same guarded path."""
@@ -1410,7 +1425,7 @@ async def live_call(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     note: Annotated[
         AuditNote,
         audited(

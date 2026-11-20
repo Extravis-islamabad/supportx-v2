@@ -1200,6 +1200,8 @@ export const ar: LabelResource = {
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
   'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.vendor_support_drafts_only':
+    'يحفظ حساب دعم Extravis مسودات سير العمل فقط. ينشرها مسؤول المستأجر ويشغّلها ويحذفها.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
   'errors.vendor_support_roles_from_grant':
     'يحصل حساب دعم Extravis على وصوله من المنحة فقط، ولا يحصل عليه أبدًا من دور أو مجموعة.',
