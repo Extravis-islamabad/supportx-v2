@@ -31,6 +31,9 @@ class UserType(StrEnum):
     # A connector acting in its own name (WP-040, REQ-INT-012): never signs in, never takes a
     # seat, never in people lists or pickers; only the integrations module makes one.
     SERVICE = "service"
+    # A vendor support account (WP-057 S4c, D-173): made by a grant only, never given in the
+    # people screens (PersonType) and never a person in lists or pickers.
+    VENDOR_SUPPORT = "vendor_support"
 
 
 class PersonType(StrEnum):

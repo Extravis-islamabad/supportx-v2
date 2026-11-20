@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -81,6 +81,9 @@ FIELD_PROBLEMS = frozenset(
         "manager_loop",
     }
 )
+
+# The person types an event names (UserCreatedV3): never a vendor support account.
+PersonTypeCode = Literal["technician", "requester", "service"]
 
 
 @dataclass(frozen=True)
@@ -289,7 +292,10 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     )
     await record_event(
         session,
-        UserCreatedV3(user_id=person.id, user_type=user_type.value, source=source),
+        # A person's type only (checked by _person_type above): never vendor_support here.
+        UserCreatedV3(
+            user_id=person.id, user_type=cast("PersonTypeCode", user_type.value), source=source
+        ),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )

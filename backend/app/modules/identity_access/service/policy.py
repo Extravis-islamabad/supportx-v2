@@ -33,13 +33,15 @@ from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
-from app.modules.identity_access.domain import api_keys
+from app.modules.identity_access.domain import api_keys, support_access
 from app.modules.identity_access.domain import field_access as field_rules
 from app.modules.identity_access.domain import resource_access as resource_rules
+from app.modules.identity_access.domain import support_grants as support_rules
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     DEPARTMENT_VIEWER,
     REQUESTER,
+    SCOPE_RANK,
     SYSTEM_ROLES,
     TECHNICIAN,
     TENANT_ADMIN,
@@ -61,16 +63,22 @@ from app.modules.identity_access.infra.models import (
     Role,
     RoleFieldAccess,
     RolePermission,
+    SupportGrant,
     User,
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
+from app.modules.identity_access.service.masking import (
+    contacts_masked,
+    refuse_masked_person_search,
+)
 from app.modules.identity_access.service.resource_access import resource_access_of
 from app.modules.identity_access.service.resource_access import (
     rules_predicate as resource_rules_predicate,
 )
 from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
+from app.shared.clock import system_clock
 from app.shared.search import ENGINE, SearchDocument
 
 log = get_logger(__name__)
@@ -532,9 +540,8 @@ class PolicyService:
             return _nobody(tenant_id, user_id)
         if user.user_type == SUPPORT_USER_TYPE:
             # A vendor support account's permissions are its grant's only (D-173, lane B): never
-            # a role, never a group's. Until the access levels' allow-lists come (S4c-2) that is
-            # nothing at all: it fails closed.
-            return _nobody(tenant_id, user_id)
+            # a role, never a group's, never a default.
+            return await self._support_subject(session, tenant_id, user_id)
         site_ids, group_ids = await self.memberships(session, user_id)
         # Roles of one's own and those of the active groups one belongs to (WP-042): a disabled
         # or deleted group grants nothing, at once.
@@ -646,6 +653,63 @@ class PolicyService:
             result[role] = MappingProxyType({p: tuple(g) for p, g in kept.items()})
         return result
 
+    async def _support_subject(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
+    ) -> Subject:
+        """A support account: its open grant's level, from the allow-list only (WP-057 S4c-2).
+
+        No grant open and in time: nothing. Otherwise each permission the level allows, at the
+        broadest scope it has (the account belongs to no site or group: lane B (8)), through
+        the licence as for everyone. Never a tenant admin, and never a `never` key, whatever
+        went wrong upstream (checked here, lane B (1)).
+        """
+        grant = (
+            await session.execute(
+                select(
+                    SupportGrant.id,
+                    SupportGrant.access,
+                    SupportGrant.unmask_personal,
+                    SupportGrant.state,
+                    SupportGrant.starts_at,
+                    SupportGrant.ends_at,
+                )
+                .where(SupportGrant.support_user_id == user_id)
+                .order_by(SupportGrant.created_at.desc())
+                .limit(1)
+            )
+        ).one_or_none()
+        now = system_clock.now()
+        if (
+            grant is None
+            or not support_rules.is_open(grant.state)
+            or not (grant.starts_at <= now < grant.ends_at)
+        ):
+            return _nobody(tenant_id, user_id)
+        grants = [
+            (key, Grant(_broadest(spec.scopes)))
+            for key in support_access.permissions_for(grant.access)
+            if (spec := self.catalogue.get(key)) is not None
+        ]
+        subject = compile_subject(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            role_keys=frozenset(),
+            grants=grants,
+            catalogue=self.catalogue,
+            entitled_features=await self.entitled_features(tenant_id, session),
+            is_tenant_admin=False,
+            fields=await _support_fields(session, unmask_personal=grant.unmask_personal),
+        )
+        given = [
+            k
+            for k in subject.grants
+            if not support_access.allowed(grant.access, support_access.SUPPORT_ACCESS.get(k))
+        ]
+        if given or subject.is_tenant_admin:
+            msg = f"a support subject holds what its level never allows: {given}"
+            raise AssertionError(msg)
+        return replace(subject, support_grant_id=grant.id, mask_contacts=not grant.unmask_personal)
+
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""
         await self.cache.invalidate(tenant_id)
@@ -713,6 +777,7 @@ class PolicyService:
         )
         order: list[Any] = [User.display_name, User.id]
         if search:
+            refuse_masked_person_search(session)  # a name typed would tell who matches (D-173)
             found = await ENGINE.match(session, PEOPLE, search)
             if found is None:
                 return []  # typed, but nothing searchable (only punctuation): nobody matches
@@ -720,8 +785,9 @@ class PolicyService:
             query = query.where(found.predicate)
             order.insert(0, found.rank.desc())
         rows = (await session.execute(query.order_by(*order).limit(limit))).all()
+        masked = contacts_masked(session)  # the UI labels an empty name (D-173)
         return [
-            (row.id, row.display_name)
+            (row.id, "" if masked else row.display_name)
             for row in rows
             if (await self.subject(tenant_id, row.id, session)).holds(permission)
         ]
@@ -795,6 +861,26 @@ def for_key(subject: Subject, scopes: frozenset[str]) -> Subject:
         grants=MappingProxyType(kept),
         extra=MappingProxyType({**subject.extra, OUT_OF_SCOPE: beyond}),
     )
+
+
+async def _support_fields(session: AsyncSession, *, unmask_personal: bool) -> field_rules.Compiled:
+    """Every record type's sensitive fields hidden, personal ones masked (WP-057 S4c-2)."""
+    # Imported here: the field-access service builds on this module's defaults.
+    from app.modules.identity_access.service import field_access  # noqa: PLC0415
+
+    marks = {
+        record_type: [
+            (f.key, f.personal_data, f.sensitive)
+            for f in await field_access.catalogue(session, record_type)
+        ]
+        for record_type in field_access.record_types()
+    }
+    return support_access.field_access(marks, unmask_personal=unmask_personal)
+
+
+def _broadest(scopes: Sequence[Scope]) -> Scope:
+    """The widest scope a permission allows (`all` wherever it has one)."""
+    return max(scopes, key=SCOPE_RANK.__getitem__)
 
 
 def _nobody(tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:

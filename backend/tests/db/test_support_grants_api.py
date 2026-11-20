@@ -111,12 +111,14 @@ async def test_an_out_of_band_grant_shows_its_password_once_and_makes_a_support_
     assert world.admin.usernames == {rules.support_login(grant_id): ""}
     rows = await _sql(
         world,
-        "SELECT user_type, email, can_sign_in FROM users WHERE tenant_id = $1 AND id = $2",
+        "SELECT user_type, email, can_sign_in, display_name FROM users"
+        " WHERE tenant_id = $1 AND id = $2",
         world.a.tenant,
         user_id,
     )
-    assert [(r["user_type"], r["email"], r["can_sign_in"]) for r in rows] == [
-        ("vendor_support", None, True)
+    # D-178: wherever it acts, the account is "Extravis support"; the grant names the engineer.
+    assert [(r["user_type"], r["email"], r["can_sign_in"], r["display_name"]) for r in rows] == [
+        ("vendor_support", None, True, "Extravis support")
     ]
     # The password is nowhere: not the grant, not its history, not the audit.
     for table in ("support_grants", "audit_entries", "field_changes"):

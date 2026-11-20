@@ -1812,6 +1812,7 @@ export const ur: LabelResource = {
   'user_type.requester': 'درخواست گزار',
   'user_type.service': 'انٹیگریشن',
   'user_type.technician': 'ٹیکنیشن',
+  'user_type.vendor_support': 'Extravis سپورٹ',
   'users.any': 'کوئی بھی',
   'users.col.email': 'ای میل',
   'users.col.last_login': 'آخری سائن اِن',

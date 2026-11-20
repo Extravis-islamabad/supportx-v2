@@ -1042,6 +1042,8 @@ export const ar: LabelResource = {
   'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
   'errors.person_erasure_in_progress': 'يجري محو هذا الشخص؛ لا يمكن إعادة تفعيله أو تغييره.',
   'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
+  'errors.person_search_masked':
+    'أسماء الأشخاص وعناوين بريدهم مخفية لهذا الحساب، لذا لا يمكنه البحث بها.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
   'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',
@@ -1207,7 +1209,10 @@ export const ar: LabelResource = {
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
   'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.vendor_support_drafts_only':
+    'يحفظ حساب دعم Extravis مسودات سير العمل فقط. ينشرها مسؤول المستأجر ويشغّلها ويحذفها.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
+  'errors.vendor_support_no_ai': 'لا يمكن لحساب دعم Extravis استخدام ميزات الذكاء الاصطناعي.',
   'errors.vendor_support_roles_from_grant':
     'يحصل حساب دعم Extravis على وصوله من المنحة فقط، ولا يحصل عليه أبدًا من دور أو مجموعة.',
   'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',

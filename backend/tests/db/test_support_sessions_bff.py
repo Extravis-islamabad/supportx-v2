@@ -93,3 +93,180 @@ async def test_a_brokered_support_sign_in_is_refused_before_the_link_audit_or_pr
         "support_sign_in_brokered",
     )
     assert logged
+
+
+async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_grant(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B (7), D-178: a vendor support account's save names "Extravis support" and the grant."""
+    a, _b = bff.tenants
+    asker_email = _email("requester")
+    requester = bff.user("a", email=asker_email)
+    assert (await bff.login(requester)).status_code == 302
+    email = _email("support-writes")
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    (row,) = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, email
+    )
+    (asker,) = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, asker_email
+    )
+    user_id, grant_id = row["id"], uuid.uuid4()
+    await _sql(
+        bff.db,
+        "UPDATE users SET user_type = 'vendor_support', roles_mapped_at = now() WHERE id = $1",
+        user_id,
+    )
+    # As #552 makes them: no role at all (its first sign-in here gave it one).
+    await _sql(bff.db, "DELETE FROM user_roles WHERE tenant_id = $1 AND user_id = $2", a, user_id)
+    await _sql(
+        bff.db,
+        "INSERT INTO support_grants (id, tenant_id, engineer_name, engineer_email, reason, access,"
+        " change_reason, starts_at, ends_at, state, verification, support_user_id)"
+        " VALUES ($1, $2, 'Omar', 'omar@extravis.com', 'r', 'view_and_change', 'fix INC-12',"
+        " now() - interval '1 hour', now() + interval '1 hour', 'active', 'email', $3)",
+        grant_id,
+        a,
+        user_id,
+    )
+    # Its own sign-in again, now as the support account (the session keeps the account's type).
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    # #552's bugs: /auth/me answered 500 for a support account (no vendor_support user type),
+    # and the console refused it as requester-only (no role at all); lane B (i).
+    me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
+    assert me.status_code == 200, me.text
+    assert me.json()["user"]["user_type"] == "vendor_support"
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Mail is down", "requester_id": str(asker["id"])},
+        headers={"X-CSRF-Token": await _csrf(bff), "X-SupportX-Client": "console"},
+    )
+    assert made.status_code == 201, made.text
+    entries = await _sql(
+        bff.db,
+        "SELECT actor_type, actor_id, details->>'grant_id' AS grant_id FROM audit_entries"
+        " WHERE tenant_id = $1 AND object_id = $2",
+        a,
+        made.json()["id"],
+    )
+    assert entries
+    assert {(e["actor_type"], e["actor_id"], e["grant_id"]) for e in entries} == {
+        ("vendor_support", user_id, str(grant_id))
+    }
+
+
+async def _csrf(bff: Bff) -> str:  # noqa: F811 - the reused fixture
+    me = await bff.me()
+    assert me.status_code == 200, me.text
+    return str(me.json()["csrf_token"])
+
+
+async def _support_session(bff: Bff, *, unmask: bool = False) -> tuple[uuid.UUID, str, str]:  # noqa: F811 - the reused fixture
+    """A requester, then a support account (no role, an open view-and-change grant) signed in.
+
+    Returns the requester's ID, name and e-mail.
+    """
+    a, _b = bff.tenants
+    asker_email = _email("asker")
+    assert (await bff.login(bff.user("a", email=asker_email))).status_code == 302
+    (asker,) = await _sql(
+        bff.db,
+        "SELECT id, display_name FROM users WHERE tenant_id = $1 AND email = $2",
+        a,
+        asker_email,
+    )
+    email = _email("masked-support")
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    (row,) = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, email
+    )
+    await _sql(
+        bff.db,
+        "UPDATE users SET user_type = 'vendor_support', roles_mapped_at = now() WHERE id = $1",
+        row["id"],
+    )
+    await _sql(bff.db, "DELETE FROM user_roles WHERE tenant_id = $1 AND user_id = $2", a, row["id"])
+    await _sql(
+        bff.db,
+        "INSERT INTO support_grants (id, tenant_id, engineer_name, engineer_email, reason, access,"
+        " change_reason, unmask_personal, starts_at, ends_at, state, verification,"
+        " support_user_id) VALUES ($1, $2, 'Omar', 'omar@extravis.com', 'r', 'view_and_change',"
+        " 'fix INC-12', $4, now() - interval '1 hour', now() + interval '1 hour', 'active',"
+        " 'email', $3)",
+        uuid.uuid4(),
+        a,
+        row["id"],
+        unmask,
+    )
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    return asker["id"], asker["display_name"], asker_email
+
+
+async def test_a_masked_support_session_never_sees_peoples_names_or_addresses(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """D-173, lane B (b)-(c), (1), (5): the record, its list, history and search; staff after."""
+    asker, name, address = await _support_session(bff)
+    console = {"X-SupportX-Client": "console"}
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Printer jam", "requester_id": str(asker)},
+        headers={"X-CSRF-Token": await _csrf(bff), **console},
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()["id"]
+    reads = [
+        await bff.client.get(f"/api/v1/incidents/{item}", headers=console),
+        await bff.client.get("/api/v1/incidents", headers=console),
+        await bff.client.get(f"/api/v1/incidents/{item}/history", headers=console),
+        await bff.client.get(f"/api/v1/incidents/{item}/timeline", headers=console),
+    ]
+    for read in reads:
+        assert read.status_code in {200, 404}, read.text  # a route a record type lacks: 404
+        assert name not in read.text, read.request.url
+        assert address not in read.text, read.request.url
+    assert reads[0].status_code == 200
+    # Searching by a person would tell who they are: refused, coded and labelled (lane B (5)).
+    picker = await bff.client.get(
+        "/api/v1/incidents/assignees", params={"search": name[:4]}, headers=console
+    )
+    assert (picker.status_code, picker.json()["code"]) == (403, "person_search_masked")
+    # The record search never matches by the requester's name or address.
+    found = await bff.client.get("/api/v1/incidents/search", params={"q": address}, headers=console)
+    assert found.status_code == 200, found.text
+    assert item not in found.text
+    # The same app, the next request a staff member's: names and addresses are back (lane B (1)).
+    assert (await bff.login(bff.user("a", email=address))).status_code == 302
+    staff = await bff.client.get("/api/v1/incidents", headers=console)
+    assert staff.status_code == 200, staff.text
+    assert name in staff.text
+    assert address in staff.text
+
+
+async def test_an_unmasking_grant_shows_names(bff: Bff) -> None:  # noqa: F811 - the reused fixture
+    asker, name, _address = await _support_session(bff, unmask=True)
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Printer jam", "requester_id": str(asker)},
+        headers={"X-CSRF-Token": await _csrf(bff), "X-SupportX-Client": "console"},
+    )
+    assert made.status_code == 201, made.text
+    read = await bff.client.get("/api/v1/incidents", headers={"X-SupportX-Client": "console"})
+    assert read.status_code == 200, read.text
+    assert name in read.text
+
+
+async def test_a_support_session_with_no_grant_to_name_is_refused(
+    bff: Bff,  # noqa: F811 - the reused fixture
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B's #561 review (1): never a support request audited as a plain person."""
+    await _support_session(bff)
+
+    def nothing(*_args: Any) -> tuple[None, bool]:  # noqa: ANN401 - any arguments
+        return None, False
+
+    monkeypatch.setattr(support_grants, "judged_grant", nothing)
+    # Any API route resolves the request's tenant context through the support check.
+    listed = await bff.client.get("/api/v1/incidents", headers={"X-SupportX-Client": "console"})
+    assert listed.status_code == 401, listed.text

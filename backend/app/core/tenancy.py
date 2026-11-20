@@ -14,7 +14,8 @@ Resolution order:
 
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from contextvars import ContextVar, Token
+from dataclasses import dataclass, field, replace
 
 import structlog
 from fastapi import Request
@@ -61,6 +62,13 @@ class TenantContext:
     service_identity: bool = False
     # Work an AI agent does for `user_id` (WP-057 S4b); None for everything else.
     agent: AgentActor | None = None
+    # A vendor support account's session (WP-057 S4c-2): the grant it acts under, so the audit
+    # names "Extravis support" and the grant on its every entry. None for everyone else.
+    support_grant_id: uuid.UUID | None = None
+    # People's names, e-mail addresses and phones withheld from this request's answers (D-173):
+    # a support session whose grant does not unmask personal data. Read at every people lookup,
+    # so a read without it fails closed for support (set with support_grant_id, never apart).
+    mask_contacts: bool = False
 
 
 # Returns the session's context, None when the request has no session, or raises a problem
@@ -76,6 +84,43 @@ def tenant_from_header(settings: Settings, header_value: str | None) -> TenantCo
         return TenantContext(tenant_id=uuid.UUID(header_value.strip()))
     except ValueError as exc:
         raise BadRequest(code="invalid_tenant_id") from exc
+
+
+# The request's vendor support facts (WP-057 S4c-2): set when the request resolves to a support
+# session, read by `tenant_session` so a session the request's code opens for itself is masked and
+# tied to the grant too (lane B's #561 review, (2)). Per request task (a copied context), never
+# set in workers, so jobs and mail are never masked.
+_SUPPORT_REQUEST: ContextVar[TenantContext | None] = ContextVar("support_request", default=None)
+
+
+def open_support_scope() -> Token[TenantContext | None]:
+    """A request starts with no support facts (the request middleware, per request)."""
+    return _SUPPORT_REQUEST.set(None)
+
+
+def close_support_scope(token: Token[TenantContext | None]) -> None:
+    """The request is done: whatever it set is gone, so the next request starts clean."""
+    _SUPPORT_REQUEST.reset(token)
+
+
+def support_request() -> TenantContext | None:
+    """The current request's support context, if it is a vendor support session's."""
+    return _SUPPORT_REQUEST.get()
+
+
+def with_support(context: TenantContext) -> TenantContext:
+    """`context` carrying the request's support facts when it is for the same tenant (fail closed).
+
+    Never removes anything: a context already naming a grant, or another tenant's, is unchanged.
+    """
+    support = _SUPPORT_REQUEST.get()
+    if support is None or context.support_grant_id is not None:
+        return context
+    if context.tenant_id != support.tenant_id:
+        return context
+    return replace(
+        context, support_grant_id=support.support_grant_id, mask_contacts=support.mask_contacts
+    )
 
 
 async def resolve_tenant(request: Request) -> TenantContext:
@@ -96,5 +141,7 @@ async def resolve_tenant(request: Request) -> TenantContext:
         tenant_id=str(context.tenant_id),
         user_id=str(context.user_id) if context.user_id else None,
     )
+    if context.support_grant_id is not None:
+        _SUPPORT_REQUEST.set(context)
     setattr(request.state, _REQUEST_CONTEXT_ATTR, context)
     return context
