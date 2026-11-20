@@ -1187,6 +1187,8 @@ export const ar: LabelResource = {
   'event_type.work_items.approval_settings.changed': 'تغيّرت إعدادات الموافقة',
   'event_type.work_items.asset_link.changed': 'ربط أصل أو فك ربطه',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
+  'event_type.work_items.cancellation_request.created': 'طُلب الإلغاء',
+  'event_type.work_items.cancellation_request.decided': 'بُتّ في طلب الإلغاء',
   'event_type.work_items.change.approval_notice': 'إشعار موافقة تغيير',
   'event_type.work_items.change.reminder_due': 'حان موعد تذكير بتغيير',
   'event_type.work_items.change_board.changed': 'تغيّر مجلس استشاري للتغييرات',

@@ -85,6 +85,7 @@ from app.modules.work_items.domain.releases import (
     ReleaseRisk,
     StageOutcome,
 )
+from app.modules.work_items.domain.requester_rules import RequesterCancel
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
 from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
@@ -107,6 +108,7 @@ from app.modules.work_items.service import (
     reads,
     record_copies,
     release_links,
+    requester_requests,
     resolution,
     stage_approvals,
 )
@@ -1218,6 +1220,30 @@ class WorkItemBoardColumnOut(BaseModel):
     count: int
 
 
+class CancellationRequestOut(BaseModel):
+    """A requester's waiting ask to cancel (WP-046b S5): the reason is theirs, for the decider."""
+
+    id: uuid.UUID
+    reason: str
+    requested_by: uuid.UUID
+    asked_at: datetime
+    may_decide: bool
+
+
+class CancellationDecisionIn(BaseModel):
+    """Approve or decline a requester's ask to cancel (WP-046b S5; REQ-INC-148)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    approve: bool
+    note: str | None = Field(
+        default=None, max_length=2000, description="Required to decline: why, for the requester."
+    )
+    reason_code: str | None = Field(
+        default=None, max_length=40, description="When the cancel's reason list asks for a code."
+    )
+
+
 class WorkItemTransitionOut(BaseModel):
     """One allowed move."""
 
@@ -1329,6 +1355,14 @@ class WorkItemCatalogueOut(BaseModel):
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
+    requester_cancel: RequesterCancel = Field(
+        default=RequesterCancel.OFF,
+        description="Requesters cancel their own record: off, directly or by asking (INC-148).",
+    )
+    requester_edit_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields a requester may still edit after submitting; none: read-only.",
+    )
     first_task_starts_work: bool = Field(
         default=True,
         description="Requests: ticking the first fulfilment task moves a New or Assigned request "
@@ -1410,6 +1444,8 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            requester_cancel=RequesterCancel(cat.requester_cancel),
+            requester_edit_fields=sorted(cat.requester_edit_fields),
             first_task_starts_work=cat.first_task_starts_work,
             mail_commands=cat.mail_commands,
             mail_command_fields=[CommandField(f) for f in cat.mail_command_fields],
@@ -1567,6 +1603,8 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    requester_cancel: RequesterCancel | None = None
+    requester_edit_fields: list[str] | None = Field(default=None, max_length=40)
     first_task_starts_work: bool | None = None
     mail_commands: bool | None = Field(default=None, description="Incidents only.")
     mail_command_fields: list[CommandField] | None = Field(
@@ -3121,6 +3159,55 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    @router.get(
+        "/{record_id}/cancellation-request", summary="The requester's waiting ask to cancel"
+    )
+    async def cancellation_request(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> CancellationRequestOut:
+        """What the requester asked and when, and whether you decide it; 404 when none waits."""
+        found = await requester_requests.waiting_ask(session, subject, wtype, record_id)
+        return CancellationRequestOut(
+            id=found.ask.id,
+            reason=found.ask.reason,
+            requested_by=found.ask.requested_by,
+            asked_at=found.ask.created_at,
+            may_decide=found.may_decide,
+        )
+
+    @router.post(
+        "/{record_id}/cancellation-request/decide",
+        summary="Decide a requester's ask to cancel",
+        status_code=status.HTTP_204_NO_CONTENT,
+        responses=CONFLICT,
+    )
+    async def decide_cancellation(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: CancellationDecisionIn,
+        session: TenantSession,
+        subject: View,
+        request: Request,
+        policy: Policy,
+    ) -> Response:
+        """Approve or decline a requester's ask to cancel (WP-046b S5, REQ-INC-148 AC1).
+
+        Approving cancels the record as you, with the requester's reason; declining sends your
+        note to the requester. The assignee decides; with none, whoever may edit it. 404 when
+        nothing is waiting.
+        """
+        await requester_requests.decide(
+            session,
+            subject,
+            wtype,
+            record_id,
+            approve=body.approve,
+            note=body.note,
+            reason_code=body.reason_code,
+            source=source_of(request),
+            policy=policy,
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.post("/{record_id}/actions/{action}", summary="Run a status action", responses=CONFLICT)
     async def act(  # noqa: PLR0913, PLR0917 - FastAPI dependencies

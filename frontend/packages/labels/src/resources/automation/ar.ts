@@ -181,6 +181,7 @@ export const ar: LabelResource = {
   'automation.why.first_task_started': 'بدأ العمل عند إنجاز أول مهمة تنفيذ.',
   'automation.why.fulfilled': 'تم التنفيذ: أُنجزت كل المهام المطلوبة',
   'automation.why.matrix': 'من مصفوفة الأولوية (الأثر والإلحاح).',
+  'automation.why.requester_canceled': 'ألغاه الطالب من البوابة.',
   'automation.why.requester_confirmed': 'أكّد مقدّم الطلب الحل، فأُغلقت.',
   'automation.why.requester_rejected': 'أفاد مقدّم الطلب بأن المشكلة لم تُحل، فأُعيد فتحها.',
   'automation.why.requester_reply_reopened': 'ردّ مقدّم الطلب خلال مدة إعادة الفتح، فأُعيد فتحها.',

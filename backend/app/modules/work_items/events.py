@@ -342,6 +342,34 @@ class WorkItemListSettingsChanged(DomainEvent):
     view_key: str
 
 
+class WorkItemCancellationRequested(DomainEvent):
+    """A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).
+
+    IDs only: the reason is the ask's own row, read by those who may decide.
+    """
+
+    event_type: ClassVar[str] = "work_items.cancellation_request.created"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_cancellation_request"
+
+    work_item_id: uuid.UUID
+    type: str
+    requested_by: uuid.UUID
+
+
+class WorkItemCancellationDecided(DomainEvent):
+    """A requester's ask to cancel was approved, declined or withdrawn (its state code)."""
+
+    event_type: ClassVar[str] = "work_items.cancellation_request.decided"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_cancellation_request"
+
+    work_item_id: uuid.UUID
+    type: str
+    state: str  # approved | declined | withdrawn
+    requested_by: uuid.UUID
+
+
 class WorkItemBulkJobProgressed(DomainEvent):
     """A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only)."""
 
@@ -667,6 +695,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemViewChanged,
     WorkItemViewUnshared,
     WorkItemListSettingsChanged,
+    WorkItemCancellationRequested,
+    WorkItemCancellationDecided,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
     WorkItemPartChangedV2,

@@ -1189,6 +1189,8 @@ export const en = {
   'event_type.work_items.approval_settings.changed': 'Approval settings changed',
   'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
+  'event_type.work_items.cancellation_request.created': 'Asked to cancel',
+  'event_type.work_items.cancellation_request.decided': 'Ask to cancel decided',
   'event_type.work_items.change.approval_notice': 'Change approval notice',
   'event_type.work_items.change.reminder_due': 'Change reminder due',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',

@@ -716,6 +716,13 @@ export const ar: LabelResource = {
   'settings.release_roles.take_title': 'ما يجعلك إياه التولّي',
   'settings.rename': 'إعادة تسمية',
   'settings.rename_value': 'إعادة تسمية "{{name}}"',
+  'settings.requester_cancel': 'يمكن للطالبين الإلغاء',
+  'settings.requester_edit_fields': 'الحقول التي يمكن للطالبين تعديلها',
+  'settings.requester_edit_fields_help': 'لا شيء: الحادثة للقراءة فقط لهم، باستثناء الرد.',
+  'settings.requester_edit_none': 'لا شيء (للقراءة فقط)',
+  'settings.requester_rules': 'إلغاء الطالبين وتعديلهم',
+  'settings.requester_rules_help':
+    'ما يمكن للطالبين فعله بحوادثهم بعد الإبلاغ عنها. إيقاف ولا شيء: كما كان سابقًا.',
   'settings.resume_on_requester_reply': 'ردّ مقدّم الطلب يستأنفها',
   'settings.resume_on_requester_reply_for': 'ردّ مقدّم الطلب يستأنف «{{status}}»',
   'settings.retire': 'إيقاف',

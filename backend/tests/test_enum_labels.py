@@ -202,6 +202,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "RowColourBy": "row_colour_by",  # WP-046b S3a (REQ-INC-115)
     "ListLayout": "list_layout",  # WP-046b S3b (REQ-INC-111)
     "BoardGroupBy": "board_group_by",
+    "RequesterCancel": "requester_cancel",  # WP-046b S5 (REQ-INC-148)
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
