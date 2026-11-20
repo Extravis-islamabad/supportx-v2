@@ -971,6 +971,25 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   })),
+  // WP-057 S4c-3: vendor support. The admin's grant drawer, and the engineer's link page
+  // with no link and with a link that can't be used (one message for every failure). The
+  // banner, masked names and the one-time password need a live grant (every admin is told,
+  // Keycloak gets an account): the e2e and Vitest cover them, never the showcase tenant.
+  {
+    key: 'admin-security',
+    path: '/admin/security',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'vendor-support-grant', open: click('vendor-support-grant') },
+  },
+  { key: 'vendor-support-start', path: '/vendor-support/start', app: 'console', sideOnly: true },
+  {
+    key: 'vendor-support-start',
+    path: '/vendor-support/start#matrix-not-a-real-token',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'failed', open: click('support-start-open') },
+  },
   // ADR-047 slice c: the role editor's Field access tab, and "Who sees this" in its modal.
   {
     key: 'admin-roles-field-access',
