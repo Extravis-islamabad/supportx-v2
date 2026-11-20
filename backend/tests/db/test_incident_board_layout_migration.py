@@ -13,7 +13,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0179"  # 0182's down revision (main's head at its queue turn)
+BEFORE = "0186"  # 0182's down revision (main's head at its queue turn)
 
 
 async def _shape(url: str) -> tuple[set[str], set[str]]:
