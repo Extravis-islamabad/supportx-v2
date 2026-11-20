@@ -47,6 +47,7 @@ import { fieldName, filled as hasValue } from '../customFields/values';
 import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
+import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
 import { useSubscribersSection } from './useSubscribersSection';
 import { VersionsTab } from './map/VersionsTab';
@@ -54,7 +55,7 @@ import { nameOf, typeTree } from './names';
 import { refText } from './refNames';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
-const TABS = ['details', 'map', 'versions'] as const;
+const TABS = ['details', 'map', 'impact', 'versions'] as const;
 type TabKey = (typeof TABS)[number];
 
 /** The CI's references, named in the properties panel (CMDB polish). */
@@ -338,6 +339,11 @@ function CiRecord({ ci }: { ci: Ci }) {
             label: t('cmdb.tab.map'),
             // Mounted only while open: the map follows its channel only when someone looks.
             children: tab === 'map' ? <MapTab ci={ci} /> : null,
+          },
+          {
+            key: 'impact',
+            label: t('cmdb.tab.impact'),
+            children: tab === 'impact' ? <ImpactTab ciId={ci.id} /> : null,
           },
           {
             key: 'versions',

@@ -152,6 +152,9 @@ export const queryKeys = {
     neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
     neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
     subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
+    impactOf: (id: string) => ['cmdb', 'impact', id] as const,
+    impact: (id: string, direction: string, depth: number) =>
+      ['cmdb', 'impact', id, direction, depth] as const,
     versions: (id: string) => ['cmdb', 'versions', id] as const,
     asOf: (id: string, at: string) => ['cmdb', 'versions', id, 'as-of', at] as const,
     compare: (id: string, from: number, to: number) =>
