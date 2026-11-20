@@ -91,7 +91,7 @@ const dependsOn = {
   version: 1,
 };
 
-function impact(truncated = false) {
+function impact(truncated = false, partial = false) {
   return {
     start: { ...node(CI, 'Mail service', 'CI-1'), via: null },
     cis: [
@@ -122,8 +122,10 @@ function impact(truncated = false) {
     ],
     services: [{ id: SERVICE, name: 'Email for staff' }],
     restricted: 1,
-    affected_users: null,
-    affected_users_reason: 'not_configured',
+    affected_users: partial ? 2 : null,
+    affected_users_partial: partial,
+    affected_users_reason: partial ? null : 'not_configured',
+    affected_people: null,
     truncated,
     depth: 3,
     ci_max: 5000,
@@ -131,7 +133,7 @@ function impact(truncated = false) {
   };
 }
 
-function api(truncated = false) {
+function api(truncated = false, partial = false) {
   const fake = consoleApi({
     routes: {
       'GET /api/v1/custom-fields': { body: [] },
@@ -142,7 +144,7 @@ function api(truncated = false) {
       [`GET /api/v1/cmdb/cis/${CI}/history`]: {
         body: { items: [], has_more: false, next_cursor: null },
       },
-      [`GET /api/v1/cmdb/cis/${CI}/impact`]: { body: impact(truncated) },
+      [`GET /api/v1/cmdb/cis/${CI}/impact`]: { body: impact(truncated, partial) },
       'GET /api/v1/realtime/lists/cmdb': { body: { channels: ['t:tenant:cmdb:all'] } },
       'GET /api/v1/cmdb/relationship-types': { body: { items: [dependsOn] } },
     },
@@ -213,5 +215,14 @@ describe('CMDB › the Impact tab', () => {
     const menu = await screen.findByTestId('ci-map-menu');
     expect(menu.textContent).toContain('Open');
     expect(menu.textContent).not.toMatch(/Expand|Remove/);
+  });
+
+  it('says a count leaves out services the reader cannot see', async () => {
+    setDefaultClientFactory(inertClientFactory);
+    api(false, true);
+    window.history.pushState({}, '', `/cmdb/${CI}?tab=impact`);
+    render(<Shown />);
+    const summary = await screen.findByTestId('ci-impact-summary');
+    expect(summary.textContent).toContain('2, of services you can see');
   });
 });

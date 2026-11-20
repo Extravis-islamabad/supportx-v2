@@ -299,6 +299,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
