@@ -1432,6 +1432,10 @@ class AuthService:
             # Lane B (7): its every audited write names the grant ("Extravis support"); people's
             # contacts are masked unless the grant unmasks them (D-173), and by default.
             grant_id, unmasked = support_grants.judged_grant(session.tenant_uuid, session.user_uuid)
+            if grant_id is None:
+                # Admitted with no grant to name: never a support request audited as a plain
+                # person (lane B's #561 review, (1)). Refused like an ended grant.
+                raise Unauthenticated(code=support_grants.INACTIVE)
             masked = not unmasked
         record_freshness(request, self._freshness(session))
         return TenantContext(

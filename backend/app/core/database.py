@@ -44,7 +44,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
-from app.core.tenancy import TenantContext, resolve_tenant
+from app.core.tenancy import TenantContext, resolve_tenant, with_support
 from app.core.tls import verified_context
 
 TENANT_SETTING = "app.tenant_id"
@@ -297,8 +297,11 @@ class Database:
 
     @asynccontextmanager
     async def tenant_session(self, context: TenantContext) -> AsyncIterator[AsyncSession]:
-        """One unit of work for one tenant: commits on success, rolls back on any exception."""
-        info: dict[str, object] = {SESSION_TENANT_KEY: context}
+        """One unit of work for one tenant: commits on success, rolls back on any exception.
+
+        Inside a vendor support request, the context carries its grant and masking (fail closed).
+        """
+        info: dict[str, object] = {SESSION_TENANT_KEY: with_support(context)}
         if self.settings is not None:
             info[SESSION_SETTINGS_KEY] = self.settings
         async with self._sessions(info=info) as session, session.begin():

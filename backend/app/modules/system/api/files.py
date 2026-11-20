@@ -399,8 +399,7 @@ async def file_content(  # noqa: PLR0913 - the link, the reader and the audit no
     # Reads are audited for private-note files only (D-082 D7); public ones would be noise. A
     # vendor support account's every download is audited, with its grant (WP-057 S4c-2, lane B
     # (4)); it never reaches a private one (no add_note, so never staff).
-    support = getattr(subject, "support_grant_id", None) is not None
-    note.skip = not content.private and not support
+    note.skip = not content.private and not subject.is_vendor_support
     note.object_id = str(content.file_id)
     return _stream(content, cache="private, no-store")
 

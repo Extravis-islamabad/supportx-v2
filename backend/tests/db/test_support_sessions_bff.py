@@ -259,3 +259,19 @@ async def test_an_unmasking_grant_shows_names(bff: Bff) -> None:  # noqa: F811 -
     read = await bff.client.get("/api/v1/incidents", headers={"X-SupportX-Client": "console"})
     assert read.status_code == 200, read.text
     assert name in read.text
+
+
+async def test_a_support_session_with_no_grant_to_name_is_refused(
+    bff: Bff,  # noqa: F811 - the reused fixture
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B's #561 review (1): never a support request audited as a plain person."""
+    await _support_session(bff)
+
+    def nothing(*_args: Any) -> tuple[None, bool]:  # noqa: ANN401 - any arguments
+        return None, False
+
+    monkeypatch.setattr(support_grants, "judged_grant", nothing)
+    # Any API route resolves the request's tenant context through the support check.
+    listed = await bff.client.get("/api/v1/incidents", headers={"X-SupportX-Client": "console"})
+    assert listed.status_code == 401, listed.text

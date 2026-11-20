@@ -128,7 +128,8 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         "knowledge.submit": _C,
         "knowledge.manage_topics": _C,
         "knowledge.manage_types": _C,
-        "knowledge.manage_settings": _C,
+        # Turns article approval off, so a draft would go live with no approver (lane B, #561).
+        **_never("tenant_decision", "knowledge.manage_settings"),
         **_never("speaks_for_tenant", "knowledge.approve", "knowledge.withdraw"),
         **_never("tenant_decision", "knowledge.delete"),
         "cmdb.view": _V,
@@ -145,10 +146,13 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         # --- desk configuration -------------------------------------------------------------
         "sla.view": _V,
         "sla.manage": _C,
-        "config.service_desk": _C,
+        # Mixes desk lists with governance: field sealing (sensitivity), approval stages, roles,
+        # lifecycle publishing, change boards (lane B's #561 review). Never until it is split.
+        **_never("tenant_decision", "config.service_desk"),
         "config.reports": _C,
         "config.assets": _C,
-        "catalog_items.manage": _C,
+        # Publishes catalog items straight to the portal: speaks for the tenant (D-178, #561).
+        **_never("speaks_for_tenant", "catalog_items.manage"),
         "reports.view": _V,
         "reports.create": _C,
         "reports.manage_folders": _C,
