@@ -23,7 +23,7 @@ from app.core.database import Database, TenantSession, after_commit, get_databas
 from app.core.entitlements import entitlement_exempt
 from app.core.recent_auth import RecentAuth
 from app.core.tenancy import TenantContext
-from app.modules.audit import AuditNote, audited
+from app.modules.audit import AuditNote, RequestFacts, audited
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service import support_grants as service
@@ -432,6 +432,10 @@ async def open_link(
     response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     tenant_id = await PUBLIC.tenant(request, response, database, payload.tenant)
     opened = await service.open_link(
-        database, tenant_id, payload.token, getattr(request.app.state, "identity_admin", None)
+        database,
+        tenant_id,
+        payload.token,
+        getattr(request.app.state, "identity_admin", None),
+        RequestFacts.of(request),
     )
     return SupportLinkOpenedOut(login=opened.login, password=opened.password)

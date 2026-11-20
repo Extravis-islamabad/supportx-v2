@@ -55,6 +55,17 @@ async def _grant(world: World, key: str | None = None, **changes: Any) -> Any:  
     )
 
 
+async def _audited(world: World, code: str) -> int:  # noqa: F811 - the reused fixture
+    """How many audit entries of `code` the tenant has (the SECURITY chain, lane B)."""
+    rows = await _sql(
+        world,
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        world.a.tenant,
+        code,
+    )
+    return int(rows[0]["n"])
+
+
 async def _sql(world: World, statement: str, *args: Any) -> list[asyncpg.Record]:  # noqa: F811, ANN401
     conn = await asyncpg.connect(world.db.admin_url)
     try:
@@ -229,6 +240,14 @@ async def test_a_failed_delete_is_not_done_and_the_schedule_retries_it(
         world, "SELECT account_removed_at FROM support_grants WHERE id = $1", grant_id
     )
     assert grant["account_removed_at"] is None  # not done
+    assert await _audited(world, "support_grant.account_removal_failed") == 1
+    (entry,) = await _sql(
+        world,
+        "SELECT details::text AS d FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        world.a.tenant,
+        "support_grant.account_removal_failed",
+    )
+    assert "IdentityAdminUnavailable" in entry["d"]  # the error's class only
     # Five minutes later (the retry spacing), the schedule tries again and it is confirmed.
     await _sql(
         world,
@@ -272,6 +291,8 @@ async def test_the_schedule_ends_an_expired_grant_in_its_own_tenant_only(world: 
     )
     assert grant["state"] == "ended"
     assert grant["account_removed_at"] is not None
+    assert await _audited(world, "support_grant.ended") == 1  # the system's, nobody clicked
+    assert await _audited(world, "support_grant.account_removed") == 1
     # Tenant B sees none of it.
     listed = await world.call("GET", f"{BASE}/grants", world.b)
     assert listed.status_code == 200, listed.text
@@ -459,6 +480,7 @@ async def test_the_link_opens_once_and_every_failure_looks_the_same(
     )
     assert grant["link_token_hash"] is None
     assert grant["link_used_at"] is not None
+    assert await _audited(world, "support_grant.link_opened") == 1  # the failures add none
 
 
 async def test_a_resent_link_kills_the_old_one_and_an_expired_one_opens_nothing(
@@ -483,3 +505,63 @@ async def test_a_resent_link_kills_the_old_one_and_an_expired_one_opens_nothing(
     )
     assert grant["link_token_hash"] is None
     assert (await _open(world, second)).status_code == 404
+    assert await _audited(world, "support_grant.link_expired") == 1
+
+
+async def test_the_first_sign_in_is_audited_with_how_the_engineer_was_verified(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B (11): a review can tell which grants an admin could have used."""
+    body = (await _grant(world)).json()
+    _, user_id = await _account(world, body["id"])
+    engine = create_engine(world.db.app_url, application_name="test")
+    try:
+        await support_grants.mark_first_use(Database(engine), world.a.tenant, user_id)
+    finally:
+        await engine.dispose()
+    (entry,) = await _sql(
+        world,
+        "SELECT details::text AS d FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        world.a.tenant,
+        "support_grant.first_used",
+    )
+    assert "out_of_band" in entry["d"]
+
+
+async def test_an_open_session_is_cut_on_revoke_and_on_expiry(
+    world: World,  # noqa: F811 - the reused fixture
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lane B (4), (4b): the store marker and Centrifugo's disconnect, both ways a grant ends."""
+    cut: list[tuple[uuid.UUID, uuid.UUID]] = []
+
+    class Auth:
+        async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+            cut.append((tenant_id, user_id))
+
+    set_state(monkeypatch, world.app.state, "auth", Auth())
+    revoked = (await _grant(world, engineer_email="eng1@extravis.com")).json()
+    _, revoked_user = await _account(world, revoked["id"])
+    ended = await world.call("POST", f"{BASE}/grants/{revoked['id']}/revoke", world.a)
+    assert ended.status_code == 200, ended.text
+    assert cut == [(world.a.tenant, revoked_user)]  # revoke: cut after the commit
+    expiring = (await _grant(world, engineer_email="eng2@extravis.com")).json()
+    _, expiring_user = await _account(world, expiring["id"])
+    await _sql(
+        world,
+        "UPDATE support_grants SET starts_at = now() - interval '2 hours',"
+        " ends_at = now() - interval '1 minute' WHERE id = $1",
+        uuid.UUID(expiring["id"]),
+    )
+
+    async def ender(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        cut.append((tenant_id, user_id))
+
+    engine = create_engine(world.db.app_url, application_name="test")
+    try:
+        await support_grant_job.run_tenant(
+            Database(engine), world.a.tenant, admin=world.admin, end_sessions=ender
+        )
+    finally:
+        await engine.dispose()
+    assert cut[-1] == (world.a.tenant, expiring_user)  # expiry: the schedule cuts it too

@@ -25,6 +25,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any
 from urllib.parse import quote
 
 from sqlalchemy import func, select, update
@@ -37,6 +38,7 @@ from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import WORKER, AuditActorType, RequestFacts, record
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.network import address_of
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
@@ -114,6 +116,30 @@ def _view(row: SupportGrant) -> GrantView:
         first_used_at=row.first_used_at,
         ended_at=row.ended_at,
         version=row.version,
+    )
+
+
+async def _audit(
+    session: AsyncSession,
+    action_code: str,
+    row: SupportGrant,
+    *,
+    facts: RequestFacts | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    """A SECURITY entry in the audit chain for a change nobody clicked (lane B's #552 review).
+
+    The system acts (a sweep, a timed end) unless request facts are given (the engineer's link).
+    Never a secret: no token, no password, no address; the grant and plain codes only.
+    """
+    await record(
+        session,
+        action_code=action_code,
+        facts=facts or WORKER,
+        object_type="support_grant",
+        object_id=row.id,
+        details=details or {},
+        actor=None if facts is not None else (AuditActorType.SYSTEM, None),
     )
 
 
@@ -309,6 +335,8 @@ async def end_grant(  # noqa: PLR0913 - the grant, how it ends and who ends it, 
         aggregate_id=row.id,
         aggregate_version=row.version,
     )
+    if revoked_by is None:  # its time was up: nobody clicked, so the system's entry
+        await _audit(session, "support_grant.ended", row)
     if row.support_user_id is not None:
         forget(tenant_id, row.support_user_id)
     return Ended(row.id, tenant_id, row.support_user_id, keycloak_id)
@@ -370,6 +398,10 @@ async def record_removal(
         row.account_removed_at = now
         row.version += 1
     await session.flush()
+    if error is None:
+        await _audit(session, "support_grant.account_removed", row)
+    else:  # the error's class only (lane B), never its message
+        await _audit(session, "support_grant.account_removal_failed", row, details={"error": error})
     await record_event(
         session,
         SupportGrantChanged(
@@ -856,6 +888,10 @@ async def first_use(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
     row.first_used_at = now
     row.version += 1
     await session.flush()
+    # How the engineer was verified, so a review can tell which grants an admin could have used.
+    await _audit(
+        session, "support_grant.first_used", row, details={"verification": row.verification}
+    )
     await record_changes(
         session,
         record_type=GRANT_RECORD_TYPE,
@@ -971,7 +1007,11 @@ class Opened:
 
 
 async def open_link(
-    database: Database, tenant_id: uuid.UUID, token: str, admin: IdentityAdmin | None
+    database: Database,
+    tenant_id: uuid.UUID,
+    token: str,
+    admin: IdentityAdmin | None,
+    facts: RequestFacts,
 ) -> Opened:
     """Use the engineer's link: a temporary password, shown once; the link is spent.
 
@@ -1008,6 +1048,7 @@ async def open_link(
         row.link_expires_at = None
         row.version += 1
         await session.flush()
+        await _audit(session, "support_grant.link_opened", row, facts=facts)
         await record_event(
             session,
             SupportGrantChanged(
@@ -1081,6 +1122,7 @@ async def expire_links(session: AsyncSession, now: datetime) -> int:
         row.link_expires_at = None
         row.version += 1
         await session.flush()
+        await _audit(session, "support_grant.link_expired", row)
         await record_event(
             session,
             SupportGrantChanged(
