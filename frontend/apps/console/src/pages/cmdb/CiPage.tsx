@@ -48,6 +48,7 @@ import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
 import { MapTab } from './map/MapTab';
+import { useSubscribersSection } from './useSubscribersSection';
 import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
 import { refText } from './refNames';
@@ -78,6 +79,8 @@ export function CiPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });
     // A relationship added or removed gives the CI a new version (WP-053 S2).
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.versions(id) });
+    // A business service's subscribers changed (0185): its own section refetches.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.subscribers(id) });
   });
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
@@ -94,6 +97,7 @@ function CiRecord({ ci }: { ci: Ci }) {
   const { message, modal } = App.useApp();
   const { locale } = useAppearance();
   const may = useCmdbRight();
+  const subscribers = useSubscribersSection(ci);
   const types = useCiTypes();
   const states = useCiStates();
   const [editing, setEditing] = useState(false);
@@ -317,6 +321,7 @@ function CiRecord({ ci }: { ci: Ci }) {
                 />
               ),
             },
+            ...(subscribers === null ? [] : [subscribers]),
           ]}
         />
       }

@@ -738,6 +738,7 @@ class SubscriberOut(BaseModel):
 class SubscribersOut(BaseModel):
     """A business service's subscribers, and how many active people they reach (each once)."""
 
+    business_service: bool = Field(description="Whether this CI takes subscribers at all.")
     items: list[SubscriberOut]
     people: int = Field(description="Active people the live refs reach, each counted once.")
 
@@ -752,7 +753,12 @@ class AudiencePersonOut(BaseModel):
 async def _subscribers_out(
     session: TenantSession, ci_id: uuid.UUID, found: list[subscribers.Subscriber]
 ) -> SubscribersOut:
+    record = await session.get(Ci, ci_id)
+    is_service = record is not None and record.type_id in await subscribers.service_type_ids(
+        session
+    )
     return SubscribersOut(
+        business_service=is_service,
         items=[
             SubscriberOut(
                 kind=s.kind, ref_id=s.ref_id, name=RefNameOut.of(s.name), removed=s.removed

@@ -79,6 +79,7 @@ export {
   useBusinessViews,
   useCiAsOf,
   useCiCompare,
+  useCiSubscribers,
   useCiVersions,
   useCreateBusinessView,
   useCreateRelationshipType,
@@ -88,6 +89,7 @@ export {
   useRelationshipTypes,
   useRemoveRelationship,
   useSaveBusinessViewAsNew,
+  useSetCiSubscribers,
   useUpdateBusinessView,
   useUpdateRelationshipType,
   type BusinessView,
@@ -110,6 +112,9 @@ export {
   type RelationshipType,
   type RelationshipTypeInput,
   type RelationshipTypePatch,
+  type CiSubscriber,
+  type CiSubscribers,
+  type SubscriberKind,
 } from './cmdbGraph';
 export {
   downloadAuditExport,
