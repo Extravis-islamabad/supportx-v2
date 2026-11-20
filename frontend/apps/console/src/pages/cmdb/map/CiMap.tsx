@@ -70,6 +70,8 @@ export interface CiMapProps {
   pinned?: ReadonlyMap<string, MapPoint>;
   expanded: ReadonlySet<string>;
   onExpand: (key: string) => void;
+  /** Offer "Expand" on a node (false on an impact answer, which is already the whole walk). */
+  expandable?: boolean;
   /** The person may change the base CI: remove offers itself on its links. */
   canEdit: boolean;
   /** The positions now on the map, stored left to right (a business view saves them). */
@@ -89,6 +91,7 @@ export interface CiMapProps {
  */
 export function CiMap(props: CiMapProps) {
   const { baseKey, graph, types, layout, pinned, expanded, onExpand, canEdit, onPositions } = props;
+  const expandable = props.expandable ?? true;
   const t = useLabel();
   const { modal, message } = App.useApp();
   const { token } = theme.useToken();
@@ -443,15 +446,19 @@ export function CiMap(props: CiMapProps) {
                           to: `/cmdb/${menuNode.node.id}`,
                         },
                       ]),
-                  {
-                    key: 'expand',
-                    label: t('cmdb.map.expand'),
-                    disabled: expanded.has(menuNode.key) || menuNode.key === baseKey,
-                    onSelect: () => {
-                      onExpand(menuNode.key);
-                      closeMenu();
-                    },
-                  },
+                  ...(expandable
+                    ? [
+                        {
+                          key: 'expand',
+                          label: t('cmdb.map.expand'),
+                          disabled: expanded.has(menuNode.key) || menuNode.key === baseKey,
+                          onSelect: () => {
+                            onExpand(menuNode.key);
+                            closeMenu();
+                          },
+                        },
+                      ]
+                    : []),
                   ...(canEdit
                     ? menuEdges
                         .filter((e) => e.from === baseKey || e.to === baseKey)
