@@ -24,7 +24,14 @@ from app.core.database import Database, TenantSession, after_commit, get_databas
 from app.core.entitlements import entitlement_exempt
 from app.core.recent_auth import RecentAuth
 from app.core.tenancy import TenantContext
-from app.modules.audit import ACTOR_FIELDS, AuditNote, RequestFacts, audited
+from app.modules.audit import (
+    ACTOR_FIELDS,
+    AuditNote,
+    ReadCategory,
+    RequestFacts,
+    audit_read,
+    audited,
+)
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service import support_grants as service
@@ -196,7 +203,14 @@ class SupportActivityPage(Page[SupportActivityOut]):
 ActivityQuery = Annotated[ListQuery, Depends(list_query(ACTOR_FIELDS))]
 
 
-@router.get("/grants/{grant_id}/activity", summary="What a vendor support grant's account did")
+@router.get(
+    "/grants/{grant_id}/activity",
+    summary="What a vendor support grant's account did",
+    # Reading an audit trail is itself audited (§7.4; lane A): always, coalesced per window.
+    dependencies=[
+        audit_read(ReadCategory.AUDIT_LOG, object_type="support_grant", object_param="grant_id")
+    ],
+)
 async def grant_activity(
     grant_id: uuid.UUID, session: TenantSession, subject: Manage, query: ActivityQuery
 ) -> SupportActivityPage:

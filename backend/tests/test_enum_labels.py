@@ -23,6 +23,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "SupportGrantIn.access": "support_grant_access",
     "SupportGrantOut.access": "support_grant_access",
     "SupportGrantMadeOut.access": "support_grant_access",
+    "SupportSessionOut.access": "support_grant_access",
     "SupportGrantIn.verification": "support_grant_verification",
     "SupportGrantOut.verification": "support_grant_verification",
     "SupportGrantMadeOut.verification": "support_grant_verification",

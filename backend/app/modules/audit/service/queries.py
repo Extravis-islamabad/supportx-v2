@@ -151,8 +151,11 @@ async def actor_entries(
 ) -> tuple[list[ActorEntry], PageResult[Any]]:
     """One page of everything one actor did, newest first (WP-057 S4c-3: a support grant's).
 
-    The caller decides who may read it; the tenant's RLS keeps it to the tenant. Never the
-    entry's details or personal values: what was done, when, to what, and how it ended.
+    **The caller must check access first** (audit hands these rows to no one unchecked): today
+    the only caller is identity_access's grant activity, which requires a tenant admin by their
+    own role AND `audit.view`, and audits the read (AUDIT_LOG). RLS keeps it to the tenant.
+    Never the entry's details or personal values: what was done, when, to what (an ID), and how
+    it ended.
     """
     page = await paginate(session, select(AuditEntry).where(AuditEntry.actor_id == actor_id), query)
     return [

@@ -339,6 +339,21 @@ async def test_a_grants_activity_is_its_own_accounts_only(world: World) -> None:
     assert theirs not in objects
     assert all(set(item) == {"id", "occurred_at", "action", "outcome", "object_type",
                              "object_id"} for item in found.json()["items"])  # fmt: skip
+    # Not a tenant admin: refused (lane A (1)); the read is audited, once per window (lane A (2)).
+    for user in (world.a.manager, world.a.tech):
+        refused = await world.call(
+            "GET", f"/identity/vendor-support/grants/{first}/activity", world.a, user=user
+        )
+        assert refused.status_code in {403, 404}, refused.text
+    reads = await _sql(
+        world,
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND object_id = $2"
+        " AND object_type = 'support_grant' AND actor_id = $3 AND action = 'read.audit_log'",
+        world.a.tenant,
+        str(first),
+        world.a.admin,
+    )
+    assert reads[0]["n"] >= 1
     # Another tenant's admin finds no such grant.
     other = await world.call("GET", f"/identity/vendor-support/grants/{first}/activity", world.b)
     assert other.status_code in {403, 404}, other.text
