@@ -252,6 +252,9 @@ class AuditSettings(TenantKeyed, Base):
         CheckConstraint("read_window_minutes BETWEEN 1 AND 1440", name="read_window_range"),
         CheckConstraint("refusal_threshold BETWEEN 3 AND 1000", name="refusal_threshold_range"),
         CheckConstraint("refusal_window_minutes BETWEEN 1 AND 1440", name="refusal_window_range"),
+        CheckConstraint(
+            "system_log_retention_days BETWEEN 30 AND 730", name="system_log_retention_range"
+        ),
     )
 
     retention_days: Mapped[int] = mapped_column(Integer)
@@ -261,6 +264,8 @@ class AuditSettings(TenantKeyed, Base):
     read_categories: Mapped[list[str]] = mapped_column(JSONB)
     # REQ-AUD-017 (WP-057 S3b-1; 0163): the personal data access log is on.
     personal_data_log: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # REQ-AUD-016 (WP-057 S5b; 0187): how long the system log keeps entries.
+    system_log_retention_days: Mapped[int] = mapped_column(Integer, default=90, server_default="90")
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -453,3 +458,43 @@ class FieldChangeRedaction(TenantKeyed, Base):
     salted: Mapped[bool] = mapped_column(Boolean)
     redacted_at: Mapped[datetime]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SystemLogEntry(UuidPrimaryKey, TenantScoped, Base):
+    """What the platform did on its own, or what failed (WP-057 S5b, REQ-AUD-016; 0187).
+
+    Append-only by grants: the app role may INSERT and SELECT only. `system_log_purge()` (a
+    migrator-owned definer) is the one way rows leave, past the tenant's retention.
+    """
+
+    __tablename__ = "system_log_entries"
+    __table_args__ = (
+        CheckConstraint("severity IN ('info', 'warning', 'error')", name="severity_code"),
+        CheckConstraint("code ~ '^[a-z][a-z0-9_.]*$'", name="code_shape"),
+        CheckConstraint("module ~ '^[a-z][a-z0-9_]*$'", name="module_shape"),
+        CheckConstraint("jsonb_typeof(params) = 'object'", name="params_object"),
+        CheckConstraint("(object_type IS NULL) = (object_id IS NULL)", name="object_pair"),
+        Index("ix_system_log_entries_tenant_time", "tenant_id", "occurred_at", "id"),
+        Index("ix_system_log_entries_tenant_severity_time", "tenant_id", "severity", "occurred_at"),
+        Index(
+            "ix_system_log_entries_tenant_object",
+            "tenant_id",
+            "object_type",
+            "object_id",
+            postgresql_where=text("object_id IS NOT NULL"),
+        ),
+    )
+
+    occurred_at: Mapped[datetime]
+    severity: Mapped[str] = mapped_column(String(16))
+    module: Mapped[str] = mapped_column(String(64))
+    code: Mapped[str] = mapped_column(String(96))
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    object_type: Mapped[str | None] = mapped_column(String(64))
+    object_id: Mapped[uuid.UUID | None]
+    job_id: Mapped[str | None] = mapped_column(String(128))
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    created_by: Mapped[uuid.UUID | None]
+    updated_by: Mapped[uuid.UUID | None]
