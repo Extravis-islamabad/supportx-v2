@@ -1118,6 +1118,8 @@ export const en = {
   'errors.person_erasure_in_progress':
     'This person is being erased; they cannot be reactivated or changed.',
   'errors.person_on_legal_hold': 'This person is on legal hold and cannot be erased.',
+  'errors.person_search_masked':
+    "People's names and e-mail addresses are hidden for this account, so it can't search by them.",
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':
@@ -1299,8 +1301,11 @@ export const en = {
   'errors.validation_failed': 'Some fields need your attention.',
   'errors.vendor_in_use': 'Records still name this vendor ({{used}}). Make it inactive instead.',
   'errors.vendor_not_found': 'This vendor no longer exists.',
+  'errors.vendor_support_drafts_only':
+    'An Extravis support account saves workflow drafts only. A tenant admin publishes, switches on, deletes and runs them.',
   'errors.vendor_support_grants_open':
     'End the open support access first, then turn vendor support off.',
+  'errors.vendor_support_no_ai': "An Extravis support account can't use AI features.",
   'errors.vendor_support_roles_from_grant':
     'An Extravis support account gets its access from its grant only, never from a role or a group.',
   'errors.vendor_support_tenant_admin_only':

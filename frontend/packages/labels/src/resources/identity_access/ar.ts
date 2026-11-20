@@ -1789,6 +1789,7 @@ export const ar: LabelResource = {
   'user_type.requester': 'مقدّم طلب',
   'user_type.service': 'تكامل',
   'user_type.technician': 'فني',
+  'user_type.vendor_support': 'دعم Extravis',
   'users.any': 'الكل',
   'users.col.email': 'البريد الإلكتروني',
   'users.col.last_login': 'آخر تسجيل دخول',

@@ -1128,6 +1128,8 @@ export const ur: LabelResource = {
   'errors.person_erasure_in_progress':
     'اس فرد کو مٹایا جا رہا ہے؛ انہیں دوبارہ فعال یا تبدیل نہیں کیا جا سکتا۔',
   'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
+  'errors.person_search_masked':
+    'اس اکاؤنٹ کے لیے لوگوں کے نام اور ای میل پتے چھپے ہیں، اس لیے یہ ان سے تلاش نہیں کر سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
@@ -1310,7 +1312,10 @@ export const ur: LabelResource = {
   'errors.vendor_in_use':
     'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.vendor_support_drafts_only':
+    'Extravis سپورٹ اکاؤنٹ صرف ورک فلو کے مسودے محفوظ کرتا ہے۔ ٹیننٹ ایڈمن انہیں شائع، فعال، حذف اور چلاتا ہے۔',
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_no_ai': 'Extravis سپورٹ اکاؤنٹ AI کی خصوصیات استعمال نہیں کر سکتا۔',
   'errors.vendor_support_roles_from_grant':
     'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
   'errors.vendor_support_tenant_admin_only':

@@ -101,6 +101,12 @@ class Subject:
     # refuse a person's change of a read-only field; a service identity's writes are system
     # writes (ADR-047 §8). Reads are restricted for both. A subject cached before this: a person.
     person: bool = True
+    # A vendor support account (WP-057 S4c-2): the grant it acts under, which every write's audit
+    # names (lane B (7)). None for everyone else.
+    support_grant_id: uuid.UUID | None = None
+    # People's e-mail addresses and phones withheld wherever a contact comes out (D-173): set by
+    # the compile (a support grant without unmask_personal), never decided by who the actor is.
+    mask_contacts: bool = False
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def holds(self, permission: str) -> bool:
@@ -138,6 +144,10 @@ class Subject:
             "not_entitled": sorted(self.not_entitled),
             "field_access": field_rules.to_json(self.field_access),
             "person": self.person,
+            "support_grant_id": None
+            if self.support_grant_id is None
+            else str(self.support_grant_id),
+            "mask_contacts": self.mask_contacts,
         }
 
     @classmethod
@@ -159,7 +169,18 @@ class Subject:
             not_entitled=frozenset(data["not_entitled"]),
             field_access=field_rules.from_json(data.get("field_access")),
             person=bool(data.get("person", True)),
+            support_grant_id=(
+                None
+                if data.get("support_grant_id") is None
+                else uuid.UUID(data["support_grant_id"])
+            ),
+            mask_contacts=bool(data.get("mask_contacts", False)),
         )
+
+    @property
+    def is_vendor_support(self) -> bool:
+        """A vendor support account's subject (D-173): never staff, never the tenant's voice."""
+        return self.support_grant_id is not None
 
 
 def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
