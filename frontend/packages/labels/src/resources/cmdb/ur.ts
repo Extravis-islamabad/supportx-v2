@@ -87,6 +87,7 @@ export const ur: LabelResource = {
   'cmdb.from_assets.result': '{{created}} CI شامل ہوئے، {{skipped}} اثاثے چھوڑے گئے',
   'cmdb.history': 'تاریخچہ',
   'cmdb.impact.affected_users': 'متاثرہ صارفین',
+  'cmdb.impact.affected_users_partial': '{{total}}، ان سروسز میں سے جو آپ دیکھ سکتے ہیں',
   'cmdb.impact.cis': 'متاثرہ CIs',
   'cmdb.impact.depth': 'گہرائی',
   'cmdb.impact.load_failed': 'اثر کا حساب نہیں ہو سکا۔ دوبارہ کوشش کریں۔',

@@ -87,6 +87,7 @@ export const ar: LabelResource = {
   'cmdb.from_assets.result': 'أُضيف {{created}} من عناصر التهيئة، وتُخطّي {{skipped}} من الأصول',
   'cmdb.history': 'السجل',
   'cmdb.impact.affected_users': 'المستخدمون المتأثرون',
+  'cmdb.impact.affected_users_partial': '{{total}}، من الخدمات التي يمكنك رؤيتها',
   'cmdb.impact.cis': 'عناصر التهيئة المتأثرة',
   'cmdb.impact.depth': 'العمق',
   'cmdb.impact.load_failed': 'تعذّر حساب التأثير. حاول مرة أخرى.',

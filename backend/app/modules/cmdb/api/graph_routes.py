@@ -319,11 +319,21 @@ class ImpactServiceOut(BaseModel):
     name: str
 
 
+class AudiencePersonOut(BaseModel):
+    """One person a service reaches (for `users.view` holders only)."""
+
+    id: uuid.UUID
+    display_name: str
+
+
 class ImpactOut(BaseModel):
     """What a failure of the CI reaches (`dependents`), or what it relies on (`dependencies`).
 
-    `affected_users` is null with `affected_users_reason` `not_configured` until business
-    services have subscribers. `truncated`: the 5,000-CI cap or a read limit cut the walk.
+    `affected_users`: the active people the subscribers of the affected business services you
+    may see reach, each once; `affected_users_partial` when any CI here is restricted (the count
+    is "of services you can see"). Null with `affected_users_reason` `not_configured` when none
+    of them has subscribers. `affected_people`: up to 50 by name, with `users.view` only.
+    `truncated`: the 5,000-CI cap or a read limit cut the walk.
     """
 
     start: ImpactCiOut
@@ -331,7 +341,9 @@ class ImpactOut(BaseModel):
     services: list[ImpactServiceOut]
     restricted: int = Field(description="How many affected CIs you may not see.")
     affected_users: int | None
+    affected_users_partial: bool = False
     affected_users_reason: Literal["not_configured"] | None
+    affected_people: list[AudiencePersonOut] | None = None
     truncated: bool
     depth: int
     ci_max: int
@@ -806,13 +818,6 @@ class SubscribersOut(BaseModel):
     people: int = Field(description="Active people the live refs reach, each counted once.")
 
 
-class AudiencePersonOut(BaseModel):
-    """One person a service reaches (for `users.view` holders only)."""
-
-    id: uuid.UUID
-    display_name: str
-
-
 async def _subscribers_out(
     session: TenantSession, ci_id: uuid.UUID, found: list[subscribers.Subscriber]
 ) -> SubscribersOut:
@@ -910,7 +915,16 @@ async def ci_impact(
         services=[ImpactServiceOut(id=s.id, name=s.name) for s in found.services],
         restricted=sum(1 for c in found.cis if c.restricted),
         affected_users=None if found.affected_users is None else found.affected_users.count,
+        affected_users_partial=found.affected_users is not None and found.affected_users.partial,
         affected_users_reason="not_configured" if found.affected_users is None else None,
+        affected_people=(
+            None
+            if found.affected_users is None or found.affected_users.people is None
+            else [
+                AudiencePersonOut(id=i, display_name=name)
+                for i, name in found.affected_users.people
+            ]
+        ),
         truncated=found.truncated,
         depth=depth,
         ci_max=impact_domain.CI_MAX,

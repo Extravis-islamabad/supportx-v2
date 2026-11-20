@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_cmdb_relationships import _given, _made
+from tests.db.test_cmdb_relationships import _given, _link, _made
 from tests.db.test_incidents_api import Org, World, field_codes, problem
 from tests.db.test_knowledge_api import _match
 
@@ -196,3 +196,50 @@ async def test_names_of_people_need_users_view(world: World) -> None:
         "GET", f"/cmdb/cis/{service['id']}/subscribers/people", a, a.requester2
     )
     assert names.status_code == 403, names.text
+
+
+async def test_impact_counts_only_the_subscribers_of_services_the_reader_can_see(
+    world: World,
+) -> None:
+    """The coordinator's 0185 check: a hidden service's people are left out, and it says so."""
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    host = await _made(world, a, f"Shared host {tag}", "server", site_id=str(a.s2))
+    seen = await _made(world, a, f"Seen service {tag}", "business_service", site_id=str(a.s2))
+    hidden = await _made(world, a, f"Hidden service {tag}", "business_service", site_id=str(a.s1))
+    for service in (seen, hidden):
+        linked = await _link(world, a, service, "depends_on", [host])
+        assert linked.status_code == 201, linked.text
+    finance = await _unit(world, a, "departments", f"Finance {tag}")
+    team = await _unit(world, a, "groups", f"Secret team {tag}")
+    await world.sql(
+        "UPDATE users SET department_id = $1 WHERE id = ANY($2::uuid[])",
+        uuid.UUID(finance["id"]),
+        [a.requester, a.requester2],
+    )
+    for member in (a.tech_a, a.tech_b, a.requester):  # requester is in Finance too
+        added = await world.call(
+            "PUT", f"/organization/groups/{team['id']}/members/{member}", a, a.admin
+        )
+        assert added.status_code in (200, 204), added.text
+    assert (await _put(world, a, seen, [("department", finance["id"])])).status_code == 200
+    assert (await _put(world, a, hidden, [("group", team["id"])])).status_code == 200
+
+    everything = await world.call("GET", f"/cmdb/cis/{host['id']}/impact", a, a.admin)
+    assert everything.status_code == 200, everything.text
+    full = everything.json()
+    assert full["affected_users"] == 4  # requester (once), requester2, tech_a, tech_b
+    assert full["affected_users_partial"] is False
+    assert full["affected_users_reason"] is None
+    assert full["affected_people"] is not None  # the admin holds users.view
+    assert len(full["affected_people"]) == 4
+
+    await _given(world, a, a.requester2, f"Site two impact {tag}", [("cmdb.view", "site")])
+    narrowed = await world.call("GET", f"/cmdb/cis/{host['id']}/impact", a, a.requester2)
+    assert narrowed.status_code == 200, narrowed.text
+    part = narrowed.json()
+    assert part["restricted"] == 1  # the hidden service is a placeholder
+    assert part["affected_users"] == 2  # Finance only: the hidden service's team is left out
+    assert part["affected_users_partial"] is True  # "of services you can see"
+    assert part["affected_people"] is None  # no users.view: the count only
+    assert "Secret team" not in narrowed.text

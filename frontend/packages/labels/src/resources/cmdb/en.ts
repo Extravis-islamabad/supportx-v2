@@ -85,6 +85,7 @@ export const en = {
   'cmdb.from_assets.result': '{{created}} CIs added, {{skipped}} assets skipped',
   'cmdb.history': 'History',
   'cmdb.impact.affected_users': 'Affected users',
+  'cmdb.impact.affected_users_partial': '{{total}}, of services you can see',
   'cmdb.impact.cis': 'CIs reached',
   'cmdb.impact.depth': 'Depth',
   'cmdb.impact.load_failed': "The impact couldn't be worked out. Try again.",
