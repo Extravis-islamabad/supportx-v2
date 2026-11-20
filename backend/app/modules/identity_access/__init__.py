@@ -238,9 +238,11 @@ from app.modules.identity_access.service.worker_sessions import (
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import (
     memberships,
+    register_audience_resolver,
     register_group_disable_guard,
     register_member_guard,
     register_site_people_counter,
+    unregister_audience_resolver,
     unregister_group_disable_guard,
     unregister_member_guard,
     unregister_site_people_counter,
@@ -365,6 +367,7 @@ def _start_policy(app: FastAPI, settings: "Settings") -> None:
     register_member_guard(app.state.member_guard)
     register_group_disable_guard(guard_group_disable)
     register_site_people_counter(directory.people_by_site)
+    register_audience_resolver(directory.AUDIENCE_RESOLVER)
 
 
 async def _record_session_keys(app: FastAPI, settings: Settings) -> None:
@@ -447,6 +450,7 @@ async def _shutdown(app: FastAPI) -> None:
         unregister_member_guard(guard)
     unregister_group_disable_guard(guard_group_disable)
     unregister_site_people_counter(directory.people_by_site)
+    unregister_audience_resolver(directory.AUDIENCE_RESOLVER)
     use_policy(None)
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
