@@ -17,6 +17,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 import { useDebounced } from '../../useDebounced';
 import { personName, statusLabel } from './labels';
 import { recentIncidents } from './recent';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const CATEGORIES: StatusCategory[] = ['open', 'paused', 'resolved', 'closed', 'canceled'];
 
@@ -52,6 +53,7 @@ export function IncidentPicker({
   testId,
   ariaLabel,
 }: IncidentPickerProps) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const me = useSession().data?.user.id ?? null;
@@ -111,7 +113,7 @@ export function IncidentPicker({
         .filter((item) => item.id !== from?.id && !shown.has(item.id) && shown.add(item.id))
         .map((item) => {
           byId.set(item.id, item);
-          const requester = personName(people, item.requester_id);
+          const requester = personName(people, item.requester_id, hidden);
           const statusText = statusLabel(t, catalogue.data, item.status, locale);
           return {
             value: item.id,

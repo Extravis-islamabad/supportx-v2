@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { ColumnContext, ColumnSpec } from './columns';
+import { shownName } from '../../../maskedPeople';
 
 type CardDensity = 'comfortable' | 'compact';
 
@@ -144,7 +145,10 @@ export function IncidentCards({
                             spec.key === 'technician_id'
                               ? row.technician_id === null
                                 ? t('incidents.unassigned')
-                                : (context.people[row.technician_id]?.display_name ?? undefined)
+                                : shownName(
+                                    context.people[row.technician_id]?.display_name,
+                                    context.hiddenPerson,
+                                  ) || undefined
                               : undefined
                           }
                           // A value wraps to its own line rather than being cut: a due time must
