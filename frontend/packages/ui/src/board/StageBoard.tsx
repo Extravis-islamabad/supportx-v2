@@ -168,7 +168,7 @@ export function StageBoard<C extends BoardCard>({
                 </Typography.Text>
                 <Typography.Text type="secondary" data-testid={`${testId}-count-${column.key}`}>
                   {column.count !== undefined && column.count > inColumn.length
-                    ? t('board.count_of', { shown: inColumn.length, count: column.count })
+                    ? t('board.count_of', { shown: inColumn.length, total: column.count })
                     : (column.count ?? inColumn.length)}
                 </Typography.Text>
               </Flex>

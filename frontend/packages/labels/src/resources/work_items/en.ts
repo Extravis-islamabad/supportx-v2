@@ -968,7 +968,7 @@ export const en = {
   'incidents.calendar.no_due_other':
     '{{count}} incidents in this view have no due time, so they are not shown.',
   'incidents.calendar.partial':
-    'Showing the first {{count}} incidents in this period. Narrow the view to see the rest.',
+    'Showing the first {{max}} incidents in this period. Narrow the view to see the rest.',
   'incidents.calendar.previous': 'Previous',
   'incidents.calendar.today': 'Today',
   'incidents.calendar.view': 'Calendar view',

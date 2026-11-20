@@ -344,7 +344,7 @@ export function IncidentCalendar({
         </Typography.Text>
       )}
       {rows.length >= MOST && hasNextPage && (
-        <Alert type="info" showIcon message={t('incidents.calendar.partial', { count: MOST })} />
+        <Alert type="info" showIcon message={t('incidents.calendar.partial', { max: MOST })} />
       )}
       <div
         role="grid"

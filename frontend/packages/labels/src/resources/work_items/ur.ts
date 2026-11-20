@@ -970,7 +970,7 @@ export const ur: LabelResource = {
   'incidents.calendar.no_due_other':
     'اس منظر میں {{count}} واقعات کا کوئی واجب الادا وقت نہیں، اس لیے وہ نہیں دکھائے گئے۔',
   'incidents.calendar.partial':
-    'اس مدت کے پہلے {{count}} واقعات دکھائے جا رہے ہیں۔ باقی دیکھنے کے لیے منظر محدود کریں۔',
+    'اس مدت کے پہلے {{max}} واقعات دکھائے جا رہے ہیں۔ باقی دیکھنے کے لیے منظر محدود کریں۔',
   'incidents.calendar.previous': 'پچھلا',
   'incidents.calendar.today': 'آج',
   'incidents.calendar.view': 'کیلنڈر کا منظر',

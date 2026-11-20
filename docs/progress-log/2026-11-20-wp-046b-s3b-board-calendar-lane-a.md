@@ -1,4 +1,4 @@
-# 2026-11-20: WP-046b S3b, the incident board, cards and calendar (lane A)
+### 2026-11-20 — WP-046b S3b: the incident board, cards and calendar (lane A)
 
 REQ-INC-111 and REQ-INC-112, migration 0182. Plan: approved by the coordinator (Q1 the
 migration, Q2 12 columns with a stable order) and lane C (six conditions plus the calendar's).

@@ -1102,7 +1102,7 @@ export const ar: LabelResource = {
   'incidents.calendar.no_due_other': '{{count}} حادثة في هذا العرض بلا وقت استحقاق، لذا لا تظهر.',
   'incidents.calendar.no_due_two': 'حادثتان في هذا العرض بلا وقت استحقاق، لذا لا تظهران.',
   'incidents.calendar.no_due_zero': 'لكل الحوادث في هذا العرض وقت استحقاق.',
-  'incidents.calendar.partial': 'تظهر أول {{count}} حادثة في هذه الفترة. ضيّق العرض لرؤية البقية.',
+  'incidents.calendar.partial': 'تظهر أول {{max}} حادثة في هذه الفترة. ضيّق العرض لرؤية البقية.',
   'incidents.calendar.previous': 'السابق',
   'incidents.calendar.today': 'اليوم',
   'incidents.calendar.view': 'عرض التقويم',
