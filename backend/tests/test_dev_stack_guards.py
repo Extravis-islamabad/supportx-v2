@@ -223,3 +223,30 @@ def test_an_explicit_test_database_always_wins(monkeypatch: pytest.MonkeyPatch) 
     found = db_testing.load_config()
     assert found is not None
     assert found.admin_url.endswith(":55447/postgres")
+
+
+@pytest.mark.usefixtures("stack_env")
+def test_the_valkey_nats_and_minio_test_fallbacks_need_the_opt_in_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """tests/db's valkey_url() (every DB test's Valkey, through shared_world), NATS and MinIO."""
+    from tests.db.test_audit_exports import s3_config  # noqa: PLC0415 - the helpers under test
+    from tests.db.test_rate_limit import valkey_url  # noqa: PLC0415
+    from tests.events.conftest import nats_url  # noqa: PLC0415
+
+    db_testing.STACK_ENV.write_text(
+        db_testing.STACK_ENV.read_text(encoding="utf-8")
+        + "VALKEY_PASSWORD=v\nVALKEY_PORT=26379\nNATS_PORT=24222\n"
+        "MINIO_API_PORT=29000\nMINIO_ROOT_USER=u\nMINIO_ROOT_PASSWORD=p\n",
+        encoding="utf-8",
+    )
+    for name in ("SUPPORTX_TEST_VALKEY_URL", "SUPPORTX_TEST_NATS_URL", "SUPPORTX_TEST_S3_ENDPOINT"):
+        monkeypatch.delenv(name, raising=False)
+    assert (valkey_url(), nats_url(), s3_config()) == (None, None, None)
+    monkeypatch.setenv(db_testing.ALLOW_DEV_STACK, "1")
+    assert valkey_url() == "valkey://:v@127.0.0.1:26379/0"
+    assert nats_url() == "nats://127.0.0.1:24222"
+    assert s3_config() == ("http://127.0.0.1:29000", "u", "p")
+    # An explicit throwaway always wins.
+    monkeypatch.setenv("SUPPORTX_TEST_VALKEY_URL", "valkey://127.0.0.1:56391/0")
+    assert valkey_url() == "valkey://127.0.0.1:56391/0"
