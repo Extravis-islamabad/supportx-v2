@@ -235,6 +235,7 @@ async def test_support_saves_workflow_drafts_and_never_publishes_or_runs_them(
         ("PUT", f"{base}/start-templates", {"template_ids": []}),
         ("POST", f"{base}/jobs", {}),
         ("GET", f"{base}/export", None),
+        ("POST", f"{base}/test-runs", {}),
         ("DELETE", base, None),
     ]
     for method, path, body in refused:
@@ -295,3 +296,15 @@ async def test_a_view_grant_reads_but_never_writes(world: World) -> None:  # noq
         assert write_right not in subject.grants, write_right
     for read_right in ("knowledge.view", "cmdb.view", "assets.view", "sla.view"):
         assert read_right in subject.grants, read_right
+
+
+async def test_a_support_account_is_never_notified_or_mailed(world: World) -> None:  # noqa: F811 - the reused fixture
+    """Lane B (a): a worker renders notices unmasked, so support is never a recipient."""
+    from app.modules.identity_access import mail_recipients, notifiable_people  # noqa: PLC0415
+
+    _, user_id = await _support_user(world)
+    policy = world.app.state.policy
+    async with policy.database.tenant_session(TenantContext(world.a.tenant)) as session:
+        assert await notifiable_people(session, [user_id, world.a.admin]) != {}
+        assert user_id not in await notifiable_people(session, [user_id, world.a.admin])
+        assert user_id not in await mail_recipients(session, [user_id])

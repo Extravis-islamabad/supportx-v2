@@ -73,7 +73,8 @@ def _beyond_drafts(subject: Manage) -> Subject:
     """`workflows.manage` past a draft's save: what runs, switches or changes identity.
 
     A vendor support account designs drafts only (D-173, WP-057 S4c-2): a tenant admin publishes,
-    switches on, deletes, bulk-runs, sets Runs-as, exports and makes live test calls.
+    switches on, deletes, bulk-runs, sets Runs-as, exports and test-runs (a test run reads a
+    real record in a worker, unmasked, and shows the result: lane B (b)).
     """
     if subject.is_vendor_support:
         raise PermissionDenied(code=DRAFTS_ONLY)
@@ -1338,7 +1339,7 @@ async def start_test(
     workflow_id: uuid.UUID,
     body: TestRunIn,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     idempotency: Idempotency,
 ) -> Response:
     """Its commands are shown, never applied; it never writes to the record (REQ-WF-022 AC2)."""
@@ -1353,7 +1354,7 @@ async def start_test(
 
 
 @router.get("/test-runs/{run_id}", summary="A test run")
-async def get_test(run_id: uuid.UUID, session: TenantSession, subject: Manage) -> TestRunOut:
+async def get_test(run_id: uuid.UUID, session: TenantSession, subject: Publish) -> TestRunOut:
     """Its path so far, its variables and decisions, and what waits for an answer."""
     del subject
     run = await session.get(WorkflowTestRun, run_id)
@@ -1380,7 +1381,7 @@ async def answer_test(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> TestRunOut:
     """One of: a command's answer (approved / rejected, done / failed), a change, time."""
     del subject

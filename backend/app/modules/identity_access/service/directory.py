@@ -512,6 +512,9 @@ async def mail_recipients(
             User.id.in_(list(user_ids)),
             User.status == "active",
             User.deleted_at.is_(None),
+            # Connectors' identities and vendor support accounts are never sent anything (a
+            # worker builds mail unmasked: WP-057 S4c-2, lane B; REQ-INT-012).
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     found: dict[uuid.UUID, MailRecipient] = {}
@@ -549,6 +552,8 @@ async def notifiable_people(
             User.id.in_(list(user_ids)),
             User.status == "active",
             User.deleted_at.is_(None),
+            # Never a recipient: a notice is rendered unmasked by a worker (S4c-2, lane B (a)).
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     return {
