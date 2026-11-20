@@ -1,9 +1,10 @@
-"""People's names and contacts withheld from a masked request's answers (WP-057 S4c-2, D-173).
+"""People's contacts (and, when asked, names) withheld from a support request's answers.
 
-A vendor support session whose grant does not unmask personal data carries `mask_contacts` on
-its request context (set by the BFF's session resolve, with its grant). Every people lookup reads
-it from the database session's own context, so a lookup cannot forget it, nothing is cached
-across requests, and workers, mail and jobs (no such context) are never masked.
+WP-057 S4c-2, D-173, D-180: every vendor support session carries `mask_contacts` on its request
+context (set by the BFF's session resolve, with its grant): e-mail and phone are always withheld.
+Names are withheld only when the grant ticks "Mask names too" (`mask_names`, 0188). Every people
+lookup reads it from the database session's own context, so a lookup cannot forget it, nothing
+is cached across requests, and workers, mail and jobs (no such context) are never masked.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,16 +17,25 @@ PERSON_SEARCH_MASKED = "person_search_masked"
 
 
 def contacts_masked(session: AsyncSession) -> bool:
-    """Whether this session's request withholds people's names and contacts (D-173, S4c-2).
+    """Whether this session's request withholds people's e-mail addresses and phones.
 
-    Read from the request's own context (a vendor support session without unmask_personal), so
-    every people lookup below honours it and workers, mail and jobs (no such context) never do.
+    Every vendor support session (D-180). Read from the request's own context, so every people
+    lookup honours it and workers, mail and jobs (no such context) never do.
     """
     context = session.info.get(SESSION_TENANT_KEY)
     return isinstance(context, TenantContext) and context.mask_contacts
 
 
+def names_masked(session: AsyncSession) -> bool:
+    """Whether this session's request withholds people's names too (D-180: the grant's tick)."""
+    context = session.info.get(SESSION_TENANT_KEY)
+    return isinstance(context, TenantContext) and context.mask_names
+
+
 def refuse_masked_person_search(session: AsyncSession) -> None:
-    """A search by a person's name or e-mail would tell who they are: refused while masked."""
-    if contacts_masked(session):
+    """A search by a person's name would tell who they are: refused while names are masked.
+
+    With names shown (D-180's default), a support session searches names only (person_search).
+    """
+    if names_masked(session):
         raise PermissionDenied(code=PERSON_SEARCH_MASKED)

@@ -198,7 +198,8 @@ async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
         uuid.UUID(grant_id),
     )
     unmasked = await _compiled(world, user_id)
-    assert not unmasked.mask_contacts
+    # D-180: e-mail and phone stay withheld whatever unmask_personal says; names show by default.
+    assert (unmasked.mask_contacts, unmasked.mask_names) == (True, False)
     assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}
 
 

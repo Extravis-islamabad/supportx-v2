@@ -246,7 +246,12 @@ class SupportSessionOut(BaseModel):
     grant_id: uuid.UUID
     access: Literal["view", "view_and_change"]
     ends_at: datetime
-    contacts_masked: bool = Field(description="People's names and addresses are withheld.")
+    contacts_masked: bool = Field(
+        description="People's e-mail addresses and phones are withheld (always, D-180)."
+    )
+    names_masked: bool = Field(
+        default=False, description="People's names are withheld too (the grant's tick, D-180)."
+    )
 
 
 class MeResponse(BaseModel):
@@ -714,7 +719,8 @@ async def _describe(request: Request, session: Session) -> MeResponse:
                         "grant_id": grant.id,
                         "access": grant.access,
                         "ends_at": grant.ends_at,
-                        "contacts_masked": not grant.unmask_personal,
+                        "contacts_masked": True,  # D-180: always, whatever unmask_personal says
+                        "names_masked": False,  # the grant's "Mask names too" tick comes in 0188
                     }
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
