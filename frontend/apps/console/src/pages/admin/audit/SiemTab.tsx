@@ -28,6 +28,7 @@ import {
   type SiemDestination,
   type SiemDestinationInput,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   EditDrawer,
   EmptyText,
@@ -300,6 +301,7 @@ function DestinationDrawer({
  */
 export function SiemTab() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const { relative, format } = useDateTime();
   const destinations = useSiemDestinations();
@@ -364,7 +366,7 @@ export function SiemTab() {
           {
             key: 'streams',
             title: t('siem.column.streams'),
-            render: (_, row) => row.streams.map((s) => t(`siem_stream.${s}`)).join(', '),
+            render: (_, row) => listFormat(row.streams.map((s) => t(`siem_stream.${s}`))),
           },
           {
             key: 'health',
