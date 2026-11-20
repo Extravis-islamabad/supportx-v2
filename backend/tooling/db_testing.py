@@ -77,8 +77,29 @@ def _read_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def load_config() -> DbTestConfig | None:
-    """Test database settings from the environment or the dev stack, or None if neither."""
+ALLOW_DEV_STACK = "SUPPORTX_TEST_ALLOW_DEV_STACK"
+
+
+def dev_stack_env() -> dict[str, str] | None:
+    """The shared dev stack's settings for tests, only with SUPPORTX_TEST_ALLOW_DEV_STACK=1.
+
+    Every test fallback to the dev stack (PostgreSQL, Valkey, NATS, MinIO) goes through here, so
+    none writes to a stack people share unless asked to (the 2026-11-20 incident).
+    """
+    if os.environ.get(ALLOW_DEV_STACK) != "1" or not STACK_ENV.is_file():
+        return None
+    return _read_env_file(STACK_ENV)
+
+
+def load_config(*, allow_dev_stack: bool | None = None) -> DbTestConfig | None:
+    """Test database settings from the environment, or None.
+
+    The shared dev stack (deploy/compose/.env) is used only when asked for: `allow_dev_stack`
+    (`make db-bootstrap`, which sets that stack up), or `SUPPORTX_TEST_ALLOW_DEV_STACK=1` for
+    tests. Tests create and drop throwaway databases, and since the 2026-11-20 incident they never
+    land on a stack people share by default: point SUPPORTX_TEST_ADMIN_URL (and the role
+    passwords) at a standalone throwaway PostgreSQL instead.
+    """
     if admin_url := os.environ.get("SUPPORTX_TEST_ADMIN_URL"):
         return DbTestConfig(
             admin_url=admin_url,
@@ -87,7 +108,8 @@ def load_config() -> DbTestConfig | None:
             relay_password=os.environ["SUPPORTX_TEST_RELAY_PASSWORD"],
             pgbouncer=os.environ.get("SUPPORTX_TEST_PGBOUNCER") or None,
         )
-    if not STACK_ENV.is_file():
+    allowed = os.environ.get(ALLOW_DEV_STACK) == "1" if allow_dev_stack is None else allow_dev_stack
+    if not allowed or not STACK_ENV.is_file():
         return None
     env = _read_env_file(STACK_ENV)
     return DbTestConfig(

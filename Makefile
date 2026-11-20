@@ -28,7 +28,8 @@ EVENTS_CLI := $(BACKEND) uv run python -m workers.events_cli
 # Local dev stack (WP-002, docs/dev-setup.md). `--profile full` on down/ps/logs so they cover every
 # service whichever profile started it; it never starts anything by itself.
 DEV_DIR := deploy/compose
-COMPOSE := docker compose --project-directory $(DEV_DIR) -f $(DEV_DIR)/docker-compose.yml
+# Through the guard: a second project never mounts the shared stack's volumes (scripts/compose.sh).
+COMPOSE := $(DEV_DIR)/scripts/compose.sh
 DEV_ENV := $(DEV_DIR)/.env
 
 help: ## List targets

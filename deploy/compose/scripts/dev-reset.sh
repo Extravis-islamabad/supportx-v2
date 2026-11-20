@@ -4,7 +4,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
-compose=(docker compose --project-directory "$here" -f "$here/docker-compose.yml" --profile full --profile setup)
+compose=("$here/scripts/compose.sh" --profile full --profile setup)
 
 volumes="$("${compose[@]}" config --volumes 2>/dev/null | while read -r v; do
   docker volume ls -q --filter "name=^supportx_dev_${v}$"
