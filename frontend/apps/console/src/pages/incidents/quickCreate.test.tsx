@@ -9,7 +9,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession } from '../../test/api';
+import { consoleApi, fakeSession, listCalls } from '../../test/api';
 
 // WP-046a S5c (REQ-INC-018): quick create from the list. The same create as the full form, so
 // the template's starting values go with it and its rules still refuse what they need.
@@ -79,7 +79,7 @@ describe('Quick create', () => {
     restore = fake.restore;
     render(<App />);
     await screen.findByTestId('inc-header-actions-more');
-    const listed = fake.find('GET', '/api/v1/incidents').length;
+    const listed = listCalls(fake, '/api/v1/incidents').length;
     await fillIn();
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/incidents')).toHaveLength(1);
@@ -95,7 +95,7 @@ describe('Quick create', () => {
     expect(await screen.findByText(`${ITEM.display_id} created.`)).toBeDefined();
     // The list is fetched again with the new row (live updates do the same from the event).
     await waitFor(() => {
-      expect(fake.find('GET', '/api/v1/incidents').length).toBeGreaterThan(listed);
+      expect(listCalls(fake, '/api/v1/incidents').length).toBeGreaterThan(listed);
     });
   });
 

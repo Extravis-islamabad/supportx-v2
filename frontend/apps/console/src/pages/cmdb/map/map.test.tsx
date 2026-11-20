@@ -23,6 +23,12 @@ const STATE = 'a0000000-0000-7000-8000-000000000002';
 const CI = 'a0000000-0000-7000-8000-000000000003';
 const OTHER = 'a0000000-0000-7000-8000-000000000004';
 const RUNS_ON = 'a0000000-0000-7000-8000-000000000005';
+// The CI's references, named by the server for the reader (CMDB polish).
+const SITE = 'a0000000-0000-7000-8000-000000000006';
+const SITE2 = 'a0000000-0000-7000-8000-000000000007';
+const PERSON = 'a0000000-0000-7000-8000-000000000008';
+const named = (label: string) => ({ label, restricted: false, gone: false });
+const hidden = { label: null, restricted: true, gone: false };
 const now = new Date().toISOString();
 
 const ci = {
@@ -31,8 +37,8 @@ const ci = {
   name: 'Mail service',
   type_id: TYPE,
   state_id: STATE,
-  site_id: null,
-  owner_user_id: null,
+  site_id: SITE,
+  owner_user_id: PERSON,
   owner_group_id: null,
   managed_by_group_id: null,
   business_impact: null,
@@ -53,6 +59,7 @@ const ci = {
   custom: {},
   masked_fields: [],
   read_only_fields: [],
+  names: { [SITE]: named('Islamabad HQ'), [PERSON]: named('Sara Khan') },
 };
 
 const node = (id: string, name: string, display: string) => ({
@@ -184,9 +191,12 @@ function api(options: { truncated?: boolean } = {}) {
             saved_by_name: null,
             fields: {},
             relationships: [],
+            // A site the reader may see by name, and one they may not.
+            names: { [SITE]: named('Islamabad HQ'), [SITE2]: hidden },
           },
           attributes: [
             { field: 'state_id', kind: 'changed', old: null, new: STATE },
+            { field: 'site_id', kind: 'changed', old: SITE, new: SITE2 },
             { field: 'description', kind: 'added', old: null, new: 'x'.repeat(400) },
             { field: 'owner_user_id', kind: 'changed', old: null, new: OTHER },
           ],
@@ -347,6 +357,22 @@ describe('CMDB › the Map tab', () => {
   });
 });
 
+describe('CMDB › the record', () => {
+  it("names the CI's references in its properties, never by their IDs", async () => {
+    setDefaultClientFactory(inertClientFactory);
+    api();
+    window.history.pushState({}, '', `/cmdb/${CI}`);
+    render(<Shown />);
+    const panel = await screen.findByTestId('ci-panel');
+    await waitFor(() => {
+      expect(panel.textContent).toContain('Islamabad HQ');
+    });
+    expect(panel.textContent).toContain('Sara Khan');
+    expect(panel.textContent).not.toContain(SITE);
+    expect(panel.textContent).not.toContain(PERSON);
+  });
+});
+
 describe('CMDB › the Versions tab', () => {
   it('compares two versions grouped as attributes and relationships, in words', async () => {
     setDefaultClientFactory(inertClientFactory);
@@ -372,6 +398,11 @@ describe('CMDB › the Versions tab', () => {
     expect(within(attributes).getByTestId('ci-compare-state_id').textContent).toContain('In use');
     expect(attributes.textContent).not.toContain(OTHER);
     expect(within(attributes).getByTestId('ci-compare-owner_user_id').textContent).toContain('Set');
+    // References by the server's names: one by its name, one the reader may not see in words.
+    const site = within(attributes).getByTestId('ci-compare-site_id').textContent;
+    expect(site).toContain('Islamabad HQ');
+    expect(site).toContain('Not shown to you');
+    expect(site).not.toContain(SITE2);
     const toggle = within(attributes).getByTestId('long-text-toggle');
     expect(toggle.textContent).toBe('Show all');
     expect(within(attributes).getByTestId('ci-compare-description').textContent).not.toContain(

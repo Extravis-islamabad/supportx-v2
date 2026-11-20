@@ -4,7 +4,7 @@ Mounted before `/{record_id}`, like the other collection routes.
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.errors import FieldError, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules import metadata
 from app.modules.audit import AuditNote, audited
@@ -35,14 +36,14 @@ from app.modules.work_items.infra.models import (
     WorkItemView,
 )
 from app.modules.work_items.service import bulk as bulk_service
-from app.modules.work_items.service import catalogue, custom_values, view_audit
+from app.modules.work_items.service import catalogue, custom_values, view_audit, view_filters
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS, type_fields
 from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, set_etag
 from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.listing import ListQuery, list_query, request_zone
+from app.shared.api.listing import ListQuery, list_query, list_query_body, request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
@@ -299,12 +300,12 @@ async def _own_and_custom(session: AsyncSession, wtype: WorkItemType) -> Mapping
     return {**type_fields(wtype), **custom}
 
 
-def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
-    """The list's ListQuery dependency: built-in fields plus custom fields (WP-026).
+def _names(tree: Any, simple: Mapping[str, Sequence[str]]) -> list[str]:  # noqa: ANN401 - the DSL tree
+    return [str(c["field"]) for c in view_filters.conditions(tree)] + list(simple)
 
-    Minus the fields the caller's roles hide or mask (ADR-047 AC2): filtering or sorting on one
-    is refused like any unknown field, so a filter never probes a value the list leaves out.
-    """
+
+def _hooks(wtype: WorkItemType) -> dict[str, Any]:
+    """The list's hooks, the same for its GET and its POST form."""
 
     async def withheld(request: Request, tenant: TenantContext) -> frozenset[str]:
         subject = await get_policy(request).subject_for(request, tenant)
@@ -320,15 +321,52 @@ def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dep
             session, wtype.code.value, tree, simple, withheld
         )
 
-    return list_query(
-        FIELDS,
-        extra_parameters=frozenset({"view", "tag"}),
+    return {
         # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
         # A type's own fields too (a change's risk, a problem's type): drill-down (REQ-CHG-116).
-        fields_for=lambda session: _own_and_custom(session, wtype),
-        exclude_for=withheld,
-        rewrite_for=sealed,
+        "fields_for": lambda session: _own_and_custom(session, wtype),
+        "exclude_for": withheld,
+        "rewrite_for": sealed,
+    }
+
+
+def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
+    """The list's ListQuery dependency (GET): built-in fields plus custom fields (WP-026).
+
+    Minus the fields the caller's roles hide or mask (ADR-047 AC2): filtering or sorting on one
+    is refused like any unknown field, so a filter never probes a value the list leaves out.
+    A filter naming a sealed field is refused here (`sealed_filter_needs_post`): its value
+    would travel in the URL, so it goes in `POST .../list`'s body (lane C).
+    """
+
+    async def refuse(
+        session: AsyncSession,
+        tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+        simple: Mapping[str, Sequence[str]],
+    ) -> None:
+        found = await service.sealed_fields(session, wtype)
+        named = next((n for n in _names(tree, simple) if n in found), None)
+        if named is not None:
+            # The field, never the value (lane C): the value is what must not travel.
+            raise ValidationFailed(
+                errors=[
+                    FieldError(
+                        field="query.filter",
+                        code="sealed_filter_needs_post",
+                        message_key="errors.field.sealed_filter_needs_post",
+                        params={"field": named},
+                    )
+                ]
+            )
+
+    return list_query(
+        FIELDS, extra_parameters=frozenset({"view", "tag"}), refuse_for=refuse, **_hooks(wtype)
     )
+
+
+def list_body_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
+    """The same list query from `POST .../list`'s body: a sealed filter may come this way."""
+    return list_query_body(FIELDS, extra_parameters=frozenset({"view", "tag"}), **_hooks(wtype))
 
 
 def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901, PLR0915 - one route per op

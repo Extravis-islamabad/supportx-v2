@@ -26,6 +26,7 @@ from app.modules import metadata
 from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.infra.models import Ci, CiVersion
+from app.modules.cmdb.service import ref_names
 from app.modules.cmdb.service.cis import RECORD_TYPE, SNAPSHOT, visible_rows
 from app.modules.cmdb.service.relationships import NodeInfo, node_infos
 from app.modules.cmdb.service.snapshots import LINKS
@@ -64,6 +65,9 @@ class VersionView:
     fields: dict[str, Any]
     relationships: list[LinkView]
     masked_fields: list[str] = field(default_factory=list)  # `custom.<key>` held but masked
+    # References named for the reader (CMDB polish): one map for the whole response, so both
+    # sides of a compare carry the same names.
+    names: dict[str, ref_names.RefName] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -207,9 +211,11 @@ async def _views(
     infos = await node_infos(session, subject, others)
     names = await user_names(session, sorted({str(r.saved_by) for r in rows if r.saved_by}))
     reader = await _reader(session, subject)
+    shown = [_fields(row.snapshot, reader) for row in rows]
+    # Only what the reader may read now is named (hidden and masked values are left out above).
+    referred = await ref_names.names_for(session, subject, [fields for fields, _ in shown])
     views: list[VersionView] = []
-    for row in rows:
-        fields, masked = _fields(row.snapshot, reader)
+    for row, (fields, masked) in zip(rows, shown, strict=True):
         views.append(
             VersionView(
                 version=row.version,
@@ -219,6 +225,7 @@ async def _views(
                 fields=fields,
                 relationships=_link_views(_links(row.snapshot), infos, keys),
                 masked_fields=masked,
+                names=referred,
             )
         )
     return views

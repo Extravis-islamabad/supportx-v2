@@ -14,6 +14,8 @@ export type CiStateInput = components['schemas']['CiStateIn'];
 export type CiStatePatch = components['schemas']['CiStatePatch'];
 export type Ci = components['schemas']['CiOut'];
 export type CiListItem = components['schemas']['CiListItem'];
+/** A referenced site, group, person or asset as the reader may see it (never its ID). */
+export type CiRefName = components['schemas']['RefNameOut'];
 export type CiInput = components['schemas']['CiIn'];
 export type CiPatch = components['schemas']['CiPatch'];
 export type CiHistoryEntry = components['schemas']['CiHistoryEntryOut'];

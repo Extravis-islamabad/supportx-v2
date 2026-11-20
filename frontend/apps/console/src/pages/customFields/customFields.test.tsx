@@ -13,7 +13,7 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
-import { consoleApi, problem } from '../../test/api';
+import { consoleApi, problem, listCalls } from '../../test/api';
 import { rememberTab } from '../incidents/tabs';
 
 // Custom fields (WP-026, REQ-INC-014): admin screen, create form, record properties, history
@@ -405,7 +405,7 @@ describe('Custom fields on incidents', () => {
       )[0] as Element,
     );
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(last?.url.searchParams.get('filter')).toBe(
         JSON.stringify({ field: 'custom.affected_floor', op: 'eq', value: 'first' }),
       );

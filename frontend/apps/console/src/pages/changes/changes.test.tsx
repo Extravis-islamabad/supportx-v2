@@ -6,7 +6,7 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { consoleApi, listCalls } from '../../test/api';
 
 // The change screens (WP-045d D19, taken forward): the list on template C, the new change on
 // template B, the record on template A with its stage rail and moves, the risk questionnaire,
@@ -225,10 +225,10 @@ describe('console: changes', () => {
     expect(within(row).getByText('Normal')).toBeTruthy();
     expect(within(row).getByTestId('change-risk-CHG-7').textContent).toBe('High');
     expect(screen.getByTestId('new-change')).toBeTruthy();
-    expect(fake.find('GET', '/api/v1/changes')[0]?.url.searchParams.get('view')).toBe('open');
+    expect(listCalls(fake, '/api/v1/changes')[0]?.url.searchParams.get('view')).toBe('open');
     await choose('changes-view', 'Pending approval');
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/changes').at(-1);
+      const last = listCalls(fake, '/api/v1/changes').at(-1);
       expect(last?.url.searchParams.get('view')).toBe('pending_approval');
     });
   });
@@ -724,7 +724,7 @@ describe('console: changes', () => {
       const fake = api();
       render(<App />);
       await screen.findByTestId('change-row-CHG-7');
-      const lists = () => fake.find('GET', '/api/v1/changes').length;
+      const lists = () => listCalls(fake, '/api/v1/changes').length;
       await waitFor(() => {
         expect(lists()).toBeGreaterThan(0);
       });

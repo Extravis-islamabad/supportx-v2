@@ -63,21 +63,35 @@ export function useIncidents(query: IncidentsQuery, enabled = true) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.list(query),
     queryFn: ({ pageParam }) => {
-      const params = {
-        query: {
-          view: query.trash === true ? undefined : query.view,
-          tag: query.tag,
-          filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
-          sort: query.sort,
-          limit: query.limit ?? 50,
-          cursor: pageParam ?? undefined,
-          include_total: pageParam === null,
-        },
-      };
+      if (query.trash === true) {
+        const params = {
+          query: {
+            tag: query.tag,
+            filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            sort: query.sort,
+            limit: query.limit ?? 50,
+            cursor: pageParam ?? undefined,
+            include_total: pageParam === null,
+          },
+        };
+        return call(api.GET('/api/v1/incidents/trash', { params }));
+      }
+      // The list asks by POST (lane C): a filter may hold a protected value, which must never
+      // be in a URL. The same options, the same answer, the same query key.
       return call(
-        query.trash === true
-          ? api.GET('/api/v1/incidents/trash', { params })
-          : api.GET('/api/v1/incidents', { params }),
+        api.POST('/api/v1/incidents/list', {
+          body: {
+            filter: query.filter,
+            sort: query.sort,
+            limit: query.limit ?? 50,
+            cursor: pageParam ?? undefined,
+            include_total: pageParam === null,
+            params: {
+              ...(query.view === undefined ? {} : { view: [query.view] }),
+              ...(query.tag === undefined ? {} : { tag: [query.tag] }),
+            },
+          },
+        }),
       );
     },
     initialPageParam: null as string | null,

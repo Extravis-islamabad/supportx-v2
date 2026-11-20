@@ -1492,6 +1492,12 @@ async function ciCompare(page: Page): Promise<void> {
   const at = new Date(Date.now() - 3600_000).toISOString();
   const versions = '**/api/v1/cmdb/cis/*/versions*';
   const compare = '**/api/v1/cmdb/cis/*/compare*';
+  const siteSeen = '0190dddd-0000-7000-8000-000000000001';
+  const siteHidden = '0190dddd-0000-7000-8000-000000000002';
+  const names = {
+    [siteSeen]: { label: 'Islamabad HQ', restricted: false, gone: false },
+    [siteHidden]: { label: null, restricted: true, gone: false },
+  };
   const listed = (route: Route) =>
     route.fulfill({
       json: {
@@ -1517,8 +1523,8 @@ async function ciCompare(page: Page): Promise<void> {
     };
     return route.fulfill({
       json: {
-        from_version: { ...empty, version: 1, masked_fields: ['custom.licence_key'] },
-        to_version: { ...empty, version: 2, masked_fields: ['custom.licence_key'] },
+        from_version: { ...empty, version: 1, masked_fields: ['custom.licence_key'], names },
+        to_version: { ...empty, version: 2, masked_fields: ['custom.licence_key'], names },
         attributes: [
           { field: 'name', kind: 'changed', old: 'Core switch', new: 'Core switch SW-01' },
           {
@@ -1530,6 +1536,8 @@ async function ciCompare(page: Page): Promise<void> {
           { field: 'criticality', kind: 'added', old: null, new: 'high' },
           // A custom field by its label (0175 part 2).
           { field: 'custom.os_version', kind: 'changed', old: 'Ubuntu 22.04', new: 'Ubuntu 24.04' },
+          // References by the server's names (CMDB polish): one named, one the reader may not see.
+          { field: 'site_id', kind: 'changed', old: siteSeen, new: siteHidden },
         ],
         relationships_added: [
           { id: null, type_id: 'x', direction: 'forward', ci: { key: 'r1', restricted: true } },

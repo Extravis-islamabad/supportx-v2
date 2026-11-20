@@ -123,8 +123,12 @@ async def test_turning_on_seals_existing_values_batch_by_batch(
     assert {shown[i["id"]] for i in items} == {f"Zebra{n}" for n in range(5)}
     assert "sx2:" not in listed.text
     # Filters stay refused in between (lane B).
-    probe = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "Zebra1"})
-    assert (await world.call("GET", BASE, a, a.admin, params={"filter": probe})).status_code == 422
+    # By the POST form, so it reaches the in-between refusal itself: the GET would stop earlier
+    # at `sealed_filter_needs_post` (#555; lane C).
+    probe = {"field": f"custom.{key}", "op": "eq", "value": "Zebra1"}
+    between = await world.call("POST", f"{BASE}/list", a, a.admin, json={"filter": probe})
+    assert between.status_code == 422, between.text
+    assert "field_not_filterable_sealed" in between.text
     await _run(world, a)
     assert await _state(world, a, key) == ("sealed", True)
     assert all(v.startswith("sx2:") for v in await _stored(world, a, key))
@@ -134,8 +138,9 @@ async def test_turning_on_seals_existing_values_batch_by_batch(
         key,
     )
     assert index[0]["n"] == 5
-    hit = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "zebra3"})
-    found = await world.call("GET", BASE, a, a.admin, params={"filter": hit})
+    # A sealed filter goes by the POST form, never in a URL (#555).
+    hit = {"field": f"custom.{key}", "op": "eq", "value": "zebra3"}
+    found = await world.call("POST", f"{BASE}/list", a, a.admin, json={"filter": hit})
     assert [r["id"] for r in found.json()["items"]] == [items[3]["id"]]
     audited = await world.sql(
         "SELECT action AS action_code, details FROM audit_entries WHERE tenant_id = $1"
@@ -371,12 +376,12 @@ async def test_sealed_values_survive_a_kek_rotation_and_history_stays_verifiable
     shown = await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)
     assert shown.json()["custom"][key] == "V2"
     assert shown.json()["unreadable_fields"] == []
-    found = await world.call(
-        "GET",
-        BASE,
+    found = await world.call(  # by the POST form: a sealed filter never in a URL (#555)
+        "POST",
+        f"{BASE}/list",
         a,
         a.admin,
-        params={"filter": json.dumps({"field": f"custom.{key}", "op": "eq", "value": "v2"})},
+        json={"filter": {"field": f"custom.{key}", "op": "eq", "value": "v2"}},
     )
     assert [r["id"] for r in found.json()["items"]] == [item["id"]]
     page = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.admin)
