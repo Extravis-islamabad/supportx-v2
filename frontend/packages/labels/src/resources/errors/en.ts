@@ -1303,6 +1303,7 @@ export const en = {
     'An Extravis support account saves workflow drafts only. A tenant admin publishes, switches on, deletes and runs them.',
   'errors.vendor_support_grants_open':
     'End the open support access first, then turn vendor support off.',
+  'errors.vendor_support_no_ai': "An Extravis support account can't use AI features.",
   'errors.vendor_support_roles_from_grant':
     'An Extravis support account gets its access from its grant only, never from a role or a group.',
   'errors.vendor_support_tenant_admin_only':

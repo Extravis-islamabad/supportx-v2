@@ -1203,6 +1203,7 @@ export const ar: LabelResource = {
   'errors.vendor_support_drafts_only':
     'يحفظ حساب دعم Extravis مسودات سير العمل فقط. ينشرها مسؤول المستأجر ويشغّلها ويحذفها.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
+  'errors.vendor_support_no_ai': 'لا يمكن لحساب دعم Extravis استخدام ميزات الذكاء الاصطناعي.',
   'errors.vendor_support_roles_from_grant':
     'يحصل حساب دعم Extravis على وصوله من المنحة فقط، ولا يحصل عليه أبدًا من دور أو مجموعة.',
   'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',

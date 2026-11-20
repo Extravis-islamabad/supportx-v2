@@ -253,3 +253,20 @@ async def test_support_saves_workflow_drafts_and_never_publishes_or_runs_them(
         "POST", f"{base}/publish", world.a, headers={"If-Match": '"2"', **console}
     )
     assert published.status_code == 200, published.text
+
+
+async def test_support_uses_no_ai_feature(world: World) -> None:  # noqa: F811 - the reused fixture
+    """Lane B (3): no record text reaches a model on a support account's behalf."""
+    _, user_id = await _support_user(
+        world, access="view_and_change", change_reason="Fix the stuck workflow on INC-12"
+    )
+    for method, path in (
+        ("GET", "/ai/settings"),
+        ("GET", f"/ai/summaries/incident/{uuid.uuid4()}"),
+        ("POST", f"/ai/summaries/incident/{uuid.uuid4()}/refresh"),
+    ):
+        refused = await world.call(method, path, world.a, user=user_id)
+        assert refused.status_code == 403, (path, refused.text)
+        assert refused.json()["code"] == "vendor_support_no_ai", path
+    # The tenant's own people keep it (the control).
+    assert (await world.call("GET", "/ai/settings", world.a)).status_code == 200

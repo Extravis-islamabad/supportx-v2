@@ -1313,6 +1313,7 @@ export const ur: LabelResource = {
   'errors.vendor_support_drafts_only':
     'Extravis سپورٹ اکاؤنٹ صرف ورک فلو کے مسودے محفوظ کرتا ہے۔ ٹیننٹ ایڈمن انہیں شائع، فعال، حذف اور چلاتا ہے۔',
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_no_ai': 'Extravis سپورٹ اکاؤنٹ AI کی خصوصیات استعمال نہیں کر سکتا۔',
   'errors.vendor_support_roles_from_grant':
     'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
   'errors.vendor_support_tenant_admin_only':
