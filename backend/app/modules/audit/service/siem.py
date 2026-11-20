@@ -613,10 +613,13 @@ async def _attempt(
     open) never stops the others (lane B (1)).
     """
     try:
-        if row.kind == siem.SiemKind.WEBHOOK:
-            await _send_webhook(session, settings, row, batch.objects, tenant_id)
-        else:
-            await _send_syslog(session, settings, row, batch.lines)
+        # A savepoint: a database error inside the send (opening a sealed value) rolls back to
+        # here, so the failure can still be recorded on the row (lane B's #564 note).
+        async with session.begin_nested():
+            if row.kind == siem.SiemKind.WEBHOOK:
+                await _send_webhook(session, settings, row, batch.objects, tenant_id)
+            else:
+                await _send_syslog(session, settings, row, batch.lines)
     except Exception as exc:  # noqa: BLE001 - every failure becomes this destination's code
         code = _failure_code(exc)
         if code == FAILED:
