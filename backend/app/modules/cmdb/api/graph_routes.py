@@ -19,10 +19,11 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
 from app.modules.cmdb.api.routes import RefNameOut, names_out
+from app.modules.cmdb.domain import impact as impact_domain
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import BusinessView, RelationshipTypeRule
-from app.modules.cmdb.service import business_views, catalogue, relationships, versions
+from app.modules.cmdb.service import business_views, catalogue, impact, relationships, versions
 from app.modules.cmdb.service.relationships import NodeInfo
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -57,6 +58,7 @@ IdList = list[uuid.UUID]
 
 # Codes as named schemas (labelled `cmdb_relationship_direction.<code>`, `cmdb_view_layout.<code>`).
 RelationshipDirection = rel.RelationshipDirection
+ImpactDirection = impact_domain.ImpactDirection
 BusinessViewLayout = rel.BusinessViewLayout
 
 
@@ -282,6 +284,49 @@ def _graph(graph: relationships.Graph) -> CiGraphOut:
         node_max=rel.NODE_MAX,
         counts_available=graph.counts_available,
     )
+
+
+# --- schemas: impact ------------------------------------------------------------------------------
+
+
+class ImpactCiOut(CiNodeOut):
+    """An affected CI (a `restricted` one has its key, depth and `via` only).
+
+    `via`: the key of the CI it was reached from, so the path back to the start can be drawn.
+    """
+
+    via: str | None = None
+
+
+class ImpactServiceOut(BaseModel):
+    """An affected business service you may see."""
+
+    id: uuid.UUID
+    name: str
+
+
+class ImpactOut(BaseModel):
+    """What a failure of the CI reaches (`dependents`), or what it relies on (`dependencies`).
+
+    `affected_users` is null with `affected_users_reason` `not_configured` until business
+    services have subscribers. `truncated`: the 5,000-CI cap or a read limit cut the walk.
+    """
+
+    start: ImpactCiOut
+    cis: list[ImpactCiOut]
+    services: list[ImpactServiceOut]
+    restricted: int = Field(description="How many affected CIs you may not see.")
+    affected_users: int | None
+    affected_users_reason: Literal["not_configured"] | None
+    truncated: bool
+    depth: int
+    ci_max: int
+    as_of: datetime
+
+
+def _impact_ci(item: impact.ImpactCi) -> ImpactCiOut:
+    node = CiNodeOut.of(item.key, item.info, item.depth)
+    return ImpactCiOut(**node.model_dump(), via=item.via)
 
 
 # --- schemas: versions ----------------------------------------------------------------------------
@@ -705,6 +750,34 @@ async def neighbours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         show_eol=eol,
     )
     return _graph(graph)
+
+
+@router.get("/cis/{ci_id}/impact", summary="What a CI's failure reaches")
+async def ci_impact(
+    ci_id: uuid.UUID,
+    session: TenantSession,
+    subject: View,
+    direction: ImpactDirection = ImpactDirection.DEPENDENTS,
+    depth: Annotated[int, Query(ge=1, le=impact_domain.DEPTH_MAX)] = impact_domain.DEPTH_DEFAULT,
+) -> ImpactOut:
+    """What a failure of this CI reaches, to `depth`: CIs and business services (or its reliances).
+
+    The walk follows relationship types that carry impact, through CIs you may not see too, so a
+    path stays true; those are `restricted` with a key only.
+    """
+    found = await impact.ci_impact(session, subject, ci_id, direction=direction, depth=depth)
+    return ImpactOut(
+        start=_impact_ci(found.starts[0]),
+        cis=[_impact_ci(c) for c in found.cis],
+        services=[ImpactServiceOut(id=s.id, name=s.name) for s in found.services],
+        restricted=sum(1 for c in found.cis if c.restricted),
+        affected_users=None if found.affected_users is None else found.affected_users.count,
+        affected_users_reason="not_configured" if found.affected_users is None else None,
+        truncated=found.truncated,
+        depth=depth,
+        ci_max=impact_domain.CI_MAX,
+        as_of=found.as_of,
+    )
 
 
 # --- routes: versions -----------------------------------------------------------------------------

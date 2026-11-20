@@ -264,6 +264,11 @@ export const ur: LabelResource = {
   'cmdb_impact.high': 'زیادہ',
   'cmdb_impact.low': 'کم',
   'cmdb_impact.medium': 'درمیانہ',
+  'cmdb_impact_direction.both': 'دونوں طرف',
+  'cmdb_impact_direction.dependencies': 'یہ کس پر منحصر ہے',
+  'cmdb_impact_direction.dependents': 'یہ کس پر اثر ڈالتا ہے',
+  'cmdb_impact_users_reason.not_configured':
+    'ترتیب نہیں دیا گیا: اس سروس کے ابھی کوئی سبسکرائبر نہیں',
   'cmdb_relationship.backed_up_by.forward': 'کا بیک اپ لیتا ہے',
   'cmdb_relationship.backed_up_by.inverse': 'کا بیک اپ لیا جاتا ہے بذریعہ',
   'cmdb_relationship.connected_to.forward': 'سے منسلک',
