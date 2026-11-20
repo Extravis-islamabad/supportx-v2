@@ -669,14 +669,14 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         else:
             password = _one_time_password()
             await admin.set_password(account, password, temporary=True)
-        person = await UserRepository(
-            session
-        ).add(
+        person = await UserRepository(session).add(
             User(
                 external_subject=account,
                 email=None,  # the real address lives on the grant only
-                display_name=row.engineer_name[:100],
-                first_name=row.engineer_name[:100],
+                # D-178: history, the audit and notices name the actor "Extravis support"; the
+                # engineer is named on the grant, which every entry ties to (grant_id).
+                display_name=rules.SUPPORT_DISPLAY_NAME,
+                first_name=rules.SUPPORT_DISPLAY_NAME,
                 user_type=rules.SUPPORT_USER_TYPE,
                 can_sign_in=True,
                 roles_mapped_at=now,  # SupportX's roles only, never Keycloak's (as S4a)
