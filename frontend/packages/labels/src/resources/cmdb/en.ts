@@ -93,6 +93,8 @@ export const en = {
   'cmdb.impact.truncated':
     'Only the first {{max}} CIs are shown. Lower the depth to see the whole answer.',
   'cmdb.impact.via': 'Through {{name}}',
+  'cmdb.impact.view_list': 'List',
+  'cmdb.impact.view_map': 'Map',
   'cmdb.map.add': 'Add',
   'cmdb.map.add_relationship': 'Add relationship',
   'cmdb.map.added_one': '1 relationship added',

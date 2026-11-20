@@ -58,6 +58,8 @@ class ImpactCi:
     via: str | None  # the key it was reached from (None for a start)
     info: NodeInfo
     type_code: str | None = None
+    via_type_id: uuid.UUID | None = None  # the relationship type of that step
+    via_forward: bool = True  # the stored link runs from `via` to this CI
 
     @property
     def restricted(self) -> bool:
@@ -143,7 +145,7 @@ async def _level(
     ends = {end for _, _, a, b in found for end in (a, b)}
     live = set(await session.scalars(select(Ci.id).where(Ci.id.in_(ends), Ci.deleted_at.is_(None))))
     edges = [
-        domain.ImpactEdge(str(i), str(a), str(b), types[t])
+        domain.ImpactEdge(str(i), str(a), str(b), types[t], str(t))
         for i, t, a, b in found
         if a in live and b in live
     ]
@@ -242,13 +244,30 @@ async def _answer(
     )
     service_types = await _service_types(session)
 
-    def item(node: str, depth: int, via: str | None) -> ImpactCi:
+    def item(
+        node: str,
+        depth: int,
+        via: str | None,
+        via_type: str | None = None,
+        *,
+        forward: bool = True,
+    ) -> ImpactCi:
         info = infos[uuid.UUID(node)]
         code = type_codes.get(info.type_id) if info.visible and info.type_id else None
-        return ImpactCi(key=key(node), depth=depth, via=via, info=info, type_code=code)
+        return ImpactCi(
+            key=key(node),
+            depth=depth,
+            via=via,
+            info=info,
+            type_code=code,
+            via_type_id=uuid.UUID(via_type) if via_type else None,
+            via_forward=forward,
+        )
 
     reached = [
-        item(node, r.depth, None if r.via is None else key(r.via))
+        item(
+            node, r.depth, None if r.via is None else key(r.via), r.via_type, forward=r.via_forward
+        )
         for node, r in walk.reached.items()
     ]
     starts = [c for c in reached if c.depth == 0] + [item(str(i), 0, None) for i in hidden_starts]

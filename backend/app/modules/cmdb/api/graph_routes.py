@@ -296,6 +296,12 @@ class ImpactCiOut(CiNodeOut):
     """
 
     via: str | None = None
+    via_type_id: uuid.UUID | None = Field(
+        default=None, description="The relationship type of the step from `via`."
+    )
+    via_forward: bool = Field(
+        default=True, description="The stored link runs from `via` to this CI (else the reverse)."
+    )
 
 
 class ImpactServiceOut(BaseModel):
@@ -326,7 +332,12 @@ class ImpactOut(BaseModel):
 
 def _impact_ci(item: impact.ImpactCi) -> ImpactCiOut:
     node = CiNodeOut.of(item.key, item.info, item.depth)
-    return ImpactCiOut(**node.model_dump(), via=item.via)
+    return ImpactCiOut(
+        **node.model_dump(),
+        via=item.via,
+        via_type_id=item.via_type_id,
+        via_forward=item.via_forward,
+    )
 
 
 # --- schemas: versions ----------------------------------------------------------------------------

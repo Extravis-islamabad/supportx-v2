@@ -95,6 +95,8 @@ export const ar: LabelResource = {
   'cmdb.impact.truncated':
     'تُعرض أول {{max}} من عناصر التهيئة فقط. خفّض العمق لرؤية الإجابة كاملة.',
   'cmdb.impact.via': 'عبر {{name}}',
+  'cmdb.impact.view_list': 'قائمة',
+  'cmdb.impact.view_map': 'خريطة',
   'cmdb.map.add': 'إضافة',
   'cmdb.map.add_relationship': 'إضافة علاقة',
   'cmdb.map.added_few': 'أُضيفت {{count}} علاقات',

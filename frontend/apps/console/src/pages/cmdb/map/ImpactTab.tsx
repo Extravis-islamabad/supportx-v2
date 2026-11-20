@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import {
   queryKeys,
   useCiImpact,
+  useRelationshipTypes,
   type CiImpact,
   type CiImpactNode,
   type ImpactDirection,
@@ -13,7 +14,12 @@ import {
 import { useListChannel } from '@supportx/realtime';
 import { ToneTag, useAppearance, useLabel } from '@supportx/ui';
 
+import { CiMap } from './CiMap';
+import { impactGraph } from './impactGraph';
 import { nodeLook, nodeName, nodeType } from './words';
+
+type View = 'list' | 'map';
+const NO_EXPANDED: ReadonlySet<string> = new Set();
 
 const DIRECTIONS: readonly ImpactDirection[] = ['dependents', 'dependencies', 'both'];
 const DEPTH_DEFAULT = 3;
@@ -31,6 +37,7 @@ export function ImpactTab({ ciId }: { ciId: string }) {
   const t = useLabel();
   const [direction, setDirection] = useState<ImpactDirection>('dependents');
   const [depth, setDepth] = useState(DEPTH_DEFAULT);
+  const [view, setView] = useState<View>('list');
   const found = useCiImpact(ciId, direction, depth);
   const queryClient = useQueryClient();
   const shown = useMemo(() => {
@@ -69,11 +76,22 @@ export function ImpactTab({ ciId }: { ciId: string }) {
             data-testid="ci-impact-depth"
           />
         </Flex>
+        <Segmented<View>
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'list', label: t('cmdb.impact.view_list') },
+            { value: 'map', label: t('cmdb.impact.view_map') },
+          ]}
+          data-testid="ci-impact-view"
+        />
       </Flex>
       {found.isPending ? (
         <Skeleton active />
       ) : found.isError ? (
         <Alert type="error" showIcon message={t('cmdb.impact.load_failed')} />
+      ) : view === 'map' ? (
+        <ImpactMap impact={found.data} />
       ) : (
         <ImpactBody impact={found.data} />
       )}
@@ -134,7 +152,7 @@ function ImpactBody({ impact }: { impact: CiImpact }) {
                 dataSource={impact.services}
                 renderItem={(service) => (
                   <List.Item key={service.id}>
-                    <Link to={`/cmdb/cis/${service.id}`}>{service.name}</Link>
+                    <Link to={`/cmdb/${service.id}`}>{service.name}</Link>
                   </List.Item>
                 )}
                 data-testid="ci-impact-services"
@@ -160,7 +178,7 @@ function ImpactBody({ impact }: { impact: CiImpact }) {
                           <Typography.Text type="secondary">{nodeName(t, node)}</Typography.Text>
                         ) : (
                           <Flex gap={8} wrap align="center">
-                            <Link to={`/cmdb/cis/${node.id}`}>{nodeName(t, node)}</Link>
+                            <Link to={`/cmdb/${node.id}`}>{nodeName(t, node)}</Link>
                             <Typography.Text type="secondary">{node.display_id}</Typography.Text>
                             <ToneTag tone={look.tone}>{nodeType(t, locale, node)}</ToneTag>
                           </Flex>
@@ -189,5 +207,28 @@ function Summary({ label, value }: { label: string; value: string }) {
       <Typography.Text type="secondary">{label}</Typography.Text>
       <Typography.Text strong>{value}</Typography.Text>
     </Flex>
+  );
+}
+
+function ImpactMap({ impact }: { impact: CiImpact }) {
+  const t = useLabel();
+  const types = useRelationshipTypes();
+  const graph = useMemo(() => impactGraph(impact), [impact]);
+  if (impact.cis.length === 0) {
+    return <Empty description={t('cmdb.impact.none')} data-testid="ci-impact-empty" />;
+  }
+  return (
+    <CiMap
+      baseKey={impact.start.key}
+      graph={graph}
+      types={types.data?.items ?? []}
+      layout="hierarchical"
+      expanded={NO_EXPANDED}
+      onExpand={() => undefined}
+      expandable={false}
+      canEdit={false}
+      fileName={`${impact.start.display_id ?? 'ci'}-impact`}
+      testId="ci-impact-map"
+    />
   );
 }

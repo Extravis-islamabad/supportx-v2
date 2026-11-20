@@ -188,8 +188,10 @@ async def test_an_unknown_direction_is_a_field_problem(world: World) -> None:
 
 
 # Fields a placeholder may carry with a value: its per-answer key, the flag, and where it sits on
-# a walk (depth, the key it was reached from). Everything else must be empty.
-PLACEHOLDER_FIELDS = frozenset({"key", "restricted", "depth", "via"})
+# a walk (depth, the key it was reached from, and that step's link: its relationship type and
+# which way it is stored, as S2's map shows the type on an edge to a placeholder). Nothing about
+# the CI itself: everything else must be empty.
+PLACEHOLDER_FIELDS = frozenset({"key", "restricted", "depth", "via", "via_type_id", "via_forward"})
 
 
 def _placeholders(value: Any, found: list[dict[str, Any]]) -> list[dict[str, Any]]:  # noqa: ANN401 - JSON

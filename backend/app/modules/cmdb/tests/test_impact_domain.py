@@ -13,7 +13,6 @@ from app.modules.cmdb.domain.impact import (
     ImpactDirection,
     ImpactEdge,
     ImpactWalk,
-    Reached,
     bounded_depth,
     flow_of,
     steps,
@@ -28,6 +27,11 @@ DEPENDENTS, DEPENDENCIES, BOTH = (
 
 def _edge(n: int, a: str, b: str, code: str | None) -> ImpactEdge:
     return ImpactEdge(id=f"e{n}", from_id=a, to_id=b, flow=flow_of(code))
+
+
+def _path(walk: ImpactWalk, node: str) -> tuple[int, str | None]:
+    found = walk.reached[node]
+    return found.depth, found.via
 
 
 def _walk(
@@ -88,8 +92,8 @@ def test_acceptance_database_two_apps_two_services() -> None:
     ]
     two = _walk(("db",), DEPENDENTS, edges, 2)
     assert set(two.reached) == {"db", "app1", "app2", "svc1", "svc2"}
-    assert two.reached["svc1"] == Reached(2, "app1")  # the path back: svc1 ← app1 ← db
-    assert two.reached["app2"] == Reached(1, "db")
+    assert _path(two, "svc1") == (2, "app1")  # the path back: svc1 ← app1 ← db
+    assert _path(two, "app2") == (1, "db")
     one = _walk(("db",), DEPENDENTS, edges, 1)
     assert set(one.reached) == {"db", "app1", "app2"}  # depth 1 drops the services
 
@@ -102,7 +106,7 @@ def test_a_cycle_ends_and_lists_each_ci_once() -> None:
     ]
     walk = _walk(("A",), DEPENDENTS, edges, DEPTH_MAX)
     assert set(walk.reached) == {"A", "B", "C"}
-    assert walk.reached["A"] == Reached(0, None)  # the start is never re-reached
+    assert _path(walk, "A") == (0, None)  # the start is never re-reached
     assert not walk.truncated
 
 
@@ -122,8 +126,10 @@ def test_the_walk_is_deterministic() -> None:
     ]
     first = _walk(("s2", "s1"), DEPENDENTS, edges, 3)
     again = _walk(("s2", "s1"), DEPENDENTS, list(reversed(edges)), 3)
-    assert first.reached == again.reached
-    assert first.reached["p"] == Reached(1, "s1")  # reached first from the lower key
+    assert {k: _path(first, k) for k in first.reached} == {
+        k: _path(again, k) for k in again.reached
+    }
+    assert _path(first, "p") == (1, "s1")  # reached first from the lower key
 
 
 def test_depth_bounds_and_contract_words() -> None:
@@ -131,3 +137,11 @@ def test_depth_bounds_and_contract_words() -> None:
     assert bounded_depth(0) == 1
     assert bounded_depth(99) == DEPTH_MAX == 10
     assert CONTRACT_DIRECTIONS == {"down": DEPENDENTS, "up": DEPENDENCIES, "both": BOTH}
+
+
+def test_each_step_keeps_its_link_type_and_way() -> None:
+    edges = [ImpactEdge("e1", "app", "db", Flow.TO_FROM, "t-dep")]
+    walk = _walk(("db",), DEPENDENTS, edges, 1)
+    reached = walk.reached["app"]
+    # From the database to the app that depends on it: the stored link runs app -> db.
+    assert (reached.via, reached.via_type, reached.via_forward) == ("db", "t-dep", False)

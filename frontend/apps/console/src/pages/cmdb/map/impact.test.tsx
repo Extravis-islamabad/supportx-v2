@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -77,14 +77,48 @@ const node = (id: string, name: string, display: string) => ({
 });
 
 const SERVICE = 'a0000000-0000-7000-8000-000000000009';
+const DEPENDS = 'a0000000-0000-7000-8000-000000000010';
+const dependsOn = {
+  id: DEPENDS,
+  code: 'depends_on',
+  built_in: true,
+  names_forward: {},
+  names_inverse: {},
+  carries_impact: true,
+  rules: [],
+  relationship_count: 3,
+  suggested: false,
+  version: 1,
+};
 
 function impact(truncated = false) {
   return {
     start: { ...node(CI, 'Mail service', 'CI-1'), via: null },
     cis: [
-      { key: 'r1', restricted: true, depth: 1, via: CI, type_names: {}, state_names: {} },
-      { ...node(OTHER, 'Mail app', 'CI-2'), depth: 2, via: 'r1' },
-      { ...node(SERVICE, 'Email for staff', 'CI-3'), depth: 3, via: OTHER },
+      {
+        key: 'r1',
+        restricted: true,
+        depth: 1,
+        via: CI,
+        via_type_id: DEPENDS,
+        via_forward: false,
+        type_names: {},
+        state_names: {},
+      },
+      {
+        ...node(OTHER, 'Mail app', 'CI-2'),
+        depth: 2,
+        via: 'r1',
+        via_type_id: DEPENDS,
+        via_forward: false,
+      },
+      {
+        ...node(SERVICE, 'Email for staff', 'CI-3'),
+        depth: 3,
+        via: OTHER,
+        via_type_id: DEPENDS,
+        via_forward: false,
+      },
     ],
     services: [{ id: SERVICE, name: 'Email for staff' }],
     restricted: 1,
@@ -110,6 +144,7 @@ function api(truncated = false) {
       },
       [`GET /api/v1/cmdb/cis/${CI}/impact`]: { body: impact(truncated) },
       'GET /api/v1/realtime/lists/cmdb': { body: { channels: ['t:tenant:cmdb:all'] } },
+      'GET /api/v1/cmdb/relationship-types': { body: { items: [dependsOn] } },
     },
   });
   restore = fake.restore;
@@ -139,7 +174,7 @@ describe('CMDB › the Impact tab', () => {
     expect(restricted?.textContent).not.toContain('r1');
     // The app is reached through the restricted CI: the path names it in words, never its key.
     expect(app?.textContent).toContain("Through A CI you can't open");
-    expect(app?.querySelector('a')?.getAttribute('href')).toBe(`/cmdb/cis/${OTHER}`);
+    expect(app?.querySelector('a')?.getAttribute('href')).toBe(`/cmdb/${OTHER}`);
     expect(within(tab).getByTestId('ci-impact-services').textContent).toContain('Email for staff');
     const summary = within(tab).getByTestId('ci-impact-summary');
     expect(summary.textContent).toContain('Not configured');
@@ -155,5 +190,28 @@ describe('CMDB › the Impact tab', () => {
     render(<Shown />);
     const cut = await screen.findByTestId('ci-impact-truncated');
     expect(cut.textContent).toContain('Only the first 5000 CIs are shown');
+  });
+
+  it('draws the same answer as a map, read-only, a restricted CI as a bare node', async () => {
+    setDefaultClientFactory(inertClientFactory);
+    api();
+    window.history.pushState({}, '', `/cmdb/${CI}?tab=impact`);
+    render(<Shown />);
+    const toggle = await screen.findByTestId('ci-impact-view');
+    fireEvent.click(within(toggle).getByText('Map'));
+    const restricted = await screen.findByTestId('ci-map-node-r1');
+    expect(restricted.textContent).toContain("A CI you can't open");
+    expect(restricted.textContent).not.toContain('r1');
+    expect(await screen.findByTestId(`ci-map-node-${OTHER}`)).toBeTruthy();
+    expect(await screen.findByTestId(`ci-map-node-${SERVICE}`)).toBeTruthy();
+    // Read-only: a node's menu opens the CI, and offers no expand and no removal.
+    const wrapper = (await screen.findByTestId(`ci-map-node-${OTHER}`)).closest<HTMLElement>(
+      '.react-flow__node',
+    );
+    if (wrapper === null) throw new Error('no React Flow node');
+    fireEvent.keyDown(wrapper, { key: 'Enter' });
+    const menu = await screen.findByTestId('ci-map-menu');
+    expect(menu.textContent).toContain('Open');
+    expect(menu.textContent).not.toMatch(/Expand|Remove/);
   });
 });

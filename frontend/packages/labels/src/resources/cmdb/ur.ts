@@ -95,6 +95,8 @@ export const ur: LabelResource = {
   'cmdb.impact.truncated':
     'صرف پہلے {{max}} CIs دکھائے گئے ہیں۔ پورا جواب دیکھنے کے لیے گہرائی کم کریں۔',
   'cmdb.impact.via': '{{name}} کے ذریعے',
+  'cmdb.impact.view_list': 'فہرست',
+  'cmdb.impact.view_map': 'نقشہ',
   'cmdb.map.add': 'شامل کریں',
   'cmdb.map.add_relationship': 'تعلق شامل کریں',
   'cmdb.map.added_one': '1 تعلق شامل ہوا',

@@ -72,6 +72,7 @@ class ImpactEdge:
     from_id: str
     to_id: str
     flow: Flow
+    type_id: str = ""
 
 
 def _failure_pairs(edge: ImpactEdge) -> list[tuple[str, str]]:
@@ -102,6 +103,9 @@ class Reached:
 
     depth: int
     via: str | None  # None for a start
+    via_type: str | None = None  # the relationship type of the step (None for a start)
+    # The stored link runs from `via` to this CI (True) or from this CI to `via` (False).
+    via_forward: bool = True
 
 
 @dataclass
@@ -128,11 +132,15 @@ class ImpactWalk:
         same graph gives the same depths and paths on every call. Linear in the edges read.
         """
         current = set(frontier)
-        onward: dict[str, set[str]] = {}
+        # source -> target -> the step's link (type, stored from->to), the lowest for stability
+        onward: dict[str, dict[str, tuple[str, bool]]] = {}
         for edge in edges:
             for step_from, step_to in steps(edge, self.direction):
                 if step_from in current:
-                    onward.setdefault(step_from, set()).add(step_to)
+                    targets = onward.setdefault(step_from, {})
+                    link = (edge.type_id, edge.from_id == step_from)
+                    known = targets.get(step_to)
+                    targets[step_to] = link if known is None else min(known, link)
         found: list[str] = []
         for source in sorted(onward):
             for target in sorted(onward[source]):
@@ -141,7 +149,8 @@ class ImpactWalk:
                 if len(self.reached) >= self.ci_max:
                     self.truncated = True
                     return found
-                self.reached[target] = Reached(level, source)
+                type_id, forward = onward[source][target]
+                self.reached[target] = Reached(level, source, type_id or None, forward)
                 found.append(target)
         return found
 
