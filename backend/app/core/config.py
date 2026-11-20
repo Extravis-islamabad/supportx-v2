@@ -163,6 +163,13 @@ class Settings(BaseSettings):
     # not a feature switch (D-098): single sign-on may then route only email domains whose
     # ownership the tenant proved. Off for single-tenant installations (on-prem, D-070).
     multi_tenant: bool = False
+    # Vendor support grants (WP-057 S4c, D-173): an engineer's address must be at one of these
+    # domains (or a subdomain), checked on the real address. Each grant's account gets a
+    # plus-address of it (name+sx-<grant>@domain), so every domain listed here must accept
+    # plus-addressing (lane B (7)). Never a tenant setting.
+    vendor_support_email_domains: list[str] = Field(default_factory=lambda: ["extravis.com"])
+    # The installer's choice (D-173 (9)): new tenants start with "Never allow vendor support" on.
+    vendor_support_default_off: bool = False
 
     # Outgoing mail (WP-039 session 2, D-089 D3, D-099): the one place mail is configured. The
     # mail service sends through it, and the deploy's identity step writes the same server into

@@ -34,6 +34,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import UserCreatedV3, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import PersonErasure, Role, User, UserRole
 from app.modules.identity_access.service.directory import (
@@ -178,6 +179,8 @@ async def _person(session: AsyncSession, user_id: uuid.UUID) -> User:
     current = await UserRepository(session).get(user_id)
     if current.user_type == UserType.SERVICE.value:
         raise Conflict(code="service_identity_managed")
+    if current.user_type == SUPPORT_USER_TYPE:  # its grant alone manages it (lane B (1))
+        raise Conflict(code="vendor_support_type_fixed")
     return current
 
 
@@ -312,8 +315,8 @@ async def update_person(
     source: Source = "api",
 ) -> User:
     """Change the person record (REQ-ADM-002). A stale version gets an explained 409."""
+    current = await _person(session, user_id)  # not a person (service, vendor support): 409 first
     clean = _clean(changes)
-    current = await _person(session, user_id)
     if current.directory_source is not None and source != "integration":
         managed = sorted(
             name
@@ -429,6 +432,10 @@ async def set_user_type(
     """
     _person_type(user_type)
     current = await _person(session, user_id)
+    # A vendor support account's type is set when its grant makes it and never changes (lane B
+    # (1), WP-057 S4c-1): the type is what every check of its access reads.
+    if current.user_type == SUPPORT_USER_TYPE:
+        raise Conflict(code="vendor_support_type_fixed")
     if current.user_type == user_type.value:
         return await _save(session, current, expected_version, {}, "ui")
     if user_type is UserType.TECHNICIAN:

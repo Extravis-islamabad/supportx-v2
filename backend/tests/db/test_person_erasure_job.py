@@ -70,6 +70,9 @@ class FakeKeycloak:
     async def delete_user(self, user_id: str) -> None:
         self.calls.append(("delete_user", user_id))
 
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None:
+        self.calls.append(("set_enabled", f"{user_id}:{enabled}"))
+
 
 class Effects:
     """Fakes for everything outside the database, recording what the job asked."""

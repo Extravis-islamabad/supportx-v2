@@ -12,11 +12,14 @@ from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
     EVENTS_CLIENT_ID,
+    EVENTS_ROLES,
     FEDERATION_CLIENT_ID,
+    FEDERATION_ROLES,
     LOCKOUT,
     OLD_DEFAULT_POLICY,
     PROFILE_ATTRIBUTES,
     REALM_CLIENT_ID,
+    REALM_ROLES,
     ROLES,
     SSO_MAX_SECONDS,
     Outcome,
@@ -475,6 +478,14 @@ async def test_adds_the_notice_event_types_once_and_keeps_a_longer_expiry() -> N
     keycloak.writes.clear()
     assert (await _run(keycloak)).outcome == Outcome.READY
     assert keycloak.writes == []
+
+
+def test_no_service_account_may_impersonate() -> None:
+    """Lane B (WP-057 S4c-1, (10)): nobody signs in as a vendor support account (or anyone) by
+    Keycloak's impersonation; every service account holds exactly its listed roles, none of them
+    `impersonation`."""
+    held = {*ROLES, *REALM_ROLES, *FEDERATION_ROLES, *EVENTS_ROLES}
+    assert "impersonation" not in held
 
 
 async def test_d177_no_provider_keeps_a_trusted_email_and_a_second_run_changes_nothing() -> None:
