@@ -27,6 +27,8 @@ TRIGGERS = (
     "identity_access.access_settings.changed",
     "organization.membership.changed",
     "licensing.entitlement.changed",
+    # WP-057 S4c-2, lane B (2): a support grant made, changed or ended reaches the next request.
+    "identity_access.support_grant.changed",
 )
 
 

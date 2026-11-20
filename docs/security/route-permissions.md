@@ -478,6 +478,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |

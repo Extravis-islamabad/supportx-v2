@@ -83,6 +83,7 @@ const received: AssetMovement = {
   recipient_kind: null,
   recipient_id: null,
   work_item_id: null,
+  work_item_hidden: false,
   unit_cost: '12.50',
   comment: 'Delivery 7',
   created_at: '2026-11-10T09:00:00Z',

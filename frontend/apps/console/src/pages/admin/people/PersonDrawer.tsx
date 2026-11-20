@@ -759,8 +759,13 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
         <Segmented<PersonType>
           data-testid="person-type"
           disabled={busy}
-          // A connector's identity never opens here (not in people lists): nothing selected.
-          value={user.user_type === 'service' ? undefined : user.user_type}
+          // Connector identities and vendor support accounts never open here (not in people
+          // lists): only a person's type is ever selected.
+          value={
+            user.user_type === 'requester' || user.user_type === 'technician'
+              ? user.user_type
+              : undefined
+          }
           options={(['requester', 'technician'] as const).map((value) => ({
             value,
             label: t(`user_type.${value}`),

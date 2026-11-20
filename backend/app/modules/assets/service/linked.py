@@ -108,6 +108,17 @@ class LinkedRecords(Protocol):
         """
         ...
 
+    async def visible_work_item_ids(
+        self, session: AsyncSession, subject: Subject, ids: Sequence[uuid.UUID]
+    ) -> frozenset[uuid.UUID]:
+        """The `ids` the subject may see as staff (each type through its own view filter).
+
+        Deleted and trashed records, other tenants' and unknown IDs all come back absent: no
+        existence oracle. At most `VISIBLE_IDS_MAX` IDs per call (more is a programming error).
+        Staff views only (lane A's conditions, 2026-11-20).
+        """
+        ...
+
 
 _PORT: list[LinkedRecords] = []
 
@@ -125,6 +136,23 @@ def unregister_linked_records() -> None:
 def linked_port() -> LinkedRecords | None:
     """The registered port, or None while work items have not registered one."""
     return _PORT[0] if _PORT else None
+
+
+VISIBLE_IDS_MAX = 1000
+
+
+async def visible_work_items(
+    session: AsyncSession, subject: Subject, ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `ids` the subject may see, through work items' own port: none without the port.
+
+    Fails closed: with no port registered, no work item is visible, so a ledger never names one.
+    """
+    wanted = list(dict.fromkeys(ids))
+    port = linked_port()
+    if not wanted or port is None:
+        return frozenset()
+    return await port.visible_work_item_ids(session, subject, wanted)
 
 
 @dataclass(frozen=True, slots=True)
