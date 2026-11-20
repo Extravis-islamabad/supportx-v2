@@ -303,6 +303,13 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    # WP-053 S4a (0191): which source wins, sync rules, and one entry per run.
+    ("cmdb.source_precedence_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_run_requested", AuditCategory.RECORDS, "cmdb"),
+    ("cmdb.sync_run_finished", AuditCategory.RECORDS, "cmdb"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
     ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),

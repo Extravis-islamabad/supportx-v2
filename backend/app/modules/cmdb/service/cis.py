@@ -10,6 +10,12 @@ checks them against the CI's type (`metadata.clean(type_id=…)`), history names
 `custom.<key>`, and ADR-047 rules hide, mask or lock them per role on every read and write. A
 type change that would drop values outside the new type's fields needs
 `confirm_dropped_fields`; history then names the dropped fields, never their values.
+
+Attribute sources (S4a, REQ-CMDB-016): every save stamps the attributes it changed with their
+source and time (`sources`): a person's save `hand`, a sync rule's `asset_sync`. A stamp is
+never shown for a field the reader may not read (hidden, masked or sealed). The sync identity
+writes through `sync_create` and `sync_update`, the same save path with no person's scope or
+read-only rules (a system write, ADR-047 §8).
 """
 
 import uuid
@@ -24,7 +30,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import assets, metadata
 from app.modules.cmdb.domain import field_access as field_rules
+from app.modules.cmdb.domain import sources as attribute_sources
 from app.modules.cmdb.domain import types as domain
+from app.modules.cmdb.domain.sources import AttributeSource, Stamp
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
 from app.modules.cmdb.infra.models import Ci, CiState, CiType
 from app.modules.cmdb.service import ref_names
@@ -86,6 +94,14 @@ EDITABLE = (
     "criticality",
 )
 SNAPSHOT = ("type_id", *EDITABLE, "asset_id", "source")
+# Where a value came from when no save has stamped it yet (a CI from before 0191): its CI's own
+# origin, so a sync never overwrites what a person typed before sources existed.
+ORIGIN_SOURCE = {
+    domain.CiSource.MANUAL.value: AttributeSource.HAND,
+    domain.CiSource.ASSET_SYNC.value: AttributeSource.ASSET_SYNC,
+    domain.CiSource.IMPORT.value: AttributeSource.IMPORT,
+    domain.CiSource.MONETX.value: AttributeSource.MONETX,
+}
 
 CI_FIELDS = ResourceFields(
     name="cis",
@@ -175,6 +191,8 @@ class CiView:
     # The CI's references named for this reader (site, owner, groups, asset, person custom
     # fields), by the referenced ID; never an ID as a label (CMDB polish).
     names: dict[str, ref_names.RefName] = field(default_factory=dict)
+    # Each attribute's source and time (REQ-CMDB-016), for the fields the reader may read.
+    sources: dict[str, Stamp] = field(default_factory=dict)
 
 
 async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: uuid.UUID) -> bool:
@@ -192,6 +210,46 @@ def _unseen(subject: Subject) -> field_rules.Unseen:
     return field_rules.unseen(subject.field_access, RECORD_TYPE)
 
 
+async def sealed_fields(session: AsyncSession) -> frozenset[str]:
+    """Custom fields marked sensitive or under encryption (ADR-050): never a source shown."""
+    return frozenset(
+        f"{field_rules.CUSTOM}{m.key}"
+        for m in await metadata.field_marks(session, ENTITY, retired=True)
+        if m.sensitive or m.seal_state != metadata.PLAIN
+    )
+
+
+async def withheld(session: AsyncSession, subject: Subject) -> frozenset[str]:
+    """The attributes whose source a reader may not see: hidden, masked or sealed."""
+    return _unseen(subject).all | await sealed_fields(session)
+
+
+def effective_stamps(record: Ci) -> dict[str, Stamp]:
+    """Each attribute's stamp; a value no save has stamped counts as set by the CI's origin."""
+    found = attribute_sources.stamps(record.sources)
+    origin = ORIGIN_SOURCE.get(record.source, AttributeSource.HAND)
+    held = field_rules.flat(snapshot(record))
+    for attribute in (*EDITABLE, *(k for k in held if k.startswith(field_rules.CUSTOM))):
+        if attribute not in found and held.get(attribute) is not None:
+            found[attribute] = Stamp(origin, record.created_at)
+    return found
+
+
+def _stamp(
+    record: Ci, before: Mapping[str, Any], after: Mapping[str, Any], source: AttributeSource
+) -> dict[str, Any]:
+    """`sources` after a save: the changed attributes stamped, dropped custom values unstamped."""
+    old, new = field_rules.flat(before), field_rules.flat(after)
+    changed = [
+        k
+        for k in sorted(set(old) | set(new))
+        if (k in EDITABLE or k.startswith(field_rules.CUSTOM)) and old.get(k) != new.get(k)
+    ]
+    gone = [k for k in changed if k.startswith(field_rules.CUSTOM) and new.get(k) is None]
+    kept = attribute_sources.unstamped(record.sources, gone)
+    return attribute_sources.stamped(kept, [k for k in changed if k not in gone], source, _now())
+
+
 async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
     unseen = _unseen(subject)
     held = record.custom or {}
@@ -201,8 +259,11 @@ async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
         **{name: getattr(record, name) for name in ref_names.REFERENCE_FIELDS},
         **{f"{field_rules.CUSTOM}{key}": value for key, value in custom.items()},
     }
+    hidden_sources = unseen.all | await sealed_fields(session)
+    shown = {k: v for k, v in effective_stamps(record).items() if k not in hidden_sources}
     return CiView(
         record=record,
+        sources=shown,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         can_edit=await _may(session, subject, EDIT, record.id),
         can_delete=await _may(session, subject, DELETE, record.id),
@@ -403,9 +464,14 @@ def _history_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> lis
     ]
 
 
-async def _save_version(session: AsyncSession, record: Ci, subject: Subject) -> None:
-    """Append the CI as it is now, with its relationships (REQ-CMDB-024; the app may only add)."""
-    await save_version(session, record, snapshot(record), subject.user_id)
+async def _save_version(session: AsyncSession, record: Ci, subject: Subject | None) -> None:
+    """Append the CI as it is now, with its relationships (REQ-CMDB-024; the app may only add).
+
+    `subject` None: the sync identity's save (no person saved it).
+    """
+    await save_version(
+        session, record, snapshot(record), subject.user_id if subject is not None else None
+    )
 
 
 def _check_codes(values: Mapping[str, Any]) -> list[domain.Problem]:
@@ -518,13 +584,13 @@ async def _custom(
     return {k: v for k, v in merged.items() if v is not None}
 
 
-def _require_writable(subject: Subject, changed: Sequence[str]) -> None:
+def _require_writable(subject: Subject | None, changed: Sequence[str]) -> None:
     """403 `field_read_only` when a person changes a custom field their roles may only read.
 
     ADR-047 §8, as work items do: a form sending a read-only value back unchanged passes, and a
     service identity's writes (a connector's) are system writes.
     """
-    if not subject.person:
+    if subject is None or not subject.person:
         return
     locked = field_rules.refused(changed, field_rules.read_only(subject.field_access, RECORD_TYPE))
     if locked:
@@ -541,13 +607,19 @@ def _changed_custom(before: Mapping[str, Any], after: Mapping[str, Any]) -> list
 
 async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     values: Mapping[str, Any],
     source: Source,
     *,
     origin: domain.CiSource = domain.CiSource.MANUAL,
     asset_id: uuid.UUID | None = None,
+    stamp_as: AttributeSource | None = None,
 ) -> Ci:
+    """A new CI. `subject` None: the sync identity (no person's scope applies).
+
+    Its set attributes are stamped `stamp_as`, else `hand` (a person's values; from-assets names
+    a CI after its asset, so its name is the asset sync's).
+    """
     problems = _check_codes(values)
     if "name" not in values:
         problems.append(domain.Problem("name", "required"))
@@ -580,8 +652,23 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
         source=origin.value,
         custom=custom,
     )
+    record.sources = attribute_sources.stamped(
+        {},
+        [
+            k
+            for k, v in field_rules.flat(snapshot(record)).items()
+            if v is not None and (k in EDITABLE or k.startswith(field_rules.CUSTOM))
+        ],
+        stamp_as or AttributeSource.HAND,
+        _now(),
+    )
+    if asset_id is not None and stamp_as is None:
+        record.sources = attribute_sources.stamped(
+            record.sources, ["name"], AttributeSource.ASSET_SYNC, _now()
+        )
     await CiRepository(session).add(record)
-    await _within_scope(session, subject, ADD, record.id)
+    if subject is not None:
+        await _within_scope(session, subject, ADD, record.id)
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     await record_changes(
@@ -624,7 +711,7 @@ async def _writable(
 
 async def _save(  # noqa: PLR0913 - the record, the version and the change, explicit
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     record: Ci,
     *,
     expected_version: int,
@@ -632,13 +719,21 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
     source: Source,
     extra: Sequence[Change] = (),
     quiet: frozenset[str] = frozenset(),
+    stamp_as: AttributeSource = AttributeSource.HAND,
 ) -> Ci:
-    """One update: version, history, snapshot, event.
+    """One update: version, history, snapshot, attribute sources, event.
 
     `extra`: history lines of the caller's own; `quiet`: fields whose values never go into the
     history (a type change's dropped custom values, named by key in `extra` instead).
+    `subject` None: the sync identity (no person's scope applies); `stamp_as`: the source the
+    changed attributes are stamped with.
     """
     before = snapshot(record)
+    if columns:
+        after = {**before, **{k: _json(v) for k, v in columns.items() if k != "custom"}}
+        if "custom" in columns:
+            after["custom"] = dict(columns["custom"] or {})
+        columns = {**columns, "sources": _stamp(record, before, after, stamp_as)}
     if not columns:
         if record.version != expected_version:
             raise await _conflict(
@@ -659,7 +754,8 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         )
     except Conflict as error:
         raise await _conflict(session, error, record.id) from error
-    await _within_scope(session, subject, EDIT, updated.id)
+    if subject is not None:
+        await _within_scope(session, subject, EDIT, updated.id)
     if "custom" in columns and updated.custom:
         await metadata.mark_used(session, ENTITY, list(updated.custom))
     changes = [
@@ -926,6 +1022,75 @@ async def restore(
         aggregate_version=record.version,
     )
     return await _view(session, subject, record)
+
+
+# --- the sync identity (WP-053 S4a, REQ-CMDB-015) ----------------------------------------------
+
+
+async def ci_of_asset(session: AsyncSession, asset_id: uuid.UUID) -> Ci | None:
+    """The live CI of an asset (one at most), locked for the sync's save; read as the system."""
+    found: Ci | None = await session.scalar(
+        select(Ci).where(Ci.asset_id == asset_id, Ci.deleted_at.is_(None)).with_for_update()
+    )
+    return found
+
+
+async def sync_create(
+    session: AsyncSession,
+    values: Mapping[str, Any],
+    *,
+    asset_id: uuid.UUID,
+    source: Source,
+) -> Ci:
+    """A new CI for an asset, by the sync identity: the ordinary checks, history and event.
+
+    No person's scope or read-only rules apply (a system write, ADR-047 §8); its attributes are
+    stamped `asset_sync`.
+    """
+    await ensure_defaults(session)
+    return await _add(
+        session,
+        None,
+        values,
+        source,
+        origin=domain.CiSource.ASSET_SYNC,
+        asset_id=asset_id,
+        stamp_as=AttributeSource.ASSET_SYNC,
+    )
+
+
+async def sync_update(
+    session: AsyncSession, record: Ci, changes: Mapping[str, Any], *, source: Source
+) -> Ci:
+    """Change a CI's attributes by the sync identity (core fields and `custom.<key>` values).
+
+    The same save as a person's (checks, metadata's custom rules, history, version, event), with
+    the changed attributes stamped `asset_sync`. The caller decided what wins (domain/sync.py).
+    """
+    core = {k: v for k, v in changes.items() if k in EDITABLE}
+    if problems := _check_codes(core):
+        raise invalid(problems)
+    await _check_references(session, {k: v for k, v in core.items() if v != getattr(record, k)})
+    columns: dict[str, Any] = {k: v for k, v in core.items() if getattr(record, k) != v}
+    sent = {
+        k.removeprefix(field_rules.CUSTOM): v
+        for k, v in changes.items()
+        if k.startswith(field_rules.CUSTOM)
+    }
+    if sent:
+        held = dict(record.custom or {})
+        custom = await _custom(session, sent, held, record.type_id)
+        if custom is not None and custom != held:
+            columns["custom"] = custom
+    return await _save(
+        session,
+        None,
+        record,
+        expected_version=record.version,
+        columns=columns,
+        source=source,
+        stamp_as=AttributeSource.ASSET_SYNC,
+    )
 
 
 # --- from assets (REQ-CMDB-005) -------------------------------------------------------------------
