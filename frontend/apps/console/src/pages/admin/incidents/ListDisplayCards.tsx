@@ -99,6 +99,15 @@ export function ViewAuditCard() {
           {t('settings.view_audit.rerun')}
         </WriteButton>
       </Flex>
+      {(report.data?.seal_pending ?? 0) > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBlockEnd: 8 }}
+          message={t('settings.view_audit.seal_pending', { n: report.data?.seal_pending ?? 0 })}
+          data-testid="settings-view-audit-seal-pending"
+        />
+      )}
       {report.isError ? (
         <Alert type="warning" showIcon message={t('settings.view_audit.unavailable')} />
       ) : report.data === undefined ? (

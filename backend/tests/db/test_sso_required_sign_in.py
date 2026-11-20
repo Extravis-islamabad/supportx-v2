@@ -49,6 +49,18 @@ def _email(tag: str) -> str:
     return f"{tag}-{uuid.uuid4().hex[:8]}@demo.test"
 
 
+async def _provider(db: ThrowawayDatabase, tenant: uuid.UUID, alias: str) -> None:
+    """The tenant's own identity provider `alias` (a brokered sign-in may only enter its owner)."""
+    await _sql(
+        db,
+        "INSERT INTO sso_providers (id, tenant_id, alias, protocol, preset, display_name, state,"
+        " created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, 'oidc', 'entra', $2, 'on',"
+        " now(), now()) ON CONFLICT (tenant_id, alias) DO NOTHING",
+        tenant,
+        alias,
+    )
+
+
 async def test_req_sec_009_ac1_a_password_sign_in_is_refused_and_sso_is_let_in(bff: Bff) -> None:
     a, _b = bff.tenants
     await _require(bff.db, a, "everyone")
@@ -56,6 +68,7 @@ async def test_req_sec_009_ac1_a_password_sign_in_is_refused_and_sso_is_let_in(b
     assert (by_password.status_code, by_password.json()["code"]) == (403, "sso_required")
     assert bff.cookie() is None
     assert len(bff.idp.ended_sessions) == 1  # Keycloak's own session ends too
+    await _provider(bff.db, a, "acme-entra")
     sso = bff.user("a", email=_email("sso"), identity_provider="acme-entra")
     assert (await bff.login(sso)).status_code == 302
     rows = await _sql(
@@ -123,6 +136,7 @@ async def test_a_mobile_sso_sign_in_carries_its_method_and_is_let_in(bff: Bff) -
 
     a, _b = bff.tenants
     await _require(bff.db, a, "everyone")
+    await _provider(bff.db, a, "acme-entra")
     sso = bff.user("a", email=_email("phone"), identity_provider="acme-entra")
     answer = await mobile_login(bff, sso, new_verifier())
     assert handoff_of(answer)  # the hand-off back to the app: let in
@@ -191,3 +205,51 @@ async def _deliver(bff: Bff, tenant: uuid.UUID, event_type: str) -> set[tuple[st
         tenant,
     )
     return {(r["event_code"], r["email"], r["channel"], r["state"]) for r in found}
+
+
+# --- a brokered sign-in enters only the tenant owning its provider --------------------------------
+
+
+async def test_a_provider_of_another_tenant_cannot_open_this_one(bff: Bff) -> None:
+    """Every tenant shares one realm; tenant B's provider landing on an account of tenant A must
+    never open tenant A: refused before anyone is looked up or created, and logged."""
+    a, b = bff.tenants
+    await _provider(bff.db, b, "b-idp")
+    person = bff.user("a", email=_email("elsewhere"), identity_provider="b-idp")
+    refused = await bff.login(person)
+    assert (refused.status_code, refused.json()["code"]) == (403, "sso_provider_not_this_tenant")
+    assert bff.cookie() is None
+    made = await _sql(
+        bff.db,
+        "SELECT count(*) AS n FROM users WHERE tenant_id = $1 AND email = $2",
+        a,
+        person.email,
+    )
+    assert made[0]["n"] == 0
+
+
+async def test_a_brokered_session_holds_only_its_providers_tenant(bff: Bff) -> None:
+    """A person in both tenants signs in through tenant B's provider: the session opens B, its
+    tenant list holds only B, and a switch to A is refused."""
+    a, b = bff.tenants
+    await _provider(bff.db, b, "b-idp-2")
+    person = bff.user("a", "b", email=_email("both"), identity_provider="b-idp-2")
+    assert (await bff.login(person)).status_code == 302
+    me = (await bff.me()).json()
+    assert me["tenant"]["id"] == str(b)
+    assert [t["id"] for t in me["tenants"]] == [str(b)]
+    switched = await bff.client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(a)},
+        headers={"X-CSRF-Token": await bff.csrf()},
+    )
+    assert switched.status_code == 403
+    assert (await bff.me()).json()["tenant"]["id"] == str(b)
+
+
+async def test_a_password_sign_in_still_sees_every_tenant(bff: Bff) -> None:
+    a, b = bff.tenants
+    person = bff.user("a", "b", email=_email("pw-both"))
+    assert (await bff.login(person)).status_code == 302
+    tenants = {t["id"] for t in (await bff.me()).json()["tenants"]}
+    assert tenants == {str(a), str(b)}

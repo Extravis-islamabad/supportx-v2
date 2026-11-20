@@ -1724,6 +1724,7 @@ export const ur: LabelResource = {
   'sign_in_reason.other': 'کوئی اور وجہ',
   'sign_in_reason.reauth_failed': 'تصدیق نہ ہو سکی کہ یہ وہی ہیں',
   'sign_in_reason.sign_in_expired': 'سائن اِن میں بہت دیر ہوئی',
+  'sign_in_reason.sso_provider_not_this_tenant': 'دوسری تنظیم کا فراہم کنندہ',
   'sign_in_reason.sso_required': 'سنگل سائن آن لازمی',
   'sign_in_reason.unknown_person': 'ایسا کوئی اکاؤنٹ نہیں',
   'sign_in_reason.wrong_client': 'ایپلیکیشن کی اسناد غلط',

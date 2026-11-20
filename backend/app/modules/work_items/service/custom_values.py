@@ -55,6 +55,11 @@ def _settings(session: AsyncSession, settings: Settings | None) -> Settings:
     return found if isinstance(found, Settings) else get_settings()
 
 
+def settings_of(session: AsyncSession) -> Settings:
+    """The running process's settings, for another service that seals (saved-view filters)."""
+    return _settings(session, None)
+
+
 def is_sealed(value: object) -> bool:
     """Whether a stored custom value is sealed text."""
     return isinstance(value, str) and value.startswith(TEXT_PREFIX)

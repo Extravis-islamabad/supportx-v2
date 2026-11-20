@@ -127,6 +127,11 @@ class ViewAuditOut(BaseModel):
     """The report: the views made private, newest first (at most 200)."""
 
     items: list[UnsharedViewOut]
+    seal_pending: int = Field(
+        default=0,
+        description="Views still holding a sealed field's value in plain text; sealed on the "
+        "next run once the tenant's keys are available.",
+    )
 
 
 class SavedViewOut(BaseModel):
@@ -147,7 +152,14 @@ class SavedViewOut(BaseModel):
     updated_at: datetime
 
     @classmethod
-    def of(cls, row: WorkItemView, subject: Subject, *, favourite: bool = False) -> "SavedViewOut":
+    def of(
+        cls,
+        row: WorkItemView,
+        subject: Subject,
+        *,
+        favourite: bool = False,
+        filter_shown: dict[str, Any] | None = None,
+    ) -> "SavedViewOut":
         """From a row, for the subject."""
         return cls(
             favourite=favourite,
@@ -157,7 +169,8 @@ class SavedViewOut(BaseModel):
             group_ids=list(row.group_ids),
             owner_id=row.owner_id,
             mine=row.owner_id == subject.user_id,
-            filter=row.filter,
+            # The reader's form (sealed values opened or withheld); never the stored `sx2:` text.
+            filter=filter_shown,
             columns=[ListColumn(**c) for c in row.columns],
             sort=row.sort,
             version=row.version,
@@ -367,7 +380,15 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
         """Your starred views first, then by name. Only their owner changes shared views."""
         rows = await service.views(session, subject, wtype)
         starred = await service.favourite_ids(session, subject, wtype)
-        shown = [SavedViewOut.of(r, subject, favourite=r.id in starred) for r in rows]
+        shown = [
+            SavedViewOut.of(
+                r,
+                subject,
+                favourite=r.id in starred,
+                filter_shown=await service.shown_filter(session, subject, wtype, r),
+            )
+            for r in rows
+        ]
         return sorted(shown, key=lambda v: not v.favourite)  # stable: names stay in order
 
     @router.put(
@@ -414,7 +435,12 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
                 session, subject, wtype, body.model_dump(mode="json"), source=source_of(request)
             )
             return Created(
-                body=SavedViewOut.of(row, subject), headers={"ETag": etag_for(row.version)}
+                body=SavedViewOut.of(
+                    row,
+                    subject,
+                    filter_shown=await service.shown_filter(session, subject, wtype, row),
+                ),
+                headers={"ETag": etag_for(row.version)},
             )
 
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
@@ -440,7 +466,9 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
             source=source_of(request),
         )
         set_etag(response, row.version)
-        return SavedViewOut.of(row, subject)
+        return SavedViewOut.of(
+            row, subject, filter_shown=await service.shown_filter(session, subject, wtype, row)
+        )
 
     @router.delete(
         "/saved-views/{view_id}",
@@ -511,8 +539,9 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
     Admin = Annotated[Subject, Depends(require_permission("roles.manage"))]  # noqa: N806 - alias
 
-    def _report(rows: list[WorkItemView]) -> ViewAuditOut:
+    def _report(rows: list[WorkItemView], pending: int = 0) -> ViewAuditOut:
         return ViewAuditOut(
+            seal_pending=pending,
             items=[
                 UnsharedViewOut(
                     id=r.id,
@@ -523,7 +552,7 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
                 )
                 for r in rows
                 if r.unshared_at is not None
-            ]
+            ],
         )
 
     @router.get(
@@ -534,7 +563,10 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
     async def view_audit_report(session: TenantSession, subject: Admin) -> ViewAuditOut:
         """Administrators: shared views the audit made private, with the field that caused it."""
         del subject
-        return _report(await view_audit.unshared_views(session, wtype))
+        return _report(
+            await view_audit.unshared_views(session, wtype),
+            len(await view_audit.seal_pending(session, wtype)),
+        )
 
     @router.post(
         "/saved-views/audit",
@@ -556,7 +588,10 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
         async def run() -> ViewAuditOut:
             await view_audit.audit_type(session, wtype, datetime.now(UTC))
-            return _report(await view_audit.unshared_views(session, wtype))
+            return _report(
+                await view_audit.unshared_views(session, wtype),
+                len(await view_audit.seal_pending(session, wtype)),
+            )
 
         return await idempotency.run(None, run, status_code=status.HTTP_200_OK)
 
