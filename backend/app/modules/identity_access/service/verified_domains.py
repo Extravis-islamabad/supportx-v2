@@ -78,7 +78,7 @@ def _tenant(session: AsyncSession) -> TenantContext:
     return context
 
 
-Change = Literal["added", "checked", "verified", "unverified", "deleted", "refused"]
+Change = Literal["added", "checked", "verified", "unverified", "lapsed", "deleted", "refused"]
 
 
 async def _changed(session: AsyncSession, row: VerifiedDomain, change: Change) -> None:
@@ -200,7 +200,7 @@ async def check(session: AsyncSession, row: VerifiedDomain, *, now: datetime | N
         if rules.lapses(row.failure_count, row.failing_since, at):
             row.state = DomainState.LAPSED.value
             await session.flush()
-            await _changed(session, row, "unverified")
+            await _changed(session, row, "lapsed")
             return outcome
     await session.flush()
     await _changed(session, row, "checked")
@@ -267,7 +267,7 @@ async def sync_one(session: AsyncSession, admin: IdentityAdmin, row: VerifiedDom
 async def on_domain_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """Consumer: a verify or un-verify reaches Keycloak."""
     assert session is not None  # noqa: S101 - transactional consumer
-    if envelope.payload.get("change") not in {"verified", "unverified"}:
+    if envelope.payload.get("change") not in {"verified", "unverified", "lapsed"}:
         return
     admin = admin_factory(get_settings())
     if admin is None:

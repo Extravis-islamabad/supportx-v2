@@ -103,6 +103,7 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    domain_notifications,
     erasure_job,
     expiry_alerts,
     expiry_notifications,
@@ -463,6 +464,7 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
+domain_notifications.register()  # admins hear when a verified domain lapses (WP-057 S5d)
 service_account_handover.register()  # admins hear when a service account needs a new owner
 
 module = ModuleSpec(

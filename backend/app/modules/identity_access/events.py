@@ -499,8 +499,9 @@ class InvitationLinkCopied(DomainEvent):
 class VerifiedDomainChanged(DomainEvent):
     """A verified e-mail domain changed (WP-057 S5d, REQ-SEC-010). IDs and codes only.
 
-    `verified` and `unverified` (lapsed, or deleted while verified) also drive the Keycloak
-    organisation's routing, through the outbox (lane B (1)); the screen refetches on any change.
+    `verified`, `lapsed` and `unverified` (deleted while verified) also drive the Keycloak
+    organisation's routing, through the outbox (lane B (1)); `lapsed` tells the tenant's admins;
+    the screen refetches on any change.
     """
 
     event_type: ClassVar[str] = "identity_access.verified_domain.changed"
@@ -508,7 +509,7 @@ class VerifiedDomainChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "verified_domain"
 
     domain_id: uuid.UUID
-    change: Literal["added", "checked", "verified", "unverified", "deleted", "refused"]
+    change: Literal["added", "checked", "verified", "unverified", "lapsed", "deleted", "refused"]
 
 
 class SupportGrantChanged(DomainEvent):
