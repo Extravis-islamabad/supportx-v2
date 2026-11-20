@@ -12,7 +12,7 @@ The downgrade refuses while any tenant has a subscription (rule 5h), per tenant 
 app.tenant_id set.
 
 Revision ID: 0185
-Revises: 0179 (main's head when written; re-pointed at its queue turn)
+Revises: 0186 (main's head at its queue turn: 0183 → 0186 → 0185)
 Created: 2026-11-20
 """
 
@@ -24,7 +24,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0185"
-down_revision: str | None = "0179"  # main's head; re-pointed at its queue turn
+down_revision: str | None = "0186"  # main's head at its queue turn (0183 → 0186 → 0185)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

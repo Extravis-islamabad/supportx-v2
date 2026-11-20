@@ -48,6 +48,8 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/history": CIS,
     "/cmdb/cis/{ci_id}/impact": CIS,  # S3b: redacts through the same filter
     "/cmdb/cis/{ci_id}/neighbours": CIS,
+    "/cmdb/cis/{ci_id}/subscribers": CIS,  # 0185: the CI is read through get_ci first
+    "/cmdb/cis/{ci_id}/subscribers/people": CIS,
     "/cmdb/cis/{ci_id}/versions": CIS,
     "/assets": ASSETS,
     "/assets/audits/{audit_id}/items": ASSETS,
