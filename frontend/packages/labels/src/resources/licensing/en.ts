@@ -28,6 +28,7 @@ export const en = {
   'feature.esm': 'Enterprise Service Management',
   'feature.field_access': 'Field Access by Role',
   'feature.field_encryption': 'Field Encryption',
+  'feature.fine_grained_access': 'Fine-grained Record Access',
   'feature.incident': 'Incident Management',
   'feature.knowledge': 'Knowledge Base',
   'feature.local_ai_runtime': 'On-Premises AI Runtime',

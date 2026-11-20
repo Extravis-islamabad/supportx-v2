@@ -39,13 +39,17 @@ from app.modules.assets.infra.models import (
     AssetLoan,
     AssetLoanItem,
 )
+from app.modules.assets.service.assets import ASSETS, VIEW
 from app.modules.assets.service.audits import audit_seat_removed
 from app.modules.assets.service.bookings import record_booking_change as booking_event
 from app.modules.identity_access import (
     ERASE_BATCH,
     ErasureBatch,
+    Subject,
     register_holdings,
+    register_outside_view,
     register_person_data,
+    scope_filter,
 )
 from app.shared.events import record_event
 from app.shared.events.outbox import ProcessedEvent
@@ -112,6 +116,22 @@ async def holdings(session: AsyncSession, person_id: uuid.UUID) -> Mapping[str, 
         "asset_loans_open": int(loans or 0),
     }
     return {kind: count for kind, count in counts.items() if count}
+
+
+async def outside_view(
+    session: AsyncSession, person_id: uuid.UUID, subject: Subject
+) -> Mapping[str, int]:
+    """Of the assets the person holds, how many the eraser may not see (counts only)."""
+    held = {*await _open_assignment_assets(session, person_id)}
+    held |= set(await _open_loan_assets(session, person_id))
+    if not held:
+        return {}
+    seen = await session.scalar(
+        select(func.count())
+        .select_from(Asset)
+        .where(Asset.id.in_(held), Asset.deleted_at.is_(None), scope_filter(subject, VIEW, ASSETS))
+    )
+    return {"assets_held_outside_view": len(held) - int(seen or 0)}
 
 
 class References:
@@ -236,6 +256,7 @@ def register() -> None:
     register_person_data(REFERENCES)
     register_person_data(OWNED)
     register_holdings("assets", holdings)
+    register_outside_view("assets", outside_view)
 
 
 __all__ = ["OWNED", "REFERENCES", "Owned", "References", "holdings", "register"]

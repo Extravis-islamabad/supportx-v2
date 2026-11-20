@@ -483,6 +483,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
@@ -857,6 +858,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
 | GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
+| GET | `/api/v1/people/{user_id}/access-rules` | signed_in | - |
 | POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
 | GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all |
 | PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
@@ -1229,6 +1231,11 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
 | GET | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
 | PATCH | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
+| GET | `/api/v1/resource-access/criteria` | `roles.view` | roles.view: all |
+| GET | `/api/v1/resource-access/rules` | `roles.view` | roles.view: all |
+| POST | `/api/v1/resource-access/rules` | `roles.manage` | roles.manage: all |
+| DELETE | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
+| PATCH | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
 | GET | `/api/v1/roles` | `roles.view` | roles.view: all |
 | POST | `/api/v1/roles` | `roles.manage` | roles.manage: all |
 | DELETE | `/api/v1/roles/{role_id}` | `roles.manage` | roles.manage: all |

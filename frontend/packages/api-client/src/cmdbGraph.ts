@@ -26,6 +26,9 @@ export type BusinessViewListItem = components['schemas']['BusinessViewListItem']
 export type BusinessView = components['schemas']['BusinessViewOut'];
 export type BusinessViewInput = components['schemas']['BusinessViewIn'];
 export type BusinessViewPatch = components['schemas']['BusinessViewPatch'];
+export type CiImpact = components['schemas']['ImpactOut'];
+export type CiImpactNode = components['schemas']['ImpactCiOut'];
+export type ImpactDirection = components['schemas']['ImpactDirection'];
 
 /** A map's filters, as the neighbours call takes them. */
 export interface NeighboursQuery {
@@ -79,11 +82,36 @@ export function neighbours(ciId: string, query: NeighboursQuery): Promise<CiGrap
   );
 }
 
+/**
+ * What a failure of a CI reaches (`dependents`), or what it relies on (`dependencies`), to
+ * `depth` (REQ-CMDB-010). CIs the reader may not see are `restricted` with a key only.
+ */
+export function useCiImpact(
+  ciId: string | undefined,
+  direction: ImpactDirection,
+  depth: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: queryKeys.cmdb.impact(ciId ?? '', direction, depth),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/cmdb/cis/{ci_id}/impact', {
+          params: { path: { ci_id: ciId ?? '' }, query: { direction, depth } },
+        }),
+      ),
+    enabled: enabled && ciId !== undefined,
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
 /** A relationship changed: every open map, version list and the CIs' records refetch (§8.3). */
 function useGraphChanged() {
   const queryClient = useQueryClient();
   return (ciIds: readonly string[]) => {
     void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.all, 'neighbours'] });
+    void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.all, 'impact'] });
     for (const id of ciIds) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });

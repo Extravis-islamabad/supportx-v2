@@ -79,6 +79,7 @@ export {
   useBusinessViews,
   useCiAsOf,
   useCiCompare,
+  useCiImpact,
   useCiVersions,
   useCreateBusinessView,
   useCreateRelationshipType,
@@ -99,6 +100,9 @@ export {
   type CiAttributeChange,
   type CiComparison,
   type CiGraph,
+  type CiImpact,
+  type CiImpactNode,
+  type ImpactDirection,
   type CiMapEdge,
   type CiMapNode,
   type CiVersion,
@@ -229,6 +233,17 @@ export {
   type FieldMode,
   type RuleableField,
 } from './fieldAccess';
+export {
+  resourceAccessKeys,
+  usePersonResourceAccess,
+  useResourceCriteria,
+  useResourceRules,
+  useSaveResourceRule,
+  type AccessResource,
+  type PersonResourceAccess,
+  type ResourceCriteria,
+  type ResourceRule,
+} from './resourceAccess';
 export {
   useAssignIncident,
   useCreateIncident,

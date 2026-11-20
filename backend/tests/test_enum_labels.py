@@ -36,6 +36,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "SupportGrantMadeOut.delivery": "support_grant_delivery",
     "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
+    "Resource": "resource_access_resource",  # ADR-053: what a rule narrows
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
     "MentionMatchKind": "people_erasure.match_kind",  # the mentions report (ADR-052 S1b)
@@ -82,6 +83,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "RelationshipDirection": "cmdb_relationship_direction",
     "BusinessViewLayout": "cmdb_view_layout",
     "CiAttributeChangeOut.kind": "cmdb_compare_kind",
+    # CMDB impact (WP-053 S3b)
+    "ImpactDirection": "cmdb_impact_direction",
+    "ImpactOut.affected_users_reason": "cmdb_impact_users_reason",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",

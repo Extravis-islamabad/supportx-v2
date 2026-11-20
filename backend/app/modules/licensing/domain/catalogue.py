@@ -46,6 +46,10 @@ class Feature(StrEnum):
     # Field access per role (ADR-047, REQ-WI-016): adding or changing a rule. Existing rules
     # always apply and may be viewed and removed without it, so a lapse never shows hidden data.
     FIELD_ACCESS = "field_access"
+    # Fine-grained access to assets and CIs (ADR-053, D-172): adding or changing a rule. The
+    # plain site/group/own scopes are Professional; existing rules always apply and may be
+    # viewed and removed without it, so a lapse never shows what a rule hides.
+    FINE_GRAINED_ACCESS = "fine_grained_access"
     PROJECTS = "projects"
     ESM = "esm"
     MSP = "msp"
@@ -112,6 +116,7 @@ _ENTERPRISE = _PROFESSIONAL | {
     Feature.CUSTOM_FUNCTIONS,
     Feature.LOCAL_AI_RUNTIME,
     Feature.COMPLIANCE_PACKS,
+    Feature.FINE_GRAINED_ACCESS,
 }
 
 # Sold only as an add-on (a licence's `extra_features`), in no edition: what an edition carries

@@ -441,6 +441,10 @@ export const ur: LabelResource = {
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
+  'errors.field.criteria_required': 'کم از کم ایک چیز بتائیں جسے اصول گزرنے دے۔',
+  'errors.field.criteria_too_large': 'یہ اصول بہت کچھ بتاتا ہے۔ اسے چھوٹے اصولوں میں بانٹیں۔',
+  'errors.field.criterion_invalid': 'یہ معیار درست نہیں۔',
+  'errors.field.criterion_unknown': 'یہ اصول یہ معیار استعمال نہیں کر سکتا۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
   'errors.field.custom_field_scope_unsupported':
@@ -1135,6 +1139,8 @@ export const ur: LabelResource = {
   'errors.person_erasure_in_progress':
     'اس فرد کو مٹایا جا رہا ہے؛ انہیں دوبارہ فعال یا تبدیل نہیں کیا جا سکتا۔',
   'errors.person_on_legal_hold': 'اس فرد پر قانونی روک ہے، اس کا ڈیٹا مٹایا نہیں جا سکتا۔',
+  'errors.person_search_masked':
+    'اس اکاؤنٹ کے لیے لوگوں کے نام اور ای میل پتے چھپے ہیں، اس لیے یہ ان سے تلاش نہیں کر سکتا۔',
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.plain_connection_refused':
@@ -1191,6 +1197,9 @@ export const ur: LabelResource = {
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.resource_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} ریکارڈ رسائی اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.resource_access_rule_not_found': 'ریکارڈ تک رسائی کا یہ اصول اب موجود نہیں۔',
   'errors.restart_at_end': 'چلانے کے لیے کوئی مرحلہ چنیں، اختتام نہیں۔',
   'errors.role_in_use':
     'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',
@@ -1321,7 +1330,10 @@ export const ur: LabelResource = {
   'errors.vendor_in_use':
     'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.vendor_support_drafts_only':
+    'Extravis سپورٹ اکاؤنٹ صرف ورک فلو کے مسودے محفوظ کرتا ہے۔ ٹیننٹ ایڈمن انہیں شائع، فعال، حذف اور چلاتا ہے۔',
   'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_no_ai': 'Extravis سپورٹ اکاؤنٹ AI کی خصوصیات استعمال نہیں کر سکتا۔',
   'errors.vendor_support_roles_from_grant':
     'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
   'errors.vendor_support_tenant_admin_only':

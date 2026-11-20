@@ -20,6 +20,7 @@ from app.core.request_context import (
     bind_request,
     clear_request,
 )
+from app.core.tenancy import close_support_scope, open_support_scope
 
 log = get_logger("app.access")
 
@@ -59,6 +60,8 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # The request's vendor support facts start empty and are dropped when it ends (S4c-2).
+        support_scope = open_support_scope()
         check_forwarded(scope)  # a gateway outside api.trustedProxies: warned once
         request_id = accept_request_id(Headers(scope=scope).get(REQUEST_ID_HEADER))
         bind_request(request_id)
@@ -91,6 +94,7 @@ class RequestContextMiddleware:
                 duration_ms=round((time.perf_counter() - started) * 1000, 2),
             )
             clear_request()
+            close_support_scope(support_scope)
 
 
 class SecurityHeadersMiddleware:

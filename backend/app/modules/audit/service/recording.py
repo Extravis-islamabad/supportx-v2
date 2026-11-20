@@ -154,6 +154,14 @@ def _acting(context: object) -> _Acting:
         )
     if context.api_key_id is not None:
         return _Acting(AuditActorType.API_KEY, context.api_key_id, on_behalf=context.user_id)
+    if context.support_grant_id is not None:
+        # An Extravis engineer under a tenant admin's grant (D-173, D-178): the grant is named, so
+        # its end-of-grant summary lists every write (lane B (7)).
+        return _Acting(
+            AuditActorType.VENDOR_SUPPORT,
+            context.user_id,
+            details={"grant_id": str(context.support_grant_id)},
+        )
     return _Acting(AuditActorType.PERSON, context.user_id)
 
 

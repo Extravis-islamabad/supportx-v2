@@ -406,6 +406,10 @@ export const ar: LabelResource = {
     'لا يمكن الإقرار بتعارض مانع. اختر وقتًا آخر، أو يمكن لمن يملك الصلاحية السماح بالمتابعة مع ذكر السبب.',
   'errors.field.conflict_not_found': 'لم يعد هذا التعارض موجودًا. تعرض القائمة التعارضات الحالية.',
   'errors.field.country_invalid': 'اختر دولة من القائمة.',
+  'errors.field.criteria_required': 'حدّد شيئًا واحدًا على الأقل تسمح به القاعدة.',
+  'errors.field.criteria_too_large': 'تتضمن هذه القاعدة الكثير. قسّمها إلى قواعد أصغر.',
+  'errors.field.criterion_invalid': 'هذا المعيار غير صالح.',
+  'errors.field.criterion_unknown': 'لا يمكن لهذه القاعدة استخدام هذا المعيار.',
   'errors.field.currency_unknown': 'اختر عملة من القائمة.',
   'errors.field.custom_field_scope_unknown': 'هذا النوع غير موجود (بعد الآن).',
   'errors.field.custom_field_scope_unsupported':
@@ -1045,6 +1049,8 @@ export const ar: LabelResource = {
   'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
   'errors.person_erasure_in_progress': 'يجري محو هذا الشخص؛ لا يمكن إعادة تفعيله أو تغييره.',
   'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
+  'errors.person_search_masked':
+    'أسماء الأشخاص وعناوين بريدهم مخفية لهذا الحساب، لذا لا يمكنه البحث بها.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
   'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',
@@ -1099,6 +1105,9 @@ export const ar: LabelResource = {
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
   'errors.required': 'هذا الحقل مطلوب.',
+  'errors.resource_access_limit_reached':
+    'لدى مؤسستك بالفعل {{limit}} قاعدة للوصول إلى السجلات، وهو الحد الأقصى. احذف قاعدة أولاً.',
+  'errors.resource_access_rule_not_found': 'قاعدة الوصول إلى السجلات هذه لم تعد موجودة.',
   'errors.restart_at_end': 'اختر خطوة للتشغيل منها، لا نهاية.',
   'errors.role_in_use': 'هذا الدور ما زال مسندًا إلى مستخدمين. اختر دورًا لنقلهم إليه أولًا.',
   'errors.role_not_found': 'لم يُعثر على هذا الدور.',
@@ -1211,7 +1220,10 @@ export const ar: LabelResource = {
   'errors.validation_failed': 'بعض الحقول تحتاج إلى مراجعتك.',
   'errors.vendor_in_use': 'لا تزال سجلات تذكر هذا المورد ({{used}}). اجعله غير نشط بدلًا من ذلك.',
   'errors.vendor_not_found': 'لم يعد هذا المورد موجودًا.',
+  'errors.vendor_support_drafts_only':
+    'يحفظ حساب دعم Extravis مسودات سير العمل فقط. ينشرها مسؤول المستأجر ويشغّلها ويحذفها.',
   'errors.vendor_support_grants_open': 'أنهِ وصول الدعم المفتوح أولًا، ثم أوقف دعم المورّد.',
+  'errors.vendor_support_no_ai': 'لا يمكن لحساب دعم Extravis استخدام ميزات الذكاء الاصطناعي.',
   'errors.vendor_support_roles_from_grant':
     'يحصل حساب دعم Extravis على وصوله من المنحة فقط، ولا يحصل عليه أبدًا من دور أو مجموعة.',
   'errors.vendor_support_tenant_admin_only': 'يمكن لمسؤولي المؤسسة فقط إدارة وصول دعم المورّد.',
