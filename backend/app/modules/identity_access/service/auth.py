@@ -119,6 +119,8 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 # REQ-SEC-034: the address is outside the tenant's allow-list for this app.
 IP_NOT_ALLOWED = "ip_not_allowed"
+# A brokered sign-in through a provider no tenant of the person's owns (_provider_tenants).
+SSO_PROVIDER_ELSEWHERE = "sso_provider_not_this_tenant"
 # Refusals that end Keycloak's own session too: the person is not let in here at all.
 SIGN_IN_REFUSALS = frozenset({IP_NOT_ALLOWED, SSO_REQUIRED, BREAK_GLASS_NEEDS_MFA})
 
@@ -905,9 +907,13 @@ class AuthService:
         return admitted(rules, NetworkApp(app), address_of(address))
 
     async def _log_refusal(
-        self, identity: Identity, active: uuid.UUID | None, attempt: "Attempt | None"
+        self,
+        identity: Identity,
+        active: uuid.UUID | None,
+        attempt: "Attempt | None",
+        reason: str = IP_NOT_ALLOWED,
     ) -> None:
-        """An IP refusal, logged ONLY in the tenant the attempt was aimed at (lane B's #455 review).
+        """A refusal, logged ONLY in the tenant the attempt was aimed at (lane B's #455 review).
 
         The tenant whose own address (organization) the sign-in started on, else the one asked
         for (a tenant switch or a quick sign-in), else none: never every tenant the person is in,
@@ -927,8 +933,29 @@ class AuthService:
         if aimed is None:
             return
         known = await known_user_id(self.database, aimed, identity.subject)
-        facts = attempt.facts(SignInOutcome.FAILED, known, reason=IP_NOT_ALLOWED)
+        facts = attempt.facts(SignInOutcome.FAILED, known, reason=reason)
         await sign_in_log.record(self.database, aimed, facts)
+
+    async def _provider_tenants(
+        self, identity: Identity, choices: list[TenantChoice]
+    ) -> list[TenantChoice]:
+        """The person's tenants a brokered sign-in may open: only the one owning its provider.
+
+        Every tenant shares one realm (ADR-006) and sets up its own identity providers, and a
+        provider's sign-in can land on an account that is also a member of other tenants. A
+        session through tenant X's provider must never open tenant Y, so it may enter only a
+        tenant whose own (live) provider has this alias. A password sign-in is unaffected.
+        """
+        alias = identity.identity_provider
+        if alias is None:
+            return choices
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        return [
+            c
+            for c in choices
+            if await sso_service.provider_protocol(self.database, uuid.UUID(c.tenant_id), alias)
+            is not None
+        ]
 
     async def _choose_tenant(
         self,
@@ -947,6 +974,16 @@ class AuthService:
                 choices.append(TenantChoice(str(membership.tenant_id), name))
         if not choices:
             raise PermissionDenied(code="tenant_not_provisioned")
+        # A brokered sign-in opens only the tenant owning its provider, checked before anyone is
+        # looked up or created; the session's tenant list (and so a later switch) holds only it.
+        brokered = await self._provider_tenants(identity, choices)
+        if not brokered:
+            log.warning(
+                "sso_provider_outside_tenants", identity_provider=identity.identity_provider
+            )
+            await self._log_refusal(identity, active, attempt, reason=SSO_PROVIDER_ELSEWHERE)
+            raise PermissionDenied(code=SSO_PROVIDER_ELSEWHERE)
+        choices = brokered
         # REQ-SEC-034: only a tenant whose allow-list admits this address, checked BEFORE the
         # person is looked up or created, so a refused attempt changes nothing (lane B).
         admitted_choices = [
@@ -1494,6 +1531,16 @@ class AuthService:
             raise PermissionDenied(code="not_a_member")
         if self.database is None:
             raise ServiceUnavailable(code="database_not_configured")
+        # A brokered session's tenant list already holds only its provider's tenant; checked
+        # again here so no older session (or list) can carry it into another tenant.
+        if (
+            session.identity_provider is not None
+            and await sso_service.provider_protocol(
+                self.database, tenant_id, session.identity_provider
+            )
+            is None
+        ):
+            raise PermissionDenied(code=SSO_PROVIDER_ELSEWHERE)
         if not await self._admit(tenant_id, _client_app(session), client_ip):
             attempt = Attempt(_client_app(session), client_ip, None)
             facts = attempt.facts(SignInOutcome.FAILED, None, reason=IP_NOT_ALLOWED)

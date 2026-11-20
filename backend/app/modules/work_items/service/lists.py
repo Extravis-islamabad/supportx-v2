@@ -57,6 +57,7 @@ from app.modules.work_items.infra.models import (
     WorkItemViewFavourite,
 )
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import view_filters
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS, SHARE_VIEWS, SHARE_VIEWS_WIDE, type_fields
 from app.modules.work_items.service.reporting import DIMENSIONS, TYPE_DIMENSIONS
@@ -65,6 +66,7 @@ from app.shared.api.listing import parse_sort
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.ids import new_id
 from app.shared.reporting import Dimension, DimensionKind
 
 VIEW_NAME_MAX = 120
@@ -214,6 +216,29 @@ def _seen_by(subject: Subject) -> ColumnElement[bool]:
             )
         )
     return or_(*seen)
+
+
+async def shown_filter(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, row: WorkItemView
+) -> Any:  # noqa: ANN401 - the filter DSL's JSON tree
+    """A view's filter as this reader gets it, never as `sx2:` text.
+
+    Sealed values are opened for the owner while they may see the field, else withheld; a
+    non-owner never gets such a view (D-176), and would get them withheld anyway.
+    """
+    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all
+    if row.owner_id != subject.user_id:
+        withheld = withheld | await sealed_fields(session, wtype)
+    return await view_filters.opened(session, row.id, row.filter, withheld)
+
+
+async def sealed_fields(session: AsyncSession, wtype: WorkItemType) -> frozenset[str]:
+    """The type's sealed custom fields as filter fields (`custom.<key>`), ADR-050."""
+    return frozenset(
+        f"{field_rules.CUSTOM}{m.key}"
+        for m in await metadata.field_marks(session, wtype.code.value, retired=True)
+        if m.sensitive or m.seal_state != "plain"
+    )
 
 
 async def withheld_from(
@@ -380,7 +405,7 @@ async def _check_view(
     allowed = await allowed_fields(session, wtype)
     tree = values.get("filter")
     if tree is not None:  # 422 invalid_filter, exactly as the list refuses it
-        compile_filter(tree, allowed, now=datetime.now(UTC))
+        compile_filter(view_filters.for_validation(tree), allowed, now=datetime.now(UTC))
     return {
         "name": name,
         "visibility": visibility.value,
@@ -498,11 +523,17 @@ async def create_view(
 ) -> WorkItemView:
     """Save a view as the subject's (private or shared with everyone)."""
     _require_view(subject, wtype)
+    view_filters.refuse_ciphertext(values.get("filter"))  # sealed text never comes from outside
     clean = await _check_view(session, subject, wtype, values)
     await _check_sharing(session, subject, wtype, clean, None)
     await _check_shareable_filter(session, subject, wtype, clean)
+    # Sealed values bound to this view's own ID (a copy is a new view: sealed afresh).
+    view_id = new_id()
+    clean["filter"] = await view_filters.seal(
+        session, view_id, clean["filter"], await sealed_fields(session, wtype)
+    )
     row = await ViewRepository(session).add(
-        WorkItemView(type=wtype.code, owner_id=subject.user_id, **clean)
+        WorkItemView(id=view_id, type=wtype.code, owner_id=subject.user_id, **clean)
     )
     await _view_changed(session, row, "created", [Change("name", None, row.name)], source)
     return row
@@ -536,6 +567,10 @@ async def update_view(  # noqa: PLR0913 - the view, its version and the change, 
 ) -> WorkItemView:
     """Change the subject's own view (If-Match). Fields left out keep their value."""
     row = await _own(session, subject, wtype, view_id)
+    if "filter" in values:
+        view_filters.refuse_ciphertext(values["filter"])
+        # A condition the owner could not see, sent back untouched, keeps what is stored.
+        values = {**values, "filter": view_filters.restore_withheld(values["filter"], row.filter)}
     merged = {
         "name": row.name,
         "visibility": row.visibility,
@@ -548,8 +583,18 @@ async def update_view(  # noqa: PLR0913 - the view, its version and the change, 
     clean = await _check_view(session, subject, wtype, merged, except_id=row.id)
     await _check_sharing(session, subject, wtype, clean, row)
     await _check_shareable_filter(session, subject, wtype, clean)
+    sealed = await sealed_fields(session, wtype)
+    # Same view, same binding: a value sent back unchanged keeps its stored ciphertext.
+    clean["filter"] = await view_filters.seal(
+        session, row.id, clean["filter"], sealed, before=row.filter
+    )
+
+    def kept(field: str, value: object) -> object:
+        # History keeps a sealed filter's field names only (lane C's condition 6).
+        return view_filters.history_value(value, sealed) if field == "filter" else _plain(value)
+
     changes = [
-        Change(field, _plain(getattr(row, field)), _plain(value))
+        Change(field, kept(field, getattr(row, field)), kept(field, value))
         for field, value in clean.items()
         if getattr(row, field) != value
     ]

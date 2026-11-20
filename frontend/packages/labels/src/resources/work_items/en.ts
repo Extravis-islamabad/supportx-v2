@@ -1345,6 +1345,10 @@ export const en = {
   'incidents.views.unstar': 'Remove the star',
   'incidents.views.which_groups': 'Which groups see it',
   'incidents.views.who': 'Who sees it',
+  'incidents.views.withheld':
+    "Part of this view's filter uses a field you can't see now, so it isn't applied. The results may differ from the view as it was saved.",
+  'incidents.views.withheld_edit':
+    "This view's filter uses a field you can't see now, so its conditions stay as they were saved. You can still change its name, columns and sharing.",
   'incidents.worklogs.add': 'Log time',
   'incidents.worklogs.billable': 'Billable',
   'incidents.worklogs.billable_field': 'Billable time',
@@ -2259,6 +2263,8 @@ export const en = {
     "Shared views whose filter uses a field some people can't see are made private to their owner, who is told why. This runs on its own; you can also run it now.",
   'settings.view_audit.none': 'No view has been made private.',
   'settings.view_audit.rerun': 'Check shared views now',
+  'settings.view_audit.seal_pending':
+    'Views waiting for their protected values to be sealed: {{n}}. This happens on the next check once the encryption keys are available.',
   'settings.view_audit.title': 'Views made private',
   'settings.view_audit.unavailable': "The list of views made private can't be shown right now.",
   'settings.view_audit.view': 'View',

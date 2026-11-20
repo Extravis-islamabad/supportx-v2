@@ -218,6 +218,8 @@ export interface ViewDraft {
   visibility: SavedView['visibility'];
   groupIds: string[];
   filter: FilterModel;
+  /** The saved filter holds a condition on a field they cannot see now: kept as it is. */
+  withheld?: boolean;
 }
 
 export function draftOf(view: SavedView | undefined): ViewDraft {
@@ -229,8 +231,44 @@ export function draftOf(view: SavedView | undefined): ViewDraft {
         name: view.name,
         visibility: view.visibility,
         groupIds: view.group_ids,
-        filter: fromDsl(view.filter) ?? { join: 'and', rows: [] },
+        filter: fromDsl(withoutWithheld(view.filter)) ?? { join: 'and', rows: [] },
+        withheld: hasWithheld(view.filter),
       };
+}
+
+// --- conditions they cannot see (lane C, #551) ---
+
+type Node = Record<string, unknown>;
+const isNode = (value: unknown): value is Node => typeof value === 'object' && value !== null;
+
+/** Whether a saved filter holds a condition the server withheld (a field they cannot see now). */
+export function hasWithheld(tree: unknown): boolean {
+  if (!isNode(tree)) return false;
+  if (tree.withheld === true) return true;
+  return ['and', 'or'].some((join) => {
+    const children = tree[join];
+    return Array.isArray(children) && children.some(hasWithheld);
+  });
+}
+
+/**
+ * The filter to run: withheld conditions left out (the list cannot use a value it was not
+ * given), emptied groups dropped, a group of one unwrapped.
+ */
+export function withoutWithheld(tree: unknown): FilterExpression | undefined {
+  if (!isNode(tree) || tree.withheld === true) return undefined;
+  for (const join of ['and', 'or'] as const) {
+    const children = tree[join];
+    if (Array.isArray(children)) {
+      const kept = children
+        .map(withoutWithheld)
+        .filter((c): c is FilterExpression => c !== undefined);
+      if (kept.length === 0) return undefined;
+      if (kept.length === 1) return kept[0];
+      return { [join]: kept } as unknown as FilterExpression;
+    }
+  }
+  return tree as unknown as FilterExpression;
 }
 
 // --- bulk (REQ-INC-119, 120) ---

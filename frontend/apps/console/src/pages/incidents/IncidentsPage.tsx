@@ -82,8 +82,10 @@ import {
   chipsFilter,
   draftOf,
   exportFilter,
+  hasWithheld,
   rangeFilter,
   readableMark,
+  withoutWithheld,
   useBulkRefresh,
   type SearchChip,
   type Selection,
@@ -204,7 +206,12 @@ export function IncidentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the condition is derived from these
     [text, chips, range, zone, priority, customField?.key, customField?.field_type, customValue],
   );
-  const viewFilter = trying ?? (saved?.filter as FilterExpression | null | undefined) ?? undefined;
+  // A saved view's condition on a field they cannot see now is left out, and said so (lane C).
+  const viewFilter = useMemo(
+    () => trying ?? withoutWithheld(saved?.filter),
+    [trying, saved?.filter],
+  );
+  const partlyWithheld = trying === undefined && hasWithheld(saved?.filter);
   const filter = useMemo(() => allOf(viewFilter, narrowing), [viewFilter, narrowing]);
 
   // Columns, sort and page size: yours for this view, else the saved view's, else the defaults.
@@ -847,6 +854,14 @@ export function IncidentsPage() {
           data-testid="inc-page-size"
         />
       </FiltersDrawer>
+      {partlyWithheld && (
+        <Alert
+          type="info"
+          showIcon
+          data-testid="inc-view-withheld"
+          message={t('incidents.views.withheld')}
+        />
+      )}
       {trying !== undefined && (
         <Alert
           type="warning"

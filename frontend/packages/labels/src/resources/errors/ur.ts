@@ -837,6 +837,10 @@ export const ur: LabelResource = {
   'errors.field.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
   'errors.field.view_filter_not_shareable':
     'یہ منظر ایسے فیلڈ پر فلٹر کرتا ہے جو کچھ لوگ نہیں دیکھ سکتے، اس لیے یہ صرف نجی رہ سکتا ہے۔ اسے شیئر کرنے کے لیے وہ شرط ہٹا دیں۔',
+  'errors.field.view_filter_sealed_value':
+    'اس فلٹر میں ایک محفوظ قدر ہے جو یہاں نہیں بھیجی جا سکتی۔ قدر دوبارہ لکھیں۔',
+  'errors.field.view_filter_withheld_unknown':
+    'اس منظر کی ایک چھپی ہوئی شرط اب محفوظ شدہ سے میل نہیں کھاتی۔ اسے ہٹا کر دوبارہ شامل کریں۔',
   'errors.field.week_empty': 'کم از کم ایک کام کا دورانیہ شامل کریں۔',
   'errors.field.week_start_unknown': 'ہفتہ شروع ہونے کا دن چنیں۔',
   'errors.field.week_too_many_periods':
@@ -1210,6 +1214,8 @@ export const ur: LabelResource = {
   'errors.sso_provider_missing':
     'یہ سیٹ اپ سائن اِن کی سروس میں موجود نہیں۔ اسے ہٹا کر دوبارہ شامل کریں۔',
   'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
+  'errors.sso_provider_not_this_tenant':
+    'آپ نے کسی دوسری تنظیم کے شناختی فراہم کنندہ کے ذریعے سائن اِن کیا ہے۔ اپنی تنظیم کے سائن اِن صفحے سے سائن اِن کریں۔',
   'errors.sso_provider_refused':
     'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
   'errors.sso_required':

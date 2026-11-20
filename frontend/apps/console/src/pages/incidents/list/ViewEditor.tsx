@@ -125,7 +125,10 @@ function EditorBody({
       name: draft.name.trim(),
       visibility: draft.visibility,
       group_ids: draft.visibility === 'groups' ? draft.groupIds : [],
-      filter: (filter ?? null) as Record<string, unknown> | null,
+      // A filter holding a condition they cannot see is never sent back: the server keeps it.
+      ...(draft.withheld === true
+        ? {}
+        : { filter: (filter ?? null) as Record<string, unknown> | null }),
       columns,
       sort,
     };
@@ -191,14 +194,25 @@ function EditorBody({
           data-testid="inc-view-groups"
         />
       )}
-      <FilterBuilder
-        fields={builderFields(fields, words)}
-        value={draft.filter}
-        onChange={(next) => {
-          setDraft({ ...draft, filter: next });
-        }}
-        testId="inc-view-filter"
-      />
+      {draft.withheld === true ? (
+        // Rewriting around a condition they cannot see could change what it means (an "or"):
+        // the filter stays as saved; its name, columns and sharing still change.
+        <Alert
+          type="info"
+          showIcon
+          message={t('incidents.views.withheld_edit')}
+          data-testid="inc-view-filter-withheld"
+        />
+      ) : (
+        <FilterBuilder
+          fields={builderFields(fields, words)}
+          value={draft.filter}
+          onChange={(next) => {
+            setDraft({ ...draft, filter: next });
+          }}
+          testId="inc-view-filter"
+        />
+      )}
       {problems.size > 0 && (
         <Alert type="warning" showIcon message={t('incidents.views.fix_filter')} />
       )}
