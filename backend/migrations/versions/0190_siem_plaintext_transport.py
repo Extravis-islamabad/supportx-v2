@@ -6,7 +6,7 @@
   default, 480 to 8,192); a longer entry is sent cut with a visible marker, never silently.
 
 Revision ID: 0190
-Revises: 0185
+Revises: 0189
 Created: 2026-11-21
 """
 
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0190"
-down_revision: str | None = "0185"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0189"  # main's head at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
