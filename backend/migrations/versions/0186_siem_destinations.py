@@ -111,7 +111,10 @@ def upgrade() -> None:
             name=op.f(f"ck_{TABLE}_sign_in_cursor"),
         ),
         sa.ForeignKeyConstraint(
-            ["tenant_id"], ["tenants.id"], name=op.f(f"fk_{TABLE}_tenant_id_tenants")
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f(f"fk_{TABLE}_tenant_id_tenants"),
+            ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f(f"pk_{TABLE}")),
     )
