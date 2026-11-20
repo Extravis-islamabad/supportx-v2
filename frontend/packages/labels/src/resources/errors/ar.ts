@@ -1038,6 +1038,8 @@ export const ar: LabelResource = {
   'errors.person_already_erased': 'تم محو بيانات هذا الشخص.',
   'errors.person_erasure_in_progress': 'يجري محو هذا الشخص؛ لا يمكن إعادة تفعيله أو تغييره.',
   'errors.person_on_legal_hold': 'هذا الشخص تحت الحجز القانوني ولا يمكن محو بياناته.',
+  'errors.person_search_masked':
+    'أسماء الأشخاص وعناوين بريدهم مخفية لهذا الحساب، لذا لا يمكنه البحث بها.',
   'errors.pick_list_not_found': 'هذه القائمة غير موجودة.',
   'errors.pick_list_value_not_found': 'هذه القيمة لم تعد موجودة.',
   'errors.plain_connection_refused': 'يُرفض الاتصال غير المشفّر ما لم تسمح به.',

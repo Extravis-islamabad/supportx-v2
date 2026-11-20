@@ -40,6 +40,10 @@ from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
+from app.modules.identity_access.service.masking import (
+    contacts_masked,
+    refuse_masked_person_search,
+)
 from app.modules.identity_access.service.policy import (
     PEOPLE,
     FieldRule,
@@ -185,8 +189,10 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
     """IDs of the tenant's people whose name or email matches `text`, best first.
 
     For other modules' searches by person ("incidents requested by Ahmed"): they filter their own
-    records by these IDs and their own scope, so this reveals nothing on its own.
+    records by these IDs and their own scope, so this reveals nothing on its own. Refused (403
+    person_search_masked) for a request whose contacts are masked.
     """
+    refuse_masked_person_search(session)
     found = await ENGINE.match(session, PEOPLE, text)
     if found is None:
         return []
@@ -421,7 +427,8 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
     if not wanted:
         return {}
     rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
-    return {str(row.id): row.display_name for row in rows}
+    masked = contacts_masked(session)  # the UI labels an empty name (D-173)
+    return {str(row.id): "" if masked else row.display_name for row in rows}
 
 
 async def api_key_names(session: AsyncSession, key_ids: Sequence[str]) -> dict[str, str]:
@@ -460,6 +467,8 @@ async def user_contacts(
     rows = await session.execute(
         select(User.id, User.display_name, User.email).where(User.id.in_(wanted))
     )
+    if contacts_masked(session):  # removed, never hashed or partial (lane B (c))
+        return {str(row.id): ("", "") for row in rows}
     return {str(row.id): (row.display_name, row.email) for row in rows}
 
 

@@ -64,6 +64,10 @@ class TenantContext:
     # A vendor support account's session (WP-057 S4c-2): the grant it acts under, so the audit
     # names "Extravis support" and the grant on its every entry. None for everyone else.
     support_grant_id: uuid.UUID | None = None
+    # People's names, e-mail addresses and phones withheld from this request's answers (D-173):
+    # a support session whose grant does not unmask personal data. Read at every people lookup,
+    # so a read without it fails closed for support (set with support_grant_id, never apart).
+    mask_contacts: bool = False
 
 
 # Returns the session's context, None when the request has no session, or raises a problem

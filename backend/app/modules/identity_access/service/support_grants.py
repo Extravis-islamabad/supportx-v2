@@ -797,6 +797,7 @@ class _Facts:
     ends_at: datetime | None
     networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
     until: datetime
+    unmask_personal: bool = False
 
 
 # In process only, keyed (tenant, user): a revoke ends the sessions through the store marker at
@@ -833,6 +834,7 @@ async def _facts(
             row.ends_at,
             tuple(ipaddress.ip_network(str(n), strict=False) for n in row.ip_allowlist),
             until,
+            row.unmask_personal,
         )
     _cache[(tenant_id, user_id)] = facts
     return facts
@@ -953,13 +955,16 @@ async def request_refusal(
     return None
 
 
-def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID | None:
-    """The grant `request_refusal` just admitted the account under (its cached facts), or None.
+def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[uuid.UUID | None, bool]:
+    """The grant `request_refusal` just admitted the account under, and whether it unmasks.
 
-    Every write of the request names it in the audit (lane B (7)); read from memory only.
+    Every write of the request names the grant in the audit (lane B (7)); people's contacts stay
+    masked unless the grant unmasks them, and when the facts are gone (fails closed). Memory only.
     """
     facts = _cache.get((tenant_id, user_id))
-    return None if facts is None else facts.grant_id
+    if facts is None:
+        return None, False
+    return facts.grant_id, facts.unmask_personal
 
 
 BROKERED = "support_sign_in_brokered"

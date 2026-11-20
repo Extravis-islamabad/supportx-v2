@@ -1426,17 +1426,20 @@ class AuthService:
         if found is None:
             return None
         session_id, session = found
-        grant_id = None
+        grant_id, masked = None, False
         if session.user_type == SUPPORT_USER_TYPE:
             await self._check_support(request, session_id, session)
-            # Lane B (7): its every audited write names the grant ("Extravis support").
-            grant_id = support_grants.judged_grant(session.tenant_uuid, session.user_uuid)
+            # Lane B (7): its every audited write names the grant ("Extravis support"); people's
+            # contacts are masked unless the grant unmasks them (D-173), and by default.
+            grant_id, unmasked = support_grants.judged_grant(session.tenant_uuid, session.user_uuid)
+            masked = not unmasked
         record_freshness(request, self._freshness(session))
         return TenantContext(
             tenant_id=session.tenant_uuid,
             user_id=session.user_uuid,
             roles=frozenset(session.roles),
             support_grant_id=grant_id,
+            mask_contacts=masked,
         )
 
     async def _check_support(self, request: Request, session_id: str, session: Session) -> None:

@@ -157,6 +157,7 @@ from app.modules.identity_access.service.field_access import (
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
+from app.modules.identity_access.service.masking import contacts_masked
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -588,6 +589,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "check_group_grantable",
+    "contacts_masked",
     "cost_rate",
     "count_matches",
     "count_matches_html",

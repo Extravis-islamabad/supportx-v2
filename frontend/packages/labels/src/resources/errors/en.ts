@@ -1118,6 +1118,8 @@ export const en = {
   'errors.person_erasure_in_progress':
     'This person is being erased; they cannot be reactivated or changed.',
   'errors.person_on_legal_hold': 'This person is on legal hold and cannot be erased.',
+  'errors.person_search_masked':
+    "People's names and e-mail addresses are hidden for this account, so it can't search by them.",
   'errors.pick_list_not_found': 'That list does not exist.',
   'errors.pick_list_value_not_found': 'That value no longer exists.',
   'errors.plain_connection_refused':

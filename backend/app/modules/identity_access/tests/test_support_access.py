@@ -94,3 +94,13 @@ def test_sensitive_fields_are_hidden_and_personal_ones_masked_unless_unmasked() 
     # Unmasking never opens a sensitive field (D-173).
     assert dict(unmasked["incident"]) == {"custom.both": "hidden", "custom.salary": "hidden"}
     assert support_access.field_access({"ci": []}, unmask_personal=False) == {}
+
+
+def test_a_support_request_without_its_facts_is_masked() -> None:
+    """Lane B (3): no cached facts for the account means contacts masked, never shown."""
+    import uuid  # noqa: PLC0415 - this test only
+
+    from app.modules.identity_access.service.support_grants import judged_grant  # noqa: PLC0415
+
+    grant, unmasked = judged_grant(uuid.uuid4(), uuid.uuid4())
+    assert (grant, unmasked) == (None, False)
