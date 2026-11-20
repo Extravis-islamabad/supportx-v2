@@ -38,11 +38,14 @@ from app.modules.cmdb.domain.types import Problem
 from app.modules.cmdb.infra.models import Ci, CiType, Relationship, RelationshipType
 from app.modules.cmdb.service.catalogue import ensure_defaults, invalid
 from app.modules.cmdb.service.cis import visible_rows
-from app.modules.cmdb.service.relationships import EDGE_READ_MAX, NodeInfo, ensure_types, node_infos
+from app.modules.cmdb.service.relationships import NodeInfo, ensure_types, node_infos
 from app.modules.identity_access import Subject
 
 BUSINESS_SERVICE = "business_service"  # the built-in CI type (domain/types.py BUILT_IN_TYPES)
 NOT_CONFIGURED = "not_configured"  # affected users: no subscribers yet (labelled)
+FRONTIER_CHUNK = 1000  # frontier CIs per edge read
+LEVEL_EDGE_MAX = 100_000  # edges read for one level of the walk; `truncated` beyond
+LIVE_CHUNK = 5000  # ends checked live per query
 
 
 @dataclass(frozen=True)
@@ -123,33 +126,58 @@ async def _level(
     frontier: Sequence[str],
     types: dict[uuid.UUID, domain.Flow],
 ) -> tuple[list[domain.ImpactEdge], bool]:
-    """The live impact edges touching the frontier whose both ends are live CIs (and the cut)."""
+    """The live impact edges touching the frontier whose both ends are live CIs (and the cut).
+
+    Read in chunks of the frontier, at most `LEVEL_EDGE_MAX` edges a level: a wide level of an
+    impact walk touches far more links than one map node (S2's `EDGE_READ_MAX`), and cutting
+    there would answer `truncated` long before the 5,000-CI cap.
+    """
     ids = [uuid.UUID(n) for n in frontier]
-    found = (
-        await session.execute(
-            select(
-                Relationship.id,
-                Relationship.type_id,
-                Relationship.from_ci_id,
-                Relationship.to_ci_id,
+    found: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]] = []
+    cut = False
+    for start in range(0, len(ids), FRONTIER_CHUNK):
+        chunk = ids[start : start + FRONTIER_CHUNK]
+        room = LEVEL_EDGE_MAX - len(found)
+        rows = (
+            await session.execute(
+                select(
+                    Relationship.id,
+                    Relationship.type_id,
+                    Relationship.from_ci_id,
+                    Relationship.to_ci_id,
+                )
+                .where(
+                    Relationship.deleted_at.is_(None),
+                    Relationship.type_id.in_(list(types)),
+                    or_(Relationship.from_ci_id.in_(chunk), Relationship.to_ci_id.in_(chunk)),
+                )
+                .order_by(Relationship.id)
+                .limit(room)
             )
-            .where(
-                Relationship.deleted_at.is_(None),
-                Relationship.type_id.in_(list(types)),
-                or_(Relationship.from_ci_id.in_(ids), Relationship.to_ci_id.in_(ids)),
-            )
-            .order_by(Relationship.id)
-            .limit(EDGE_READ_MAX)
-        )
-    ).all()
+        ).all()
+        found.extend((r[0], r[1], r[2], r[3]) for r in rows)
+        if len(rows) >= room:
+            cut = True
+            break
     ends = {end for _, _, a, b in found for end in (a, b)}
-    live = set(await session.scalars(select(Ci.id).where(Ci.id.in_(ends), Ci.deleted_at.is_(None))))
-    edges = [
-        domain.ImpactEdge(str(i), str(a), str(b), types[t], str(t))
-        for i, t, a, b in found
-        if a in live and b in live
-    ]
-    return edges, len(found) >= EDGE_READ_MAX
+    live: set[uuid.UUID] = set()
+    for_ends = list(ends)
+    for start in range(0, len(for_ends), LIVE_CHUNK):
+        live |= set(
+            await session.scalars(
+                select(Ci.id).where(
+                    Ci.id.in_(for_ends[start : start + LIVE_CHUNK]), Ci.deleted_at.is_(None)
+                )
+            )
+        )
+    seen: set[uuid.UUID] = set()
+    edges: list[domain.ImpactEdge] = []
+    for i, t, a, b in found:
+        if i in seen or a not in live or b not in live:
+            continue
+        seen.add(i)  # a link touching two frontier chunks is read twice
+        edges.append(domain.ImpactEdge(str(i), str(a), str(b), types[t], str(t)))
+    return edges, cut
 
 
 async def _service_types(session: AsyncSession) -> set[uuid.UUID]:
