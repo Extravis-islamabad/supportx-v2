@@ -11,8 +11,10 @@ stack's PostgreSQL by default. These tests pin both fixes without Docker:
 - tooling.db_testing falls back to the shared stack only when asked to.
 """
 
+import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -50,66 +52,129 @@ def test_every_volume_name_takes_the_prefix_and_defaults_to_the_shared_names() -
     assert defaults == SHARED_VOLUMES
 
 
+SHARED = [f"supportx_dev_{n}_data" for n in ("postgres", "valkey")]
+OWN = [f"throwaway_{n}_data" for n in ("postgres", "valkey")]
+
+
+def _config(name: str, volumes: list[str]) -> str:
+    return json.dumps({"name": name, "volumes": {v: {"name": v} for v in volumes}})
+
+
 @pytest.fixture
 def stub_docker(tmp_path: Path) -> Path:
-    """A `docker` on PATH that only records how it was called."""
-    calls = tmp_path / "calls"
+    """A `docker` on PATH: answers `config --format json` with $STUB_CONFIG, records the rest."""
     stub = tmp_path / "bin" / "docker"
     stub.parent.mkdir()
-    stub.write_text(f'#!/usr/bin/env bash\necho "$@" >> {calls}\n', encoding="utf-8")
+    stub.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ " $* " == *" config --format json "* ]]; then\n'
+        f'  echo "$@" >> {tmp_path / "config_calls"}\n'
+        '  [[ -n "${STUB_FAIL:-}" ]] && { echo "bad compose file" >&2; exit 1; }\n'
+        '  printf "%s" "$STUB_CONFIG"; exit 0\n'
+        "fi\n"
+        f'echo "$@" >> {tmp_path / "calls"}\n',
+        encoding="utf-8",
+    )
     stub.chmod(0o755)
     return tmp_path
 
 
-def _guard(stub: Path, *args: str, **env: str) -> tuple[int, str]:
+def _guard(stub: Path, *args: str, config: str, **env: str) -> tuple[int, str, str, str]:
     dropped = {"COMPOSE_PROJECT_NAME", "SUPPORTX_VOLUME_PREFIX"}
     clean = {k: v for k, v in os.environ.items() if k not in dropped}
     run = subprocess.run(  # noqa: S603 - our own script, fixed arguments
         [str(GUARD), *args],
-        env={**clean, "PATH": f"{stub / 'bin'}:{clean.get('PATH', '')}", **env},
+        env={**clean, "PATH": f"{stub / 'bin'}:{clean.get('PATH', '')}", "STUB_CONFIG": config,
+             **env},
+        capture_output=True,
+        text=True,
+        check=False,
+    )  # fmt: skip
+    return run.returncode, _read(stub / "calls"), _read(stub / "config_calls"), run.stderr
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+@pytest.mark.parametrize(
+    ("config", "reason"),
+    [
+        # another project on the shared volumes (the incident), or even one of them
+        (_config("throwaway", SHARED), "would use the shared dev stack volumes"),
+        (_config("throwaway", [*OWN, SHARED[0]]), "would use the shared dev stack volumes"),
+        # the shared project on someone else's volumes
+        (_config("supportx-dev", OWN), "the shared dev stack keeps its own volumes"),
+    ],
+)
+def test_the_guard_refuses_a_project_on_someone_elses_volumes(
+    stub_docker: Path, config: str, reason: str
+) -> None:
+    code, calls, _, errors = _guard(stub_docker, "up", "-d", config=config)
+    assert code == 3
+    assert reason in errors, errors  # refused for this reason, not any other
+    assert calls == "", "docker compose ran although the guard refused"
+
+
+@pytest.mark.parametrize("config", [_config("supportx-dev", SHARED), _config("throwaway", OWN)])
+def test_the_guard_passes_a_project_on_its_own_volumes(stub_docker: Path, config: str) -> None:
+    code, calls, _, errors = _guard(stub_docker, "up", "-d", config=config)
+    assert code == 0, errors
+    assert calls.startswith("compose --project-directory ")
+    assert calls.rstrip().endswith("up -d")
+
+
+def test_the_guard_asks_compose_with_the_same_global_options(stub_docker: Path) -> None:
+    """The project and prefix may come from --env-file or .env: compose resolves them itself."""
+    code, _, asked, errors = _guard(
+        stub_docker, "--env-file", "x.env", "-p", "p", "run", "-p", "5432:5432", "db",
+        config=_config("p", OWN),
+    )  # fmt: skip
+    assert code == 0, errors
+    assert asked.rstrip().endswith("--env-file x.env -p p config --format json")
+    assert "5432" not in asked  # `run -p` is a port, not a project
+
+
+def test_the_guard_refuses_when_compose_cannot_resolve_the_project(stub_docker: Path) -> None:
+    code, calls, _, errors = _guard(stub_docker, "up", "-d", config="", STUB_FAIL="1")
+    assert code == 3
+    assert "could not resolve the project" in errors
+    assert calls == ""
+
+
+def _required_env(tmp_path: Path, extra: str = "") -> Path:
+    names = sorted(
+        set(re.findall(r"\$\{([A-Z0-9_]+):\?", COMPOSE_FILE.read_text(encoding="utf-8")))
+    )
+    env = tmp_path / "test.env"
+    env.write_text("".join(f"{n}=dummy\n" for n in names) + extra, encoding="utf-8")
+    return env
+
+
+@pytest.mark.skipif(shutil.which("docker") is None, reason="needs docker (compose config only)")
+@pytest.mark.parametrize(
+    ("extra", "code"),
+    [
+        ("COMPOSE_PROJECT_NAME=supportx-e2e-c\n", 3),  # the incident: the project from an env file
+        ("COMPOSE_PROJECT_NAME=supportx-e2e-c\nSUPPORTX_VOLUME_PREFIX=e2e_c\n", 0),
+        ("", 0),  # the shared stack itself
+        ("SUPPORTX_VOLUME_PREFIX=e2e_c\n", 3),  # the shared project on foreign volumes
+    ],
+)
+def test_real_compose_resolves_the_env_file_and_the_guard_follows(
+    tmp_path: Path, extra: str, code: int
+) -> None:
+    """Real `docker compose config` (it only renders): nothing is started."""
+    dropped = {"COMPOSE_PROJECT_NAME", "SUPPORTX_VOLUME_PREFIX"}
+    env = {k: v for k, v in os.environ.items() if k not in dropped}
+    run = subprocess.run(  # noqa: S603 - our own script, fixed arguments
+        [str(GUARD), "--env-file", str(_required_env(tmp_path, extra)), "config", "--quiet"],
+        env=env,
         capture_output=True,
         text=True,
         check=False,
     )
-    calls = stub / "calls"
-    return run.returncode, calls.read_text(encoding="utf-8") if calls.exists() else ""
-
-
-@pytest.mark.parametrize(
-    ("args", "env"),
-    [
-        (("-p", "throwaway"), {}),
-        (("--project-name", "throwaway"), {}),
-        (("--project-name=throwaway",), {}),
-        (("-pthrowaway",), {}),
-        ((), {"COMPOSE_PROJECT_NAME": "throwaway"}),
-        (("-p", "throwaway"), {"SUPPORTX_VOLUME_PREFIX": "supportx_dev"}),
-        ((), {"SUPPORTX_VOLUME_PREFIX": "throwaway"}),  # the shared project, foreign volumes
-    ],
-)
-def test_the_guard_refuses_a_project_on_someone_elses_volumes(
-    stub_docker: Path, args: tuple[str, ...], env: dict[str, str]
-) -> None:
-    code, calls = _guard(stub_docker, *args, "up", "-d", **env)
-    assert code == 3
-    assert calls == "", "docker compose ran although the guard refused"
-
-
-@pytest.mark.parametrize(
-    ("args", "env"),
-    [
-        ((), {}),  # the shared stack itself (make dev-up)
-        (("-p", "throwaway"), {"SUPPORTX_VOLUME_PREFIX": "throwaway"}),
-        ((), {"COMPOSE_PROJECT_NAME": "throwaway", "SUPPORTX_VOLUME_PREFIX": "throwaway"}),
-    ],
-)
-def test_the_guard_passes_a_project_on_its_own_volumes(
-    stub_docker: Path, args: tuple[str, ...], env: dict[str, str]
-) -> None:
-    code, calls = _guard(stub_docker, *args, "up", "-d", **env)
-    assert code == 0
-    assert calls.startswith("compose --project-directory ")
-    assert calls.rstrip().endswith("up -d")
+    assert run.returncode == code, run.stderr
 
 
 def test_the_makefile_goes_through_the_guard() -> None:
