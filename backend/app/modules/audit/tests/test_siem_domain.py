@@ -31,15 +31,17 @@ ENTRY = {
 
 
 def test_json_is_the_chain_content_without_commitments_and_stable() -> None:
-    sent = json.loads(siem.to_json(siem.Stream.AUDIT, ENTRY))
+    sent = json.loads(siem.to_json(siem.SiemStream.AUDIT, ENTRY))
     assert sent["kind"] == "audit"
     assert sent["action"] == "support_grant.created"
     assert "personal_commitments" not in sent
-    assert siem.to_json(siem.Stream.AUDIT, ENTRY) == siem.to_json(siem.Stream.AUDIT, dict(ENTRY))
+    assert siem.to_json(siem.SiemStream.AUDIT, ENTRY) == siem.to_json(
+        siem.SiemStream.AUDIT, dict(ENTRY)
+    )
 
 
 def test_cef_has_its_header_and_labelled_extension() -> None:
-    line = siem.to_cef(siem.Stream.AUDIT, ENTRY, version="2.0")
+    line = siem.to_cef(siem.SiemStream.AUDIT, ENTRY, version="2.0")
     assert line.startswith(
         "CEF:0|Extravis|SupportX|2.0|support_grant.created|support_grant.created|5|"
     )
@@ -47,7 +49,7 @@ def test_cef_has_its_header_and_labelled_extension() -> None:
     assert "cs2=support_grant cs2Label=objectType" in line
     assert "personal_commitments" not in line
     assert "c0ffee" not in line
-    refused = siem.to_cef(siem.Stream.SIGN_INS, {**ENTRY, "outcome": "refused"}, version="2.0")
+    refused = siem.to_cef(siem.SiemStream.SIGN_INS, {**ENTRY, "outcome": "refused"}, version="2.0")
     assert refused.split("|")[6] == "7"
 
 
@@ -98,7 +100,7 @@ def test_cef_escaping_never_lets_a_value_break_the_line() -> None:
     for _ in range(500):
         hostile = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 40)))
         content = {**ENTRY, "action": hostile, "object_id": hostile, "details": {"x": hostile}}
-        line = siem.to_cef(siem.Stream.AUDIT, content, version="2.0")
+        line = siem.to_cef(siem.SiemStream.AUDIT, content, version="2.0")
         assert "\n" not in line
         assert "\r" not in line
         assert len(_unescaped(line)) == 8

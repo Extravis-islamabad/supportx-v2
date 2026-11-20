@@ -30,34 +30,34 @@ BATCH_MAX = 200  # entries sent per attempt
 _LEFT_OUT = frozenset({"personal_commitments"})
 
 
-class Kind(StrEnum):
+class SiemKind(StrEnum):
     """How a destination is reached (`siem_destination_kind.<code>`)."""
 
     SYSLOG = "syslog"  # TCP with TLS, RFC 5424 framed by RFC 6587
     WEBHOOK = "webhook"  # HTTPS POST of a JSON batch, signed (app/shared/crypto/signing.py)
 
 
-class Format(StrEnum):
+class SiemFormat(StrEnum):
     """What each entry looks like (`siem_format.<code>`); a webhook always sends JSON."""
 
     JSON = "json"
     CEF = "cef"
 
 
-class Stream(StrEnum):
+class SiemStream(StrEnum):
     """What a destination receives (`siem_stream.<code>`)."""
 
     AUDIT = "audit"
     SIGN_INS = "sign_ins"
 
 
-def payload(kind: Stream, content: Mapping[str, Any]) -> dict[str, Any]:
+def payload(kind: SiemStream, content: Mapping[str, Any]) -> dict[str, Any]:
     """The JSON object for one entry: its content and its kind, nothing personal."""
     sent = {k: v for k, v in content.items() if k not in _LEFT_OUT}
     return {"kind": kind.value, **sent}
 
 
-def to_json(kind: Stream, content: Mapping[str, Any]) -> str:
+def to_json(kind: SiemStream, content: Mapping[str, Any]) -> str:
     """One entry as compact JSON with sorted keys (the same bytes for the same entry)."""
     return json.dumps(payload(kind, content), sort_keys=True, separators=(",", ":"), default=str)
 
@@ -112,7 +112,7 @@ _LABELS = {
 }
 
 
-def to_cef(kind: Stream, content: Mapping[str, Any], *, version: str) -> str:
+def to_cef(kind: SiemStream, content: Mapping[str, Any], *, version: str) -> str:
     """One entry as a CEF line."""
     action = str(content.get("action") or kind.value)
     parts: list[str] = []
@@ -151,6 +151,8 @@ def frame(line: str) -> bytes:
     return str(len(data)).encode("ascii") + b" " + data
 
 
-def body(kind: Stream, content: Mapping[str, Any], fmt: Format, *, version: str) -> str:
+def body(kind: SiemStream, content: Mapping[str, Any], fmt: SiemFormat, *, version: str) -> str:
     """One entry in the destination's format."""
-    return to_cef(kind, content, version=version) if fmt is Format.CEF else to_json(kind, content)
+    return (
+        to_cef(kind, content, version=version) if fmt is SiemFormat.CEF else to_json(kind, content)
+    )
