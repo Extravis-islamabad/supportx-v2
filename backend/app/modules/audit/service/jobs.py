@@ -28,10 +28,11 @@ from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit.domain.catalogue import AuditActorType, AuditOutcome
+from app.modules.audit.domain.system_log import SystemLogCode, SystemLogEntryIn, SystemLogSeverity
 from app.modules.audit.events import AuditAlertRaised
 from app.modules.audit.infra.models import AuditEntry, AuditVerificationRun
 from app.modules.audit.infra.signing import AnchorSigner, LocalSigner, trusted_keys
-from app.modules.audit.service import access_log
+from app.modules.audit.service import access_log, system_log
 from app.modules.audit.service.exports import build_export, expire_exports
 from app.modules.audit.service.integrity import anchor, seal, unsealed_overdue, verify
 from app.modules.audit.service.recording import WORKER, record
@@ -41,6 +42,7 @@ from app.modules.audit.service.retention import (
     expire_restored,
     restore,
 )
+from app.modules.audit.service.system_log import record_system_alone
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
 from app.shared.storage import ObjectStorage, StorageNotConfigured, storage_from
@@ -233,6 +235,7 @@ async def run_retention(database: Database, settings: Settings) -> None:
     signer = signer_from(settings)
     trusted = trusted_from(settings)
     for tenant in await tenant_ids(database):
+        row = None
         for _ in range(ARCHIVE_MONTHS_PER_RUN):
             async with database.tenant_session(TenantContext(tenant)) as session:
                 row = await archive_next(
@@ -240,11 +243,46 @@ async def run_retention(database: Database, settings: Settings) -> None:
                 )
             if row is None or row.status != "ready":
                 break
+            # REQ-AUD-016: what the archive did goes in the tenant's system log.
+            await record_system_alone(
+                database,
+                tenant,
+                SystemLogEntryIn(
+                    module="audit",
+                    code=SystemLogCode.AUDIT_RETENTION_ARCHIVED,
+                    severity=SystemLogSeverity.INFO,
+                    params={"month": row.range_from.strftime("%Y-%m")},
+                ),
+            )
+        if row is not None and row.status == "failed":
+            await record_system_alone(
+                database,
+                tenant,
+                SystemLogEntryIn(
+                    module="audit",
+                    code=SystemLogCode.AUDIT_RETENTION_FAILED,
+                    severity=SystemLogSeverity.ERROR,
+                    params={"month": row.range_from.strftime("%Y-%m")},
+                ),
+            )
         # REQ-AUD-017: access entries past the same retention go (lane B), via audit_purge_access.
         async with database.tenant_session(TenantContext(tenant)) as session:
             purged = await access_log.purge(session)
         if purged:
             log.info("personal_data_access_purged", tenant_id=str(tenant), entries=purged)
+        # REQ-AUD-016: the system log past its own retention; the purge is itself logged.
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            removed = await system_log.purge(session)
+            if removed:
+                await system_log.record_system(
+                    session,
+                    SystemLogEntryIn(
+                        module="audit",
+                        code=SystemLogCode.AUDIT_SYSTEM_LOG_PURGED,
+                        severity=SystemLogSeverity.INFO,
+                        params={"entries": removed},
+                    ),
+                )
     async with database.platform_session() as session:
         dropped = await drop_expired_partitions(session)
     if dropped:

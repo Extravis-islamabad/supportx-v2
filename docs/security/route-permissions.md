@@ -196,6 +196,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/audit/settings` | `audit.view` | audit.view: all |
 | PUT | `/api/v1/audit/settings` | `audit.manage` | audit.manage: all |
 | GET | `/api/v1/audit/status` | `audit.view` | audit.view: all |
+| GET | `/api/v1/audit/system-log` | `audit.view` | audit.view: all |
+| GET | `/api/v1/audit/system-log/export` | `audit.export` | audit.export: all |
 | GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
 | GET | `/api/v1/auth/account-action` | session (BFF) | - |

@@ -482,6 +482,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.personal_data_access_viewed", AuditCategory.DATA, "audit"),  # REQ-AUD-017 report
+    ("audit.system_log_exported", AuditCategory.DATA, "audit"),  # REQ-AUD-016 AC3
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),

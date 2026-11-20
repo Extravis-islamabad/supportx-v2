@@ -2066,6 +2066,27 @@
         "type": "object"
       }
     },
+    "audit.system_log.recorded": {
+      "1": {
+        "description": "A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.\n\nThe severity only: never the code's params or the object.",
+        "properties": {
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity"
+        ],
+        "title": "SystemLogRecorded",
+        "type": "object"
+      }
+    },
     "audit.verification.completed": {
       "1": {
         "description": "A verification run finished (`status`: passed, failed or error).",
