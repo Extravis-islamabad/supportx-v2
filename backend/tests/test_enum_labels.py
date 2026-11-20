@@ -19,6 +19,16 @@ from tests.test_error_labels import label_keys
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
+    # WP-057 S4c-1 (D-173): vendor support grants.
+    "SupportGrantIn.access": "support_grant_access",
+    "SupportGrantOut.access": "support_grant_access",
+    "SupportGrantMadeOut.access": "support_grant_access",
+    "SupportGrantIn.verification": "support_grant_verification",
+    "SupportGrantOut.verification": "support_grant_verification",
+    "SupportGrantMadeOut.verification": "support_grant_verification",
+    "SupportGrantOut.state": "support_grant_state",
+    "SupportGrantMadeOut.state": "support_grant_state",
+    "SupportGrantMadeOut.delivery": "support_grant_delivery",
     "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
     "Resource": "resource_access_resource",  # ADR-053: what a rule narrows

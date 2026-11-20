@@ -63,6 +63,8 @@ from app.modules.identity_access.api.service_roles import (
     ServiceRolesOut,
     service_roles_out,
 )
+from app.modules.identity_access.api.support_grants import public_router as support_public_router
+from app.modules.identity_access.api.support_grants import router as support_grants_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -110,6 +112,8 @@ from app.modules.identity_access.service import (
     service_account_handover,
     sign_in_import,
     sign_in_log,
+    support_grant_job,
+    support_grant_notifications,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
@@ -457,6 +461,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
+support_grant_notifications.register()  # every admin hears of vendor support access (D-173 (8))
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
@@ -482,6 +487,8 @@ module = ModuleSpec(
         account_router,
         api_keys_router,
         service_accounts_router,
+        support_grants_router,
+        support_public_router,
         realtime_router,
         privacy_router,  # legal hold and GDPR erasure (D-171, ADR-052)
         erasures_router,
@@ -517,6 +524,12 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
         # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.
         ScheduleSpec("identity_access__person_erasures", 30, erasure_job.erasure_schedule),
+        # WP-057 S4c-1 (D-173): grants end within 30 s; removals retried; stuck ones told once.
+        ScheduleSpec(
+            "identity_access__support_grants",
+            support_grant_job.EVERY_SECONDS,
+            support_grant_job.support_grant_schedule,
+        ),
     ],
 )
 

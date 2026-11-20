@@ -6,7 +6,7 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../../App';
-import { consoleApi } from '../../../test/api';
+import { consoleApi, listCalls } from '../../../test/api';
 
 // REQ-WI-012: a live update must not dim a list someone is reading. The spinner belongs to a first
 // load (or a filter, view or page the user changed); a background refetch keeps the rows as they are.
@@ -77,7 +77,7 @@ describe('REQ-WI-012: the incident list while it refetches', () => {
     restore = fake.restore;
     render(<App />);
     await waitFor(() => {
-      expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(1);
+      expect(listCalls(fake, '/api/v1/incidents')).toHaveLength(1);
     });
     await waitFor(() => {
       expect(spinner()).not.toBeNull();
@@ -117,7 +117,7 @@ describe('REQ-WI-012: the incident list while it refetches', () => {
     });
     // The refetch is on its way and not answered yet: this is the moment a dim would show.
     await waitFor(() => {
-      expect(fake.find('GET', '/api/v1/incidents')).toHaveLength(2);
+      expect(listCalls(fake, '/api/v1/incidents')).toHaveLength(2);
     });
     expect(spinner()).toBeNull();
     expect(dimmed()).toBeNull();

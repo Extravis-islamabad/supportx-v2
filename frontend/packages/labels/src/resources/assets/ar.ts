@@ -970,6 +970,7 @@ export const ar: LabelResource = {
   'assets.stock.expires': 'تاريخ الانتهاء',
   'assets.stock.for_request': 'يرتبط هذا الصرف بالطلب الذي جئت منه.',
   'assets.stock.from_site': 'من مخزون',
+  'assets.stock.hidden_record': 'سجل لا يمكنك رؤيته',
   'assets.stock.ledger': 'السجل',
   'assets.stock.location': 'المكان',
   'assets.stock.lot': 'رقم التشغيلة',

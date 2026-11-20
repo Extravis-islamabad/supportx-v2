@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, delete, func, or_, select, true
+from sqlalchemy import ColumnElement, delete, exists, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
@@ -59,6 +59,7 @@ from app.modules.assets.infra.models import (
 )
 from app.modules.assets.service.acknowledgements import _changed as acknowledgement_changed
 from app.modules.assets.service.assets import (
+    ASSETS,
     MANAGE,
     VIEW,
     _refuse,
@@ -67,12 +68,11 @@ from app.modules.assets.service.assets import (
     _visible,
     staff_rows,
     update_asset,
-    visible_ids,
 )
 from app.modules.assets.service.groups import _members
 from app.modules.assets.service.moves import REASON_MAX, move_asset
 from app.modules.assets.service.ownership import Holder, set_holder
-from app.modules.identity_access import Subject, active_user_ids
+from app.modules.identity_access import Subject, active_user_ids, scope_filter
 from app.modules.organization import existing_unit_ids
 from app.shared.clock import system_clock
 from app.shared.db.display_ids import next_display_id
@@ -159,20 +159,59 @@ async def is_auditor(session: AsyncSession, audit_id: uuid.UUID, user_id: uuid.U
 
 
 def _readable(subject: Subject) -> ColumnElement[bool]:
-    """Audits the subject may open: all with assets.manage, else those they audit."""
-    if subject.holds(MANAGE):
-        return true()
-    return AssetAudit.id.in_(
+    """Audits the subject may open: those they audit, and those within their assets.manage scope.
+
+    Within scope (lane B and lane C, 2026-11-20): `all` reaches every audit; a narrower scope
+    reaches an audit of one of the person's sites (or of no named site), or one holding an asset
+    the person may manage. It is never every audit for any manager: a site-scoped manager would
+    otherwise read another site's audit.
+    """
+    auditing = AssetAudit.id.in_(
         select(AssetAuditAuditor.audit_id).where(AssetAuditAuditor.user_id == subject.user_id)
     )
+    scope = subject.broadest_scope(MANAGE)
+    if scope is None:
+        return auditing
+    if scope == "all":
+        return true()
+    reach: list[ColumnElement[bool]] = [
+        auditing,
+        exists(
+            select(AssetAuditItem.id)
+            .join(Asset, Asset.id == AssetAuditItem.asset_id)
+            .where(
+                AssetAuditItem.audit_id == AssetAudit.id,
+                scope_filter(subject, MANAGE, ASSETS),
+            )
+        ),
+    ]
+    if scope in ("site", "group"):
+        reach.append(func.cardinality(AssetAudit.site_ids) == 0)
+        if subject.site_ids:
+            reach.append(AssetAudit.site_ids.overlap(sorted(subject.site_ids)))
+    return or_(*reach)
 
 
-async def progress(session: AsyncSession, audit: AssetAudit) -> Progress:
-    """Found, marked and discrepancies out of expected (043 AC3)."""
+def _visible_items(subject: Subject) -> ColumnElement[bool]:
+    """The audit items whose asset the subject may see (the assets scope): auditors included."""
+    return AssetAuditItem.asset_id.in_(select(Asset.id).where(scope_filter(subject, VIEW, ASSETS)))
+
+
+async def progress(
+    session: AsyncSession, audit: AssetAudit, subject: Subject | None = None
+) -> Progress:
+    """Found, marked and discrepancies out of expected (043 AC3).
+
+    With `subject`, only the items whose asset that person may see are counted, so the numbers
+    match the list they see (lane C, 2026-11-20).
+    """
     rows = (
         await session.execute(
             select(AssetAuditItem.kind, AssetAuditItem.result, func.count())
-            .where(AssetAuditItem.audit_id == audit.id)
+            .where(
+                AssetAuditItem.audit_id == audit.id,
+                *([_visible_items(subject)] if subject is not None else []),
+            )
             .group_by(AssetAuditItem.kind, AssetAuditItem.result)
         )
     ).all()
@@ -196,7 +235,7 @@ async def _view(session: AsyncSession, subject: Subject, audit: AssetAudit) -> A
     return AuditView(
         audit=audit,
         auditors=auditors,
-        progress=await progress(session, audit),
+        progress=await progress(session, audit, subject),
         may_manage=subject.holds(MANAGE),
         may_mark=subject.holds(VIEW)
         and subject.user_id in auditors
@@ -249,8 +288,8 @@ async def list_items(
         await session.execute(
             select(AssetAuditItem, Asset.tag, Asset.name, Asset.site_id, Asset.state_id)
             .join(Asset, Asset.id == AssetAuditItem.asset_id)
-            # An auditor narrowed by fine-grained access sees only their own set (ADR-053).
-            .where(AssetAuditItem.audit_id == audit.id, Asset.id.in_(visible_ids(subject)))
+            # Only items whose asset the person may see, an auditor of a mixed audit too.
+            .where(AssetAuditItem.audit_id == audit.id, _visible_items(subject))
             .order_by(AssetAuditItem.kind, Asset.tag, AssetAuditItem.id)
             .limit(ITEMS_LISTED)
         )
@@ -776,7 +815,11 @@ async def mark_item(  # noqa: PLR0913 - the item, its version, what was found an
     audit = await _running_for_auditor(session, subject, audit_id)
     item = await session.scalar(
         select(AssetAuditItem)
-        .where(AssetAuditItem.id == item_id, AssetAuditItem.audit_id == audit.id)
+        .where(
+            AssetAuditItem.id == item_id,
+            AssetAuditItem.audit_id == audit.id,
+            _visible_items(subject),  # an item the auditor can't see is not theirs to mark
+        )
         .with_for_update()
     )
     if item is None:

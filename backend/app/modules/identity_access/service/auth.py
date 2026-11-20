@@ -37,7 +37,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
 from app.core.tenancy import TenantContext
-from app.modules.audit import RequestFacts
+from app.modules.audit import WORKER, RequestFacts, record_alone
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
@@ -69,6 +69,7 @@ from app.modules.identity_access.domain.sign_in_policy import (
     requires_supportx_mfa,
 )
 from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import BreakGlassSignedIn
 from app.modules.identity_access.infra.crypto import session_ring
 from app.modules.identity_access.infra.device_keys import device_keys
@@ -96,6 +97,7 @@ from app.modules.identity_access.service import (
     sign_in_log,
     site_networks,
     sso_test,
+    support_grants,
 )
 from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service import sso as sso_service
@@ -1025,6 +1027,24 @@ class AuthService:
                 uuid.UUID(target.tenant_id), identity, attempt, verdict.refusal
             )
             raise PermissionDenied(code=verdict.refusal)
+        # WP-057 S4c-1 (lane B (4)): a vendor support account signs in only within its grant
+        # and, when the grant has one, from its address list; before anyone is provisioned.
+        support = await support_grants.sign_in_refusal(
+            self.database,
+            uuid.UUID(target.tenant_id),
+            identity.subject,
+            attempt.ip if attempt is not None else None,
+            identity_provider=identity.identity_provider,
+        )
+        if support is not None:
+            await self._log_policy_refusal(uuid.UUID(target.tenant_id), identity, attempt, support)
+            raise PermissionDenied(code=support)
+        # D-177: whether this person already had an account here, for the link audit below.
+        existed = (
+            await known_user_id(self.database, uuid.UUID(target.tenant_id), identity.subject)
+            if identity.identity_provider is not None
+            else None
+        )
         user = await provision_user(
             self.database,
             uuid.UUID(target.tenant_id),
@@ -1035,6 +1055,10 @@ class AuthService:
             on_roles_mapped=self.on_roles_mapped,
             directory=self._directory,
         )
+        if existed is not None and identity.identity_provider is not None:
+            await self._audit_first_link(
+                uuid.UUID(target.tenant_id), user.user_id, identity.identity_provider, app, attempt
+            )
         synced = await mfa_service.on_sign_in(
             self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
         )
@@ -1093,6 +1117,11 @@ class AuthService:
                 place=built.place,
                 now=now,
             )
+        if user.user_type == SUPPORT_USER_TYPE:
+            # The engineer finished Keycloak's required actions: the grant is in use (lane B (7)).
+            await support_grants.mark_first_use(
+                self.database, uuid.UUID(target.tenant_id), user.user_id
+            )
         return built
 
     async def place_at(self, tenant_id: uuid.UUID, ip: str | None) -> dict[str, Any] | None:
@@ -1106,6 +1135,41 @@ class AuthService:
         networks = await site_networks.tenant_site_networks(self.database, tenant_id)
         found = place_of(ip, networks, self.geo.lookup)
         return None if found is None else found.to_dict()
+
+    async def _audit_first_link(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        identity_provider: str,
+        app: AppName,
+        attempt: "Attempt | None",
+    ) -> None:
+        """D-177: an existing account's first sign-in through a provider is a link, audited once.
+
+        Keycloak links a provider's person to an existing account only after that account proved
+        itself (`trustEmail` off); SupportX records when the link is first used, in the account's
+        own tenant, naming the provider. A brand-new account is no link and is not recorded.
+        """
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        if await sign_in_log.signed_in_through(
+            self.database, tenant_id, user_id, identity_provider
+        ):
+            return
+        facts = replace(
+            WORKER,
+            client=type(WORKER.client)(app),
+            ip=attempt.ip if attempt is not None else None,
+            user_agent=attempt.user_agent if attempt is not None else None,
+        )
+        await record_alone(
+            self.database,
+            TenantContext(tenant_id, user_id),
+            action_code="identity_provider.account_linked",
+            facts=facts,
+            object_type="user",
+            object_id=user_id,
+            details={"identity_provider": identity_provider},
+        )
 
     async def _log_policy_refusal(
         self,
@@ -1332,6 +1396,14 @@ class AuthService:
         address = client_address(request)
         if not await self._admit(session.tenant_uuid, _client_app(session), address):
             raise PermissionDenied(code=IP_NOT_ALLOWED)
+        if session.user_type == SUPPORT_USER_TYPE and self.database is not None:
+            # No realtime token once a support grant has ended (lane B (4)): its open connections
+            # were cut when it ended, and none can start again.
+            refusal = await support_grants.request_refusal(
+                self.database, session.tenant_uuid, session.user_uuid, address
+            )
+            if refusal is not None:
+                raise PermissionDenied(code=refusal.reason)
 
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: an API key's call, or the session's user.
@@ -1353,11 +1425,41 @@ class AuthService:
         found = await self.session_for(request)
         if found is None:
             return None
-        _session_id, session = found
+        session_id, session = found
+        if session.user_type == SUPPORT_USER_TYPE:
+            await self._check_support(request, session_id, session)
         record_freshness(request, self._freshness(session))
         return TenantContext(
             tenant_id=session.tenant_uuid, user_id=session.user_uuid, roles=frozenset(session.roles)
         )
+
+    async def _check_support(self, request: Request, session_id: str, session: Session) -> None:
+        """A vendor support session's every request: its grant in time and its address allowed.
+
+        WP-057 S4c-1 (lane B (4), (6)): a refusal deletes the session, so the client's next call
+        has none and the refusal is logged once, not per retry. The address is the same one the
+        REQ-SEC-034 check reads (trusted proxies only).
+        """
+        if self.database is None:
+            raise Unauthenticated(code=support_grants.INACTIVE)
+        refusal = await support_grants.request_refusal(
+            self.database, session.tenant_uuid, session.user_uuid, client_address(request)
+        )
+        if refusal is None:
+            return
+        await self.store.delete_session(session_id)
+        # One security entry per refused session (the session is gone, so its client's next call
+        # has none to refuse again): the reason and the grant, the address as the log keeps it.
+        await record_alone(
+            self.database,
+            TenantContext(session.tenant_uuid, session.user_uuid),
+            action_code="support_grant.request_refused",
+            facts=RequestFacts.of(request),
+            object_type="support_grant",
+            object_id=refusal.grant_id,
+            details={"reason": refusal.reason},
+        )
+        raise Unauthenticated(code=refusal.reason)
 
     def _freshness(self, session: Session) -> SignInFreshness:
         """For RecentAuth (REQ-SEC-027): a browser session, and whether it confirmed recently.

@@ -130,6 +130,23 @@ def _filtered(statement: Select[Any], found: LogFilter) -> Select[Any]:
     return statement
 
 
+async def signed_in_through(
+    database: Database, tenant_id: uuid.UUID, user_id: uuid.UUID, identity_provider: str
+) -> bool:
+    """Whether the person has signed in successfully through this provider before (D-177)."""
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        found = await session.scalar(
+            select(SignInEvent.id)
+            .where(
+                SignInEvent.user_id == user_id,
+                SignInEvent.identity_provider == identity_provider,
+                SignInEvent.outcome == SignInOutcome.SUCCESS.value,
+            )
+            .limit(1)
+        )
+    return found is not None
+
+
 async def list_events(session: AsyncSession, found: LogFilter) -> list[SignInEvent]:
     """The tenant's events, newest first (RLS keeps them to the tenant)."""
     statement = _filtered(select(SignInEvent), found)

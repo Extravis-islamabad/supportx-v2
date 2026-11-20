@@ -513,6 +513,49 @@ class InvitationLinkCopied(DomainEvent):
     aggregate_type: ClassVar[str] = "invitation"
 
 
+class SupportGrantChanged(DomainEvent):
+    """A vendor support grant was made, extended, verified, first used or ended (WP-057 S4c-1).
+
+    IDs and codes only (rule c): never the engineer's name or e-mail, nor the reason. Every tenant
+    admin is told, through the one notification engine, required and locked (D-173 (8)).
+    """
+
+    event_type: ClassVar[str] = "identity_access.support_grant.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "support_grant"
+
+    grant_id: uuid.UUID
+    change: Literal[
+        "created",
+        "extended",
+        "verified",
+        "first_used",
+        "ended",
+        "revoked",
+        "account_removed",
+        "account_removal_failed",
+        "account_removal_stuck",
+        "link_sent",
+        "link_opened",
+        "link_resent",
+        "link_expired",
+    ]
+    access: Literal["view", "view_and_change"]
+    ends_at: datetime
+    # The failure's class only (`IdentityAdminUnavailable`), never its message (lane B).
+    error_class: str | None = None
+
+
+class VendorSupportSettingChanged(DomainEvent):
+    """The tenant's "Never allow vendor support" setting changed (D-173 (9)); admins are told."""
+
+    event_type: ClassVar[str] = "identity_access.vendor_support_setting.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "identity_settings"
+
+    never_allow: bool
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -549,4 +592,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AccountSecurityChanged,
     SignInSecretExpiring,
     InvitationLinkCopied,
+    SupportGrantChanged,
+    VendorSupportSettingChanged,
 )

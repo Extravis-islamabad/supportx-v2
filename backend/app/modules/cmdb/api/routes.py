@@ -19,7 +19,7 @@ from app.core.errors import ProblemDetail
 from app.modules.audit import audited
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import Ci, CiState
-from app.modules.cmdb.service import catalogue, cis
+from app.modules.cmdb.service import catalogue, cis, ref_names
 from app.modules.identity_access import Subject, scope_filter
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -218,6 +218,24 @@ class CiPatch(BaseModel):
     )
 
 
+class RefNameOut(BaseModel):
+    """How one referenced site, group, person or asset reads for you: its label, or why not."""
+
+    label: str | None = Field(default=None, description="Its name; never an ID.")
+    restricted: bool = Field(default=False, description="You may not see it now.")
+    gone: bool = Field(default=False, description="It no longer exists.")
+
+    @classmethod
+    def of(cls, name: ref_names.RefName) -> "RefNameOut":
+        """From the service's name."""
+        return cls(label=name.label, restricted=name.restricted, gone=name.gone)
+
+
+def names_out(names: dict[str, ref_names.RefName]) -> dict[str, RefNameOut]:
+    """The service's names map as the API returns it."""
+    return {key: RefNameOut.of(name) for key, name in sorted(names.items())}
+
+
 class CiListItem(BaseModel):
     """One CI in a list."""
 
@@ -261,6 +279,11 @@ class CiOut(CiListItem):
     read_only_fields: list[str] = Field(
         description="Fields your roles may only read (`custom.<key>`); a change is refused."
     )
+    names: dict[str, RefNameOut] = Field(
+        default_factory=dict,
+        description="The site, owner, groups, asset and person custom values named for you, by "
+        "the referenced ID.",
+    )
 
     @classmethod
     def of_view(cls, view: cis.CiView) -> "CiOut":
@@ -280,6 +303,7 @@ class CiOut(CiListItem):
             custom=view.custom,
             masked_fields=list(view.masked_fields),
             read_only_fields=list(view.read_only_fields),
+            names=names_out(view.names),
         )
 
 

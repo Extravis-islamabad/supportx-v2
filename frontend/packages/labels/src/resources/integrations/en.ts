@@ -196,7 +196,7 @@ export const en = {
   'ldap_directories.host': 'Server',
   'ldap_directories.host_hint': 'Host name or IP address of a domain controller or LDAP server.',
   'ldap_directories.intro':
-    'Connect an on-premises Active Directory or LDAP directory. People sign in with their directory password, and SupportX keeps them as the directory says.',
+    'Connect an on-premises Active Directory or LDAP directory. People sign in with their directory password, and SupportX keeps them as the directory says. A connected directory is asked about any username that has no SupportX account on this installation, so connect only a directory you trust with every sign-in here.',
   'ldap_directories.name': 'Name',
   'ldap_directories.none': 'No AD/LDAP directory connected',
   'ldap_directories.password_kept': 'Leave empty to keep the stored password',

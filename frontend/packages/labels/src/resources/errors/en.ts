@@ -37,6 +37,7 @@ export const en = {
     'Keys for someone else can only belong to a service identity.',
   'errors.api_key_revoked': 'This API key has been revoked.',
   'errors.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.api_key_vendor_support': "An Extravis support account can't hold API keys.",
   'errors.api_keys_people_off': 'Your organisation does not let people make their own API keys.',
   'errors.api_keys_unavailable': 'API keys are not set up on this installation.',
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
@@ -561,6 +562,7 @@ export const en = {
   'errors.field.invalid_key': 'Give the field a name with at least two letters or digits.',
   'errors.field.invalid_language':
     'Names can be given in English, Arabic and Urdu, up to 200 characters each.',
+  'errors.field.invalid_network': '{{value}} is not an IP address or range.',
   'errors.field.invalid_node': 'This part of the filter is not a condition or a group.',
   'errors.field.invalid_number': 'Enter a number.',
   'errors.field.invalid_pattern': 'This pattern is not a valid regular expression.',
@@ -710,6 +712,8 @@ export const en = {
   'errors.field.same_folder': 'Choose a different folder for its reports.',
   'errors.field.schedule_never_runs': 'With these dates the schedule would never run.',
   'errors.field.scope_not_allowed': 'This scope is not available for this permission.',
+  'errors.field.sealed_filter_needs_post':
+    'This field is protected, so it can only be filtered on in the list itself, not in a link.',
   'errors.field.service_account_owner_invalid': 'Choose an active technician as the owner.',
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
@@ -753,6 +757,15 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
+  'errors.field.support_email_domain_not_allowed':
+    'Support engineers must use an address at an allowed Extravis domain.',
+  'errors.field.support_email_invalid': 'Enter one e-mail address.',
+  'errors.field.support_grant_length':
+    'Access lasts from 1 hour up to 72 hours in total, extensions included.',
+  'errors.field.support_grants_limit':
+    'At most three support accesses can be open at once. End one first.',
+  'errors.field.support_ip_list_too_long': 'List at most 20 addresses or ranges.',
+  'errors.field.support_text_too_long': 'This is too long.',
   'errors.field.system_calendar_fixed':
     'Around the clock always counts every hour. Only its name can change.',
   'errors.field.target_amount_invalid': 'Enter a whole number from 1 to 100,000.',
@@ -834,6 +847,7 @@ export const en = {
   'errors.field.vendor_inactive': "This vendor is inactive and can't be picked.",
   'errors.field.vendor_name_taken': 'Another vendor has this name.',
   'errors.field.vendor_not_found': 'This vendor no longer exists.',
+  'errors.field.vendor_support_disabled': 'Vendor support is turned off for this organisation.',
   'errors.field.view_filter_not_shareable':
     "This view filters on a field some people can't see, so it can only stay private. Remove that condition to share it.",
   'errors.field.view_filter_sealed_value':
@@ -1010,6 +1024,8 @@ export const en = {
     'This link is removed in its own place: unlink the incident, or undo the merge.',
   'errors.link_not_found': 'This link does not exist, or it was removed.',
   'errors.linked_records_not_available': 'Linked records are not available yet.',
+  'errors.list_body_too_large':
+    'This list request is too large. Make the filter shorter and try again.',
   'errors.list_not_found': 'This list does not keep settings.',
   'errors.login_failed': 'Sign-in did not complete. Please try again.',
   'errors.login_not_this_browser':
@@ -1238,6 +1254,16 @@ export const en = {
     "Your organisation's file storage is full ({{used_gb}} of {{limit_gb}} GB).",
   'errors.storage_unavailable':
     'File storage cannot be reached. Try again later or contact your administrator.',
+  'errors.support_grant_inactive':
+    "This support access has ended or hasn't started. Ask the organisation's administrator.",
+  'errors.support_grant_not_found': 'That support access was not found.',
+  'errors.support_grant_not_open': "This support access has already ended, so it can't be changed.",
+  'errors.support_link_invalid':
+    "This link can't be used. It may have been used already, have expired, or the access may have ended. Ask the organisation's administrator to send a new one.",
+  'errors.support_link_not_resendable':
+    "A new link can only be sent before the engineer's first sign-in, for access confirmed by e-mail.",
+  'errors.support_sign_in_brokered':
+    "An Extravis support account signs in with its own password and second step, never through your organisation's sign-in provider.",
   'errors.survivor_is_a_child':
     '{{display_id}} is a child of another incident, so it cannot take children.',
   'errors.system_calendar_required':
@@ -1280,6 +1306,13 @@ export const en = {
   'errors.validation_failed': 'Some fields need your attention.',
   'errors.vendor_in_use': 'Records still name this vendor ({{used}}). Make it inactive instead.',
   'errors.vendor_not_found': 'This vendor no longer exists.',
+  'errors.vendor_support_grants_open':
+    'End the open support access first, then turn vendor support off.',
+  'errors.vendor_support_roles_from_grant':
+    'An Extravis support account gets its access from its grant only, never from a role or a group.',
+  'errors.vendor_support_tenant_admin_only':
+    "Only the organisation's administrators can manage vendor support access.",
+  'errors.vendor_support_type_fixed': "An Extravis support account's type can't be changed.",
   'errors.version_conflict':
     'Someone else saved this item after you opened it. Reload to see their changes.',
   'errors.view_share_not_allowed': "You can't share this view with that audience.",

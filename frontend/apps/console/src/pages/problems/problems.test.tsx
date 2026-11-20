@@ -5,7 +5,7 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../App';
 import { clickAction } from '../../test/actions';
-import { consoleApi, problem } from '../../test/api';
+import { consoleApi, problem, listCalls } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
@@ -109,24 +109,23 @@ describe('console: problems', () => {
     // QA 2026-11-10: the list asks for the view the selector shows, from its first request on
     // (no view meant every problem, a closed one under "All open (7)").
     expect(
-      fake.find('GET', '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
+      listCalls(fake, '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
     ).not.toContain(null);
-    expect(fake.find('GET', '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
+    expect(listCalls(fake, '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
     const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
     if (selector === null) throw new Error('not an Ant Design Select');
     fireEvent.mouseDown(selector);
     fireEvent.click(await screen.findByText('Known errors (0)'));
     await waitFor(() => {
       expect(
-        fake
-          .find('GET', '/api/v1/problems')
-          .some((c) => c.url.searchParams.get('view') === 'known_errors'),
+        listCalls(fake, '/api/v1/problems').some(
+          (c) => c.url.searchParams.get('view') === 'known_errors',
+        ),
       ).toBe(true);
     });
     fireEvent.change(screen.getByTestId('prb-search'), { target: { value: 'PRB-7' } });
     await waitFor(() => {
-      const sent = fake
-        .find('GET', '/api/v1/problems')
+      const sent = listCalls(fake, '/api/v1/problems')
         .map((c) => c.url.searchParams.get('filter'))
         .filter((f): f is string => f !== null);
       expect(sent.some((f) => f.includes('"display_number"') && f.includes('7'))).toBe(true);

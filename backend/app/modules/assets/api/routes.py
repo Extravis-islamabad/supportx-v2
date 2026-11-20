@@ -1285,7 +1285,12 @@ class LoanOut(BaseModel):
     comment: str | None
     status: Literal["open", "overdue", "closed"]
     outstanding: list[uuid.UUID]
-    assets: list[LoanAssetOut] = Field(description="The loan's assets you may see, by tag.")
+    assets: list[LoanAssetOut] = Field(
+        description="The loan's assets you may see, by tag (the asset scope)."
+    )
+    hidden_items: int = Field(
+        default=0, description="How many of the loan's assets you may not see: never which."
+    )
     version: int
 
 
@@ -1294,14 +1299,15 @@ async def _loan_out(
     subject: Subject,
     row: AssetLoan,
     items: list[loans.LoanAsset] | None = None,
+    hidden: int | None = None,
 ) -> LoanOut:
+    # Only the assets the person may see are named (the asset scope, #423); the rest are a count.
     if items is None:
-        items = (await loans.loan_assets(session, subject, [row.id]))[row.id]
-    # The status counts every line; only the assets the person may see are named (ADR-053).
-    pending = sum(1 for a in items if a.returned_at is None)
-    status = loan_status(due_at=row.due_at, outstanding=pending, now=system_clock.now())
-    items = [a for a in items if a.seen]
+        items = (await loans.loan_assets(session, [row.id], subject))[row.id]
+    if hidden is None:
+        hidden = (await loans.hidden_loan_items(session, [row.id], subject))[row.id]
     out = [a.id for a in items if a.returned_at is None]
+    status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
     return LoanOut(
         id=row.id,
         display_id=row.display_id,
@@ -1325,6 +1331,7 @@ async def _loan_out(
             )
             for a in items
         ],
+        hidden_items=hidden,
         version=row.version,
     )
 
@@ -1375,8 +1382,10 @@ async def list_loans(
 ) -> list[LoanOut]:
     """Loans still out, those past due first; or one status (closed: latest first, 200 at most)."""
     rows = await loans.open_loans(session, subject, status=wanted, site_id=site_id)
-    items = await loans.loan_assets(session, subject, [r.id for r in rows])
-    return [await _loan_out(session, subject, r, items[r.id]) for r in rows]
+    ids = [r.id for r in rows]
+    items = await loans.loan_assets(session, ids, subject)
+    hidden = await loans.hidden_loan_items(session, ids, subject)
+    return [await _loan_out(session, subject, r, items[r.id], hidden[r.id]) for r in rows]
 
 
 @router.post(

@@ -61,6 +61,7 @@ export {
   type CiInput,
   type CiListItem,
   type CiPatch,
+  type CiRefName,
   type CiState,
   type CiStateInput,
   type CiStatePatch,

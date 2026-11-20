@@ -9,14 +9,17 @@ no query of its own, so what the asset panel counts and lists is exactly what th
 import uuid
 from collections.abc import Mapping, Sequence
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import BadRequest
-from app.modules.assets import LinkedRecord
+from app.modules.assets import VISIBLE_IDS_MAX, LinkedRecord
 from app.modules.identity_access import Subject
 from app.modules.work_items.domain.lifecycle import StatusCategory
+from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import asset_links
+from app.modules.work_items.service.work_items import staff_rows
 from app.shared.history import Source
 
 # "Still worked" as lane A counts it (D-153): open, paused or resolved; not closed or canceled.
@@ -87,6 +90,36 @@ class WorkItemLinkedRecords:
             session, from_asset_id, to_asset_id, from_label=from_label, to_label=to_label,
             source=source,
         )  # fmt: skip
+
+    async def visible_work_item_ids(
+        self, session: AsyncSession, subject: Subject, ids: Sequence[uuid.UUID]
+    ) -> frozenset[uuid.UUID]:
+        """The IDs the subject may see as staff, each type through its own view filter.
+
+        Staff views only: never reached by a portal route. Deleted and trashed records, other
+        tenants' (RLS) and unknown IDs are all simply absent, so nothing tells them apart. One
+        query to group the IDs by type, then one per type through `staff_rows` (lane A's
+        conditions, 2026-11-20); more than `VISIBLE_IDS_MAX` IDs is a programming error.
+        """
+        wanted = list(dict.fromkeys(ids))
+        if len(wanted) > VISIBLE_IDS_MAX:
+            msg = f"at most {VISIBLE_IDS_MAX} work item IDs per call"
+            raise ValueError(msg)
+        if not wanted:
+            return frozenset()
+        by_type: dict[str, list[uuid.UUID]] = {}
+        for record_id, code in await session.execute(
+            select(WorkItem.id, WorkItem.type).where(WorkItem.id.in_(wanted))
+        ):
+            by_type.setdefault(str(code), []).append(record_id)
+        seen: set[uuid.UUID] = set()
+        for code, type_ids in by_type.items():
+            wtype = TYPES.get(WorkItemTypeCode(code))
+            if wtype is None:  # pragma: no cover - every stored type is a known code
+                continue
+            statement = staff_rows(subject, wtype).where(WorkItem.id.in_(type_ids))
+            seen.update(await session.scalars(statement.with_only_columns(WorkItem.id)))
+        return frozenset(seen)
 
 
 PORT = WorkItemLinkedRecords()

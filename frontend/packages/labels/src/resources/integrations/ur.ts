@@ -200,7 +200,7 @@ export const ur: LabelResource = {
   'ldap_directories.host': 'سرور',
   'ldap_directories.host_hint': 'ڈومین کنٹرولر یا LDAP سرور کا نام یا IP پتہ۔',
   'ldap_directories.intro':
-    'آن پریمسس Active Directory یا LDAP ڈائریکٹری جوڑیں۔ لوگ اپنی ڈائریکٹری کے پاس ورڈ سے سائن ان کرتے ہیں، اور SupportX انہیں ڈائریکٹری کے مطابق رکھتا ہے۔',
+    'آن پریمسس Active Directory یا LDAP ڈائریکٹری جوڑیں۔ لوگ اپنی ڈائریکٹری کے پاس ورڈ سے سائن ان کرتے ہیں، اور SupportX انہیں ڈائریکٹری کے مطابق رکھتا ہے۔ جڑی ہوئی ڈائریکٹری سے ہر اس صارف نام کے بارے میں پوچھا جاتا ہے جس کا اس انسٹالیشن پر SupportX اکاؤنٹ نہیں، اس لیے صرف وہی ڈائریکٹری جوڑیں جس پر آپ یہاں ہر سائن اِن کے لیے بھروسا کرتے ہیں۔',
   'ldap_directories.name': 'نام',
   'ldap_directories.none': 'کوئی AD/LDAP ڈائریکٹری جڑی نہیں',
   'ldap_directories.password_kept': 'محفوظ پاس ورڈ رکھنے کے لیے خالی چھوڑیں',

@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, cast
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import ColumnElement, exists, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +47,7 @@ from app.modules.assets.infra.models import (
     AssetState,
 )
 from app.modules.assets.service.assets import (
+    ASSETS,
     MANAGE,
     VIEW,
     _refuse,
@@ -54,12 +55,11 @@ from app.modules.assets.service.assets import (
     _saved,
     _visible,
     staff_rows,
-    visible_ids,
 )
 from app.modules.assets.service.moves import move_asset
 from app.modules.assets.service.ownership import Holder, set_holder
 from app.modules.assets.service.refs import ASSET_SEARCH
-from app.modules.identity_access import Subject, active_user_ids
+from app.modules.identity_access import Subject, active_user_ids, scope_filter
 from app.modules.organization import existing_departments, existing_unit_ids
 from app.shared.clock import system_clock
 from app.shared.db.display_ids import next_display_id
@@ -294,7 +294,12 @@ async def return_items(  # noqa: PLR0913 - the loan, which come back how, why, b
     """Some or all assets come back (REQ-AST-031); the last return closes the loan."""
     _require(subject, MANAGE)
     loan = await session.get(AssetLoan, loan_id)
-    if loan is None or loan.deleted_at is not None or loan.closed_at is not None:
+    if (
+        loan is None
+        or loan.deleted_at is not None
+        or loan.closed_at is not None
+        or not await visible_loan(session, subject, loan_id)
+    ):
         raise NotFound(code="asset_loan_not_found")
     text_ = (comment or "").strip() or None
     if outcome == "in_repair" and text_ is None:
@@ -477,15 +482,31 @@ async def open_loans(
             query = query.where(AssetLoan.due_at <= now)
     if site_id is not None:
         query = query.where(AssetLoan.site_id == site_id)
-    # Only loans of an asset the person may see (ADR-053); `loan_assets` lists only those.
-    query = query.where(
-        AssetLoan.id.in_(
-            select(AssetLoanItem.loan_id).where(
-                AssetLoanItem.deleted_at.is_(None), AssetLoanItem.asset_id.in_(visible_ids(subject))
-            )
+    # Only loans holding an asset the person may see (the asset scope, #423): another site's loan
+    # never reaches a site-scoped viewer, nor its assets' names (lane B, 2026-11-20).
+    query = query.where(holds_visible_asset(subject))
+    return list(await session.scalars(query.limit(limit)))
+
+
+def holds_visible_asset(subject: Subject) -> ColumnElement[bool]:
+    """A loan holds at least one asset the subject may see (the assets' own scope)."""
+    return exists(
+        select(AssetLoanItem.id)
+        .join(Asset, Asset.id == AssetLoanItem.asset_id)
+        .where(
+            AssetLoanItem.loan_id == AssetLoan.id,
+            AssetLoanItem.deleted_at.is_(None),
+            scope_filter(subject, VIEW, ASSETS),
         )
     )
-    return list(await session.scalars(query.limit(limit)))
+
+
+async def visible_loan(session: AsyncSession, subject: Subject, loan_id: uuid.UUID) -> bool:
+    """Whether the loan holds an asset the subject may see (else it answers as not found)."""
+    found = await session.scalar(
+        select(AssetLoan.id).where(AssetLoan.id == loan_id, holds_visible_asset(subject))
+    )
+    return found is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -497,29 +518,52 @@ class LoanAsset:
     name: str
     returned_at: datetime | None
     outcome: str | None
-    seen: bool = True  # False: outside the person's set (ADR-053), counted, never shown
 
 
 async def loan_assets(
-    session: AsyncSession, subject: Subject, loan_ids: Sequence[uuid.UUID]
+    session: AsyncSession, loan_ids: Sequence[uuid.UUID], subject: Subject | None = None
 ) -> dict[uuid.UUID, list[LoanAsset]]:
     """Each loan's assets in one query, by tag (the register's rows).
 
-    Every line comes back so the loan's status stays true; `seen` marks those the person may
-    see, the only ones a caller may name (ADR-053).
+    With `subject`, only the assets that person may see (the asset scope): the rest are never
+    named; `hidden_loan_items` counts them.
     """
     found: dict[uuid.UUID, list[LoanAsset]] = {loan_id: [] for loan_id in loan_ids}
     if not loan_ids:
         return found
+    seen = scope_filter(subject, VIEW, ASSETS) if subject is not None else None
     rows = await session.execute(
         select(AssetLoanItem.loan_id, Asset.id, Asset.tag, Asset.name, AssetLoanItem.returned_at,
-               AssetLoanItem.outcome, Asset.id.in_(visible_ids(subject)).label("seen"))
+               AssetLoanItem.outcome)
         .join(Asset, Asset.id == AssetLoanItem.asset_id)
-        .where(AssetLoanItem.loan_id.in_(loan_ids), AssetLoanItem.deleted_at.is_(None))
+        .where(AssetLoanItem.loan_id.in_(loan_ids), AssetLoanItem.deleted_at.is_(None),
+               *([seen] if seen is not None else []))
         .order_by(AssetLoanItem.loan_id, Asset.tag, Asset.id)
     )  # fmt: skip
-    for loan_id, asset_id, tag, name, returned_at, outcome, seen in rows:
-        found[loan_id].append(LoanAsset(asset_id, tag, name, returned_at, outcome, bool(seen)))
+    for loan_id, asset_id, tag, name, returned_at, outcome in rows:
+        found[loan_id].append(LoanAsset(asset_id, tag, name, returned_at, outcome))
+    return found
+
+
+async def hidden_loan_items(
+    session: AsyncSession, loan_ids: Sequence[uuid.UUID], subject: Subject
+) -> dict[uuid.UUID, int]:
+    """How many of each loan's assets the subject may NOT see: a number only, never which."""
+    found = dict.fromkeys(loan_ids, 0)
+    if not loan_ids:
+        return found
+    rows = await session.execute(
+        select(AssetLoanItem.loan_id, func.count())
+        .join(Asset, Asset.id == AssetLoanItem.asset_id)
+        .where(
+            AssetLoanItem.loan_id.in_(loan_ids),
+            AssetLoanItem.deleted_at.is_(None),
+            ~scope_filter(subject, VIEW, ASSETS),
+        )
+        .group_by(AssetLoanItem.loan_id)
+    )
+    for loan_id, count in rows.tuples():
+        found[loan_id] = int(count)
     return found
 
 

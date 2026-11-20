@@ -39,6 +39,7 @@ export const ur: LabelResource = {
   'errors.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.api_key_revoked': 'یہ API کلید منسوخ کر دی گئی ہے۔',
   'errors.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.api_key_vendor_support': 'Extravis سپورٹ اکاؤنٹ API کیز نہیں رکھ سکتا۔',
   'errors.api_keys_people_off': 'آپ کا ادارہ لوگوں کو اپنی API کلیدیں بنانے کی اجازت نہیں دیتا۔',
   'errors.api_keys_unavailable': 'اس تنصیب پر API کلیدیں ترتیب نہیں دی گئیں۔',
   'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
@@ -563,6 +564,7 @@ export const ur: LabelResource = {
   'errors.field.invalid_key': 'خانے کو ایسا نام دیں جس میں کم از کم دو حروف یا ہندسے ہوں۔',
   'errors.field.invalid_language':
     'نام انگریزی، عربی اور اردو میں دیے جا سکتے ہیں، ہر ایک 200 حروف تک۔',
+  'errors.field.invalid_network': '{{value}} کوئی IP پتہ یا رینج نہیں ہے۔',
   'errors.field.invalid_node': 'فلٹر کا یہ حصہ نہ شرط ہے نہ گروپ۔',
   'errors.field.invalid_number': 'عدد درج کریں۔',
   'errors.field.invalid_pattern': 'یہ پیٹرن درست ریگولر ایکسپریشن نہیں ہے۔',
@@ -715,6 +717,8 @@ export const ur: LabelResource = {
   'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
   'errors.field.schedule_never_runs': 'ان تاریخوں کے ساتھ شیڈول کبھی نہیں چلے گا۔',
   'errors.field.scope_not_allowed': 'یہ دائرہ اس اجازت کے لیے دستیاب نہیں۔',
+  'errors.field.sealed_filter_needs_post':
+    'یہ فیلڈ محفوظ ہے، اس لیے اس پر فلٹر صرف فہرست کے اندر ہو سکتا ہے، کسی لنک میں نہیں۔',
   'errors.field.service_account_owner_invalid': 'مالک کے طور پر کوئی فعال ٹیکنیشن منتخب کریں۔',
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
@@ -759,6 +763,15 @@ export const ur: LabelResource = {
     'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
   'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
   'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
+  'errors.field.support_email_domain_not_allowed':
+    'سپورٹ انجینئرز کو Extravis کے کسی اجازت یافتہ ڈومین کا پتہ استعمال کرنا ہوگا۔',
+  'errors.field.support_email_invalid': 'ایک ای میل پتہ درج کریں۔',
+  'errors.field.support_grant_length':
+    'رسائی کل ملا کر 1 گھنٹے سے 72 گھنٹے تک رہتی ہے، توسیع سمیت۔',
+  'errors.field.support_grants_limit':
+    'ایک وقت میں زیادہ سے زیادہ تین سپورٹ رسائیاں کھلی رہ سکتی ہیں۔ پہلے ایک ختم کریں۔',
+  'errors.field.support_ip_list_too_long': 'زیادہ سے زیادہ 20 پتے یا رینجز درج کریں۔',
+  'errors.field.support_text_too_long': 'یہ بہت طویل ہے۔',
   'errors.field.system_calendar_fixed':
     'چوبیس گھنٹے ہمیشہ ہر گھنٹہ گنتا ہے۔ صرف اس کا نام بدلا جا سکتا ہے۔',
   'errors.field.target_amount_invalid': '1 سے 100,000 تک کا پورا عدد درج کریں۔',
@@ -839,6 +852,7 @@ export const ur: LabelResource = {
   'errors.field.vendor_inactive': 'یہ وینڈر غیر فعال ہے اور منتخب نہیں ہو سکتا۔',
   'errors.field.vendor_name_taken': 'کسی اور وینڈر کا یہی نام ہے۔',
   'errors.field.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.field.vendor_support_disabled': 'اس ادارے کے لیے وینڈر سپورٹ بند ہے۔',
   'errors.field.view_filter_not_shareable':
     'یہ منظر ایسے فیلڈ پر فلٹر کرتا ہے جو کچھ لوگ نہیں دیکھ سکتے، اس لیے یہ صرف نجی رہ سکتا ہے۔ اسے شیئر کرنے کے لیے وہ شرط ہٹا دیں۔',
   'errors.field.view_filter_sealed_value':
@@ -1015,6 +1029,8 @@ export const ur: LabelResource = {
     'یہ لنک اپنی جگہ سے ہٹایا جاتا ہے: واقعے کو الگ کریں، یا ضم کرنا واپس لیں۔',
   'errors.link_not_found': 'یہ ربط موجود نہیں، یا ہٹا دیا گیا۔',
   'errors.linked_records_not_available': 'منسلک ریکارڈ ابھی دستیاب نہیں۔',
+  'errors.list_body_too_large':
+    'فہرست کی یہ درخواست بہت بڑی ہے۔ فلٹر مختصر کریں اور دوبارہ کوشش کریں۔',
   'errors.list_not_found': 'یہ فہرست ترتیبات محفوظ نہیں کرتی۔',
   'errors.login_failed': 'سائن اِن مکمل نہیں ہوا۔ براہِ کرم دوبارہ کوشش کریں۔',
   'errors.login_not_this_browser':
@@ -1247,6 +1263,17 @@ export const ur: LabelResource = {
     'آپ کی تنظیم کا فائل اسٹوریج بھر گیا ہے ({{used_gb}} از {{limit_gb}} GB)۔',
   'errors.storage_unavailable':
     'فائل اسٹوریج تک رسائی نہیں ہو سکی۔ بعد میں کوشش کریں یا منتظم سے رابطہ کریں۔',
+  'errors.support_grant_inactive':
+    'یہ سپورٹ رسائی ختم ہو چکی ہے یا ابھی شروع نہیں ہوئی۔ ادارے کے منتظم سے پوچھیں۔',
+  'errors.support_grant_not_found': 'یہ سپورٹ رسائی نہیں ملی۔',
+  'errors.support_grant_not_open':
+    'یہ سپورٹ رسائی پہلے ہی ختم ہو چکی ہے، اس لیے اسے بدلا نہیں جا سکتا۔',
+  'errors.support_link_invalid':
+    'یہ لنک استعمال نہیں ہو سکتا۔ ہو سکتا ہے یہ استعمال ہو چکا ہو، اس کی میعاد ختم ہو گئی ہو یا رسائی ختم ہو گئی ہو۔ ادارے کے منتظم سے نیا لنک بھیجنے کو کہیں۔',
+  'errors.support_link_not_resendable':
+    'نیا لنک صرف انجینئر کے پہلے سائن اِن سے پہلے، اور ای میل سے تصدیق شدہ رسائی کے لیے بھیجا جا سکتا ہے۔',
+  'errors.support_sign_in_brokered':
+    'Extravis سپورٹ اکاؤنٹ صرف اپنے پاس ورڈ اور دوسرے مرحلے سے سائن اِن کرتا ہے، آپ کے ادارے کے سائن اِن فراہم کنندہ سے کبھی نہیں۔',
   'errors.survivor_is_a_child':
     '{{display_id}} کسی اور واقعے کا ذیلی ہے، اس لیے یہ ذیلی واقعات نہیں لے سکتا۔',
   'errors.system_calendar_required':
@@ -1290,6 +1317,12 @@ export const ur: LabelResource = {
   'errors.vendor_in_use':
     'ریکارڈز ابھی بھی اس وینڈر کا نام لیتے ہیں ({{used}})۔ اس کے بجائے اسے غیر فعال کریں۔',
   'errors.vendor_not_found': 'یہ وینڈر اب موجود نہیں۔',
+  'errors.vendor_support_grants_open': 'پہلے کھلی سپورٹ رسائی ختم کریں، پھر وینڈر سپورٹ بند کریں۔',
+  'errors.vendor_support_roles_from_grant':
+    'Extravis سپورٹ اکاؤنٹ کو رسائی صرف اپنی اجازت سے ملتی ہے، کبھی کسی کردار یا گروپ سے نہیں۔',
+  'errors.vendor_support_tenant_admin_only':
+    'صرف ادارے کے منتظمین وینڈر سپورٹ رسائی کا انتظام کر سکتے ہیں۔',
+  'errors.vendor_support_type_fixed': 'Extravis سپورٹ اکاؤنٹ کی قسم تبدیل نہیں کی جا سکتی۔',
   'errors.version_conflict':
     'آپ کے کھولنے کے بعد کسی اور نے یہ آئٹم محفوظ کر دیا۔ ان کی تبدیلیاں دیکھنے کے لیے دوبارہ لوڈ کریں۔',
   'errors.view_share_not_allowed': 'آپ یہ منظر اس سامعین کے ساتھ شیئر نہیں کر سکتے۔',

@@ -62,6 +62,7 @@ export const ar: LabelResource = {
   'notification_area.service_account': 'حسابات الخدمة',
   'notification_area.service_request': 'طلبات الخدمة',
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
+  'notification_area.support_grant': 'وصول دعم المورّد',
   'notification_area.task': 'المهام',
   'notification_area.work_item_view': 'العروض المحفوظة',
   'notification_category.approval': 'الموافقات',
@@ -175,6 +176,11 @@ export const ar: LabelResource = {
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
   'notification_event.sign_in_secret.expiring': 'شهادة أو سر لتسجيل الدخول على وشك الانتهاء',
+  'notification_event.support_grant.ended': 'انتهى وصول دعم المورّد',
+  'notification_event.support_grant.extended': 'مُدّد وصول دعم المورّد',
+  'notification_event.support_grant.first_used': 'سجّل مهندس دعم الدخول لأول مرة',
+  'notification_event.support_grant.granted': 'مُنح وصول دعم المورّد',
+  'notification_event.support_grant.removal_stuck': 'لم يُحذف حساب دعم بعد',
   'notification_event.task.assigned': 'أُسندت إليك مهمة',
   'notification_event.task.overdue': 'مهمتك متأخرة',
   'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
@@ -817,6 +823,31 @@ export const ar: LabelResource = {
     '{{ record.title }}: صلاحية {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
   'notification_template.sign_in_secret.expiring.subject':
     'تسجيل الدخول الموحّد {{ record.title }}: صلاحية {{ notice.item }} {{ notice.left }}',
+  'notification_template.support_grant.ended.body':
+    'مرحبًا {{ recipient.name }}،\n\nانتهى وصول دعم Extravis لـ {{ record.title }} ويجري حذف حسابه. اطّلع على ما أُنجز خلاله: {{ record.link }}',
+  'notification_template.support_grant.ended.in_app': 'انتهى وصول الدعم لـ {{ record.title }}',
+  'notification_template.support_grant.ended.subject': 'انتهى دعم المورّد: {{ record.title }}',
+  'notification_template.support_grant.extended.body':
+    'مرحبًا {{ recipient.name }}،\n\nمُدّد وصول دعم Extravis لـ {{ record.title }}. اطّلع على وقت الانتهاء الجديد: {{ record.link }}',
+  'notification_template.support_grant.extended.in_app': 'مُدّد وصول الدعم لـ {{ record.title }}',
+  'notification_template.support_grant.extended.subject': 'مُدّد دعم المورّد: {{ record.title }}',
+  'notification_template.support_grant.first_used.body':
+    'مرحبًا {{ recipient.name }}،\n\nسجّل {{ record.title }} الدخول بوصول دعم Extravis لأول مرة. تظهر إجراءاته في سجل التدقيق باسم دعم Extravis: {{ record.link }}',
+  'notification_template.support_grant.first_used.in_app':
+    'سجّل {{ record.title }} الدخول بوصول الدعم لأول مرة',
+  'notification_template.support_grant.first_used.subject':
+    'سجّل مهندس الدعم الدخول: {{ record.title }}',
+  'notification_template.support_grant.granted.body':
+    'مرحبًا {{ recipient.name }}،\n\nمُنح {{ record.title }} وصولًا مؤقتًا لدعم Extravis. اطّلع على من منحه وسببه وحتى متى: {{ record.link }}',
+  'notification_template.support_grant.granted.in_app':
+    'مُنح وصول دعم Extravis إلى {{ record.title }}',
+  'notification_template.support_grant.granted.subject': 'مُنح دعم المورّد: {{ record.title }}',
+  'notification_template.support_grant.removal_stuck.body':
+    'مرحبًا {{ recipient.name }}،\n\nانتهى وصول {{ record.title }} منذ أكثر من يوم، لكن تعذّر حذف حساب تسجيل دخوله حتى الآن. لا يمكن استخدامه، ويواصل SupportX المحاولة. إن استمر ذلك، تحقّق من إمكانية الوصول إلى خدمة تسجيل الدخول: {{ record.link }}',
+  'notification_template.support_grant.removal_stuck.in_app':
+    'لم يُحذف حساب الدعم لـ {{ record.title }} بعد يوم من انتهاء وصوله',
+  'notification_template.support_grant.removal_stuck.subject':
+    'لم يُحذف حساب الدعم: {{ record.title }}',
   'notification_template.task.assigned.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبحت المهمة "{{ task.title }}" على {{ record.display_id }} "{{ record.title }}" لك الآن.',
   'notification_template.task.assigned.in_app':
@@ -895,6 +926,7 @@ export const ar: LabelResource = {
   'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
   'notification_variable.stock.minimum': 'المخزون › الحد الأدنى',
   'notification_variable.stock.quantity': 'المخزون › الكمية',
+  'notification_variable.support_grant.engineer': 'دعم المورّد › المهندس',
   'notification_variable.task.due_at': 'موعد استحقاق المهمة',
   'notification_variable.task.starts_at': 'البدء المجدول للمهمة',
   'notification_variable.task.title': 'عنوان المهمة',

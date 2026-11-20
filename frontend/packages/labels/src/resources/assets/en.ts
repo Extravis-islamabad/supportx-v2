@@ -908,6 +908,7 @@ export const en = {
   'assets.stock.expires': 'Expires',
   'assets.stock.for_request': 'This allocation is linked to the request you came from.',
   'assets.stock.from_site': 'From the stock at',
+  'assets.stock.hidden_record': "A record you can't see",
   'assets.stock.ledger': 'Ledger',
   'assets.stock.location': 'Location',
   'assets.stock.lot': 'Lot number',

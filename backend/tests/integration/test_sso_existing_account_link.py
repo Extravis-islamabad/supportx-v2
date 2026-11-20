@@ -79,6 +79,12 @@ class _Linker(_Browser):
         raise _Stopped(reason)
 
 
+def _victim_password() -> str:
+    """A random password that always meets the realm policy (a digit, upper, lower, a symbol,
+    length): a bare `token_urlsafe` can lack a digit, which Keycloak refuses (a CI flake)."""
+    return "Victim-" + secrets.token_hex(8) + "Aa9!"
+
+
 class _Stopped(Exception):
     """Keycloak stopped the sign-in (asked for proof the provider's person doesn't have)."""
 
@@ -95,7 +101,26 @@ def existing_and_provider(private_keycloak: PrivateKeycloak) -> Iterator[tuple[s
     secret = secrets.token_hex(16)
     email = f"existing-{uuid.uuid4().hex[:8]}@victim.test"
     with _admin(private_keycloak) as admin:
-        existing = _user(admin, email)
+        # The existing account's own password is one the provider's person doesn't know: Keycloak
+        # may ask the account to prove itself (re-authentication), and the attacker can't.
+        made = admin.post(
+            "/users",
+            json={
+                "username": email,
+                "email": email,
+                "emailVerified": True,
+                "enabled": True,
+                "credentials": [
+                    {
+                        "type": "password",
+                        "value": _victim_password(),
+                        "temporary": False,
+                    }
+                ],
+            },
+        )
+        assert made.status_code == 201, made.text
+        existing = str(made.headers["location"].rsplit("/", 1)[1])
         made_realm = admin.post(f"{base}/admin/realms", json={"realm": idp_realm, "enabled": True})
         assert made_realm.status_code == 201, made_realm.text
     try:
@@ -142,11 +167,6 @@ def existing_and_provider(private_keycloak: PrivateKeycloak) -> Iterator[tuple[s
             idp.delete("")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Keycloak still links by e-mail: the realm-side change comes in its own PR (SupportX "
-    "already confines such a sign-in to the provider's own tenant). Remove this mark with it.",
-)
 def test_a_provider_cannot_sign_in_as_an_existing_account_by_email(
     private_keycloak: PrivateKeycloak,
     existing_and_provider: tuple[str, str, str],
@@ -165,3 +185,17 @@ def test_a_provider_cannot_sign_in_as_an_existing_account_by_email(
         assert signed_in_as != existing, (
             "a tenant's identity provider signed in as an existing account by e-mail alone"
         )
+
+
+def test_a_new_person_still_signs_in_through_the_provider(
+    private_keycloak: PrivateKeycloak, existing_and_provider: tuple[str, str, str]
+) -> None:
+    """D-177 keeps single sign-on working for people with no account yet: a new account."""
+    existing, alias, email = existing_and_provider
+    with _admin(private_keycloak) as admin:
+        for found in admin.get("/users", params={"email": email, "exact": "true"}).json():
+            assert admin.delete(f"/users/{found['id']}").status_code == 204
+    tokens = _browser_tokens(private_keycloak, username=email, password=PASSWORD, hint=alias)
+    claims = _claims(tokens["access_token"])
+    assert claims["sub"] != existing
+    assert claims["sx_idp"] == alias

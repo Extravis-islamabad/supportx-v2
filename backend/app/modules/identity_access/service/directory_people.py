@@ -28,7 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import NOT_PEOPLE
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import people
 
@@ -68,7 +68,7 @@ async def _adoptable(session: AsyncSession, email: str) -> uuid.UUID | None:
     found: uuid.UUID | None = await session.scalar(
         select(User.id).where(
             func.lower(User.email) == email.strip().lower(),
-            User.user_type != UserType.SERVICE.value,
+            User.user_type.not_in(NOT_PEOPLE),
             User.deleted_at.is_(None),
             User.erased_at.is_(None),  # never adopted back (D-171)
         )

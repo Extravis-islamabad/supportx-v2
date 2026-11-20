@@ -30,21 +30,22 @@ from app.modules.assets.infra.models import (
     AssetBooking,
     AssetLoan,
     AssetLoanItem,
+    AssetProduct,
     AssetSettings,
     AssetState,
 )
 from app.modules.assets.service.assets import (
+    ASSETS,
     MANAGE,
     VIEW,
     _refuse,
     _require,
     _tenant,
     _visible,
-    visible_ids,
 )
 from app.modules.assets.service.loans import COMMENT_MAX, create_loan
 from app.modules.assets.service.refs import ASSET_SEARCH
-from app.modules.identity_access import Subject, active_user_ids
+from app.modules.identity_access import Subject, active_user_ids, scope_filter
 from app.modules.organization import existing_departments
 from app.shared.clock import system_clock
 from app.shared.events import record_event
@@ -316,8 +317,11 @@ async def list_bookings(  # noqa: PLR0913 - the calendar's filters
         if site_id is not None:
             assets = assets.where(Asset.site_id == site_id)
         asset_ids = list(await session.scalars(assets))
-    query = _listing(asset_ids=asset_ids, start=start, end=end).where(
-        AssetBooking.asset_id.in_(visible_ids(subject))  # never an unseen asset's (ADR-053)
+    query = _listing(asset_ids=asset_ids, start=start, end=end)
+    # Only bookings of assets the person may see (the asset scope, #423), whatever the filters:
+    # never through the site argument (lane B and lane C, 2026-11-20).
+    query = query.where(
+        AssetBooking.asset_id.in_(select(Asset.id).where(scope_filter(subject, VIEW, ASSETS)))
     )
     if not include_closed:
         query = query.where(AssetBooking.status == "booked")
@@ -353,10 +357,23 @@ class Availability:
     held: list[Period]
 
 
-async def availability(  # noqa: PLR0913 - the filters and who asks, explicit
+async def product_names(
+    session: AsyncSession, product_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """Products' names by ID (the shared pool names the product, never the asset)."""
+    if not product_ids:
+        return {}
+    rows = await session.execute(
+        select(AssetProduct.id, AssetProduct.name).where(
+            AssetProduct.id.in_(list(dict.fromkeys(product_ids)))
+        )
+    )
+    return dict(rows.tuples().all())
+
+
+async def availability(
     session: AsyncSession,
     *,
-    subject: Subject | None,
     product_id: uuid.UUID | None,
     site_id: uuid.UUID | None,
     text_: str | None,
@@ -365,9 +382,7 @@ async def availability(  # noqa: PLR0913 - the filters and who asks, explicit
     """Loanable assets that are not retired or disposed, with their held periods (AC1's view).
 
     No permission check here: the routes decide who may ask (staff, or the portal when booking
-    there is on), and only tags, names and periods leave this function. `subject`: staff, so
-    only the assets they may see (ADR-053); None for the portal's bookable list, which every
-    signed-in person gets alike.
+    there is on), and only tags, names and periods leave this function.
     """
     query = (
         select(Asset)
@@ -378,8 +393,6 @@ async def availability(  # noqa: PLR0913 - the filters and who asks, explicit
             AssetState.category.not_in(_GONE),
         )
     )
-    if subject is not None:
-        query = query.where(Asset.id.in_(visible_ids(subject)))
     if product_id is not None:
         query = query.where(Asset.product_id == product_id)
     if site_id is not None:

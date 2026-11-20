@@ -35,6 +35,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/settings/password-policy/apply",
     "PUT /api/v1/identity/sso-policy",
     "PUT /api/v1/identity/network-rules",
+    # Vendor support (WP-057 S4c-1, D-173): granting and extending, and the opt-out.
+    "POST /api/v1/identity/vendor-support/grants",
+    "POST /api/v1/identity/vendor-support/grants/{grant_id}/extend",
+    "PUT /api/v1/identity/vendor-support/setting",
     "PUT /api/v1/identity/mfa/roles/{role_id}",
     "PUT /api/v1/identity/break-glass/{user_id}",
     "POST /api/v1/identity/sso",

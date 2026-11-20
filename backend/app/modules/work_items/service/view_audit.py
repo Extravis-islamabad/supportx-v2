@@ -36,7 +36,11 @@ from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import ViewVisibility
 from app.modules.work_items.domain.types import PERMISSION_TYPES, WorkItemType
 from app.modules.work_items.events import WorkItemViewChanged, WorkItemViewUnshared
-from app.modules.work_items.infra.models import WorkItemView, WorkItemViewFavourite
+from app.modules.work_items.infra.models import (
+    WorkItemListSetting,
+    WorkItemView,
+    WorkItemViewFavourite,
+)
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.fields import FieldKeysUnavailable
 from app.shared.history import Change, record_changes
@@ -198,6 +202,72 @@ async def seal_stored(session: AsyncSession, wtype: WorkItemType, now: datetime)
     return done
 
 
+def _sorts_on(sort: str | None, sealed: frozenset[str]) -> bool:
+    """Whether a stored sort (`-custom.x,priority`) names a sealed field."""
+    return any(part.strip().lstrip("-") in sealed for part in (sort or "").split(",") if part)
+
+
+async def clear_sealed_sorts(session: AsyncSession, wtype: WorkItemType, now: datetime) -> int:
+    """Stored sorts on a sealed field go (lane B).
+
+    A sealed field cannot sort, so a view or a person's list settings sorting on one would be
+    refused; the sort is cleared and the list falls back to its default.
+
+    Saved views get a version and a history line (the sort, which holds field names only);
+    list settings are a person's convenience and just lose the sort.
+    """
+    from app.modules.work_items.service import lists  # noqa: PLC0415 - a cycle
+
+    sealed = await lists.sealed_fields(session, wtype)
+    if not sealed:
+        return 0
+    done = 0
+    views = await session.scalars(
+        select(WorkItemView)
+        .where(
+            WorkItemView.type == wtype.code.value,
+            WorkItemView.deleted_at.is_(None),
+            WorkItemView.sort.is_not(None),
+        )
+        .with_for_update()
+    )
+    for row in views:
+        if not _sorts_on(row.sort, sealed):
+            continue
+        before = row.sort
+        row.sort = None
+        row.version += 1
+        row.updated_at = now
+        await session.flush()
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=row.id,
+            version=row.version,
+            kind="updated",
+            changes=[Change("sort", before, None)],
+            source="system",
+        )
+        done += 1
+    settings = await session.scalars(
+        select(WorkItemListSetting)
+        .where(
+            WorkItemListSetting.type == wtype.code.value,
+            WorkItemListSetting.deleted_at.is_(None),
+            WorkItemListSetting.sort.is_not(None),
+        )
+        .with_for_update()
+    )
+    for setting in settings:
+        if _sorts_on(setting.sort, sealed):
+            setting.sort = None
+            setting.version += 1
+            setting.updated_at = now
+            done += 1
+    await session.flush()
+    return done
+
+
 async def seal_pending(session: AsyncSession, wtype: WorkItemType) -> list[uuid.UUID]:
     """Views of the type still holding a sealed field's value in plain text (sealing pending).
 
@@ -237,6 +307,7 @@ async def audit_all(session: AsyncSession, now: datetime | None = None) -> list[
                 count=len(pending),
                 view_ids=[str(v) for v in pending[:50]],
             )
+        await clear_sealed_sorts(session, wtype, when)
         found.extend(await audit_type(session, wtype, when))
     return found
 

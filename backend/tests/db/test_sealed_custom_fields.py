@@ -107,7 +107,8 @@ async def test_a_sealed_field_filters_by_exact_value_only_and_never_sorts(world:
     item = await world.create(a, a.admin, group_id=str(a.ga), custom={key: "Senior"})
 
     async def filtered(node: dict[str, object]) -> httpx.Response:
-        return await world.call("GET", BASE, a, a.admin, params={"filter": json.dumps(node)})
+        # A sealed filter travels in the POST form's body, never in a URL (sealed filters, PR 2).
+        return await world.call("POST", f"{BASE}/list", a, a.admin, json={"filter": node})
 
     hit = await filtered({"field": f"custom.{key}", "op": "eq", "value": "senior "})  # normalised
     assert hit.status_code == 200, hit.text
@@ -119,8 +120,18 @@ async def test_a_sealed_field_filters_by_exact_value_only_and_never_sorts(world:
     contains = await filtered({"field": f"custom.{key}", "op": "contains", "value": "Sen"})
     assert contains.status_code == 422, contains.text
     assert "field_not_filterable_sealed" in contains.text
-    sorted_ = await world.call("GET", BASE, a, a.admin, params={"sort": f"custom.{key}"})
+    sorted_ = await world.call("POST", f"{BASE}/list", a, a.admin, json={"sort": f"custom.{key}"})
     assert sorted_.status_code == 422, sorted_.text
+    # And the GET never carries the value: refused, naming the field only.
+    in_url = await world.call(
+        "GET",
+        BASE,
+        a,
+        a.admin,
+        params={"filter": json.dumps({"field": f"custom.{key}", "op": "eq", "value": "Senior"})},
+    )
+    assert "sealed_filter_needs_post" in in_url.text
+    assert "Senior" not in in_url.text
 
 
 async def test_a_withheld_sealed_field_is_never_an_oracle(world: World) -> None:  # noqa: F811
@@ -352,18 +363,19 @@ async def test_a_sealed_filter_p95_on_a_large_list(world: World) -> None:  # noq
         await conn.execute("ANALYZE work_item_field_index")
     finally:
         await conn.close()
-    sealed = json.dumps({"field": f"custom.{key}", "op": "eq", "value": "b7 one!"})
-    queries = {
-        "plain_list": "?limit=50",
-        "sealed_eq": "?" + str(httpx.QueryParams({"filter": sealed, "limit": "50"})),
+    sealed = {"field": f"custom.{key}", "op": "eq", "value": "b7 one!"}
+    # Both by the POST form: a sealed filter never travels in a URL (sealed filters, PR 2).
+    queries: dict[str, dict[str, object]] = {
+        "plain_list": {"limit": 50},
+        "sealed_eq": {"filter": sealed, "limit": 50},
     }
     report: dict[str, dict[str, float]] = {}
-    for name, suffix in queries.items():
+    for name, body in queries.items():
         timings = []
         response = None
         for _ in range(SEALED_RUNS):
             started = time.perf_counter()
-            response = await world.call("GET", f"{BASE}{suffix}", org, org.admin)
+            response = await world.call("POST", f"{BASE}/list", org, org.admin, json=body)
             timings.append((time.perf_counter() - started) * 1000)
             assert response.status_code == 200, response.text
         assert response is not None

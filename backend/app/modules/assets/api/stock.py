@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
-from app.core.errors import PermissionDenied, ProblemDetail
+from app.core.errors import NotFound, PermissionDenied, ProblemDetail
 from app.modules.assets.api.routes import LoanOut, _loan_out
 from app.modules.assets.domain.consumables import is_expired
 from app.modules.assets.infra.models import (
@@ -29,8 +29,10 @@ from app.modules.assets.infra.models import (
 )
 from app.modules.assets.service import bookings, consumables
 from app.modules.assets.service.catalogue import CONFIGURE_ANY, MANAGE, VIEW
+from app.modules.assets.service.linked import visible_work_items
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
+from app.modules.organization import site_names
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -314,14 +316,30 @@ class AssetMovementOut(BaseModel):
     happened_on: date
     recipient_kind: Literal["user", "department", "asset"] | None
     recipient_id: uuid.UUID | None
-    work_item_id: uuid.UUID | None = Field(description="The request it was allocated from.")
+    work_item_id: uuid.UUID | None = Field(
+        description="The request it was allocated from; none when it's a record you can't see."
+    )
+    work_item_hidden: bool = Field(
+        default=False, description="It came from a record you can't see (no ID is given)."
+    )
     unit_cost: Decimal | None
     comment: str | None
     created_at: datetime
     created_by: uuid.UUID | None
 
 
-def _movement(row: AssetConsumableMovement) -> AssetMovementOut:
+async def _visible_for(
+    session: TenantSession, subject: Subject, line: AssetConsumableMovement
+) -> frozenset[uuid.UUID]:
+    """The work item of one new ledger line, if its writer may see it (the reply to a write)."""
+    ids = [line.work_item_id] if line.work_item_id is not None else []
+    return await visible_work_items(session, subject, ids)
+
+
+def _movement(row: AssetConsumableMovement, visible: frozenset[uuid.UUID]) -> AssetMovementOut:
+    """One ledger line; `visible` (required, no default) is the work items its reader may see."""
+    # A work item the reader can't see is never named, not even by ID (lane B, 2026-11-20).
+    hidden = row.work_item_id is not None and row.work_item_id not in visible
     return AssetMovementOut(
         id=row.id,
         consumable_id=row.consumable_id,
@@ -333,7 +351,8 @@ def _movement(row: AssetConsumableMovement) -> AssetMovementOut:
         happened_on=row.happened_on,
         recipient_kind=cast("Literal['user', 'department', 'asset'] | None", row.recipient_kind),
         recipient_id=row.recipient_id,
-        work_item_id=row.work_item_id,
+        work_item_id=None if hidden else row.work_item_id,
+        work_item_hidden=hidden,
         unit_cost=row.unit_cost,
         comment=row.comment,
         created_at=row.created_at,
@@ -450,7 +469,7 @@ async def receive(
             batch=lot, location=body.location, unit_cost=body.unit_cost,
             happened_on=body.happened_on, comment=body.comment,
         )  # fmt: skip
-        return Created(body=_movement(line))
+        return Created(body=_movement(line, await _visible_for(session, subject, line)))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -484,7 +503,7 @@ async def allocate(
             work_item_id=body.work_item_id, batch_id=body.batch_id,
             happened_on=body.happened_on, comment=body.comment,
         )  # fmt: skip
-        return Created(body=_movement(line))
+        return Created(body=_movement(line, await _visible_for(session, subject, line)))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -516,7 +535,7 @@ async def adjust(
             session, subject, consumable_id, stock_id=body.stock_id, change=body.change,
             batch_id=body.batch_id, comment=body.comment,
         )  # fmt: skip
-        return Created(body=_movement(line))
+        return Created(body=_movement(line, await _visible_for(session, subject, line)))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -548,7 +567,7 @@ async def return_stock(
             recipient=_recipient(body.recipient_kind, body.recipient_id),
             work_item_id=body.work_item_id, batch_id=body.batch_id, comment=body.comment,
         )  # fmt: skip
-        return Created(body=_movement(line))
+        return Created(body=_movement(line, await _visible_for(session, subject, line)))
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -560,7 +579,10 @@ async def consumable_ledger(
     """Newest first, 200 at most."""
     await consumables.get_consumable(session, subject, consumable_id)
     rows = await consumables.ledger(session, subject, consumable_id=consumable_id)
-    return [_movement(r) for r in rows]
+    visible = await visible_work_items(
+        session, subject, [r.work_item_id for r in rows if r.work_item_id is not None]
+    )
+    return [_movement(r, visible) for r in rows]
 
 
 @router.get("/consumable-allocations", summary="What was allocated from a request")
@@ -569,9 +591,15 @@ async def request_allocations(
     subject: View,
     work_item_id: Annotated[uuid.UUID, Query(description="The request.")],
 ) -> list[AssetMovementOut]:
-    """The request's side of REQ-AST-034 AC2: its allocations (and returns), newest first."""
+    """The request's side of REQ-AST-034 AC2: its allocations (and returns), newest first.
+
+    A request the reader can't see answers exactly as one that doesn't exist (404).
+    """
+    visible = await visible_work_items(session, subject, [work_item_id])
+    if work_item_id not in visible:
+        raise NotFound(code="work_item_not_found")
     rows = await consumables.ledger(session, subject, work_item_id=work_item_id)
-    return [_movement(r) for r in rows]
+    return [_movement(r, visible) for r in rows]
 
 
 # --- minimum stock (REQ-AST-035) ----------------------------------------------------------------
@@ -879,19 +907,46 @@ def _availability(found: list[bookings.Availability]) -> list[AssetAvailabilityO
     ]
 
 
-@router.get("/availability", summary="Bookable assets by product and site, and when they're held")
+class AssetPoolSlotOut(BaseModel):
+    """One bookable unit of the shared loan pool: its product, its site, when it is busy.
+
+    Never which asset (no ID, tag or name), who holds it, or any record it serves.
+    """
+
+    product_id: uuid.UUID
+    product_name: str
+    site_name: str | None
+    busy: list[AssetHeldOut]
+
+
+@router.get("/availability", summary="The shared loan pool: products, sites and busy periods")
 async def availability(
     session: TenantSession,
     subject: View,
     product_id: uuid.UUID | None = None,
     site_id: uuid.UUID | None = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
-) -> list[AssetAvailabilityOut]:
-    """Loanable assets not retired or disposed, 50 at most (the booking calendar)."""
-    found = await bookings.availability(
-        session, subject=subject, product_id=product_id, site_id=site_id, text_=q
+) -> list[AssetPoolSlotOut]:
+    """Loanable assets not retired or disposed, 50 at most (the booking calendar).
+
+    A shared pool by design (coordinator, 2026-11-20): every staff member sees the whole pool,
+    so each slot names only the product, the site and when it is busy.
+    """
+    del subject
+    found = await bookings.availability(session, product_id=product_id, site_id=site_id, text_=q)
+    products = await bookings.product_names(session, [a.asset.product_id for a in found])
+    sites = await site_names(
+        session, [a.asset.site_id for a in found if a.asset.site_id is not None]
     )
-    return _availability(found)
+    return [
+        AssetPoolSlotOut(
+            product_id=a.asset.product_id,
+            product_name=products.get(a.asset.product_id, ""),
+            site_name=None if a.asset.site_id is None else sites.get(a.asset.site_id),
+            busy=[AssetHeldOut(starts_at=p.starts_at, ends_at=p.due_at) for p in a.held],
+        )
+        for a in found
+    ]
 
 
 # --- the portal's bookings (REQ-AST-032 AC3) ------------------------------------------------------
@@ -943,10 +998,7 @@ async def bookable(
     """Only while the organisation allows booking from the portal (403 otherwise)."""
     del subject
     await _portal_on(session)
-    # The portal's list: alike for every signed-in person (no staff scope, so no ADR-053 set).
-    found = await bookings.availability(
-        session, subject=None, product_id=None, site_id=None, text_=q
-    )
+    found = await bookings.availability(session, product_id=None, site_id=None, text_=q)
     return _availability(found)
 
 

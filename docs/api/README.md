@@ -35,6 +35,15 @@ renaming anything needs a new major version (`/api/v2`), and a CI check refuses 
 - **Filters:** simple query parameters for common cases, and the shared JSON filter language in
   `filter`: a filter saved in the screens can be sent unchanged and returns the same rows.
 - **Sorting:** `sort=field` or `sort=-field` (descending), up to three fields.
+- **Lists by POST** (work items: incidents, service requests, problems, changes, releases):
+  `POST /api/v1/<type>/list` takes the same options in a JSON body (`filter`, `sort`, `limit`,
+  `cursor`, `include_total`, `simple` for the simple filters, `params` for the list's own, such
+  as `view`) and answers exactly as the GET. It is a read: no `Idempotency-Key`, and its answer is
+  sent `Cache-Control: no-store`. The body is capped at 64 KB (422 `list_body_too_large`).
+- **Protected fields:** a filter on a sealed (sensitive) custom field must use the POST form, so
+  the value searched for is never in a URL. The GET refuses it with 422 `sealed_filter_needs_post`,
+  naming the field (never the value). A cursor over such a filter starts again after the tenant's
+  data key rotates.
 
 ## Errors
 

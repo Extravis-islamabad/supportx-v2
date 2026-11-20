@@ -27,6 +27,7 @@ import {
 
 import { fieldName, useCustomValueText } from '../../customFields/values';
 import { nameOf } from '../names';
+import { refText, type RefNames } from '../refNames';
 import { nodeName, relationshipName } from './words';
 
 const CUSTOM = 'custom.';
@@ -187,12 +188,13 @@ function useValueText() {
   const states = useCiStates();
   const custom = useCustomFields('ci', true);
   const customText = useCustomValueText();
-  return (field: string, value: unknown): string => {
+  return (field: string, value: unknown, names?: RefNames): string => {
     if (value === null || value === undefined || value === '') return t('cmdb.versions.empty');
     if (field.startsWith(CUSTOM)) {
       const found = custom.data?.find((f) => `${CUSTOM}${f.key}` === field);
-      // A person field names someone: never their ID (rule d), as other references.
-      if (found === undefined || found.field_type === 'person') return t('cmdb.versions.set');
+      if (found === undefined) return t('cmdb.versions.set');
+      // A person field names someone by the name the server gave, never their ID (rule d).
+      if (found.field_type === 'person') return refText(t, names, value);
       return customText(found, value) || t('cmdb.versions.set');
     }
     // A sealed value (ADR-050) stays sealed in every version, as on the record.
@@ -215,7 +217,7 @@ function useValueText() {
     const code = typeof value === 'string' ? value : '';
     if (field === 'business_impact' || field === 'criticality') return t(`cmdb_impact.${code}`);
     if (field === 'source') return t(`cmdb_ci_source.${code}`);
-    if (REFERENCE_FIELDS.has(field)) return t('cmdb.versions.set');
+    if (REFERENCE_FIELDS.has(field)) return refText(t, names, value);
     if (typeof value === 'string') return value;
     return typeof value === 'number' ? String(value) : t('cmdb.versions.set');
   };
@@ -278,7 +280,7 @@ function VersionBody({ version }: { version: CiVersion }) {
           ...Object.entries(version.fields).map(([field, v]) => ({
             key: field,
             label: label(field),
-            content: <LongText text={value(field, v)} />,
+            content: <LongText text={value(field, v, version.names)} />,
             filled: true,
           })),
           // Held but masked for this reader (ADR-047): the shared row says so.
@@ -327,6 +329,8 @@ export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number;
   if (found.isError)
     return <Alert type="info" showIcon message={t('errors.cmdb_ci_version_not_found')} />;
   const result = found.data;
+  // One map for the whole answer: the server names both sides' references the same way.
+  const names = { ...result.from_version.names, ...result.to_version.names };
   // Fields either version holds but this reader sees masked (ADR-047): named, never shown or
   // compared, as on the record (lane C, #550).
   const masked = [
@@ -361,12 +365,13 @@ export function Comparison({ ciId, pair }: { ciId: string; pair: { from: number;
                   {change.kind !== 'added' && (
                     <Typography.Text type="secondary">
                       {t('cmdb.versions.before')}{' '}
-                      <LongText text={value(change.field, change.old)} />
+                      <LongText text={value(change.field, change.old, names)} />
                     </Typography.Text>
                   )}
                   {change.kind !== 'removed' && (
                     <Typography.Text>
-                      {t('cmdb.versions.after')} <LongText text={value(change.field, change.new)} />
+                      {t('cmdb.versions.after')}{' '}
+                      <LongText text={value(change.field, change.new, names)} />
                     </Typography.Text>
                   )}
                 </Flex>

@@ -3614,6 +3614,70 @@
         "type": "object"
       }
     },
+    "identity_access.support_grant.changed": {
+      "1": {
+        "description": "A vendor support grant was made, extended, verified, first used or ended (WP-057 S4c-1).\n\nIDs and codes only (rule c): never the engineer's name or e-mail, nor the reason. Every tenant\nadmin is told, through the one notification engine, required and locked (D-173 (8)).",
+        "properties": {
+          "access": {
+            "enum": [
+              "view",
+              "view_and_change"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "created",
+              "extended",
+              "verified",
+              "first_used",
+              "ended",
+              "revoked",
+              "account_removed",
+              "account_removal_failed",
+              "account_removal_stuck",
+              "link_sent",
+              "link_opened",
+              "link_resent",
+              "link_expired"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Class"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "change",
+          "access",
+          "ends_at"
+        ],
+        "title": "SupportGrantChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user.created": {
       "1": {
         "description": "An admin or an import added a person before their first sign-in (WP-021).",
@@ -4018,6 +4082,22 @@
           "change"
         ],
         "title": "UserRoleChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.vendor_support_setting.changed": {
+      "1": {
+        "description": "The tenant's \"Never allow vendor support\" setting changed (D-173 (9)); admins are told.",
+        "properties": {
+          "never_allow": {
+            "title": "Never Allow",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "never_allow"
+        ],
+        "title": "VendorSupportSettingChanged",
         "type": "object"
       }
     },
