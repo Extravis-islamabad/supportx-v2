@@ -34,6 +34,7 @@ const MODULES = [
   'audit',
   'files',
   'integrations',
+  'notifications',
   'identity_access',
   'licensing',
   'automation',

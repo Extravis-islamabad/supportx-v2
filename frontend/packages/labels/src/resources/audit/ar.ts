@@ -1265,8 +1265,10 @@ export const ar: LabelResource = {
   'system_log_code.integrations.connector.call_failed': 'فشل استدعاء خدمة متصلة',
   'system_log_code.integrations.mailbox.check_failed':
     'فشل التحقق من صندوق بريد بحثًا عن رسائل جديدة',
+  'system_log_code.integrations.mailbox.recovered': 'عاد صندوق البريد إلى العمل',
   'system_log_code.integrations.mailbox.send_failed': 'فشل إرسال البريد من صندوق بريد',
   'system_log_code.licensing.check_failed': 'فشل التحقق من الترخيص',
+  'system_log_code.notifications.mail.refused': 'تعذّر إرسال إشعار بريد إلكتروني',
   'system_log_module.assets': 'الأصول',
   'system_log_module.audit': 'التدقيق',
   'system_log_module.automation': 'الأتمتة',
@@ -1274,6 +1276,7 @@ export const ar: LabelResource = {
   'system_log_module.identity_access': 'تسجيل الدخول والوصول',
   'system_log_module.integrations': 'التكاملات',
   'system_log_module.licensing': 'الترخيص',
+  'system_log_module.notifications': 'الإشعارات',
   'system_log_module.organization': 'المؤسسة',
   'system_log_module.work_items': 'السجلات',
   'system_log_object.audit_archive': 'أرشيف التدقيق',
