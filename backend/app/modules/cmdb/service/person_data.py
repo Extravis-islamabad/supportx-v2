@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import ClassVar
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import metadata
@@ -28,9 +28,18 @@ from app.modules.cmdb.domain.field_access import CUSTOM
 from app.modules.cmdb.events import BusinessViewChanged, CiUpdated
 from app.modules.cmdb.infra.models import BusinessView, Ci
 from app.modules.cmdb.service.business_views import RECORD_TYPE as VIEW_RECORD_TYPE
-from app.modules.cmdb.service.cis import RECORD_TYPE, snapshot
+from app.modules.cmdb.service.catalogue import VIEW
+from app.modules.cmdb.service.cis import CIS, RECORD_TYPE, snapshot
 from app.modules.cmdb.service.snapshots import save_version
-from app.modules.identity_access import ERASE_BATCH, ErasureBatch, register_person_data
+from app.modules.identity_access import (
+    ERASE_BATCH,
+    ErasureBatch,
+    Subject,
+    register_holdings,
+    register_outside_view,
+    register_person_data,
+    scope_filter,
+)
 from app.shared.events import record_event
 from app.shared.history import Change, record_changes
 
@@ -199,7 +208,35 @@ async def _move_person_fields(
 
 PORT = CmdbData()
 
+OWNED = "cmdb_cis_owned"
+OWNED_OUTSIDE = "cmdb_cis_owned_outside_view"
+
+
+async def holdings(session: AsyncSession, person_id: uuid.UUID) -> Mapping[str, int]:
+    """The CIs the person owns, removed ones too (the job moves them all): the true total."""
+    found = await session.scalar(
+        select(func.count()).select_from(Ci).where(Ci.owner_user_id == person_id)
+    )
+    return {OWNED: int(found or 0)}
+
+
+async def outside_view(
+    session: AsyncSession, person_id: uuid.UUID, subject: Subject
+) -> Mapping[str, int]:
+    """Of those CIs, how many the eraser may not see (ADR-053; counts only, never IDs)."""
+    total = await session.scalar(
+        select(func.count()).select_from(Ci).where(Ci.owner_user_id == person_id)
+    )
+    seen = await session.scalar(
+        select(func.count())
+        .select_from(Ci)
+        .where(Ci.owner_user_id == person_id, scope_filter(subject, VIEW, CIS))
+    )
+    return {OWNED_OUTSIDE: int(total or 0) - int(seen or 0)}
+
 
 def register() -> None:
-    """Make the erasure job erase the CMDB's slice (at module import)."""
+    """Make the erasure job erase the CMDB's slice, and count its holdings (at module import)."""
     register_person_data(PORT)
+    register_holdings("cmdb", holdings)
+    register_outside_view("cmdb", outside_view)

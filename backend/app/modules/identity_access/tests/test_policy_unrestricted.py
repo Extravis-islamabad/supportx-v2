@@ -5,8 +5,10 @@ scope check). No I/O.
 """
 
 import uuid
+from dataclasses import replace
 from types import MappingProxyType
 
+from app.modules.identity_access.domain import resource_access
 from app.modules.identity_access.domain.policy import Grant, Subject
 from app.modules.identity_access.service.policy import unrestricted
 
@@ -34,3 +36,13 @@ def test_a_condition_a_narrower_scope_or_no_grant_is_not() -> None:
         assert not unrestricted(_subject(Grant(scope)), MANAGE)
     assert not unrestricted(_subject(), MANAGE)
     assert not unrestricted(_subject(Grant("all")), "assets.view")  # per permission
+
+
+def test_a_person_narrowed_by_fine_grained_access_is_never_unrestricted() -> None:
+    """ADR-053: a rule narrows even scope "all", so a record they just saved is still checked."""
+    plain = _subject(Grant("all"))
+    rule = resource_access.RoleReach(
+        grants={MANAGE: (("all", None),)}, rules=({"site_ids": (str(uuid.uuid4()),)},)
+    )
+    narrowed = replace(plain, resource_access=MappingProxyType({"asset": (rule,)}))
+    assert not unrestricted(narrowed, MANAGE)

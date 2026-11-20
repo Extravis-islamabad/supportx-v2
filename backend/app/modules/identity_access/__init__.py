@@ -54,6 +54,7 @@ from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.invite_links import public_router as invite_links_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
+from app.modules.identity_access.api.resource_access import router as resource_access_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.api.security_overview import router as security_overview_router
 from app.modules.identity_access.api.service_accounts import router as service_accounts_router
@@ -181,6 +182,7 @@ from app.modules.identity_access.service.person_data import (
     person_holdings,
     register_holdings,
     register_mentions,
+    register_outside_view,
     register_person_data,
 )
 from app.modules.identity_access.service.person_data_ports import register_lane_b_ports
@@ -201,6 +203,10 @@ from app.modules.identity_access.service.policy import (
     visible,
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
+from app.modules.identity_access.service.resource_access import (
+    AccessCriteria,
+    register_access_criteria,
+)
 from app.modules.identity_access.service.roles import (
     RoleName,
     ServiceRole,
@@ -457,6 +463,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 support_grant_notifications.register()  # every admin hears of vendor support access (D-173 (8))
+sign_in_log.register_siem_source()  # sign-ins reach the SIEM stream (WP-057 S5a)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
@@ -468,6 +475,7 @@ module = ModuleSpec(
     routers=[
         security_overview_router,  # WP-057 S4d: the security overview
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
+        resource_access_router,  # ADR-053: fine-grained access to assets and CIs
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
         people_router,
@@ -550,6 +558,7 @@ __all__ = [
     "SERVICE_DESK_MANAGER",
     "SITE_ADMIN",
     "TEAM_LEAD",
+    "AccessCriteria",
     "AccessRule",
     "DutyLookup",
     "ErasedPerson",
@@ -614,10 +623,12 @@ __all__ = [
     "put_ldap_federation",
     "redact_html",
     "redact_matches",
+    "register_access_criteria",
     "register_duties",
     "register_field_catalogue",
     "register_holdings",
     "register_mentions",
+    "register_outside_view",
     "register_person_data",
     "register_rule_listener",
     "register_seal_counter",

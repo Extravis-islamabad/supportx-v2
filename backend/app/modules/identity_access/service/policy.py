@@ -35,6 +35,7 @@ from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import api_keys, support_access
 from app.modules.identity_access.domain import field_access as field_rules
+from app.modules.identity_access.domain import resource_access as resource_rules
 from app.modules.identity_access.domain import support_grants as support_rules
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
@@ -70,6 +71,10 @@ from app.modules.identity_access.service.access_settings import tenant_technicia
 from app.modules.identity_access.service.masking import (
     contacts_masked,
     refuse_masked_person_search,
+)
+from app.modules.identity_access.service.resource_access import resource_access_of
+from app.modules.identity_access.service.resource_access import (
+    rules_predicate as resource_rules_predicate,
 )
 from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
@@ -145,6 +150,9 @@ class ResourceType:
     shared_actions: frozenset[str] = frozenset()
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
     sod_rules: Mapping[str, Sequence[SodRule]] = field(default_factory=lambda: MappingProxyType({}))
+    # Fine-grained access (ADR-053): the resource whose rules narrow this type (asset, ci);
+    # None: never narrowed. Applied inside `scope_filter`, so every path using it is narrowed.
+    narrowed_as: str | None = None
 
 
 def requested_it_yourself(subject: Subject, record: RecordFacts) -> bool:
@@ -198,20 +206,41 @@ def scope_filter(
     OR over the subject's grants; each grant is (scope predicate) AND (attribute condition,
     compiled by the filter DSL compiler). No grant → FALSE: the list is empty, never unfiltered.
     Combine it with the request's own filter: `.where(scope_filter(...)).where(query.where)`.
+
+    Fine-grained access (ADR-053 §2): when the person is narrowed for the type's resource, each
+    of their roles shows its own scope narrowed by its own rules, and the person sees the union
+    of those; one role's rules never combine with another role's scope.
     """
-    parts: list[ColumnElement[bool]] = []
-    for grant in subject.grants.get(permission, ()):
-        reach = _scope_predicate(subject, grant, resource_type)
-        if reach is None:
-            continue
-        if grant.condition is not None:
-            reach = reach & compile_filter(
-                dict(grant.condition),
-                resource_type.fields,
-                now=now or datetime.now(UTC),
-                path="condition",
-            )
-        parts.append(reach)
+    at = now or datetime.now(UTC)
+    reaches = (
+        resource_rules.narrowing(subject.resource_access, resource_type.narrowed_as)
+        if resource_type.narrowed_as is not None
+        else None
+    )
+    for hook in _SCOPE_HOOKS:
+        hook(resource_type.name, permission)
+    held = _grant_parts(subject, subject.grants.get(permission, ()), resource_type, at)
+    if reaches is None or not held:
+        # Not narrowed, or the subject itself lacks the permission: an API key's scopes trim
+        # only `subject.grants` (`for_key`), never the roles' reaches below (lane C, #560).
+        parts = held
+    else:
+        parts = []
+        # Narrow-only (ADR-053 §2): never wider than the subject's own grants, whatever trimmed
+        # them, so each role's narrowed reach is also held to those.
+        own_reach = or_(*held)
+        for reach in reaches:
+            own = [Grant(scope, condition) for scope, condition in reach.grants.get(permission, ())]
+            role_parts = _grant_parts(subject, own, resource_type, at)
+            if not role_parts:
+                continue
+            role_reach = and_(or_(*role_parts), own_reach)
+            if reach.rules is not None:
+                assert resource_type.narrowed_as is not None  # noqa: S101 - reaches imply it
+                role_reach = and_(
+                    role_reach, resource_rules_predicate(resource_type.narrowed_as, reach.rules)
+                )
+            parts.append(role_reach)
     if (
         resource_type.shared_scope is not None
         and permission.rsplit(".", 1)[-1] in resource_type.shared_actions
@@ -219,6 +248,40 @@ def scope_filter(
     ):
         parts.append(resource_type.shared_scope(subject))
     return or_(*parts) if parts else false()
+
+
+def _grant_parts(
+    subject: Subject, grants: Sequence[Grant], resource_type: ResourceType, now: datetime
+) -> list[ColumnElement[bool]]:
+    """Each grant's scope predicate AND its attribute condition (grants with no reach skipped)."""
+    parts: list[ColumnElement[bool]] = []
+    for grant in grants:
+        reach = _scope_predicate(subject, grant, resource_type)
+        if reach is None:
+            continue
+        if grant.condition is not None:
+            reach = reach & compile_filter(
+                dict(grant.condition), resource_type.fields, now=now, path="condition"
+            )
+        parts.append(reach)
+    return parts
+
+
+# Test-only observers of `scope_filter` (the route-walk guard, ADR-053 / lane C 6): each gets the
+# resource type's name and the permission. Empty in the running app.
+ScopeHook = Callable[[str, str], None]
+_SCOPE_HOOKS: list[ScopeHook] = []
+
+
+def add_scope_hook(hook: ScopeHook) -> None:
+    """Observe `scope_filter` calls (tests)."""
+    _SCOPE_HOOKS.append(hook)
+
+
+def remove_scope_hook(hook: ScopeHook) -> None:
+    """Stop observing (tests)."""
+    if hook in _SCOPE_HOOKS:
+        _SCOPE_HOOKS.remove(hook)
 
 
 def _scope_predicate(
@@ -251,7 +314,13 @@ def unrestricted(subject: Subject, permission: str) -> bool:
     For a caller that just saved a record and must confirm it is within reach (assets,
     `_within_scope`): with this true the confirming query can only say yes. Never a stand-in for
     an existence check of a record someone named: `authorize_stored` still does that.
+
+    Never true for a person narrowed by fine-grained access (ADR-053): their rules narrow even
+    a scope of "all", so a saved record could fall outside them (a create at a site the rule
+    leaves out).
     """
+    if subject.resource_access:
+        return False
     return any(
         grant.scope == "all" and grant.condition is None
         for grant in subject.grants.get(permission, ())
@@ -369,7 +438,11 @@ class ValkeySubjectCache:
         entry = json.loads(raw)
         if entry.get("gen") != generation:
             return None, generation
-        return Subject.from_dict(entry["subject"]), generation
+        try:
+            return Subject.from_dict(entry["subject"]), generation
+        except (KeyError, TypeError, ValueError):
+            # A form this code can't read (an older release's): compiled again, never guessed.
+            return None, generation
 
     async def put(self, subject: Subject, generation: int) -> None:
         """Store under the generation it was compiled for."""
@@ -490,26 +563,31 @@ class PolicyService:
         ).all()
         role_keys = {r.key for r in roles}
         role_ids = [r.id for r in roles]
+        # Each role by ID with its key, for fine-grained access (ADR-053): which roles count.
+        held: dict[uuid.UUID, str] = {r.id: r.key for r in roles}
         if not roles and user.roles_mapped_at is None:
             # A service identity has only the roles given to it (none: it may do nothing).
             default = UNMAPPED_DEFAULT.get(user.user_type)
             role_keys = {default} if default is not None else set()
-            role_ids = list(
-                (
-                    await session.scalars(
-                        select(Role.id).where(Role.key.in_(role_keys), Role.deleted_at.is_(None))
+            defaults = (
+                await session.execute(
+                    select(Role.id, Role.key).where(
+                        Role.key.in_(role_keys), Role.deleted_at.is_(None)
                     )
-                ).all()
-            )
+                )
+            ).all()
+            role_ids = [r.id for r in defaults]
+            held = {r.id: r.key for r in defaults}
         grants: list[tuple[str, Grant]] = []
         technician_scope = await tenant_technician_scope(session)
+        # Each role's own grants (ADR-053 §2: a role's rules narrow that role's scope only).
+        role_grants: dict[uuid.UUID, list[tuple[str, Scope, Any]]] = {role: [] for role in held}
         for key in role_keys & set(SYSTEM_ROLES):
-            grants += [
-                (permission, Grant(scope))
-                for permission, scope in self.catalogue.system_grants(
-                    key, technician_scope=technician_scope
-                )
-            ]
+            system = self.catalogue.system_grants(key, technician_scope=technician_scope)
+            grants += [(permission, Grant(scope)) for permission, scope in system]
+            for role, role_key in held.items():
+                if role_key == key:
+                    role_grants[role] += [(permission, scope, None) for permission, scope in system]
         # A department's head views its requests in the portal by default (D-152), computed
         # here, so a new head has it at once and a replaced one loses it (the department's save
         # makes compiled permissions stale).
@@ -526,19 +604,54 @@ class PolicyService:
                 ).where(RolePermission.role_id.in_(custom))
             )
             grants += [(row.permission, Grant(row.scope, row.condition)) for row in rows]
+            per_role = await session.execute(
+                select(
+                    RolePermission.role_id,
+                    RolePermission.permission,
+                    RolePermission.scope,
+                    RolePermission.condition,
+                ).where(RolePermission.role_id.in_(custom))
+            )
+            for row in per_role:
+                role_grants.setdefault(row.role_id, []).append(
+                    (row.permission, row.scope, row.condition)
+                )
+        features = await self.entitled_features(tenant_id, session)
         return compile_subject(
             tenant_id=tenant_id,
             user_id=user_id,
             role_keys=role_keys,
             grants=grants,
             catalogue=self.catalogue,
-            entitled_features=await self.entitled_features(tenant_id, session),
+            entitled_features=features,
             site_ids=site_ids,
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
             fields=await field_access_of(session, role_ids),
+            resources=await resource_access_of(
+                session, self._entitled_role_grants(role_grants, features)
+            ),
             person=user.user_type != UserType.SERVICE.value,
         )
+
+    def _entitled_role_grants(
+        self,
+        role_grants: Mapping[uuid.UUID, list[tuple[str, Scope, Any]]],
+        features: frozenset[str],
+    ) -> dict[uuid.UUID, resource_rules.RoleGrants]:
+        """Each role's grants as the merged subject keeps them: known, allowed scopes, licensed."""
+        result: dict[uuid.UUID, resource_rules.RoleGrants] = {}
+        for role, grants in role_grants.items():
+            kept: dict[str, list[tuple[Scope, Mapping[str, Any] | None]]] = {}
+            for permission, scope, condition in grants:
+                spec = self.catalogue.get(permission)
+                if spec is None or scope not in spec.scopes:
+                    continue
+                if spec.feature is not None and spec.feature not in features:
+                    continue
+                kept.setdefault(permission, []).append((scope, condition))
+            result[role] = MappingProxyType({p: tuple(g) for p, g in kept.items()})
+        return result
 
     async def _support_subject(
         self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID

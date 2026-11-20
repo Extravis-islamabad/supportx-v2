@@ -18,6 +18,11 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # WP-057 S5a: SIEM destinations.
+    "SiemFormat": "siem_format",
+    "SiemKind": "siem_destination_kind",
+    "SiemStream": "siem_stream",
+    "SiemTestOut.result": "siem_test_result",
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
     # WP-057 S4c-1 (D-173): vendor support grants.
     "SupportGrantIn.access": "support_grant_access",
@@ -31,6 +36,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "SupportGrantMadeOut.delivery": "support_grant_delivery",
     "SecuritySeverity": "security_severity",
     "FieldMode": "field_mode",  # ADR-047: field access per role
+    "Resource": "resource_access_resource",  # ADR-053: what a rule narrows
     "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
     "ErasureReason": "people_erasure.reason",
     "MentionMatchKind": "people_erasure.match_kind",  # the mentions report (ADR-052 S1b)

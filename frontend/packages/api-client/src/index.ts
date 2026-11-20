@@ -234,6 +234,17 @@ export {
   type RuleableField,
 } from './fieldAccess';
 export {
+  resourceAccessKeys,
+  usePersonResourceAccess,
+  useResourceCriteria,
+  useResourceRules,
+  useSaveResourceRule,
+  type AccessResource,
+  type PersonResourceAccess,
+  type ResourceCriteria,
+  type ResourceRule,
+} from './resourceAccess';
+export {
   useAssignIncident,
   useCreateIncident,
   useDecideIncidentApproval,
@@ -346,6 +357,19 @@ export {
   type ServiceAccountPatch,
   type ServiceAccountRoles,
 } from './serviceAccounts';
+export {
+  siemKeys,
+  useAddSiemDestination,
+  useChangeSiemDestination,
+  useRemoveSiemDestination,
+  useRotateSiemSecret,
+  useSiemDestinations,
+  useTestSiemDestination,
+  type SiemDestination,
+  type SiemDestinationInput,
+  type SiemDestinationMade,
+  type SiemTest,
+} from './siem';
 export {
   useFieldSensitivity,
   useSetFieldSensitivity,
