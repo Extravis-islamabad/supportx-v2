@@ -103,6 +103,36 @@
       "decision": "D-109",
       "date": "2026-10-29",
       "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "GET /api/v1/assets/availability 200: response[].held was removed",
+      "decision": "D-179",
+      "date": "2026-11-20",
+      "why": "The shared loan pool shows only the product, the site name and busy periods, never which asset or who holds it (asset-scope fix, #558). No screen uses this route; booking goes through /assets/bookable."
+    },
+    {
+      "break": "GET /api/v1/assets/availability 200: response[].id was removed",
+      "decision": "D-179",
+      "date": "2026-11-20",
+      "why": "The shared loan pool shows only the product, the site name and busy periods, never which asset or who holds it (asset-scope fix, #558). No screen uses this route; booking goes through /assets/bookable."
+    },
+    {
+      "break": "GET /api/v1/assets/availability 200: response[].name was removed",
+      "decision": "D-179",
+      "date": "2026-11-20",
+      "why": "The shared loan pool shows only the product, the site name and busy periods, never which asset or who holds it (asset-scope fix, #558). No screen uses this route; booking goes through /assets/bookable."
+    },
+    {
+      "break": "GET /api/v1/assets/availability 200: response[].site_id was removed",
+      "decision": "D-179",
+      "date": "2026-11-20",
+      "why": "The shared loan pool shows only the product, the site name and busy periods, never which asset or who holds it (asset-scope fix, #558). No screen uses this route; booking goes through /assets/bookable."
+    },
+    {
+      "break": "GET /api/v1/assets/availability 200: response[].tag was removed",
+      "decision": "D-179",
+      "date": "2026-11-20",
+      "why": "The shared loan pool shows only the product, the site name and busy periods, never which asset or who holds it (asset-scope fix, #558). No screen uses this route; booking goes through /assets/bookable."
     }
   ]
 }
