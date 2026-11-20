@@ -129,6 +129,10 @@ async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_
     )
     # Its own sign-in again, now as the support account (the session keeps the account's type).
     assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    # #552's bug: /auth/me answered 500 for a support account (no vendor_support user type).
+    me = await bff.me()
+    assert me.status_code == 200, me.text
+    assert me.json()["user"]["user_type"] == "vendor_support"
     made = await bff.client.post(
         "/api/v1/incidents",
         json={"subject": "Mail is down", "requester_id": str(asker["id"])},
