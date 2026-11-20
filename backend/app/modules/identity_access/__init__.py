@@ -65,6 +65,7 @@ from app.modules.identity_access.api.service_roles import (
 )
 from app.modules.identity_access.api.support_grants import public_router as support_public_router
 from app.modules.identity_access.api.support_grants import router as support_grants_router
+from app.modules.identity_access.api.verified_domains import router as verified_domains_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -103,6 +104,7 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
     directory,
+    domain_notifications,
     erasure_job,
     expiry_alerts,
     expiry_notifications,
@@ -114,6 +116,7 @@ from app.modules.identity_access.service import (
     sign_in_log,
     support_grant_job,
     support_grant_notifications,
+    verified_domains,
 )
 from app.modules.identity_access.service.auth import SESSIONS_CHANGED, AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
@@ -472,12 +475,14 @@ security_notices.register()  # a person hears of a sign-in from a new device (WP
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names
 expiry_notifications.register()  # admins hear before a sign-in certificate or secret runs out
+domain_notifications.register()  # admins hear when a verified domain lapses (WP-057 S5d)
 service_account_handover.register()  # admins hear when a service account needs a new owner
 
 module = ModuleSpec(
     name="identity_access",
     routers=[
         security_overview_router,  # WP-057 S4d: the security overview
+        verified_domains_router,  # WP-057 S5d: verified e-mail domains (REQ-SEC-010)
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         resource_access_router,  # ADR-053: fine-grained access to assets and CIs
         router,
@@ -509,6 +514,7 @@ module = ModuleSpec(
         sign_in_log.PERSON_ERASED,
         KEYCLOAK_SESSION_END,
         service_account_handover.OWNER_LEFT,
+        verified_domains.DOMAIN_SYNC,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
@@ -526,6 +532,8 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
         # Sign-in certificates and client secrets about to run out (WP-057 S2b-2, REQ-SEC-011).
         ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
+        # REQ-SEC-010 (WP-057 S5d): domain checks, lapses and the Keycloak reconcile.
+        ScheduleSpec("identity_access__verified_domains", 86400, verified_domains.check_schedule),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
         # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.

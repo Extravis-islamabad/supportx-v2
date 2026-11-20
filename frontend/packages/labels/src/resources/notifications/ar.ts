@@ -64,6 +64,7 @@ export const ar: LabelResource = {
   'notification_area.sign_in_secret': 'شهادات وأسرار تسجيل الدخول',
   'notification_area.support_grant': 'وصول دعم المورّد',
   'notification_area.task': 'المهام',
+  'notification_area.verified_domain': 'النطاقات الموثّقة',
   'notification_area.work_item_view': 'العروض المحفوظة',
   'notification_category.approval': 'الموافقات',
   'notification_category.assignment': 'الإسنادات',
@@ -184,6 +185,7 @@ export const ar: LabelResource = {
   'notification_event.task.assigned': 'أُسندت إليك مهمة',
   'notification_event.task.overdue': 'مهمتك متأخرة',
   'notification_event.task.starts_soon': 'مهمتك تبدأ قريبًا',
+  'notification_event.verified_domain.lapsed': 'لم يعد نطاق موثّق موثّقًا',
   'notification_event.work_item_view.unshared': 'تم جعل عرض شاركته خاصًا',
   'notification_preferences.col.category': 'النوع',
   'notification_preferences.dnd_help':
@@ -864,6 +866,12 @@ export const ar: LabelResource = {
   'notification_template.task.starts_soon.in_app': 'تبدأ {{ task.title }} في {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'تبدأ قريبًا: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.verified_domain.lapsed.body':
+    'مرحبًا {{ recipient.name }}،\n\nتعذّر على SupportX العثور على سجل التحقق للنطاق {{ record.title }} لمدة ثلاثة أيام، لذا لم يعد النطاق موثّقًا ولم تعد عمليات تسجيل الدخول فيه تُوجَّه إلى تسجيل الدخول الموحّد لديكم. انشروا السجل مرة أخرى وتحققوا منه في تسجيل الدخول والأمان: {{ record.link }}',
+  'notification_template.verified_domain.lapsed.in_app':
+    '{{ record.title }} لم يعد موثّقًا: توقّف توجيه تسجيل الدخول فيه',
+  'notification_template.verified_domain.lapsed.subject':
+    'النطاق {{ record.title }} لم يعد موثّقًا',
   'notification_template.work_item_view.unshared.body':
     'مرحبًا {{ recipient.name }}،\nيُصفّي عرضك المحفوظ {{ record.title }} حسب {{ view.field }}، وقد لا يستطيع بعض من شاركته معهم رؤيته. أصبح خاصًا بك الآن ولم يتغير شيء آخر. لمشاركته مجددًا، أزِل هذا الشرط واختر من يراه. {{ record.link }}',
   'notification_template.work_item_view.unshared.in_app':
@@ -932,6 +940,7 @@ export const ar: LabelResource = {
   'notification_variable.task.title': 'عنوان المهمة',
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
+  'notification_variable.verified_domain.domain': 'النطاق › الاسم',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
   'notification_variable.window.start': 'بداية النافذة',
   'notifications.banner.no_mail_few':
