@@ -179,7 +179,8 @@ def main(argv: list[str]) -> int:  # pragma: no cover - thin CLI over tested fun
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", default="supportx")
     args = parser.parse_args(argv)
-    config = db_testing.load_config()
+    # The dev stack's own database: this is the one caller that sets that stack up.
+    config = db_testing.load_config(allow_dev_stack=True)
     if config is None:
         sys.stderr.write("no database configured (SUPPORTX_TEST_ADMIN_URL or make dev-init)\n")
         return 2

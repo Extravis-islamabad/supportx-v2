@@ -52,8 +52,7 @@ def nats_url() -> str | None:
     """Where the test NATS server is, if configured."""
     if url := os.environ.get("SUPPORTX_TEST_NATS_URL"):
         return url
-    if db_testing.STACK_ENV.is_file():
-        env = db_testing._read_env_file(db_testing.STACK_ENV)  # noqa: SLF001 - shared test helper
+    if (env := db_testing.dev_stack_env()) is not None:
         return f"nats://127.0.0.1:{env.get('NATS_PORT', '24222')}"
     return None
 
