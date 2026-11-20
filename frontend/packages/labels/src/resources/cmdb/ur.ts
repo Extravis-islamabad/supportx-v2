@@ -12,6 +12,8 @@ export const ur: LabelResource = {
   'audit.action.cmdb.relationship_type_created': 'تعلق کی قسم بنائی',
   'audit.action.cmdb.relationship_type_deleted': 'تعلق کی قسم ہٹائی',
   'audit.action.cmdb.settings_changed': 'CMDB کی ترتیبات تبدیل کیں',
+  'audit.action.cmdb.subscribers_changed': 'بزنس سروس کے سبسکرائبر بدلے',
+  'audit.object.cmdb_ci': 'CI',
   'audit.object.cmdb_ci_state': 'CI کی حالت',
   'audit.object.cmdb_ci_type': 'CI کی قسم',
   'audit.object.cmdb_relationship_type': 'تعلق کی قسم',
@@ -322,6 +324,7 @@ export const ur: LabelResource = {
   'errors.cmdb_relationship_type_not_found': 'یہ تعلق کی قسم موجود نہیں۔',
   'errors.field.cmdb_ci_type_loop': 'کوئی قسم اپنے ہی نیچے نہیں ہو سکتی۔',
   'errors.field.cmdb_ci_type_too_deep': 'اقسام کا درخت یہاں مزید گہرا نہیں ہو سکتا۔',
+  'errors.field.cmdb_not_business_service': 'صرف بزنس سروس کے سبسکرائبر ہوتے ہیں۔',
   'errors.field.cmdb_relationship_not_allowed':
     'یہ تعلق کی قسم ان دو اقسام کے آئٹمز کو نہیں جوڑ سکتی۔',
   'errors.field.cmdb_relationship_self': 'کسی آئٹم کو خود سے نہیں جوڑا جا سکتا۔',

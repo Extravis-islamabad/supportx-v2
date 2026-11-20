@@ -10,6 +10,8 @@ export const en = {
   'audit.action.cmdb.relationship_type_created': 'Created a relationship type',
   'audit.action.cmdb.relationship_type_deleted': 'Removed a relationship type',
   'audit.action.cmdb.settings_changed': 'Changed CMDB settings',
+  'audit.action.cmdb.subscribers_changed': "Changed a business service's subscribers",
+  'audit.object.cmdb_ci': 'CI',
   'audit.object.cmdb_ci_state': 'CI state',
   'audit.object.cmdb_ci_type': 'CI type',
   'audit.object.cmdb_relationship_type': 'Relationship type',
@@ -319,6 +321,7 @@ export const en = {
   'errors.cmdb_relationship_type_not_found': 'This relationship type does not exist.',
   'errors.field.cmdb_ci_type_loop': 'A type cannot sit below itself.',
   'errors.field.cmdb_ci_type_too_deep': 'The type tree cannot go deeper here.',
+  'errors.field.cmdb_not_business_service': 'Only a business service has subscribers.',
   'errors.field.cmdb_relationship_not_allowed':
     'This relationship type cannot join these two kinds of CI.',
   'errors.field.cmdb_relationship_self': 'A CI cannot be linked to itself.',

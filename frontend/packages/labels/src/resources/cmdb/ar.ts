@@ -12,6 +12,8 @@ export const ar: LabelResource = {
   'audit.action.cmdb.relationship_type_created': 'أنشأ نوع علاقة',
   'audit.action.cmdb.relationship_type_deleted': 'أزال نوع علاقة',
   'audit.action.cmdb.settings_changed': 'غيّر إعدادات قاعدة بيانات التهيئة',
+  'audit.action.cmdb.subscribers_changed': 'غيّر مشتركي خدمة أعمال',
+  'audit.object.cmdb_ci': 'عنصر تهيئة',
   'audit.object.cmdb_ci_state': 'حالة عنصر التهيئة',
   'audit.object.cmdb_ci_type': 'نوع عنصر التهيئة',
   'audit.object.cmdb_relationship_type': 'نوع العلاقة',
@@ -343,6 +345,7 @@ export const ar: LabelResource = {
   'errors.cmdb_relationship_type_not_found': 'نوع العلاقة هذا غير موجود.',
   'errors.field.cmdb_ci_type_loop': 'لا يمكن أن يكون النوع تحت نفسه.',
   'errors.field.cmdb_ci_type_too_deep': 'لا يمكن أن تتعمق شجرة الأنواع أكثر هنا.',
+  'errors.field.cmdb_not_business_service': 'خدمات الأعمال وحدها لها مشتركون.',
   'errors.field.cmdb_relationship_not_allowed':
     'لا يمكن لنوع العلاقة هذا الربط بين هذين النوعين من عناصر التهيئة.',
   'errors.field.cmdb_relationship_self': 'لا يمكن ربط عنصر التهيئة بنفسه.',

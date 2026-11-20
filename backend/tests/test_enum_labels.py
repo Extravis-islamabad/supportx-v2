@@ -77,6 +77,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "RelationshipDirection": "cmdb_relationship_direction",
     "BusinessViewLayout": "cmdb_view_layout",
     "CiAttributeChangeOut.kind": "cmdb_compare_kind",
+    # Who a business service serves (0185)
+    "AudienceKind": "audience_kind",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",

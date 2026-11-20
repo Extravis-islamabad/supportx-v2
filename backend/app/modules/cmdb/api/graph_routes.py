@@ -21,10 +21,11 @@ from app.modules.audit import audited
 from app.modules.cmdb.api.routes import RefNameOut, names_out
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain import types as domain
-from app.modules.cmdb.infra.models import BusinessView, RelationshipTypeRule
-from app.modules.cmdb.service import business_views, catalogue, relationships, versions
+from app.modules.cmdb.infra.models import BusinessView, Ci, RelationshipTypeRule
+from app.modules.cmdb.service import business_views, catalogue, relationships, subscribers, versions
 from app.modules.cmdb.service.relationships import NodeInfo
 from app.modules.identity_access import Subject
+from app.modules.organization import AudienceKind, count_people, people_in
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query
@@ -705,6 +706,119 @@ async def neighbours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         show_eol=eol,
     )
     return _graph(graph)
+
+
+# --- business service subscribers (0185, D-172 (3)) -----------------------------------------------
+
+SubscriberKind = AudienceKind  # labelled `audience_kind.<code>`
+
+
+class SubscriberIn(BaseModel):
+    """One department, site or group the service serves."""
+
+    kind: SubscriberKind
+    ref_id: uuid.UUID
+
+
+class SubscribersIn(BaseModel):
+    """The whole list (at most 100): it replaces what is there."""
+
+    subscribers: list[SubscriberIn] = Field(max_length=subscribers.SUBSCRIBERS_MAX)
+
+
+class SubscriberOut(BaseModel):
+    """One subscriber as you may know it: its name, or why not; `removed` if the unit is gone."""
+
+    kind: SubscriberKind
+    ref_id: uuid.UUID
+    name: RefNameOut
+    removed: bool
+
+
+class SubscribersOut(BaseModel):
+    """A business service's subscribers, and how many active people they reach (each once)."""
+
+    items: list[SubscriberOut]
+    people: int = Field(description="Active people the live refs reach, each counted once.")
+
+
+class AudiencePersonOut(BaseModel):
+    """One person a service reaches (for `users.view` holders only)."""
+
+    id: uuid.UUID
+    display_name: str
+
+
+async def _subscribers_out(
+    session: TenantSession, ci_id: uuid.UUID, found: list[subscribers.Subscriber]
+) -> SubscribersOut:
+    return SubscribersOut(
+        items=[
+            SubscriberOut(
+                kind=s.kind, ref_id=s.ref_id, name=RefNameOut.of(s.name), removed=s.removed
+            )
+            for s in found
+        ],
+        people=await count_people(session, await subscribers.audience_of(session, [ci_id])),
+    )
+
+
+@router.get("/cis/{ci_id}/subscribers", summary="A business service's subscribers")
+async def get_subscribers(
+    ci_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+) -> SubscribersOut:
+    """The departments, sites and groups the service serves (empty for any other CI)."""
+    found = await subscribers.subscribers(session, subject, ci_id)
+    record = await session.get(Ci, ci_id)
+    if record is not None:
+        set_etag(response, record.version)
+    return await _subscribers_out(session, ci_id, found)
+
+
+@router.put(
+    "/cis/{ci_id}/subscribers",
+    summary="Set a business service's subscribers",
+    responses=CONFLICT,
+    dependencies=[audited("cmdb.subscribers_changed", object_type="cmdb_ci", object_param="ci_id")],
+)
+async def put_subscribers(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    ci_id: uuid.UUID,
+    body: SubscribersIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Edit,
+    response: Response,
+    request: Request,
+) -> SubscribersOut:
+    """Replace the list (If-Match on the CI). Only a business service; each unit must exist."""
+    found = await subscribers.set_subscribers(
+        session,
+        subject,
+        ci_id,
+        [(s.kind, s.ref_id) for s in body.subscribers],
+        expected_version=version,
+        source=source_of(request),
+    )
+    record = await session.get(Ci, ci_id)
+    if record is not None:
+        set_etag(response, record.version)
+    return await _subscribers_out(session, ci_id, found)
+
+
+@router.get("/cis/{ci_id}/subscribers/people", summary="The people a business service reaches")
+async def subscriber_people(
+    ci_id: uuid.UUID,
+    session: TenantSession,
+    subject: View,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[AudiencePersonOut]:
+    """Up to `limit` of them by name; needs `users.view` as well (403 without it)."""
+    await subscribers.subscribers(session, subject, ci_id)  # the CI's read check first
+    audience = await subscribers.audience_of(session, [ci_id])
+    return [
+        AudiencePersonOut(id=i, display_name=name)
+        for i, name in await people_in(session, subject, audience, limit=limit)
+    ]
 
 
 # --- routes: versions -----------------------------------------------------------------------------
