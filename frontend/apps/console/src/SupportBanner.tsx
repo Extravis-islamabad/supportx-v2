@@ -6,8 +6,6 @@ import { queryKeys, useSession } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
 import { useDateTime, useLabel } from '@supportx/ui';
 
-import { setHiddenPersonLabel } from './maskedPeople';
-
 // The support account's own channel says its grant changed (WP-057 S4c-3): IDs only.
 const GRANT_CHANGED = 'identity_access.support_grant_changed';
 
@@ -40,14 +38,6 @@ export function SupportBanner() {
     // recheck is stable enough: it only invalidates the session query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endsAt]);
-  const masked = support?.contacts_masked === true;
-  const hidden = t('vendor_support.person_hidden');
-  useEffect(() => {
-    setHiddenPersonLabel(masked ? hidden : null);
-    return () => {
-      setHiddenPersonLabel(null);
-    };
-  }, [masked, hidden]);
   if (support === null) return null;
   return (
     <Alert

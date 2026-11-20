@@ -181,9 +181,12 @@ describe('a vendor support session', () => {
     const banner = await screen.findByTestId('support-banner');
     expect(banner.textContent).toContain("You're signed in as Extravis support");
     expect(banner.textContent).toContain('hidden');
-    await waitFor(() => {
-      expect(shownName('')).toBe('Person hidden');
-    });
-    expect(shownName('Aisha')).toBe('Aisha');
+  });
+
+  it('shows the stand-in only for an empty name in a masked session (pure, no shared state)', () => {
+    expect(shownName('', 'Person hidden')).toBe('Person hidden');
+    expect(shownName(null, 'Person hidden')).toBe('Person hidden');
+    expect(shownName('Aisha', 'Person hidden')).toBe('Aisha');
+    expect(shownName('', null)).toBe('');
   });
 });

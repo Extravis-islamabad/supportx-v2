@@ -152,11 +152,18 @@ export function categoryPath(
   return parts.join(' › ');
 }
 
-export function personName(people: Record<string, IncidentPerson>, id: string | null): string {
+/**
+ * `hidden` is the masked session's stand-in (`useHiddenPersonLabel()`), null otherwise: a masked
+ * support session gets each person with an empty name (WP-057 S4c-3).
+ */
+export function personName(
+  people: Record<string, IncidentPerson>,
+  id: string | null,
+  hidden: string | null = null,
+): string {
   if (id === null) return '';
   const person = people[id];
-  // A masked support session gets the person with an empty name: the labelled stand-in (S4c-3).
-  return person === undefined ? '' : shownName(person.display_name);
+  return person === undefined ? '' : shownName(person.display_name, hidden);
 }
 
 /** Names that appear more than once in a list: those rows also show the email (Area 15). */
