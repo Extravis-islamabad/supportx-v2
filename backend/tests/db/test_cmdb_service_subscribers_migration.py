@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0186"  # 0185's down revision (re-pointed with it at its queue turn)
+BEFORE = "0182"  # 0185's down revision (re-pointed with it at its queue turn)
 
 
 async def _exists(url: str) -> bool:
