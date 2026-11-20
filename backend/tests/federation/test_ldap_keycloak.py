@@ -288,9 +288,10 @@ async def test_the_federation_account_has_no_user_rights(settings: Settings) -> 
 
 @pytest.mark.xfail(
     strict=True,
-    reason="Keycloak looks an unknown username up in every directory of the realm; the fix "
-    "(per-organisation routing, or LDAP only where the realm hosts one tenant) awaits the "
-    "product owner. Remove this mark with it.",
+    reason="Keycloak asks every directory of the realm about a username it has no account for; "
+    "acceptable only where the realm serves one tenant (D-118/D-177: refused on a multi-tenant "
+    "installation by the integrations service and by put_ldap_federation). Per-organisation "
+    "sign-in routing (the WP item) removes this mark.",
 )
 async def test_a_name_never_imported_is_not_checked_against_a_directory(
     settings: Settings, stack: Stack

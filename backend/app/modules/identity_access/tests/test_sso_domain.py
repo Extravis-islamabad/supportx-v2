@@ -38,6 +38,16 @@ def test_the_keycloak_provider_is_hidden_until_on_and_disabled_when_off(
     assert "clientSecret" not in found["config"]  # only sent when given
 
 
+@pytest.mark.parametrize("protocol", ["oidc", "saml"])
+def test_a_providers_email_is_never_trusted(protocol: sso.Protocol) -> None:
+    """D-177: an existing account links only after proving itself, never on a matching e-mail."""
+    found = sso.representation(
+        alias="sx-a-1", protocol=protocol, display_name="Acme", config={}, state="on"
+    )
+    assert found["trustEmail"] is False
+    assert found["firstBrokerLoginFlowAlias"] == "first broker login"
+
+
 def test_oidc_settings_come_from_discovery() -> None:
     config = sso.oidc_config(
         {

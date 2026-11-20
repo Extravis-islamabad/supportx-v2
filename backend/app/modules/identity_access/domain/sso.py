@@ -265,7 +265,10 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
         # Enabled in every state but off: the admin's test sign-in needs it. Hidden until on.
         "enabled": state != "off",
         "hideOnLogin": state != "on",
-        "trustEmail": True,
+        # D-177: a provider's e-mail is never trusted. Keycloak's "first broker login" then asks an
+        # account that already exists to prove itself (its own sign-in, or a confirmation mailed
+        # to it) before linking; a matching e-mail alone never signs anyone in as that account.
+        "trustEmail": False,
         "storeToken": False,
         "linkOnly": False,
         "firstBrokerLoginFlowAlias": "first broker login",

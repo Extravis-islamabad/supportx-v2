@@ -32,6 +32,10 @@ ComponentFor = Callable[[str], dict[str, Any]]  # realm ID -> the component
 MappersFor = Callable[[str], list[dict[str, Any]]]  # component ID -> its mappers
 
 
+# The integrations guard's code too (ldap_directories `_allowed`), labelled `errors.<code>`.
+SINGLE_TENANT_ONLY = "ldap_single_tenant_only"
+
+
 class FederationNotInstalled(ServiceUnavailable):
     """No federation account here: LDAP is not turned on for this installation."""
 
@@ -78,7 +82,15 @@ def _failed(exc: Exception) -> FederationFailed:
 async def put_ldap_federation(
     settings: Settings, *, component: ComponentFor, mappers: MappersFor
 ) -> str:
-    """Create or replace the component (found by its name) and exactly its mappers; its ID."""
+    """Create or replace the component (found by its name) and exactly its mappers; its ID.
+
+    D-118/D-177: never on a realm serving several tenants. A directory is a realm-wide component
+    that Keycloak asks about any username it has no account for, so another tenant's sign-ins
+    would reach it. Checked here as well as in the integrations service (defence in depth),
+    before Keycloak is touched; the worker records the code on the directory.
+    """
+    if settings.multi_tenant:
+        raise FederationFailed(SINGLE_TENANT_ONLY)
     admin = _admin(settings)
     try:
         component_id = await admin.put_federation_component(component(await admin.realm_id()))

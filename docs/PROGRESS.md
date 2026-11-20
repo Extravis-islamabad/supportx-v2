@@ -3295,6 +3295,10 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     a sync (counted as `last_admin_kept`); enabled again → reactivated with what they held.
   - [x] AD/LDAP through Keycloak federation (D-118): merged in #175 (2026-11-04).
   - [x] Tenant-editable connector defaults (D-041) screen: with AD/LDAP. (#175)
+  - [ ] Per-organisation LDAP sign-in routing (identity-first), so a directory only ever sees
+    its own tenant's sign-ins; needed before LDAP on a multi-tenant installation (D-177, lane B).
+    The strict xfail `test_a_name_never_imported_is_not_checked_against_a_directory`
+    (tests/federation) turns into its proof.
 
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
