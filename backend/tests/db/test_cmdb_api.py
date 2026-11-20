@@ -392,12 +392,12 @@ async def test_cis_from_ten_assets(world: World) -> None:
     assert len(result["created"]) == 10
     assert {c["source"] for c in result["created"]} == {"asset_sync"}
     assert {c["name"] for c in result["created"]} == {f"Laptop {n}" for n in range(10)}
-    assert [s["reason"] for s in result["skipped"]] == ["gone"]
+    assert [s["reason"] for s in result["skipped"]] == ["hidden"]  # never told apart from unseen
     again = await world.call(
         "POST", f"{BASE}/cis/from-assets", a, a.admin, json=body, headers=_new()
     )
     assert again.json()["created"] == []
-    assert sorted({s["reason"] for s in again.json()["skipped"]}) == ["gone", "has_ci"]
+    assert sorted({s["reason"] for s in again.json()["skipped"]}) == ["has_ci", "hidden"]
 
 
 async def test_the_picker_leaves_end_of_life_out(world: World) -> None:

@@ -210,12 +210,24 @@ async def create_booking(  # noqa: PLR0913 - which asset, for whom, when, why, f
     return booking
 
 
-async def _live(session: AsyncSession, booking_id: uuid.UUID) -> AssetBooking:
-    row = await session.scalar(
-        select(AssetBooking)
-        .where(AssetBooking.id == booking_id, AssetBooking.deleted_at.is_(None))
-        .with_for_update()
+async def _live(
+    session: AsyncSession, booking_id: uuid.UUID, staff: Subject | None = None
+) -> AssetBooking:
+    """A live booking, locked.
+
+    `staff`: only a booking of an asset that person may manage (the right every staff booking
+    write needs), so a booking of an asset outside their reach reads as no booking at all, the
+    same 404 as an unknown ID; checked before the version and the status, so a 409 never names
+    anything about it (lane B's write walk, lane C's re-check on main, 2026-11-20).
+    """
+    query = select(AssetBooking).where(
+        AssetBooking.id == booking_id, AssetBooking.deleted_at.is_(None)
     )
+    if staff is not None:
+        query = query.where(
+            AssetBooking.asset_id.in_(select(Asset.id).where(scope_filter(staff, MANAGE, ASSETS)))
+        )
+    row = await session.scalar(query.with_for_update())
     if row is None:
         raise NotFound(code="asset_booking_not_found")
     return row
@@ -232,7 +244,7 @@ async def cancel_booking(
     """Cancel a booking not yet handed over (If-Match). `own_only`: the portal's, one's own."""
     if not own_only:
         _require(subject, MANAGE)
-    row = await _live(session, booking_id)
+    row = await _live(session, booking_id, None if own_only else subject)
     if own_only and row.borrower_id != subject.user_id:
         raise NotFound(code="asset_booking_not_found")
     if row.version != expected_version:
@@ -260,7 +272,7 @@ async def hand_over(
 ) -> tuple[AssetBooking, AssetLoan]:
     """The booked asset is handed over: a loan with the booking's dates (AC2)."""
     _require(subject, MANAGE)
-    row = await _live(session, booking_id)
+    row = await _live(session, booking_id, subject)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,

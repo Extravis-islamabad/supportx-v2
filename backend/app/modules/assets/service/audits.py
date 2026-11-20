@@ -1033,6 +1033,11 @@ async def apply_fixes(
             select(AssetAuditItem).where(
                 AssetAuditItem.audit_id == audit.id,
                 AssetAuditItem.id.in_(list(dict.fromkeys(request.item_ids))),
+                # An item whose asset the person may not see reads as no item at all, the same
+                # code as an unknown item, never "asset not found" (lane B's write walk).
+                AssetAuditItem.asset_id.in_(
+                    select(Asset.id).where(scope_filter(subject, VIEW, ASSETS))
+                ),
             )
         )
     }
