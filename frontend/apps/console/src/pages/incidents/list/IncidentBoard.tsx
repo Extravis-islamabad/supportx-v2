@@ -17,7 +17,7 @@ import {
   type BoardCard,
   type BoardColumn,
 } from '@supportx/ui';
-import { Button, Dropdown, Flex, Segmented, Typography } from 'antd';
+import { Button, Dropdown, Flex, Segmented, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -192,6 +192,7 @@ export function IncidentBoard({
   const t = useLabel();
   const { locale } = useAppearance();
   const navigate = useNavigate();
+  const { token } = theme.useToken();
   const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
   // People's names for a board by technician: those who can be assigned, then the loaded rows'
@@ -304,7 +305,12 @@ export function IncidentBoard({
               },
             }}
           >
-            <Button data-testid="inc-board-more-columns">
+            <Button
+              data-testid="inc-board-more-columns"
+              // The body's own text colour in every state: antd draws an open dropdown's button
+              // in the primary colour, too faint on dark (axe, matrix run 44773471795).
+              style={{ color: token.colorText }}
+            >
               {t('incidents.board.more_columns', { count: hidden.length })}
             </Button>
           </Dropdown>

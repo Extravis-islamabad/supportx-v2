@@ -163,7 +163,8 @@ export function IncidentCalendar({
       title={`${r.display_id} ${r.subject}`}
       style={{
         // The staged calendar's chip (ScheduleCalendar's entryChip), so the two read alike.
-        display: 'block',
+        display: 'flex',
+        gap: 4,
         textAlign: 'start',
         color: 'inherit',
         height: 'auto',
@@ -174,15 +175,20 @@ export function IncidentCalendar({
         paddingBlock: 2,
         marginBottom: 2,
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
         maxWidth: '100%',
       }}
     >
-      <bdi dir="ltr" style={{ fontWeight: 600 }}>
+      <bdi dir="ltr" style={{ fontWeight: 600, flexShrink: 0 }}>
         {r.display_id}
-      </bdi>{' '}
-      {r.subject}
+      </bdi>
+      {/* The title in its own direction, cut at its own end: a Latin title in a right-to-left
+          page ends in "…" and the ID stays first (lane C B2, run 44773471795). */}
+      <span
+        dir="auto"
+        style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {r.subject}
+      </span>
     </Button>
   );
 

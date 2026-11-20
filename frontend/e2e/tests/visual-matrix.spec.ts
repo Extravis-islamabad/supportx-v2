@@ -483,6 +483,12 @@ async function boardRefused(page: Page): Promise<void> {
     .first()
     .click({ timeout: STATE_TIMEOUT });
   await seenOrSay('refusal', page.locator('[data-testid="inc-board-stage-refusal"]:not(:empty)'));
+  // The "Move to" menu fades out after the choice: shot only once it has gone (lane C F1).
+  await page
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden)')
+    .first()
+    .waitFor({ state: 'hidden', timeout: STATE_TIMEOUT })
+    .catch(() => undefined);
 }
 
 async function boardByTechnicianMore(page: Page): Promise<void> {

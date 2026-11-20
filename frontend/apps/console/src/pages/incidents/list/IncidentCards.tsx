@@ -147,10 +147,11 @@ export function IncidentCards({
                                 : (context.people[row.technician_id]?.display_name ?? undefined)
                               : undefined
                           }
+                          // A value wraps to its own line rather than being cut: a due time must
+                          // always show whole (lane C B1, run 44773471795).
+                          wrap
                           style={{
                             minWidth: 0,
-                            overflow: 'hidden',
-                            whiteSpace: 'nowrap',
                             ...(!compact && spec.key === 'technician_id'
                               ? { gridColumn: '1 / -1' }
                               : {}),
@@ -166,9 +167,7 @@ export function IncidentCards({
                             // span: axe aria-prohibited-attr).
                             <span className="sx-visually-hidden">{spec.title(context)}: </span>
                           )}
-                          <span
-                            style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                          >
+                          <span style={{ minWidth: 0, maxWidth: '100%' }}>
                             {spec.key === 'technician_id' && row.technician_id === null ? (
                               // Unassigned: said, as the record does, never an empty value.
                               <Typography.Text type="secondary">
