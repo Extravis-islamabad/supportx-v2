@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
 from app.modules.automation.service import workflow_admin
 from app.modules.identity_access.domain import support_access
@@ -308,3 +309,36 @@ async def test_a_support_account_is_never_notified_or_mailed(world: World) -> No
         assert await notifiable_people(session, [user_id, world.a.admin]) != {}
         assert user_id not in await notifiable_people(session, [user_id, world.a.admin])
         assert user_id not in await mail_recipients(session, [user_id])
+
+
+async def test_a_session_the_requests_code_opens_is_masked_and_tied_too(world: World) -> None:  # noqa: F811 - the reused fixture
+    """Lane B's #561 review (2): a session the request's own code opens inherits the facts."""
+    from app.core import tenancy  # noqa: PLC0415
+    from app.modules.identity_access import contacts_masked  # noqa: PLC0415
+
+    grant = uuid.uuid4()
+    database = world.app.state.policy.database
+    request = TenantContext(
+        world.a.tenant, world.a.admin, support_grant_id=grant, mask_contacts=True
+    )
+    token = tenancy._SUPPORT_REQUEST.set(request)  # noqa: SLF001 - what resolve_tenant sets
+    try:
+        async with database.tenant_session(TenantContext(world.a.tenant)) as session:
+            assert contacts_masked(session)
+            assert session.info[SESSION_TENANT_KEY].support_grant_id == grant
+        # Another tenant's session is never given this request's facts.
+        async with database.tenant_session(TenantContext(world.b.tenant)) as other:
+            assert not contacts_masked(other)
+    finally:
+        tenancy._SUPPORT_REQUEST.reset(token)  # noqa: SLF001
+    # Outside a support request (a worker, a job): never masked.
+    async with database.tenant_session(TenantContext(world.a.tenant)) as plain:
+        assert not contacts_masked(plain)
+        assert plain.info[SESSION_TENANT_KEY].support_grant_id is None
+
+
+def test_governance_and_portal_publishing_are_never_given() -> None:
+    """Lane B's #561 review (3)-(5): sealing, approval stages, portal items, KB approval off."""
+    change = support_access.permissions_for("view_and_change")
+    for never in ("config.service_desk", "catalog_items.manage", "knowledge.manage_settings"):
+        assert never not in change, never
