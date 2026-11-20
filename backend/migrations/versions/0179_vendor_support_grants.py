@@ -121,6 +121,10 @@ def upgrade() -> None:
         sa.Column("account_removed_at", sa.DateTime(timezone=True), nullable=True),
         # When the admins were told a removal is stuck (over 24 hours): once per grant (lane B).
         sa.Column("removal_alerted_at", sa.DateTime(timezone=True), nullable=True),
+        # The engineer's single-use link (D-177 fallback): only its SHA-256, never the token.
+        sa.Column("link_token_hash", sa.LargeBinary(length=32), nullable=True),
+        sa.Column("link_expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("link_used_at", sa.DateTime(timezone=True), nullable=True),
         *_audit_columns(),
         sa.PrimaryKeyConstraint("id", name=op.f(f"pk_{GRANTS}")),
         sa.ForeignKeyConstraint(

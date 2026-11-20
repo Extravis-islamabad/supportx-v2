@@ -162,3 +162,19 @@ def test_the_required_actions_and_the_link_lifespan() -> None:
     assert link_lifespan_seconds(NOW, NOW + timedelta(hours=72)) == 24 * 3600
     assert link_lifespan_seconds(NOW, NOW + timedelta(hours=2)) == 2 * 3600
     assert link_lifespan_seconds(NOW, NOW) == 60
+
+
+def test_the_fallback_login_and_link_token() -> None:
+    """D-177 fallback: a generated login, a single-use link kept only as its hash."""
+    grant = uuid.UUID("0193f0aa-0000-7000-8000-00000000abcd")
+    assert support_grants.support_login(grant) == f"sx-support-{grant.hex}"
+    assert "@" not in support_grants.support_login(grant)
+    token, stored = support_grants.new_link_token()
+    assert token.encode() not in stored
+    later = NOW + timedelta(hours=1)
+    assert support_grants.link_usable(stored, token, later, None, NOW)
+    assert not support_grants.link_usable(stored, token + "x", later, None, NOW)
+    assert not support_grants.link_usable(stored, token, NOW, None, NOW)  # expired
+    assert not support_grants.link_usable(stored, token, later, NOW, NOW)  # used
+    assert not support_grants.link_usable(None, token, later, None, NOW)
+    assert len(support_grants.mail_subject_id(grant)) == 8

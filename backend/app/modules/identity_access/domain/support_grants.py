@@ -5,6 +5,9 @@ the service applies before it touches the database or Keycloak; the database hol
 limits as checks (migration 0179), so a bug in one is caught by the other.
 """
 
+import hashlib
+import hmac
+import secrets
 import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -235,6 +238,47 @@ def account_email(engineer_email: str, grant_id: uuid.UUID) -> str | None:
     if len(tagged) > LOCAL_PART_MAX:
         return None
     return f"{tagged}@{domain}"
+
+
+LINK_TOKEN_BYTES = 32
+
+
+def support_login(grant_id: uuid.UUID) -> str:
+    """The support account's sign-in name: generated per grant, never an address (D-177 fallback).
+
+    The shared realm allows one account per address, so the account holds no e-mail at all; the
+    engineer's real address stays on the grant, where SupportX's own mail reaches it.
+    """
+    return f"sx-support-{grant_id.hex}"
+
+
+def new_link_token() -> tuple[str, bytes]:
+    """A single-use link token (shown in the mail only) and the SHA-256 the grant keeps."""
+    token = secrets.token_urlsafe(LINK_TOKEN_BYTES)
+    return token, link_hash(token)
+
+
+def link_hash(token: str) -> bytes:
+    """What the grant stores of a link token."""
+    return hashlib.sha256(token.encode()).digest()
+
+
+def link_usable(
+    stored: bytes | None,
+    given: str,
+    expires_at: datetime | None,
+    used_at: datetime | None,
+    now: datetime,
+) -> bool:
+    """The token is this grant's, unused and unexpired (constant-time compare)."""
+    if stored is None or expires_at is None or used_at is not None or now >= expires_at:
+        return False
+    return hmac.compare_digest(stored, link_hash(given))
+
+
+def mail_subject_id(grant_id: uuid.UUID) -> str:
+    """The grant's short ID for the mail's subject (D-177: tells two grants apart)."""
+    return grant_id.hex[-8:].upper()
 
 
 def support_username(grant_id: str) -> str:
