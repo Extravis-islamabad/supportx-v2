@@ -32,7 +32,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Protocol
 
-from sqlalchemy import ColumnElement, Select, func, select, update
+from sqlalchemy import ColumnElement, Select, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,9 +76,10 @@ from app.modules.assets.service.assets import (
     _visible,
 )
 from app.modules.assets.service.catalogue import require_configure
-from app.modules.identity_access import Subject, active_user_ids
+from app.modules.identity_access import ResourceType, Subject, active_user_ids, scope_filter
 from app.modules.organization import existing_departments, existing_unit_ids
 from app.modules.procurement import vendor_problem
+from app.shared.api.filters import ResourceFields
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history.conflicts import stale_version
@@ -321,8 +322,40 @@ class ConsumableView:
     stocks: list[AssetConsumableStock]
 
 
+def _stock_at_sites(site_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
+    return AssetConsumableStock.site_id.in_(site_ids)
+
+
+def _stock_group_reach(subject: Subject) -> ColumnElement[bool] | None:
+    # As the assets' own `group` scope (assets.py `_group_reach`): the member's sites, and stock
+    # kept at no site.
+    unsited = AssetConsumableStock.site_id.is_(None)
+    return (
+        or_(AssetConsumableStock.site_id.in_(subject.site_ids), unsited)
+        if subject.site_ids
+        else unsited
+    )
+
+
+# The assets scope (`assets.view`, #423) over consumable stock: a site-scoped viewer sees only the
+# stock kept at their sites, and the movements of that stock (lane B and lane C, 2026-11-20).
+CONSUMABLE_STOCK = ResourceType(
+    name="asset_consumable_stocks",
+    fields=ResourceFields(
+        name="asset_consumable_stocks", fields={}, id_column=AssetConsumableStock.id
+    ),
+    site_scope=_stock_at_sites,
+    group_scope_extra=_stock_group_reach,
+)
+
+
+def visible_stock(subject: Subject) -> ColumnElement[bool]:
+    """The stock rows the subject may see (the assets scope)."""
+    return scope_filter(subject, VIEW, CONSUMABLE_STOCK)
+
+
 async def _views(
-    session: AsyncSession, query: Select[AssetConsumable, str, uuid.UUID]
+    session: AsyncSession, subject: Subject, query: Select[AssetConsumable, str, uuid.UUID]
 ) -> list[ConsumableView]:
     rows = (await session.execute(query)).all()
     ids = [r[0].id for r in rows]
@@ -330,7 +363,7 @@ async def _views(
     if ids:
         for stock in await session.scalars(
             select(AssetConsumableStock)
-            .where(AssetConsumableStock.consumable_id.in_(ids))
+            .where(AssetConsumableStock.consumable_id.in_(ids), visible_stock(subject))
             .order_by(AssetConsumableStock.site_id.nulls_first(), AssetConsumableStock.id)
         ):
             stocks[stock.consumable_id].append(stock)
@@ -361,12 +394,12 @@ async def list_consumables(
         query = query.where(
             AssetConsumable.id.in_(
                 select(AssetConsumableStock.consumable_id).where(
-                    AssetConsumableStock.site_id == site_id
+                    AssetConsumableStock.site_id == site_id, visible_stock(subject)
                 )
             )
         )
     query = query.order_by(AssetProduct.name, AssetConsumable.id).limit(CONSUMABLES_MAX)
-    return await _views(session, query)
+    return await _views(session, subject, query)
 
 
 async def consumable_view(
@@ -374,7 +407,9 @@ async def consumable_view(
 ) -> ConsumableView:
     """One consumable with its stock."""
     _require(subject, VIEW)
-    found = await _views(session, _with_product().where(AssetConsumable.id == consumable_id))
+    found = await _views(
+        session, subject, _with_product().where(AssetConsumable.id == consumable_id)
+    )
     if not found:
         raise NotFound(code="asset_consumable_not_found")
     return found[0]
@@ -391,6 +426,10 @@ async def batches_of(
             .where(
                 AssetConsumableBatch.consumable_id == consumable_id,
                 AssetConsumableBatch.deleted_at.is_(None),
+                # Lots of stock the person may see only (the assets scope over stock).
+                AssetConsumableBatch.stock_id.in_(
+                    select(AssetConsumableStock.id).where(visible_stock(subject))
+                ),
             )
             .order_by(
                 AssetConsumableBatch.expires_on.nulls_last(),
@@ -411,7 +450,12 @@ async def ledger(
 ) -> list[AssetConsumableMovement]:
     """The ledger, newest first: one consumable's, or what was allocated from a request."""
     _require(subject, VIEW)
-    query = select(AssetConsumableMovement)
+    # Only movements of stock the person may see (the assets scope over stock, #423).
+    query = select(AssetConsumableMovement).where(
+        AssetConsumableMovement.stock_id.in_(
+            select(AssetConsumableStock.id).where(visible_stock(subject))
+        )
+    )
     if consumable_id is not None:
         query = query.where(AssetConsumableMovement.consumable_id == consumable_id)
     if work_item_id is not None:

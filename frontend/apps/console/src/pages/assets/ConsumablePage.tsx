@@ -544,6 +544,12 @@ function Ledger({ id }: { id: string }) {
               {row.work_item_id !== null && (
                 <Link to={`/requests/${row.work_item_id}`}>{t('assets.stock.request')}</Link>
               )}
+              {/* A work item the reader can't see: said so, never named (coordinator, 2026-11-20). */}
+              {row.work_item_hidden && (
+                <Typography.Text type="secondary">
+                  {t('assets.stock.hidden_record')}
+                </Typography.Text>
+              )}
             </Flex>
           ),
         },

@@ -107,9 +107,13 @@ async def test_032_ac1_a_taken_day_is_refused_and_the_next_free_day_suggested(
     ).json()
     assert len(listed) == 4
     held = (await world.call("GET", f"{BASE}/availability?q=Projector%20P1", a, a.tech_a)).json()
-    assert [x["id"] for x in held] == [projector["id"]]
-    assert len(held[0]["held"]) == 4
-    assert "borrower_id" not in held[0]["held"][0]
+    # The shared loan pool (coordinator, 2026-11-20): the product, the site and when it's busy,
+    # never which asset or who holds it.
+    assert len(held) == 1
+    assert held[0]["product_id"] == projector["product_id"]
+    assert "id" not in held[0]
+    assert len(held[0]["busy"]) == 4
+    assert "borrower_id" not in held[0]["busy"][0]
 
 
 async def test_032_two_bookings_racing_for_the_same_time_never_both_win(world: World) -> None:

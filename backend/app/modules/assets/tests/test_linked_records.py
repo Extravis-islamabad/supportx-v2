@@ -100,6 +100,15 @@ class FakePort:
         del session, from_asset_id, to_asset_id, from_label, to_label, source
         return 0
 
+    async def visible_work_item_ids(
+        self,
+        session: AsyncSession,
+        subject: Any,  # noqa: ANN401 - a stand-in for a Subject
+        ids: Sequence[uuid.UUID],
+    ) -> frozenset[uuid.UUID]:
+        del session, subject
+        return frozenset(i for i in ids if any(r.id == i for r in self.records))
+
 
 @pytest.fixture(autouse=True)
 def _no_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:

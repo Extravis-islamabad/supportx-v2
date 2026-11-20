@@ -911,6 +911,7 @@ export const ur: LabelResource = {
   'assets.stock.expires': 'میعاد ختم',
   'assets.stock.for_request': 'یہ اجرا اس درخواست سے منسلک ہے جہاں سے آپ آئے ہیں۔',
   'assets.stock.from_site': 'کہاں کے اسٹاک سے',
+  'assets.stock.hidden_record': 'ایک ریکارڈ جو آپ نہیں دیکھ سکتے',
   'assets.stock.ledger': 'کھاتہ',
   'assets.stock.location': 'جگہ',
   'assets.stock.lot': 'لاٹ نمبر',
