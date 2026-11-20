@@ -63,3 +63,35 @@ def test_every_location_with_its_own_headers_sends_hsts_too() -> None:
         own = _headers(body)
         if own:
             assert own.get(name.lower()) == value, head
+
+
+def _map(text: str, variable: str) -> dict[str, str]:
+    """One `map $uri $variable { key value; ... }` block's entries."""
+    found = re.search(r"map \$uri \$" + variable + r" \{(.*?)\}", text, re.DOTALL)
+    assert found is not None, variable
+    body = re.sub(r"#[^\n]*", "", found.group(1))
+    return {
+        key: value.strip('"')
+        for key, value in re.findall(r"^\s*(\S+)\s+(\"[^\"]*\"|\S+);", body, re.MULTILINE)
+    }
+
+
+def test_the_vendor_support_link_page_is_never_cached_and_sends_no_referer() -> None:
+    """WP-057 S4c-3, lane B (2): the page shows a password once; every other page as before."""
+    text = NGINX_CONF.read_text()
+    cache = _map(text, "supportx_cache")
+    referrer = _map(text, "supportx_referrer")
+    assert cache["/vendor-support/start"] == "no-store"
+    assert cache["default"] == "no-cache"
+    assert referrer == {
+        "/vendor-support/start": "no-referrer",
+        "default": "strict-origin-when-cross-origin",
+    }
+    server, _ = _blocks(text)
+    headers = _headers(server)
+    assert headers["referrer-policy"] == "$supportx_referrer"
+    assert headers["cache-control"] == "$supportx_cache"
+    # The CSP keeps scripts same-origin, with no inline script and no third party.
+    csp = headers["content-security-policy"]
+    assert "script-src 'self';" in csp
+    assert "unsafe-inline" not in csp.split("script-src", 1)[1].split(";", 1)[0]
