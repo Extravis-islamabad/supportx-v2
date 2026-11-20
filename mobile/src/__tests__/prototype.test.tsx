@@ -145,7 +145,7 @@ describe('technician home', () => {
         { view: 'my_due_today', count: 2, capped: false },
         { view: 'unassigned', count: 4, capped: false },
       ],
-      'GET /api/v1/incidents': page([
+      'POST /api/v1/incidents/list': page([
         incident(),
         incident({
           id: 'i-2',
@@ -183,7 +183,7 @@ describe('queue', () => {
     const calls = stubApi({
       'GET /api/v1/auth/me': meBody,
       'GET /api/v1/incidents/views': [{ view: 'unassigned', count: 1, capped: false }],
-      'GET /api/v1/incidents': page([
+      'POST /api/v1/incidents/list': page([
         incident({ technician_id: null, display_id: 'INC-1035', subject: 'Wi-Fi drops in 4B' }),
       ]),
     });
@@ -193,8 +193,9 @@ describe('queue', () => {
     });
     expect(screen.getByTestId('incident-INC-1035')).toHaveTextContent(/Due in/);
     expect(screen.getByTestId('filter-unassigned')).toHaveTextContent(/· 1/);
-    const list = calls.find((c) => c.path === '/api/v1/incidents');
-    expect(list).toBeDefined();
+    // The list asks by POST (sealed filters, #555), the view in its body.
+    const list = calls.find((c) => c.method === 'POST' && c.path === '/api/v1/incidents/list');
+    expect(list?.body).toMatchObject({ params: { view: ['unassigned'] } });
     await fireEvent.press(screen.getByTestId('filter-my_open'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ view: 'my_open' });
   });

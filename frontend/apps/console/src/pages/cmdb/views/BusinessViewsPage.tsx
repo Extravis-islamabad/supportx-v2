@@ -127,6 +127,11 @@ export function BusinessViewsPage() {
                 ),
               },
               {
+                key: 'base',
+                title: t('cmdb.views.base_ci'),
+                render: (_, row) => <BaseCi row={row} />,
+              },
+              {
                 key: 'layout',
                 title: t('cmdb.field.layout'),
                 render: (_, row) => t(`cmdb_view_layout.${row.layout}`),
@@ -156,6 +161,9 @@ export function BusinessViewsPage() {
                       <bdi>{row.description}</bdi>
                     </Typography.Paragraph>
                   )}
+                  <Typography.Text>
+                    {t('cmdb.views.base_ci')}: <BaseCi row={row} />
+                  </Typography.Text>
                   <Typography.Text type="secondary">
                     {t(`cmdb_view_layout.${row.layout}`)} ·{' '}
                     <bdi>{dates.format(row.updated_at)}</bdi>
@@ -175,5 +183,18 @@ export function BusinessViewsPage() {
         </Button>
       )}
     </ListPage>
+  );
+}
+
+/** A view's base CI: its display ID and name, a link to the CI (CMDB polish). */
+function BaseCi({ row }: { row: BusinessViewListItem }) {
+  const base = row.base_ci;
+  if (base == null) return null;
+  return (
+    <Link to={`/cmdb/${base.id}`} data-testid={`cmdb-view-base-${row.id}`}>
+      <bdi>
+        {base.display_id} · {base.name}
+      </bdi>
+    </Link>
   );
 }

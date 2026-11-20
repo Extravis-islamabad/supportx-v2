@@ -36,6 +36,8 @@ const AREA_TARGET: Record<Area, { card?: string; path?: string }> = {
   service_accounts: { path: '/admin/service-accounts' },
   encryption: {},
   sign_in_events: { path: '/admin/audit?tab=sign_ins' },
+  // WP-057 S4c: the vendor support card comes with S4c-3; until then the flag links nowhere.
+  vendor_support: {},
 };
 
 function useOpen() {

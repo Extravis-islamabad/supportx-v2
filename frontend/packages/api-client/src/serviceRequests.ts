@@ -77,13 +77,13 @@ export function useServiceRequests(query: ServiceRequestsQuery) {
     queryKey: serviceRequestKeys.list(query),
     queryFn: () =>
       call(
-        api.GET('/api/v1/service-requests', {
-          params: {
-            query: {
-              view: query.view,
-              cursor: query.cursor,
-              filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
-            },
+        // By POST (lane C): a filter may hold a protected value, never put in a URL.
+        api.POST('/api/v1/service-requests/list', {
+          body: {
+            include_total: false,
+            cursor: query.cursor,
+            filter: query.filter,
+            params: query.view === undefined ? {} : { view: [query.view] },
           },
         }),
       ),

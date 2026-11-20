@@ -245,6 +245,7 @@ export const ar: LabelResource = {
   'cmdb.views.as_cards': 'بطاقات',
   'cmdb.views.as_list': 'قائمة',
   'cmdb.views.back': 'العودة إلى عروض الأعمال',
+  'cmdb.views.base_ci': 'عنصر التهيئة الأساسي',
   'cmdb.views.copy_name': '{{name}} (نسخة)',
   'cmdb.views.delete': 'إزالة العرض',
   'cmdb.views.delete_confirm': 'هل تريد إزالة عرض الأعمال "{{name}}"؟',

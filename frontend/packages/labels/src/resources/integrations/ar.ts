@@ -193,7 +193,7 @@ export const ar: LabelResource = {
   'ldap_directories.host': 'الخادم',
   'ldap_directories.host_hint': 'اسم المضيف أو عنوان IP لوحدة تحكم المجال أو خادم LDAP.',
   'ldap_directories.intro':
-    'اربط دليل Active Directory أو LDAP محليًا. يسجّل الأشخاص الدخول بكلمة مرور الدليل، ويحافظ SupportX على بياناتهم كما يقول الدليل.',
+    'اربط دليل Active Directory أو LDAP محليًا. يسجّل الأشخاص الدخول بكلمة مرور الدليل، ويحافظ SupportX على بياناتهم كما يقول الدليل. يُسأل الدليل المرتبط عن أي اسم مستخدم ليس له حساب في SupportX على هذا التثبيت، لذا لا تربط إلا دليلًا تثق به مع كل تسجيل دخول هنا.',
   'ldap_directories.name': 'الاسم',
   'ldap_directories.none': 'لا يوجد دليل AD/LDAP مرتبط',
   'ldap_directories.password_kept': 'اتركه فارغًا للإبقاء على كلمة المرور المحفوظة',

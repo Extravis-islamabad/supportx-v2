@@ -50,10 +50,20 @@ import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
 import { MapTab } from './map/MapTab';
 import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
+import { refText } from './refNames';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
 const TABS = ['details', 'map', 'versions'] as const;
 type TabKey = (typeof TABS)[number];
+
+/** The CI's references, named in the properties panel (CMDB polish). */
+const REFERENCES = [
+  'site_id',
+  'owner_user_id',
+  'owner_group_id',
+  'managed_by_group_id',
+  'asset_id',
+] as const;
 
 /** One configuration item (template A, D-147): live, edited in place, with its history. */
 export function CiPage() {
@@ -277,6 +287,26 @@ function CiRecord({ ci }: { ci: Ci }) {
                       content: ci.criticality === null ? '' : t(`cmdb_impact.${ci.criticality}`),
                       filled: ci.criticality !== null,
                     },
+                    // The CI's references by the names the server gave this reader (CMDB
+                    // polish): one it may not see says so, an empty one is listed as empty.
+                    ...REFERENCES.map((name) => {
+                      const id = ci[name];
+                      const ref = id === null ? undefined : ci.names?.[id];
+                      return ref?.restricted === true
+                        ? {
+                            key: name,
+                            label: t(`cmdb.field.${name}`),
+                            content: null,
+                            filled: true,
+                            restricted: 'hidden' as const,
+                          }
+                        : {
+                            key: name,
+                            label: t(`cmdb.field.${name}`),
+                            content: id === null ? '' : <bdi>{refText(t, ci.names, id)}</bdi>,
+                            filled: id !== null,
+                          };
+                    }),
                     {
                       key: 'updated',
                       label: t('cmdb.field.updated_at'),

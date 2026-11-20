@@ -658,6 +658,8 @@ export const ar: LabelResource = {
   'errors.field.same_folder': 'اختر مجلدًا مختلفًا لتقاريره.',
   'errors.field.schedule_never_runs': 'بهذه التواريخ لن تعمل الجدولة أبدًا.',
   'errors.field.scope_not_allowed': 'هذا النطاق غير متاح لهذه الصلاحية.',
+  'errors.field.sealed_filter_needs_post':
+    'هذا الحقل محمي، لذا لا يمكن التصفية حسبه إلا داخل القائمة نفسها، لا في رابط.',
   'errors.field.service_account_owner_invalid': 'اختر فنيًا نشطًا مالكًا.',
   'errors.field.session_absolute_out_of_range':
     'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
@@ -946,6 +948,7 @@ export const ar: LabelResource = {
     'يُزال هذا الرابط من مكانه الخاص: ألغِ ربط الحادثة، أو تراجع عن الدمج.',
   'errors.link_not_found': 'هذا الرابط غير موجود، أو أُزيل.',
   'errors.linked_records_not_available': 'السجلات المرتبطة غير متاحة بعد.',
+  'errors.list_body_too_large': 'طلب القائمة هذا كبير جدًا. اختصر المرشح وحاول مرة أخرى.',
   'errors.list_not_found': 'هذه القائمة لا تحتفظ بإعدادات.',
   'errors.login_failed': 'لم يكتمل تسجيل الدخول. يرجى المحاولة مرة أخرى.',
   'errors.login_not_this_browser':

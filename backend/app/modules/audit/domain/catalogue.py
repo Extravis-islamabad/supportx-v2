@@ -123,6 +123,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("support_grant.account_removed", AuditCategory.SECURITY, "identity_access"),
     ("support_grant.account_removal_failed", AuditCategory.SECURITY, "identity_access"),
     ("api_key.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    # D-177: an existing account first signs in through an identity provider (a link).
+    ("identity_provider.account_linked", AuditCategory.SECURITY, "identity_access"),
     # the installation's sign-in key ring (D-162, ADR-048): written by the system at start-up
     ("security.session_key_rotated", AuditCategory.SECURITY, "identity_access"),
     ("security.session_key_retired", AuditCategory.SECURITY, "identity_access"),

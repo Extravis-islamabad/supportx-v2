@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
-import { consoleApi } from '../../../test/api';
+import { consoleApi, listCalls } from '../../../test/api';
 import type { ReportWords } from '../../reports/names';
 import {
   builderFields,
@@ -472,7 +472,7 @@ describe('Incident list (WP-020d)', () => {
     fireEvent.mouseDown(preset.querySelector('.ant-select-selector') ?? preset);
     fireEvent.click(await screen.findByTitle('This week'));
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
         field: 'created_at',
         op: 'this_week',
@@ -519,7 +519,7 @@ describe('WP-020f QA', () => {
     fireEvent.change(screen.getByTestId('inc-search'), { target: { value: 'confirmed' } });
     fireEvent.click(await screen.findByText('Closure code is Confirmed by requester'));
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toMatchObject({
         field: 'closure_code',
         op: 'eq',

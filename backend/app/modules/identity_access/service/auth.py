@@ -37,7 +37,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
 from app.core.tenancy import TenantContext
-from app.modules.audit import RequestFacts, record_alone
+from app.modules.audit import WORKER, RequestFacts, record_alone
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
@@ -1039,6 +1039,12 @@ class AuthService:
         if support is not None:
             await self._log_policy_refusal(uuid.UUID(target.tenant_id), identity, attempt, support)
             raise PermissionDenied(code=support)
+        # D-177: whether this person already had an account here, for the link audit below.
+        existed = (
+            await known_user_id(self.database, uuid.UUID(target.tenant_id), identity.subject)
+            if identity.identity_provider is not None
+            else None
+        )
         user = await provision_user(
             self.database,
             uuid.UUID(target.tenant_id),
@@ -1049,6 +1055,10 @@ class AuthService:
             on_roles_mapped=self.on_roles_mapped,
             directory=self._directory,
         )
+        if existed is not None and identity.identity_provider is not None:
+            await self._audit_first_link(
+                uuid.UUID(target.tenant_id), user.user_id, identity.identity_provider, app, attempt
+            )
         synced = await mfa_service.on_sign_in(
             self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
         )
@@ -1125,6 +1135,41 @@ class AuthService:
         networks = await site_networks.tenant_site_networks(self.database, tenant_id)
         found = place_of(ip, networks, self.geo.lookup)
         return None if found is None else found.to_dict()
+
+    async def _audit_first_link(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        identity_provider: str,
+        app: AppName,
+        attempt: "Attempt | None",
+    ) -> None:
+        """D-177: an existing account's first sign-in through a provider is a link, audited once.
+
+        Keycloak links a provider's person to an existing account only after that account proved
+        itself (`trustEmail` off); SupportX records when the link is first used, in the account's
+        own tenant, naming the provider. A brand-new account is no link and is not recorded.
+        """
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        if await sign_in_log.signed_in_through(
+            self.database, tenant_id, user_id, identity_provider
+        ):
+            return
+        facts = replace(
+            WORKER,
+            client=type(WORKER.client)(app),
+            ip=attempt.ip if attempt is not None else None,
+            user_agent=attempt.user_agent if attempt is not None else None,
+        )
+        await record_alone(
+            self.database,
+            TenantContext(tenant_id, user_id),
+            action_code="identity_provider.account_linked",
+            facts=facts,
+            object_type="user",
+            object_id=user_id,
+            details={"identity_provider": identity_provider},
+        )
 
     async def _log_policy_refusal(
         self,

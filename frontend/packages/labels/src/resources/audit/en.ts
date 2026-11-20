@@ -250,6 +250,7 @@ export const en = {
   'audit.action.identity_access.support_grant_revoked': 'Vendor support access ended early',
   'audit.action.identity_access.support_link_resent': 'Vendor support link sent again',
   'audit.action.identity_access.vendor_support_setting_changed': 'Vendor support setting changed',
+  'audit.action.identity_provider.account_linked': 'Account linked to an identity provider',
   'audit.action.incident.access_changed': 'Changed who can see or work on an incident',
   'audit.action.incident.announced': 'Announced from an incident',
   'audit.action.incident.approval_decided': 'Recorded an approval decision on an incident',

@@ -53,7 +53,21 @@ export interface ReleasesQuery {
 export function useReleases(query: ReleasesQuery) {
   return useQuery({
     queryKey: releaseKeys.list(query),
-    queryFn: () => call(api.GET('/api/v1/releases', { params: { query } })),
+    // By POST (lane C): a filter may hold a protected value, never put in a URL.
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/releases/list', {
+          body: {
+            cursor: query.cursor,
+            include_total: query.include_total ?? false,
+            filter:
+              query.filter === undefined
+                ? undefined
+                : (JSON.parse(query.filter) as Record<string, unknown>),
+            params: query.view === undefined ? {} : { view: [query.view] },
+          },
+        }),
+      ),
     placeholderData: keepPreviousData,
   });
 }

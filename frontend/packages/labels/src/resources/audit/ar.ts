@@ -247,6 +247,7 @@ export const ar: LabelResource = {
   'audit.action.identity_access.support_grant_revoked': 'أُنهي وصول دعم المورّد مبكرًا',
   'audit.action.identity_access.support_link_resent': 'أُعيد إرسال رابط دعم المورّد',
   'audit.action.identity_access.vendor_support_setting_changed': 'تغيّر إعداد دعم المورّد',
+  'audit.action.identity_provider.account_linked': 'رُبط الحساب بموفّر هوية',
   'audit.action.incident.access_changed': 'غيّر صلاحيات الوصول إلى حادثة',
   'audit.action.incident.announced': 'نشر إعلانًا من حادثة',
   'audit.action.incident.approval_decided': 'سجّل قرار موافقة على حادثة',
