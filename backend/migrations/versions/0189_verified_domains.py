@@ -8,7 +8,7 @@
 - A tenant adds a domain once: a unique index on (tenant_id, domain) over undeleted rows.
 
 Revision ID: 0189
-Revises: 0179
+Revises: 0183
 Created: 2026-11-20
 """
 
@@ -20,7 +20,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0189"
-down_revision: str | None = "0179"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0183"  # main's head now; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
