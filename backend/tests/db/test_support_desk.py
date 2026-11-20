@@ -1,4 +1,6 @@
-"""A vendor support account and a record's files (WP-057 S4c-2, lane B (4)).
+"""A vendor support account on the desk (WP-057 S4c-2, lane B (4), (ii)).
+
+- Never offered as an assignee: it holds work rights from its grant, never a technician's role.
 
 Same world as test_files_api.py. A support account at "view and change" never holds add_note, so
 it is never staff: a private note's file is not found for it, while staff still open it. A
@@ -91,3 +93,19 @@ async def test_support_never_sees_private_files_and_every_download_is_audited(
     opened = await open_file(world, a, support, public.json()["id"])
     assert opened.status_code == 200, opened.text
     assert await _downloads_by(world, support) == before + 1
+
+
+async def test_support_is_never_offered_as_an_assignee(world: World) -> None:
+    """Lane B (ii): its grant gives work rights, never a technician's place in pickers."""
+    a = world.a
+    support = await _support_account(world)
+    offered = await world.call("GET", "/incidents/assignees", a, a.admin, params={"limit": 100})
+    assert offered.status_code == 200, offered.text
+    ids = {row["id"] for row in offered.json()}
+    assert str(a.tech_a) in ids  # the control
+    assert str(support) not in ids
+    searched = await world.call(
+        "GET", "/incidents/assignees", a, a.admin, params={"search": "Extravis"}
+    )
+    assert searched.status_code == 200, searched.text
+    assert str(support) not in {row["id"] for row in searched.json()}
