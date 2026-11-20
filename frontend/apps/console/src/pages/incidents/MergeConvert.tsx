@@ -47,6 +47,7 @@ import { itemName } from '../requests/items';
 import { IncidentPicker } from './IncidentPicker';
 import { personName, templateLabel } from './labels';
 import { UserPicker } from './pickers';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 // WP-046b S2 in the console: merging a duplicate into another incident with a preview of what
 // moves and who would newly see it (REQ-INC-088), the banner on a merged or converted record
@@ -130,6 +131,7 @@ export function MergeIncidentDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const [into, setInto] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -194,7 +196,7 @@ export function MergeIncidentDialog({
               from={{
                 id: item.id,
                 requesterId: item.requester_id,
-                requesterName: personName(item.people, item.requester_id),
+                requesterName: personName(item.people, item.requester_id, hidden),
               }}
               testId="inc-merge-into"
               ariaLabel={t('incidents.merge.into')}

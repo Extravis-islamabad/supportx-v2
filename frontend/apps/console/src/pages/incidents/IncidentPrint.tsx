@@ -11,6 +11,7 @@ import { IncidentHistory } from './IncidentHistory';
 import { IncidentTime, IncidentWorklogs, IncidentTasks } from './IncidentParts';
 import { personName } from './labels';
 import { RecordChecklists } from './RecordChecklists';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 // WP-046b S4 (REQ-INC-126): print an incident, or save it as PDF with the browser, choosing the
 // sections. Every section is read from the API the reader already uses, so it carries what they
@@ -110,6 +111,7 @@ function Section({ name, children }: { name: PrintSection; children: React.React
 }
 
 function PrintedConversation({ id, publicOnly }: { id: string; publicOnly: boolean }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { format } = useDateTime();
   const found = usePrintedConversation(id, publicOnly);
@@ -123,7 +125,7 @@ function PrintedConversation({ id, publicOnly }: { id: string; publicOnly: boole
           {entry.created_by !== null && (
             <>
               <Typography.Text strong>
-                <bdi>{personName(people, entry.created_by)}</bdi>
+                <bdi>{personName(people, entry.created_by, hidden)}</bdi>
               </Typography.Text>{' '}
             </>
           )}
@@ -145,6 +147,7 @@ function PrintedConversation({ id, publicOnly }: { id: string; publicOnly: boole
 
 /** The printable incident (`/incidents/:id/print?s=details,…&notes=public`). */
 export function IncidentPrintPage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { format } = useDateTime();
   const { id = '' } = useParams();
@@ -194,7 +197,7 @@ export function IncidentPrintPage() {
       )}
       {wanted.has('requester') && (
         <Section name="requester">
-          <bdi>{personName(item.people, item.requester_id)}</bdi>
+          <bdi>{personName(item.people, item.requester_id, hidden)}</bdi>
         </Section>
       )}
       {wanted.has('conversation') && (

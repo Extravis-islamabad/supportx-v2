@@ -6,6 +6,7 @@ import type {
   IncidentTemplate,
   ListValue,
 } from '@supportx/api-client';
+import { shownName } from '../../maskedPeople';
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type Labels = Record<string, string> | null | undefined;
@@ -151,9 +152,18 @@ export function categoryPath(
   return parts.join(' › ');
 }
 
-export function personName(people: Record<string, IncidentPerson>, id: string | null): string {
+/**
+ * `hidden` is the masked session's stand-in (`useHiddenPersonLabel()`), null otherwise: a masked
+ * support session gets each person with an empty name (WP-057 S4c-3).
+ */
+export function personName(
+  people: Record<string, IncidentPerson>,
+  id: string | null,
+  hidden: string | null = null,
+): string {
   if (id === null) return '';
-  return people[id]?.display_name ?? '';
+  const person = people[id];
+  return person === undefined ? '' : shownName(person.display_name, hidden);
 }
 
 /** Names that appear more than once in a list: those rows also show the email (Area 15). */

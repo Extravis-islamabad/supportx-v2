@@ -13,6 +13,7 @@ import { useAppearance, useLabel, type PaletteRecords } from '@supportx/ui';
 import { useDebounced } from '../../useDebounced';
 import { personName, statusLabel } from './labels';
 import { recentIncidents } from './recent';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 /**
  * Incidents for the command palette (Ctrl+K, REQ-INC-085): recently viewed ones while nothing is
@@ -25,6 +26,7 @@ export function usePaletteIncidents(
   userId: string | null,
   allowed: boolean,
 ): PaletteRecords | undefined {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const text = useDebounced(query.trim());
@@ -73,7 +75,7 @@ export function usePaletteIncidents(
           key: `incident-${item.display_id}`,
           title: `${item.display_id} · ${item.subject}`,
           subtitle: [
-            personName(people, item.requester_id),
+            personName(people, item.requester_id, hidden),
             statusLabel(t, catalogue.data, item.status, locale),
           ]
             .filter((part) => part !== '')
@@ -84,6 +86,7 @@ export function usePaletteIncidents(
     };
   }, [
     allowed,
+    hidden,
     alias,
     found.data,
     found.isFetching,

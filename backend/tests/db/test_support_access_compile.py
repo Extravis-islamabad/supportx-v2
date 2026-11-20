@@ -198,7 +198,8 @@ async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
         uuid.UUID(grant_id),
     )
     unmasked = await _compiled(world, user_id)
-    assert not unmasked.mask_contacts
+    # D-180: e-mail and phone stay withheld whatever unmask_personal says; names show by default.
+    assert (unmasked.mask_contacts, unmasked.mask_names) == (True, False)
     assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}
 
 
@@ -309,6 +310,61 @@ async def test_a_support_account_is_never_notified_or_mailed(world: World) -> No
         assert await notifiable_people(session, [user_id, world.a.admin]) != {}
         assert user_id not in await notifiable_people(session, [user_id, world.a.admin])
         assert user_id not in await mail_recipients(session, [user_id])
+
+
+async def _incident_by(world: World, user_id: uuid.UUID) -> str:  # noqa: F811 - the reused fixture
+    made = await world.call(
+        "POST",
+        "/incidents",
+        world.a,
+        user=user_id,
+        json={"subject": "Mail is down", "requester_id": str(world.a.admin)},
+        headers={"Idempotency-Key": str(uuid.uuid4()), "X-SupportX-Client": "console"},
+    )
+    assert made.status_code == 201, made.text
+    return str(made.json()["id"])
+
+
+async def test_a_grants_activity_is_its_own_accounts_only(world: World) -> None:  # noqa: F811 - the reused fixture
+    """The coordinator's Q1: never another grant's, another tenant's, or without audit.view."""
+    change = {"access": "view_and_change", "change_reason": "Fix the stuck workflow on INC-12"}
+    first, first_user = await _support_user(world, **change)
+    second, second_user = await _support_user(
+        world, engineer_email="sara@extravis.com", engineer_name="Sara Engineer", **change
+    )
+    mine = await _incident_by(world, first_user)
+    theirs = await _incident_by(world, second_user)
+    found = await world.call("GET", f"/identity/vendor-support/grants/{first}/activity", world.a)
+    assert found.status_code == 200, found.text
+    objects = {item["object_id"] for item in found.json()["items"]}
+    assert mine in objects
+    assert theirs not in objects
+    assert all(set(item) == {"id", "occurred_at", "action", "outcome", "object_type",
+                             "object_id"} for item in found.json()["items"])  # fmt: skip
+    # Not a tenant admin: refused (lane A (1)); the read is audited, once per window (lane A (2)).
+    for user in (world.a.manager, world.a.tech):
+        refused = await world.call(
+            "GET", f"/identity/vendor-support/grants/{first}/activity", world.a, user=user
+        )
+        assert refused.status_code in {403, 404}, refused.text
+    reads = await _sql(
+        world,
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND object_id = $2"
+        " AND object_type = 'support_grant' AND actor_id = $3 AND action = 'read.audit_log'",
+        world.a.tenant,
+        str(first),
+        world.a.admin,
+    )
+    assert reads[0]["n"] >= 1
+    # Another tenant's admin finds no such grant.
+    other = await world.call("GET", f"/identity/vendor-support/grants/{first}/activity", world.b)
+    assert other.status_code in {403, 404}, other.text
+    # The second grant's activity is its own.
+    second_found = await world.call(
+        "GET", f"/identity/vendor-support/grants/{second}/activity", world.a
+    )
+    assert {i["object_id"] for i in second_found.json()["items"]} >= {theirs}
+    assert mine not in {i["object_id"] for i in second_found.json()["items"]}
 
 
 async def test_a_session_the_requests_code_opens_is_masked_and_tied_too(world: World) -> None:  # noqa: F811 - the reused fixture

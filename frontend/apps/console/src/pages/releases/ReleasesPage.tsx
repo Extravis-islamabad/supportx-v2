@@ -37,6 +37,7 @@ import { StatusTag } from '../incidents/tags';
 import { EMERGENCY_PATH, listValueName, stageName } from './labels';
 import { useOwnList } from './lists';
 import { ReleaseBulkRole } from './ReleaseBulkRole';
+import { useHiddenPersonLabel, shownName } from '../../maskedPeople';
 
 // Quick views of the list (the engine's built-in views; "all" sends none).
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
@@ -100,6 +101,7 @@ function searchFilter(text: string): string | undefined {
  * can reach.
  */
 export function ReleasesPage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -165,7 +167,7 @@ export function ReleasesPage() {
   const facts = list.data?.releases ?? {};
   const people = list.data?.people ?? {};
   const personName = (id: string | null | undefined) =>
-    id ? (people[id]?.display_name ?? '') : '';
+    id ? shownName(people[id]?.display_name, hidden) : '';
   const typeName = (code: string | null | undefined) =>
     listValueName(
       t,

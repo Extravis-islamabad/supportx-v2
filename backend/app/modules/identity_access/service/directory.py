@@ -40,12 +40,9 @@ from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
-from app.modules.identity_access.service.masking import (
-    contacts_masked,
-    refuse_masked_person_search,
-)
+from app.modules.identity_access.service.masking import contacts_masked, shown_name
+from app.modules.identity_access.service.person_search import person_match
 from app.modules.identity_access.service.policy import (
-    PEOPLE,
     FieldRule,
     ResourceType,
     authorize,
@@ -66,7 +63,6 @@ from app.shared.history import (
     register_people_names,
 )
 from app.shared.mail import Language
-from app.shared.search import ENGINE
 
 USER_RECORD_TYPE = "user"
 
@@ -179,7 +175,7 @@ async def list_users(
         scope_filter(subject, "users.view", USERS),
     )
     if text:
-        found = await ENGINE.match(session, PEOPLE, text)
+        found = await person_match(session, text)  # names only for support (D-180)
         # Typed, but nothing searchable (only punctuation): nobody matches.
         visible_rows = visible_rows.where(found.predicate if found is not None else false())
     return await paginate(session, visible_rows, query)
@@ -189,11 +185,11 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
     """IDs of the tenant's people whose name or email matches `text`, best first.
 
     For other modules' searches by person ("incidents requested by Ahmed"): they filter their own
-    records by these IDs and their own scope, so this reveals nothing on its own. Refused (403
-    person_search_masked) for a request whose contacts are masked.
+    records by these IDs and their own scope, so this reveals nothing on its own. A support
+    session matches names only, and is refused (403 person_search_masked) when names are masked
+    (D-180, person_search).
     """
-    refuse_masked_person_search(session)
-    found = await ENGINE.match(session, PEOPLE, text)
+    found = await person_match(session, text)
     if found is None:
         return []
     rows = await session.scalars(
@@ -427,8 +423,8 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
     if not wanted:
         return {}
     rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
-    masked = contacts_masked(session)  # the UI labels an empty name (D-173)
-    return {str(row.id): "" if masked else row.display_name for row in rows}
+    # The UI labels an empty name (D-173, D-180); an address used as a name is withheld too.
+    return {str(row.id): shown_name(session, row.display_name) for row in rows}
 
 
 async def api_key_names(session: AsyncSession, key_ids: Sequence[str]) -> dict[str, str]:
@@ -467,9 +463,12 @@ async def user_contacts(
     rows = await session.execute(
         select(User.id, User.display_name, User.email).where(User.id.in_(wanted))
     )
-    if contacts_masked(session):  # removed, never hashed or partial (lane B (c))
-        return {str(row.id): ("", "") for row in rows}
-    return {str(row.id): (row.display_name, row.email) for row in rows}
+    # Removed, never hashed or partial (lane B (c)): e-mail always for support, names on request.
+    hide_contacts = contacts_masked(session)
+    return {
+        str(row.id): (shown_name(session, row.display_name), "" if hide_contacts else row.email)
+        for row in rows
+    }
 
 
 async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[str]:

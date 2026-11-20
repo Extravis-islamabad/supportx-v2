@@ -58,6 +58,7 @@ import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
 import { useActionReason } from '../incidents/actionReason';
 import { AssignDialog } from '../incidents/assign';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -207,6 +208,7 @@ function ProblemView({
   dates: ReturnType<typeof useDateTime>;
   reload: () => Promise<unknown>;
 }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { can } = useAccess();
   const catalogue = useProblemCatalogue();
@@ -326,7 +328,9 @@ function ProblemView({
             }
             meta={[
               <span key="by">
-                {t('problems.reported_by', { name: personName(item.people, item.requester_id) })}
+                {t('problems.reported_by', {
+                  name: personName(item.people, item.requester_id, hidden),
+                })}
               </span>,
               <span key="created">
                 {t('incidents.created_on', { date: dates.format(item.created_at) })}
@@ -367,7 +371,7 @@ function ProblemView({
                       {
                         key: 'owner',
                         label: t('problems.owner'),
-                        content: personName(item.people, item.technician_id),
+                        content: personName(item.people, item.technician_id, hidden),
                         filled: item.technician_id !== null,
                       },
                       {

@@ -57,7 +57,12 @@ from app.modules.audit.service.jobs import (
     siem_delivery,
     verify_due,
 )
-from app.modules.audit.service.queries import entries_for_changes
+from app.modules.audit.service.queries import (
+    ACTOR_FIELDS,
+    ActorEntry,
+    actor_entries,
+    entries_for_changes,
+)
 from app.modules.audit.service.realtime import CHANNELS, ROUTES
 from app.modules.audit.service.recording import (
     WORKER,
@@ -155,10 +160,12 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "ACTOR_FIELDS",
     "AUDITOR",
     "MANAGE_HOLDS",
     "WORKER",
     "AccessAccessor",
+    "ActorEntry",
     "AuditActorType",
     "AuditCategory",
     "AuditNote",
@@ -166,6 +173,7 @@ __all__ = [
     "ReadCategory",
     "RequestFacts",
     "SignInRow",
+    "actor_entries",
     "audit_read",
     "audited",
     "entries_for_changes",

@@ -65,10 +65,13 @@ class TenantContext:
     # A vendor support account's session (WP-057 S4c-2): the grant it acts under, so the audit
     # names "Extravis support" and the grant on its every entry. None for everyone else.
     support_grant_id: uuid.UUID | None = None
-    # People's names, e-mail addresses and phones withheld from this request's answers (D-173):
-    # a support session whose grant does not unmask personal data. Read at every people lookup,
-    # so a read without it fails closed for support (set with support_grant_id, never apart).
+    # People's e-mail addresses and phones withheld from this request's answers: every vendor
+    # support session (D-180, always). Read at every people lookup, so a read without it fails
+    # closed for support (set with support_grant_id, never apart).
     mask_contacts: bool = False
+    # People's names withheld too (D-180): only when the grant asks for it (its "Mask names too"
+    # tick, 0188); names are shown by default.
+    mask_names: bool = False
 
 
 # Returns the session's context, None when the request has no session, or raises a problem
@@ -119,7 +122,10 @@ def with_support(context: TenantContext) -> TenantContext:
     if context.tenant_id != support.tenant_id:
         return context
     return replace(
-        context, support_grant_id=support.support_grant_id, mask_contacts=support.mask_contacts
+        context,
+        support_grant_id=support.support_grant_id,
+        mask_contacts=support.mask_contacts,
+        mask_names=support.mask_names,
     )
 
 

@@ -467,6 +467,7 @@ async def test_the_link_opens_once_and_every_failure_looks_the_same(
     opened = await _open(world, token)
     assert opened.status_code == 200, opened.text
     assert opened.headers["cache-control"] == "no-store"
+    assert opened.headers["referrer-policy"] == "no-referrer"  # the API's own (S4c-3, lane B)
     assert "default-src 'none'" in opened.headers["content-security-policy"]
     assert opened.json()["login"] == rules.support_login(uuid.UUID(body["id"]))
     assert account in world.admin.temporary_passwords  # Keycloak makes them choose their own
