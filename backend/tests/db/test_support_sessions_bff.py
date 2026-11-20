@@ -93,3 +93,62 @@ async def test_a_brokered_support_sign_in_is_refused_before_the_link_audit_or_pr
         "support_sign_in_brokered",
     )
     assert logged
+
+
+async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_grant(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B (7), D-178: a vendor support account's save names "Extravis support" and the grant."""
+    a, _b = bff.tenants
+    asker_email = _email("requester")
+    requester = bff.user("a", email=asker_email)
+    assert (await bff.login(requester)).status_code == 302
+    email = _email("support-writes")
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    (row,) = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, email
+    )
+    (asker,) = await _sql(
+        bff.db, "SELECT id FROM users WHERE tenant_id = $1 AND email = $2", a, asker_email
+    )
+    user_id, grant_id = row["id"], uuid.uuid4()
+    await _sql(
+        bff.db,
+        "UPDATE users SET user_type = 'vendor_support', roles_mapped_at = now() WHERE id = $1",
+        user_id,
+    )
+    await _sql(
+        bff.db,
+        "INSERT INTO support_grants (id, tenant_id, engineer_name, engineer_email, reason, access,"
+        " change_reason, starts_at, ends_at, state, verification, support_user_id)"
+        " VALUES ($1, $2, 'Omar', 'omar@extravis.com', 'r', 'view_and_change', 'fix INC-12',"
+        " now() - interval '1 hour', now() + interval '1 hour', 'active', 'email', $3)",
+        grant_id,
+        a,
+        user_id,
+    )
+    # Its own sign-in again, now as the support account (the session keeps the account's type).
+    assert (await bff.login(bff.user("a", email=email))).status_code == 302
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Mail is down", "requester_id": str(asker["id"])},
+        headers={"X-CSRF-Token": await _csrf(bff), "X-SupportX-Client": "console"},
+    )
+    assert made.status_code == 201, made.text
+    entries = await _sql(
+        bff.db,
+        "SELECT actor_type, actor_id, details->>'grant_id' AS grant_id FROM audit_entries"
+        " WHERE tenant_id = $1 AND object_id = $2",
+        a,
+        made.json()["id"],
+    )
+    assert entries
+    assert {(e["actor_type"], e["actor_id"], e["grant_id"]) for e in entries} == {
+        ("vendor_support", user_id, str(grant_id))
+    }
+
+
+async def _csrf(bff: Bff) -> str:  # noqa: F811 - the reused fixture
+    me = await bff.me()
+    assert me.status_code == 200, me.text
+    return str(me.json()["csrf_token"])

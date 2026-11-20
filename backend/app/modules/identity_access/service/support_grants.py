@@ -953,6 +953,15 @@ async def request_refusal(
     return None
 
 
+def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID | None:
+    """The grant `request_refusal` just admitted the account under (its cached facts), or None.
+
+    Every write of the request names it in the audit (lane B (7)); read from memory only.
+    """
+    facts = _cache.get((tenant_id, user_id))
+    return None if facts is None else facts.grant_id
+
+
 BROKERED = "support_sign_in_brokered"
 
 

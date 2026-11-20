@@ -61,6 +61,9 @@ class TenantContext:
     service_identity: bool = False
     # Work an AI agent does for `user_id` (WP-057 S4b); None for everything else.
     agent: AgentActor | None = None
+    # A vendor support account's session (WP-057 S4c-2): the grant it acts under, so the audit
+    # names "Extravis support" and the grant on its every entry. None for everyone else.
+    support_grant_id: uuid.UUID | None = None
 
 
 # Returns the session's context, None when the request has no session, or raises a problem

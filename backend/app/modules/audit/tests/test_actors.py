@@ -89,3 +89,16 @@ async def test_an_explicit_key_or_agent_actor_is_refused() -> None:
                 facts=WORKER,
                 actor=(kind, KEY),
             )
+
+
+def test_a_vendor_support_account_is_extravis_support_with_its_grant() -> None:
+    """WP-057 S4c-2 (D-173, D-178, lane B (7)): every entry names the grant it acted under."""
+    grant = uuid.uuid4()
+    acting = _acting(TenantContext(TENANT, PERSON, support_grant_id=grant))
+    assert (acting.type, acting.id, acting.on_behalf) == (
+        AuditActorType.VENDOR_SUPPORT,
+        PERSON,
+        None,
+    )
+    assert acting.subject == PERSON  # the engineer's address is theirs, kept as a person's
+    assert dict(acting.details) == {"grant_id": str(grant)}
