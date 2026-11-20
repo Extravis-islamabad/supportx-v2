@@ -463,6 +463,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 break_glass_notifications.register()  # other admins hear of a break-glass sign-in (WP-057 S1b)
 support_grant_notifications.register()  # every admin hears of vendor support access (D-173 (8))
+sign_in_log.register_siem_source()  # sign-ins reach the SIEM stream (WP-057 S5a)
 security_notices.register()  # a person hears of a sign-in from a new device (WP-057 S2b-1)
 register_lane_b_ports()  # GDPR erasure: identity, organisation, audit, files, links, lists
 register_lane_b_mention_ports()  # GDPR mentions report (S1b): other people's profiles, file names

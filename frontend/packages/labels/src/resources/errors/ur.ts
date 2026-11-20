@@ -549,6 +549,7 @@ export const ur: LabelResource = {
   'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
   'errors.field.host_name_invalid': 'صرف سرور کے نام لکھیں، جیسے mx.google.com۔',
+  'errors.field.https_required': 'https:// والا پتہ استعمال کریں۔',
   'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -723,6 +724,12 @@ export const ur: LabelResource = {
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.siem_cert_and_key_together': 'کلائنٹ سرٹیفکیٹ اور اس کی کلید ایک ساتھ دیں۔',
+  'errors.field.siem_kind_fixed': 'بھیجنے کا طریقہ نہیں بدل سکتا؛ اس کے بجائے نئی منزل شامل کریں۔',
+  'errors.field.siem_pem_invalid': 'یہ قابلِ استعمال سرٹیفکیٹ یا کلید (PEM) نہیں۔',
+  'errors.field.siem_port_not_allowed': 'TLS پر Syslog کا پورٹ استعمال کریں: 6514، 1514 یا 10514۔',
+  'errors.field.siem_secret_webhook_only': 'دستخطی راز صرف ویب ہک کا ہوتا ہے۔',
+  'errors.field.siem_webhook_json_only': 'ویب ہک صرف JSON بھیجتا ہے۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
   'errors.field.site_network_invalid':
     '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
@@ -1218,6 +1225,10 @@ export const ur: LabelResource = {
   'errors.session_key_still_in_use':
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
+  'errors.siem_destination_name_taken': 'کسی اور منزل کا پہلے سے یہی نام ہے۔',
+  'errors.siem_destination_not_found': 'یہ منزل اب موجود نہیں۔',
+  'errors.siem_destinations_limit': 'زیادہ سے زیادہ {{max}} منزلیں۔',
+  'errors.siem_rotation_open': 'ایک تبدیلی پہلے سے جاری ہے: پہلے پرانا راز ختم کریں۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',

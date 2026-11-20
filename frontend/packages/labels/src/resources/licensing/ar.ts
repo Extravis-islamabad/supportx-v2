@@ -43,6 +43,7 @@ export const ar: LabelResource = {
   'feature.release': 'إدارة الإصدارات',
   'feature.sandbox': 'بيئات الاختبار المعزولة',
   'feature.service_request': 'طلبات الخدمة',
+  'feature.siem_stream': 'بث مراقبة الأمان',
   'feature.sla': 'اتفاقيات مستوى الخدمة',
   'feature.workflows': 'سير العمل المرئي',
   'licence.ask_admin': 'اسأل المسؤول عن ترقية الخطة.',

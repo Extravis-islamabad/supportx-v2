@@ -18,6 +18,11 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # WP-057 S5a: SIEM destinations.
+    "SiemFormat": "siem_format",
+    "SiemKind": "siem_destination_kind",
+    "SiemStream": "siem_stream",
+    "SiemTestOut.result": "siem_test_result",
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
     # WP-057 S4c-1 (D-173): vendor support grants.
     "SupportGrantIn.access": "support_grant_access",

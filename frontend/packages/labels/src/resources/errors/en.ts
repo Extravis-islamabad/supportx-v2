@@ -547,6 +547,7 @@ export const en = {
   'errors.field.holiday_range_order': 'The last day must be on or after the first day.',
   'errors.field.holiday_range_too_long': 'A holiday can be at most one year long.',
   'errors.field.host_name_invalid': 'Enter server names only, such as mx.google.com.',
+  'errors.field.https_required': 'Use an https:// address.',
   'errors.field.ical_invalid': 'This is not an iCalendar (.ics) file.',
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
@@ -718,6 +719,13 @@ export const en = {
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
+  'errors.field.siem_cert_and_key_together': 'Give the client certificate and its key together.',
+  'errors.field.siem_kind_fixed':
+    "How entries are sent can't change; add a new destination instead.",
+  'errors.field.siem_pem_invalid': "This isn't a usable certificate or key (PEM).",
+  'errors.field.siem_port_not_allowed': 'Use a syslog-over-TLS port: 6514, 1514 or 10514.',
+  'errors.field.siem_secret_webhook_only': 'Only a webhook has a signing secret.',
+  'errors.field.siem_webhook_json_only': 'A webhook sends JSON only.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
   'errors.field.site_network_invalid':
     'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
@@ -1208,6 +1216,10 @@ export const en = {
   'errors.session_key_still_in_use':
     'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
+  'errors.siem_destination_name_taken': 'Another destination already has this name.',
+  'errors.siem_destination_not_found': 'This destination no longer exists.',
+  'errors.siem_destinations_limit': 'At most {{max}} destinations.',
+  'errors.siem_rotation_open': 'A rotation is already under way: retire the old secret first.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unavailable':
     'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',

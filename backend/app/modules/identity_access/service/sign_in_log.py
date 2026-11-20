@@ -22,13 +22,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Select, delete, func, select, text, update
+from sqlalchemy import Select, and_, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import SignInRow, register_sign_in_source
 from app.modules.identity_access.domain.sign_in import (
     SignInApp,
     SignInMethod,
@@ -167,6 +168,46 @@ async def count_events(session: AsyncSession, found: LogFilter) -> int:
     return int(await session.scalar(statement) or 0)
 
 
+async def sign_ins_after(
+    session: AsyncSession,
+    after: tuple[datetime, uuid.UUID] | None,
+    limit: int,
+) -> list[SignInRow]:
+    """The tenant's sign-ins after `after` (time, then ID), oldest first, at most `limit`.
+
+    For the SIEM stream (WP-057 S5a, audit's port): what happened and when, to whom by ID; never
+    the IP address, the device, a name or an e-mail address (lane A's S5a condition).
+    """
+    query = select(SignInEvent)
+    if after is not None:
+        at, last = after
+        query = query.where(
+            or_(
+                SignInEvent.occurred_at > at,
+                and_(SignInEvent.occurred_at == at, SignInEvent.id > last),
+            )
+        )
+    rows = await session.scalars(
+        query.order_by(SignInEvent.occurred_at, SignInEvent.id).limit(limit)
+    )
+    return [
+        SignInRow(r.id, r.occurred_at, r.user_id, r.outcome, r.reason, r.method, r.app)
+        for r in rows
+    ]
+
+
+async def latest_sign_in(session: AsyncSession) -> tuple[datetime, uuid.UUID] | None:
+    """The tenant's newest sign-in's position (a new stream starts after it: no history)."""
+    row = (
+        await session.execute(
+            select(SignInEvent.occurred_at, SignInEvent.id)
+            .order_by(SignInEvent.occurred_at.desc(), SignInEvent.id.desc())
+            .limit(1)
+        )
+    ).first()
+    return None if row is None else (row[0], row[1])
+
+
 async def forget_person(session: AsyncSession, user_id: uuid.UUID) -> int:
     """GDPR erasure: null the address and device of the person's entries (lane B's condition 8)."""
     result = await session.execute(
@@ -227,3 +268,8 @@ async def purge_schedule(database: Database, settings: Settings) -> None:
             marks = await security_notice_import.purge(session, now)
         if gone or marks:
             log.info("sign_in_log_purged", tenant_id=str(tenant), entries=gone, notice_marks=marks)
+
+
+def register_siem_source() -> None:
+    """Hand sign-ins to the audit module's SIEM stream (at import, like the other ports)."""
+    register_sign_in_source(sign_ins_after, latest_sign_in)

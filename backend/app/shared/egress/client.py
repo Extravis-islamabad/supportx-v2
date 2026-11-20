@@ -163,6 +163,14 @@ class PinnedBackend(httpcore.AsyncNetworkBackend):
         await self.inner.sleep(seconds)
 
 
+def tls_context(destination: Destination | None) -> ssl.SSLContext:
+    """The TLS rules every outbound connection follows: TLS 1.2+, the host name checked.
+
+    For a caller that opens its own socket to a pinned address (syslog over TLS, WP-057 S5a).
+    """
+    return _ssl_context(destination)
+
+
 def _ssl_context(destination: Destination | None) -> ssl.SSLContext:
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
