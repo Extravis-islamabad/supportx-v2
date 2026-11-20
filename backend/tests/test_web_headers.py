@@ -66,8 +66,8 @@ def test_every_location_with_its_own_headers_sends_hsts_too() -> None:
 
 
 def _map(text: str, variable: str) -> dict[str, str]:
-    """One `map $uri $variable { key value; ... }` block's entries."""
-    found = re.search(r"map \$uri \$" + variable + r" \{(.*?)\}", text, re.DOTALL)
+    """One `map <source> $variable { key value; ... }` block's entries."""
+    found = re.search(r"map \S+ \$" + variable + r" \{(.*?)\n\}", text, re.DOTALL)
     assert found is not None, variable
     body = re.sub(r"#[^\n]*", "", found.group(1))
     return {
@@ -77,14 +77,30 @@ def _map(text: str, variable: str) -> dict[str, str]:
 
 
 def test_the_vendor_support_link_page_is_never_cached_and_sends_no_referer() -> None:
-    """WP-057 S4c-3, lane B (2): the page shows a password once; every other page as before."""
+    """WP-057 S4c-3, lane B (2): the page shows a password once; every other page as before.
+
+    The page is matched on $request_uri (the path as asked, with or without a query or a
+    trailing slash), never $uri: the SPA fallback rewrites $uri to /index.html before the
+    headers go out. Checked against a running nginx by hand (S4c-3 PR); here, the config.
+    """
     text = NGINX_CONF.read_text()
+    assert re.search(r"map \$request_uri \$supportx_vendor_page \{", text)
+    page = _map(text, "supportx_vendor_page")
+    pattern = next(k for k, v in page.items() if v == "1").removeprefix("~")
+    for asked in (
+        "/vendor-support/start",
+        "/vendor-support/start?t=acme",
+        "/vendor-support/start/",
+    ):
+        assert re.match(pattern, asked), asked
+    for other in ("/vendor-support/started", "/", "/incidents", "/vendor-support/start/x"):
+        assert not re.match(pattern, other), other
+    assert page["default"] == "0"
     cache = _map(text, "supportx_cache")
-    referrer = _map(text, "supportx_referrer")
-    assert cache["/vendor-support/start"] == "no-store"
+    assert cache["~^1:"] == "no-store"
     assert cache["default"] == "no-cache"
-    assert referrer == {
-        "/vendor-support/start": "no-referrer",
+    assert _map(text, "supportx_referrer") == {
+        "1": "no-referrer",
         "default": "strict-origin-when-cross-origin",
     }
     server, _ = _blocks(text)
