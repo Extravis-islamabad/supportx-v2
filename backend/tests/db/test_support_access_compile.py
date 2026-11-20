@@ -270,3 +270,28 @@ async def test_support_uses_no_ai_feature(world: World) -> None:  # noqa: F811 -
         assert refused.json()["code"] == "vendor_support_no_ai", path
     # The tenant's own people keep it (the control).
     assert (await world.call("GET", "/ai/settings", world.a)).status_code == 200
+
+
+async def test_a_view_grant_reads_but_never_writes(world: World) -> None:  # noqa: F811 - the reused fixture
+    """The plan's tests: at view, reads work and a write per kind is refused (403)."""
+    _, user_id = await _support_user(world)
+    console = {"X-SupportX-Client": "console"}
+    for path in ("/incidents", "/service-requests", "/problems", "/changes", "/releases"):
+        read = await world.call("GET", path, world.a, user=user_id, headers=console)
+        assert read.status_code == 200, (path, read.text)
+        write = await world.call(
+            "POST",
+            path,
+            world.a,
+            user=user_id,
+            json={"subject": "Mail is down"},
+            headers={"Idempotency-Key": str(uuid.uuid4()), **console},
+        )
+        assert write.status_code == 403, (path, write.text)
+    # Knowledge, CMDB and assets: their writes' permissions are not held at view (their routes
+    # check a valid body first, so the decision is asserted where it is made).
+    subject = await _compiled(world, user_id)
+    for write_right in ("knowledge.create", "cmdb.add", "assets.manage", "sla.manage"):
+        assert write_right not in subject.grants, write_right
+    for read_right in ("knowledge.view", "cmdb.view", "assets.view", "sla.view"):
+        assert read_right in subject.grants, read_right
