@@ -58,6 +58,7 @@ REASONS = frozenset(
         "no_draft_path",  # business rules, notification templates (the coordinator, S4c-2 Q3)
         "sharing",  # views and dashboards shared with others
         "not_desk",  # outside the desk: procurement, files, personal profile
+        "no_private_path",  # a note is private-capable: it opens private notes (lane B)
     }
 )
 
@@ -75,7 +76,6 @@ def _record_type(path: str, extra: Iterable[str] = ()) -> dict[str, Decision]:
         **{
             f"{path}.{action}": _C
             for action in (
-                "add_note",
                 "assign",
                 "change_priority",
                 "close",
@@ -91,6 +91,8 @@ def _record_type(path: str, extra: Iterable[str] = ()) -> dict[str, Decision]:
             )
         },
         **_never("speaks_for_tenant", f"{path}.reply"),
+        # add_note also opens private notes, their files and the full notices (lane B, S4c-2 Q1).
+        **_never("no_private_path", f"{path}.add_note"),
         **_never("tenant_decision", f"{path}.approve", f"{path}.delete"),
         **_never("sharing", f"{path}.share_views", f"{path}.share_views_wide"),
         **_never("costs", f"{path}.view_costs"),

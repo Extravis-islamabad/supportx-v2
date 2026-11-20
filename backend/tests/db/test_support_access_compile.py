@@ -84,7 +84,12 @@ async def test_view_and_change_adds_the_work_and_drafts_never_the_tenants_decisi
     _no_never(subject)
     for given in ("incidents.view", "incidents.edit", "workflows.manage", "sla.manage"):
         assert given in subject.grants, given
+    # Tied to its grant, contacts withheld, and the same after the Valkey cache's round trip.
+    assert subject.support_grant_id is not None
+    assert subject.mask_contacts
+    assert Subject.from_dict(subject.to_dict()) == subject
     for refused in (
+        "incidents.add_note",  # opens private notes, their files and full notices (lane B)
         "incidents.reply",
         "incidents.approve",
         "incidents.delete",
@@ -191,4 +196,5 @@ async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
         uuid.UUID(grant_id),
     )
     unmasked = await _compiled(world, user_id)
+    assert not unmasked.mask_contacts
     assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}

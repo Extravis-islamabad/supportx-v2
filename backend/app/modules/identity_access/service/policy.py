@@ -549,6 +549,7 @@ class PolicyService:
         grant = (
             await session.execute(
                 select(
+                    SupportGrant.id,
                     SupportGrant.access,
                     SupportGrant.unmask_personal,
                     SupportGrant.state,
@@ -590,7 +591,7 @@ class PolicyService:
         if given or subject.is_tenant_admin:
             msg = f"a support subject holds what its level never allows: {given}"
             raise AssertionError(msg)
-        return subject
+        return replace(subject, support_grant_id=grant.id, mask_contacts=not grant.unmask_personal)
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""
