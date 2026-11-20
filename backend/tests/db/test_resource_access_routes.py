@@ -49,7 +49,6 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/versions": CIS,
     "/assets": ASSETS,
     "/assets/audits/{audit_id}/items": ASSETS,
-    "/assets/availability": ASSETS,
     "/assets/bookings": ASSETS,
     "/assets/groups/{group_id}/assets": ASSETS,
     "/assets/held-by": ASSETS,
@@ -81,6 +80,10 @@ EXEMPT: dict[str, str] = {
     "/cmdb/settings": "CMDB settings: configuration",
     "/assets/audits": "audit campaigns, not assets (their items route is checked)",
     "/assets/audits/{audit_id}": "one audit campaign's header, not assets",
+    "/assets/availability": (
+        "the shared loan pool (D-179): product, site name and busy periods only, never an asset,"
+        " a tag or a holder, so alike for everyone who may ask"
+    ),
     "/assets/bookable": (
         "the portal's bookable list: tags and names offered alike to every signed-in person when"
         " the tenant turns portal booking on; no staff scope, so no ADR-053 set to apply"

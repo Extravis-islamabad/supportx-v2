@@ -11,7 +11,8 @@
   set is 403 out_of_scope, for assets and CIs (create, site move, change of type).
 - One's own holdings (/assets/mine) stay listed; the record and the picker stay narrowed.
 - The loan register, bookings and an audit's items name no unseen asset; a loan's status still
-  counts every line.
+  counts every line (open while only an unseen line is out). Availability is the shared pool
+  (D-179) and names no asset.
 
 Real PostgreSQL and Valkey on the incident world: every organisation is new (rule 5h).
 """
@@ -580,6 +581,15 @@ async def test_registers_name_no_unseen_asset(world: World) -> None:
         assert [x["id"] for x in shown["assets"]] == [near["id"]]
         assert far["id"] not in json.dumps(shown)
         assert shown["status"] == both.json()["status"]  # the status still counts every line
+        back = await world.call(
+            "POST", f"/assets/loans/{both.json()['id']}/returns", a, a.admin,
+            json={"asset_ids": [near["id"]]},
+        )  # fmt: skip
+        assert back.status_code == 200, back.text
+        again = await world.call("GET", "/assets/loans", a, me)
+        shown = {row["id"]: row for row in again.json()}[both.json()["id"]]
+        # Only an unseen line is still out: the loan stays open, never "closed" to this reader.
+        assert (shown["status"], shown["outstanding"]) == ("open", []), shown
         for item, count in ((near_booked, 1), (far_booked, 0)):
             found = await world.call(
                 "GET", "/assets/bookings", a, me, params={"asset_id": item["id"]}
@@ -590,8 +600,10 @@ async def test_registers_name_no_unseen_asset(world: World) -> None:
             "GET", "/assets/availability", a, me, params={"product_id": product}
         )
         assert free.status_code == 200, free.text
-        assert near_booked["id"] in free.text
+        # The shared pool (D-179): no asset is named, seen or not, so no rule narrows it.
+        assert near_booked["id"] not in free.text
         assert far_booked["id"] not in free.text
+        assert {"product_id", "product_name", "site_name", "busy"} >= set(free.json()[0])
         items = await world.call("GET", f"/assets/audits/{audit['id']}/items", a, me)
         assert items.status_code == 200, items.text
         assert near["id"] in items.text

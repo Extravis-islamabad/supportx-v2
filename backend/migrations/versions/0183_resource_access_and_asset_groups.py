@@ -15,7 +15,7 @@ The downgrade refuses while any tenant has a rule or a managed asset (rule 5h): 
 decisions about who sees what.
 
 Revision ID: 0183
-Revises: 0181
+Revises: 0179
 Created: 2026-11-20
 """
 
@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0183"
-down_revision: str | None = "0181"  # main's head when written; re-pointed at its queue turn
+down_revision: str | None = "0179"  # main's head; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
