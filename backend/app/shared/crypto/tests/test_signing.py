@@ -7,6 +7,7 @@ module, so a change to the scheme fails here.
 import pytest
 
 from app.shared.crypto.signing import (
+    OFFERED_MAX,
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
     sign,
@@ -66,3 +67,13 @@ def test_verify_refuses_another_version_or_missing_headers() -> None:
 def test_signing_needs_a_secret() -> None:
     with pytest.raises(ValueError, match="at least one secret"):
         signature([], AT, BODY)
+
+
+def test_verify_takes_only_plain_digits_and_a_few_offered_values() -> None:
+    """Lane B (5): " 1700000000", "+1700000000" and "1_700_000_000" are refused."""
+    good = sign([KEY_1], AT, BODY)[SIGNATURE_HEADER]
+    for odd in (f" {AT}", f"+{AT}", "1_700_000_000", "٣٤٥", ""):
+        assert not verify([KEY_1], {TIMESTAMP_HEADER: odd, SIGNATURE_HEADER: good}, BODY, now=AT)
+    # Only the first OFFERED_MAX values count: a right one buried past them is not looked at.
+    padded = ",".join(["v1=00"] * OFFERED_MAX + [good])
+    assert not verify([KEY_1], {TIMESTAMP_HEADER: str(AT), SIGNATURE_HEADER: padded}, BODY, now=AT)

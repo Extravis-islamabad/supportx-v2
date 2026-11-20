@@ -20,6 +20,7 @@
 
 import asyncio
 import secrets
+import ssl
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -51,7 +52,7 @@ from app.shared.egress import (
     tls_context,
 )
 from app.shared.egress.sockets import pinned_address
-from app.shared.fields import Binding, field_cipher_for, purpose
+from app.shared.fields import Binding, FieldKeysUnavailable, field_cipher_for, purpose
 from app.shared.history import stale_version
 from app.shared.ids import new_id
 
@@ -130,6 +131,7 @@ TLS = "tls"
 NOT_ALLOWED = "address_not_allowed"
 TIMEOUT = "timeout"
 KEYS = "keys_unavailable"
+FAILED = "failed"
 
 
 @dataclass(frozen=True)
@@ -212,6 +214,18 @@ def _checked(data: DestinationInput) -> None:
         raise _invalid(*problems)
 
 
+async def _name_free(session: AsyncSession, name: str, other_than: uuid.UUID | None = None) -> None:
+    """Names are unique per tenant (case-insensitive): a clash is a labelled 409, never a 500."""
+    query = select(SiemDestination.id).where(
+        SiemDestination.deleted_at.is_(None),
+        func.lower(SiemDestination.name) == name.strip().lower(),
+    )
+    if other_than is not None:
+        query = query.where(SiemDestination.id != other_than)
+    if await session.scalar(query.limit(1)) is not None:
+        raise Conflict(code="siem_destination_name_taken")
+
+
 async def _chain_end(session: AsyncSession) -> int:
     return int(await session.scalar(select(func.coalesce(func.max(AuditChainLink.seq), 0))) or 0)
 
@@ -232,10 +246,33 @@ async def _open(
     return await cipher.open(what, Binding(TABLE, row.id, what), text)
 
 
+def _pems_usable(data: DestinationInput) -> None:
+    ca = data.ca_pem or None
+    cert, key = data.client_cert_pem or None, data.client_key_pem or None
+    problems: list[tuple[str, str]] = []
+    if ca is not None:
+        try:
+            ssl.create_default_context(cadata=ca)
+        except (ssl.SSLError, ValueError):
+            problems.append(("ca_pem", "siem_pem_invalid"))
+    if cert is not None and key is not None:
+        try:
+            tls_context(Destination(client_cert_pem=cert, client_key_pem=key))
+        except (EgressError, ssl.SSLError, ValueError):
+            problems.append(("client_cert_pem", "siem_pem_invalid"))
+    if problems:
+        raise _invalid(*problems)
+
+
 async def _apply_pems(
     session: AsyncSession, settings: Settings, row: SiemDestination, data: DestinationInput
 ) -> None:
-    """Seal the TLS material given; "" clears it, None leaves it as it was."""
+    """Seal the TLS material given; "" clears it, None leaves it as it was.
+
+    Each PEM is loaded into a throwaway TLS context first: one that can't be used is refused at
+    the field (422 `siem_pem_invalid`), never saved and never echoed (lane B, #564 (2)).
+    """
+    _pems_usable(data)
     for value, what, column in (
         (data.ca_pem, CA_PEM, "ca_pem_sealed"),
         (data.client_cert_pem, CLIENT_CERT, "client_cert_sealed"),
@@ -288,6 +325,7 @@ async def add_destination(
     count = await session.scalar(select(func.count()).where(SiemDestination.deleted_at.is_(None)))
     if (count or 0) >= siem.DESTINATIONS_MAX:
         raise Conflict(code="siem_destinations_limit", params={"max": siem.DESTINATIONS_MAX})
+    await _name_free(session, data.name)
     after = await _latest_sign_in(session)
     row = SiemDestination(
         id=new_id(),  # known before sealing: each secret is bound to its row (a tampered one fails)
@@ -335,6 +373,7 @@ async def change_destination(  # noqa: PLR0913 - the change, its version and who
     if data.kind.value != row.kind:
         raise _invalid(("kind", "siem_kind_fixed"))
     _checked(data)
+    await _name_free(session, data.name, other_than=row.id)
     row.name = data.name.strip()
     row.format = data.format.value
     if row.kind == siem.SiemKind.SYSLOG:
@@ -351,18 +390,29 @@ async def change_destination(  # noqa: PLR0913 - the change, its version and who
     return row
 
 
-async def rotate_secret(
+async def rotate_secret(  # noqa: PLR0913 - the destination, the step, its version, who
     session: AsyncSession,
     subject: Actor,
     settings: Settings,
     destination_id: uuid.UUID,
     *,
     finish: bool,
+    expected_version: int,
 ) -> Made:
-    """Start a rotation (a new secret, both signing) or finish it (the previous one dropped)."""
+    """Start a rotation (a new secret, both signing) or finish it (the previous one dropped).
+
+    If-Match; a second start while one is unfinished is refused (409 `siem_rotation_open`):
+    it would drop the secret receivers still use (lane B (3)).
+    """
     row = await _live(session, destination_id)
+    if row.version != expected_version:
+        raise await stale_version(
+            session, row, expected_version=expected_version, record_type=TABLE, record_id=row.id
+        )
     if row.kind != siem.SiemKind.WEBHOOK:
         raise _invalid(("kind", "siem_secret_webhook_only"))
+    if not finish and row.previous_secret_sealed is not None:
+        raise Conflict(code="siem_rotation_open")
     secret: str | None = None
     if finish:
         row.previous_secret_sealed = None
@@ -456,7 +506,10 @@ async def _send_syslog(
     ip = await pinned_address(host, port, installation_allowance(settings))
     context = tls_context(await _tls(session, settings, row))
     at = system_clock.now()
-    payload = b"".join(siem.frame(siem.syslog_line(line, hostname=host, at=at)) for line in lines)
+    # HOSTNAME is the sender (RFC 5424 §6.2.4), never the receiver (lane B (4)).
+    payload = b"".join(
+        siem.frame(siem.syslog_line(line, hostname=siem.APP_NAME, at=at)) for line in lines
+    )
     try:
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(str(ip), port, ssl=context, server_hostname=host),
@@ -536,6 +589,42 @@ def _backoff(failures: int) -> timedelta:
     return min(wait, BACKOFF_MAX)
 
 
+def _failure_code(exc: Exception) -> str:
+    """Any failure as this destination's own code (never the far end's or Python's text)."""
+    if isinstance(exc, EgressError):
+        return exc.code or UNREACHABLE
+    if isinstance(exc, ssl.SSLError):
+        return TLS
+    if isinstance(exc, FieldKeysUnavailable):
+        return KEYS
+    return FAILED
+
+
+async def _attempt(
+    session: AsyncSession,
+    settings: Settings,
+    row: SiemDestination,
+    tenant_id: uuid.UUID,
+    batch: _Batch,
+) -> str | None:
+    """Send a batch; the failure's code, or None.
+
+    Nothing a destination does escapes it, so one broken destination (a bad PEM, a key it can't
+    open) never stops the others (lane B (1)).
+    """
+    try:
+        if row.kind == siem.SiemKind.WEBHOOK:
+            await _send_webhook(session, settings, row, batch.objects, tenant_id)
+        else:
+            await _send_syslog(session, settings, row, batch.lines)
+    except Exception as exc:  # noqa: BLE001 - every failure becomes this destination's code
+        code = _failure_code(exc)
+        if code == FAILED:
+            log.warning("siem_send_failed", destination_id=str(row.id), error=type(exc).__name__)
+        return code
+    return None
+
+
 async def deliver_one(
     session: AsyncSession, settings: Settings, row: SiemDestination, tenant_id: uuid.UUID
 ) -> bool:
@@ -547,20 +636,16 @@ async def deliver_one(
     batch = await _batch(session, row)
     if not batch.objects and batch.last_seq is None:
         return False
-    try:
-        if batch.objects:
-            if row.kind == siem.SiemKind.WEBHOOK:
-                await _send_webhook(session, settings, row, batch.objects, tenant_id)
-            else:
-                await _send_syslog(session, settings, row, batch.lines)
-    except EgressError as exc:
-        row.failures += 1
-        row.last_error_code = exc.code or UNREACHABLE
-        row.last_error_at = now
-        row.failing_since = row.failing_since or now
-        row.next_attempt_at = now + _backoff(row.failures)
-        await session.flush()
-        return False
+    if batch.objects:
+        error = await _attempt(session, settings, row, tenant_id, batch)
+        if error is not None:
+            row.failures += 1
+            row.last_error_code = error
+            row.last_error_at = now
+            row.failing_since = row.failing_since or now
+            row.next_attempt_at = now + _backoff(row.failures)
+            await session.flush()
+            return False
     if batch.last_seq is not None:
         row.audit_seq_sent = batch.last_seq
     if batch.last_sign_in is not None:
@@ -599,7 +684,11 @@ async def deliver_tenant(database: Database, settings: Settings, tenant_id: uuid
                 )
                 if row is None or not row.enabled or row.deleted_at is not None:
                     break
-                more = await deliver_one(session, settings, row, tenant_id)
+                try:
+                    more = await deliver_one(session, settings, row, tenant_id)
+                except Exception:  # the batch read itself: logged, the others go on
+                    log.exception("siem_destination_failed", destination_id=str(destination_id))
+                    more = False
             if not more:
                 break
 
@@ -623,7 +712,7 @@ async def send_test(
         "object_id": str(row.id),
     }
     error: str | None = None
-    try:
+    try:  # contained like delivery (lane B (6)): any failure is this destination's code
         if row.kind == siem.SiemKind.WEBHOOK:
             await _send_webhook(
                 session,
@@ -637,6 +726,6 @@ async def send_test(
                 siem.SiemStream.AUDIT, content, siem.SiemFormat(row.format), version=VERSION
             )
             await _send_syslog(session, settings, row, [line])
-    except EgressError as exc:
-        error = exc.code or UNREACHABLE
+    except Exception as exc:  # noqa: BLE001 - every failure becomes a code
+        error = _failure_code(exc)
     return error

@@ -262,6 +262,7 @@ async def rotate_secret(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     response: Response,
     session: TenantSession,
     subject: Manage,
+    version: ExpectedVersion,
     note: Annotated[
         AuditNote,
         audited(
@@ -278,6 +279,7 @@ async def rotate_secret(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         request.app.state.settings,
         destination_id,
         finish=body.finish,
+        expected_version=version,
     )
     note.details = {"step": "finished" if body.finish else "started"}
     response.headers.update(NO_STORE)

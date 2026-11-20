@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.db
 
 BASE = "/audit/siem/destinations"
+BAD_PEM = "-----BEGIN CERTIFICATE-----\nnope\n-----END CERTIFICATE-----"
 
 
 # --- a TLS syslog receiver -----------------------------------------------------------------------
@@ -190,14 +191,16 @@ async def _write(world: World, tenant: uuid.UUID, user: uuid.UUID, n: int) -> li
     return ids
 
 
-async def _destination(world: World, tenant: uuid.UUID, port: int, ca_pem: str) -> uuid.UUID:
+async def _destination(
+    world: World, tenant: uuid.UUID, port: int, ca_pem: str, name: str = "receiver"
+) -> uuid.UUID:
     async with world.app.state.db.tenant_session(TenantContext(tenant)) as session:
         made = await siem.add_destination(
             session,
             _Admin(tenant),
             world.app.state.settings,
             siem.DestinationInput(
-                name="QA-2026-11-20 receiver",
+                name=f"QA-2026-11-20 {name}",
                 kind=domain.SiemKind.SYSLOG,
                 format=domain.SiemFormat.JSON,
                 host="localhost",
@@ -336,3 +339,76 @@ async def test_the_api_is_admins_only_and_never_shows_a_secret_twice(world: Worl
         headers={"Idempotency-Key": str(uuid.uuid4())},
     )  # fmt: skip
     assert udp.status_code == 422, udp.text
+
+
+async def test_a_broken_destination_never_stops_a_healthy_one(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane B (1): a destination whose stored CA can't be used fails alone, with a code."""
+    ca, cert, key = _tls_material()
+    receiver = Receiver(cert, key)
+    await receiver.start()
+    monkeypatch.setattr(siem, "SYSLOG_PORTS", frozenset({receiver.port}))
+    a = world.a
+    healthy = await _destination(world, a.tenant, receiver.port, ca)
+    broken = await _destination(world, a.tenant, receiver.port, ca, name="broken")
+    # Break the second one's stored CA behind the API (as a key change or a bad row would).
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        row = await session.get(SiemDestination, broken)
+        assert row is not None
+        row.ca_pem_sealed = "sx2:not-a-sealed-value"
+    ids = await _write(world, a.tenant, a.admin, 2)
+    await siem.deliver_tenant(world.app.state.db, world.app.state.settings, a.tenant)
+    await asyncio.sleep(0.2)
+    sent = {json.loads(m.split(" - audit - ", 1)[1])["id"] for m in receiver.messages}
+    assert set(ids) <= sent  # the healthy one delivered
+    assert (await _row(world, a.tenant, healthy)).last_success_at is not None
+    failed = await _row(world, a.tenant, broken)
+    assert failed.last_error_code is not None
+    assert failed.next_attempt_at is not None
+    await receiver.stop()
+
+
+async def test_pems_are_checked_and_rotation_is_guarded(world: World) -> None:
+    """Lane B (2), (3): an unusable PEM is refused; a rotation takes If-Match, one at a time."""
+    a = world.a
+    bad = await world.call(
+        "POST", BASE, a, a.admin,
+        json={"name": "QA-2026-11-20 bad CA", "kind": "syslog", "host": "siem.example.test",
+              "port": 6514, "ca_pem": BAD_PEM},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert bad.status_code == 422, bad.text
+    assert "siem_pem_invalid" in bad.text
+    assert "nope" not in bad.text  # never echoed
+    made = await world.call(
+        "POST", BASE, a, a.admin,
+        json={"name": "QA-2026-11-20 rotate", "kind": "webhook",
+              "url": "https://siem.example.test/in"},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )  # fmt: skip
+    assert made.status_code == 201, made.text
+    hook = made.json()
+    path = f"{BASE}/{hook['id']}/rotate-secret"
+    stale = await world.call(
+        "POST", path, a, a.admin, json={}, headers={"If-Match": f'"{hook["version"] + 9}"'}
+    )
+    assert stale.status_code == 409, stale.text
+    started = await world.call(
+        "POST", path, a, a.admin, json={}, headers={"If-Match": f'"{hook["version"]}"'}
+    )
+    assert started.status_code == 200, started.text
+    assert started.json()["secret"]
+    assert started.json()["rotating"] is True
+    again = await world.call(
+        "POST", path, a, a.admin, json={},
+        headers={"If-Match": f'"{started.json()["version"]}"'},
+    )  # fmt: skip
+    assert again.status_code == 409, again.text
+    assert again.json()["code"] == "siem_rotation_open"
+    finished = await world.call(
+        "POST", path, a, a.admin, json={"finish": True},
+        headers={"If-Match": f'"{started.json()["version"]}"'},
+    )  # fmt: skip
+    assert finished.status_code == 200, finished.text
+    assert finished.json()["rotating"] is False

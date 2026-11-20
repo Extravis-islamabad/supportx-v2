@@ -19,6 +19,8 @@ SIGNATURE_HEADER = "X-SupportX-Signature"
 TIMESTAMP_HEADER = "X-SupportX-Timestamp"
 VERSION = "v1"
 TOLERANCE_SECONDS = 300  # five minutes either way
+OFFERED_MAX = 4  # signatures checked per request (two secrets in a rotation, with room)
+TIMESTAMP_DIGITS_MAX = 12  # Unix seconds for the next thirty thousand years
 
 
 def _mac(secret: bytes, timestamp: int, body: bytes) -> str:
@@ -65,13 +67,13 @@ def verify(
     lowered = {k.lower(): v for k, v in headers.items()}
     raw_time = lowered.get(TIMESTAMP_HEADER.lower(), "")
     header = lowered.get(SIGNATURE_HEADER.lower(), "")
-    try:
-        timestamp = int(raw_time)
-    except ValueError:
+    # Digits only (no sign, spaces or underscores, which int() would take).
+    if not raw_time.isascii() or not raw_time.isdigit() or len(raw_time) > TIMESTAMP_DIGITS_MAX:
         return False
+    timestamp = int(raw_time)
     if abs(now - timestamp) > tolerance:
         return False
-    offered = list(_values(header))
+    offered = list(_values(header))[:OFFERED_MAX]  # never an unbounded loop of comparisons
     found = False
     for secret in secrets:
         expected = _mac(secret, timestamp, body)
