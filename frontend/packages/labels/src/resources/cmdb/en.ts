@@ -219,6 +219,7 @@ export const en = {
   'cmdb.views.as_cards': 'Cards',
   'cmdb.views.as_list': 'List',
   'cmdb.views.back': 'Back to business views',
+  'cmdb.views.base_ci': 'Base CI',
   'cmdb.views.copy_name': '{{name}} (copy)',
   'cmdb.views.delete': 'Remove view',
   'cmdb.views.delete_confirm': 'Remove the business view "{{name}}"?',

@@ -18,6 +18,7 @@ from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
+from app.modules.cmdb.api.routes import RefNameOut, names_out
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import BusinessView, RelationshipTypeRule
@@ -326,6 +327,11 @@ class CiVersionOut(BaseModel):
     masked_fields: list[str] = Field(
         default_factory=list, description="Custom fields this version holds but shows masked."
     )
+    names: dict[str, RefNameOut] = Field(
+        default_factory=dict,
+        description="References in `fields` named for you (site, owner, groups, asset, person "
+        "custom values), by the referenced ID; the same map on both sides of a compare.",
+    )
 
 
 class CiAttributeChangeOut(BaseModel):
@@ -365,6 +371,7 @@ def _version(view: versions.VersionView) -> CiVersionOut:
         fields=view.fields,
         relationships=[_link(link) for link in view.relationships],
         masked_fields=view.masked_fields,
+        names=names_out(view.names),
     )
 
 
@@ -411,6 +418,19 @@ class BusinessViewPatch(BaseModel):
     positions: Positions | None = None
 
 
+class BaseCiOut(BaseModel):
+    """A view's base CI."""
+
+    id: uuid.UUID
+    display_id: str
+    name: str
+
+    @classmethod
+    def of(cls, base: business_views.BaseCi | None) -> "BaseCiOut | None":
+        """From the service's base CI (None stays None)."""
+        return None if base is None else cls(id=base.id, display_id=base.display_id, name=base.name)
+
+
 class BusinessViewListItem(BaseModel):
     """One business view in a list."""
 
@@ -418,19 +438,27 @@ class BusinessViewListItem(BaseModel):
     name: str
     description: str | None
     base_ci_id: uuid.UUID
+    base_ci: BaseCiOut | None = Field(
+        default=None,
+        description="The base CI (always one you may see; null only if it was trashed while "
+        "this answer was made).",
+    )
     layout: BusinessViewLayout
     owner_id: uuid.UUID | None
     updated_at: datetime
     version: int
 
     @classmethod
-    def of(cls, row: BusinessView) -> "BusinessViewListItem":
-        """From the row."""
+    def of(
+        cls, row: BusinessView, base: business_views.BaseCi | None = None
+    ) -> "BusinessViewListItem":
+        """From the row and its base CI."""
         return cls(
             id=row.id,
             name=row.name,
             description=row.description,
             base_ci_id=row.base_ci_id,
+            base_ci=BaseCiOut.of(base),
             layout=rel.BusinessViewLayout(row.layout),
             owner_id=row.owner_id,
             updated_at=row.updated_at,
@@ -453,7 +481,7 @@ class BusinessViewOut(BusinessViewListItem):
         """From the service's view."""
         row = view.record
         return cls(
-            **BusinessViewListItem.of(row).model_dump(),
+            **BusinessViewListItem.of(row, view.base_ci).model_dump(),
             filters=BusinessViewFilters.model_validate(row.filters or {}),
             positions={k: NodePosition.model_validate(v) for k, v in view.positions.items()},
             owner_name=view.owner_name,
@@ -467,9 +495,11 @@ class BusinessViewPage(Page[BusinessViewListItem]):
     """One page of business views."""
 
 
-def _views_page(page: PageResult[BusinessView]) -> BusinessViewPage:
+def _views_page(
+    page: PageResult[BusinessView], bases: dict[uuid.UUID, business_views.BaseCi]
+) -> BusinessViewPage:
     return BusinessViewPage(
-        items=[BusinessViewListItem.of(r) for r in page.rows],
+        items=[BusinessViewListItem.of(r, bases.get(r.base_ci_id)) for r in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
@@ -753,7 +783,9 @@ async def list_business_views(
     session: TenantSession, query: ViewsQuery, subject: View
 ) -> BusinessViewPage:
     """Views whose base CI you may see. Filter (`base_ci_id=`, `owner_id=`), sort, page."""
-    return _views_page(await business_views.list_views(session, subject, query))
+    page = await business_views.list_views(session, subject, query)
+    bases = await business_views.base_cis(session, subject, [r.base_ci_id for r in page.rows])
+    return _views_page(page, bases)
 
 
 @router.post(

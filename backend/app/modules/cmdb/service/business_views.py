@@ -64,6 +64,15 @@ class BusinessViewRepository(Repository[BusinessView]):
 
 
 @dataclass(frozen=True)
+class BaseCi:
+    """A view's base CI as its list and page name it."""
+
+    id: uuid.UUID
+    display_id: str
+    name: str
+
+
+@dataclass(frozen=True)
 class ViewDetail:
     """One view as this reader may see it."""
 
@@ -72,6 +81,9 @@ class ViewDetail:
     owner_name: str | None
     can_edit: bool
     can_delete: bool
+    # Always the reader's: a view is seen only while its base CI is (lane C's condition 4); None
+    # only if the CI was trashed during this very request.
+    base_ci: BaseCi | None = None
 
 
 def _seen_bases(subject: Subject) -> Any:  # noqa: ANN401 - a scalar subquery of CI IDs
@@ -120,17 +132,35 @@ def _uuid(text: str) -> bool:
         return False
 
 
+async def base_cis(
+    session: AsyncSession, subject: Subject, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, BaseCi]:
+    """The base CIs of these views, through the reader's own rights (one query)."""
+    if not ids:
+        return {}
+    query = (
+        visible_rows(subject)
+        .with_only_columns(Ci.id, Ci.display_id, Ci.name)
+        .where(Ci.id.in_(set(ids)))
+    )
+    return {
+        row.id: BaseCi(row.id, row.display_id, row.name) for row in await session.execute(query)
+    }
+
+
 async def detail(session: AsyncSession, subject: Subject, row: BusinessView) -> ViewDetail:
     """The view with only the positions of CIs this reader may see."""
     seen = await _seen_ids(session, subject, row.positions)
     names = await user_names(session, [str(row.owner_id)]) if row.owner_id else {}
     may = _may_change(subject, row)
+    bases = await base_cis(session, subject, [row.base_ci_id])
     return ViewDetail(
         record=row,
         positions={k: v for k, v in row.positions.items() if k in seen},
         owner_name=names.get(str(row.owner_id)) if row.owner_id else None,
         can_edit=may,
         can_delete=may,
+        base_ci=bases.get(row.base_ci_id),
     )
 
 
