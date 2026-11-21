@@ -25,7 +25,7 @@ from app.modules.cmdb.service import catalogue, sync
 from app.modules.cmdb.service import sources as sources_service
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
-from app.shared.api.filters import FilterExpression
+from app.shared.api.filters import FilterNode
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 
@@ -41,7 +41,7 @@ SourceCode = AttributeSource
 OutcomeCode = domain.SyncOutcome
 TriggerCode = domain.SyncTrigger
 StatusCode = domain.SyncRunStatus
-KindCode = domain.ValueKind
+KindCode = domain.SyncValueKind
 
 
 # --- schemas --------------------------------------------------------------------------------------
@@ -51,7 +51,7 @@ class SyncRuleIn(BaseModel):
     """A sync rule: which assets, which CI type, and the field map (CI attribute ← asset field)."""
 
     name: str = Field(min_length=1, max_length=domain.NAME_MAX)
-    filter: FilterExpression | None = Field(
+    filter: FilterNode | None = Field(
         default=None,
         description="The assets it takes, in the asset list's DSL over the sync's filter fields "
         "(see …/sync-rules/fields); none: every asset.",
@@ -71,7 +71,7 @@ class SyncRuleIn(BaseModel):
             target_type_id=self.target_type_id,
             target_state_id=self.target_state_id,
             field_map=self.field_map,
-            filter=self.filter.model_dump(mode="json", by_alias=True)["root"]
+            filter=self.filter.model_dump(mode="json", by_alias=True)
             if self.filter is not None
             else None,
             enabled=self.enabled,
@@ -122,7 +122,7 @@ class SyncFieldsOut(BaseModel):
     filter_fields: list[str] = Field(description="The asset fields a rule's filter may use.")
 
 
-class PreviewItemOut(BaseModel):
+class SyncPreviewItemOut(BaseModel):
     """What a rule would do with one asset you may see."""
 
     asset_id: uuid.UUID
@@ -134,13 +134,13 @@ class PreviewItemOut(BaseModel):
     kept: list[str]
 
 
-class PreviewOut(BaseModel):
+class SyncPreviewOut(BaseModel):
     """Counts first; `complete` false means only the first assets were counted."""
 
     total: int
     complete: bool
     counts: dict[str, int]
-    items: list[PreviewItemOut]
+    items: list[SyncPreviewItemOut]
 
 
 class SyncRunOut(BaseModel):
@@ -210,7 +210,7 @@ class SyncRunDetailOut(SyncRunOut):
     items: list[SyncRunItemOut]
 
 
-class PrecedenceIn(BaseModel):
+class SourcePrecedenceIn(BaseModel):
     """Which source wins: the order for every attribute, and orders of their own."""
 
     order: list[SourceCode] = Field(description="Strongest first; `hand` leads.")
@@ -221,7 +221,7 @@ class PrecedenceIn(BaseModel):
     )
 
 
-class PrecedenceOut(PrecedenceIn):
+class SourcePrecedenceOut(SourcePrecedenceIn):
     """The order, the attributes an order of their own may be set for, and the version."""
 
     attributes: list[str]
@@ -230,8 +230,8 @@ class PrecedenceOut(PrecedenceIn):
 
 def _precedence_out(
     found: source_rules.Precedence, attributes: list[str], version: int
-) -> PrecedenceOut:
-    return PrecedenceOut(
+) -> SourcePrecedenceOut:
+    return SourcePrecedenceOut(
         order=list(found.order),
         overrides={k: list(v) for k, v in sorted(found.overrides.items())},
         attributes=attributes,
@@ -249,7 +249,7 @@ def _location(path: str) -> str:
 @router.get("/settings/source-precedence", summary="Which source wins")
 async def get_precedence(
     session: TenantSession, subject: Configure, response: Response
-) -> PrecedenceOut:
+) -> SourcePrecedenceOut:
     """The tenant's order of sources (the CMDB settings' version as the ETag)."""
     del subject
     found, version = await sources_service.precedence(session)
@@ -263,7 +263,7 @@ async def get_precedence(
     responses=CONFLICT,
 )
 async def put_precedence(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-    body: PrecedenceIn,
+    body: SourcePrecedenceIn,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Configure,
@@ -271,7 +271,7 @@ async def put_precedence(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note: Annotated[
         AuditNote, audited("cmdb.source_precedence_changed", object_type="cmdb_settings")
     ],
-) -> PrecedenceOut:
+) -> SourcePrecedenceOut:
     """Set the order. Needs If-Match (the CMDB settings' version). Audited with before/after."""
     before, after, new_version = await sources_service.change_precedence(
         session, subject, expected_version=version, order=body.order, overrides=body.overrides
@@ -312,15 +312,17 @@ async def rule_fields(
 
 
 @router.post("/sync-rules/preview", summary="Preview a sync rule")
-async def preview_rule(body: SyncRuleIn, session: TenantSession, subject: Configure) -> PreviewOut:
+async def preview_rule(
+    body: SyncRuleIn, session: TenantSession, subject: Configure
+) -> SyncPreviewOut:
     """What the rule would do now, as you may see it; nothing is saved or changed."""
     found = await sync.preview(session, subject, body.data())
-    return PreviewOut(
+    return SyncPreviewOut(
         total=found.total,
         complete=found.complete,
         counts=found.counts,
         items=[
-            PreviewItemOut(
+            SyncPreviewItemOut(
                 asset_id=i.asset_id,
                 asset_tag=i.asset_tag,
                 asset_name=i.asset_name,

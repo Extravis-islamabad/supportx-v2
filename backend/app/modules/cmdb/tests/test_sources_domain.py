@@ -93,7 +93,7 @@ def test_stamps_round_trip_and_a_withheld_field_never_shows_its_stamp() -> None:
 
 # --- sync rule plans --------------------------------------------------------------------------
 
-ASSET_FIELDS = {"name": sync.ValueKind.TEXT, "site_id": sync.ValueKind.SITE}
+ASSET_FIELDS = {"name": sync.SyncValueKind.TEXT, "site_id": sync.SyncValueKind.SITE}
 
 
 def test_a_field_map_takes_only_syncable_fields_of_the_same_kind() -> None:
@@ -106,7 +106,7 @@ def test_a_field_map_takes_only_syncable_fields_of_the_same_kind() -> None:
             "custom.rack": "name",  # a custom text field of the target type
         },
         ASSET_FIELDS,
-        {"rack": sync.ValueKind.TEXT},
+        {"rack": sync.SyncValueKind.TEXT},
     )
     assert {(p.field, p.code) for p in found} == {
         ("field_map", sync.NAME_REQUIRED),

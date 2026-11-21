@@ -59,7 +59,7 @@ class SyncOutcome(StrEnum):
     FAILED = "failed"
 
 
-class ValueKind(StrEnum):
+class SyncValueKind(StrEnum):
     """What a mapped field holds: both sides of a mapping must hold the same kind."""
 
     TEXT = "text"
@@ -68,12 +68,12 @@ class ValueKind(StrEnum):
 
 
 # The CI's own attributes a rule may fill (custom text fields of the target type come apart).
-CI_TARGETS: Mapping[str, ValueKind] = {
-    "name": ValueKind.TEXT,
-    "description": ValueKind.TEXT,
-    "site_id": ValueKind.SITE,
-    "owner_group_id": ValueKind.GROUP,
-    "managed_by_group_id": ValueKind.GROUP,
+CI_TARGETS: Mapping[str, SyncValueKind] = {
+    "name": SyncValueKind.TEXT,
+    "description": SyncValueKind.TEXT,
+    "site_id": SyncValueKind.SITE,
+    "owner_group_id": SyncValueKind.GROUP,
+    "managed_by_group_id": SyncValueKind.GROUP,
 }
 SOURCE = AttributeSource.ASSET_SYNC
 # Problem codes (labelled `errors.field.<code>`).
@@ -81,19 +81,28 @@ NOT_SYNCABLE = "cmdb_sync_field_not_syncable"
 UNKNOWN_TARGET = "cmdb_sync_target_unknown"
 KIND_MISMATCH = "cmdb_sync_kind_mismatch"
 NAME_REQUIRED = "cmdb_sync_name_required"
-FIELD_PROBLEMS = frozenset({NOT_SYNCABLE, UNKNOWN_TARGET, KIND_MISMATCH, NAME_REQUIRED})
+MAP_TOO_LONG = "cmdb_sync_field_map_too_long"
+FIELD_PROBLEMS = frozenset(
+    {
+        "cmdb_sync_field_not_syncable",
+        "cmdb_sync_target_unknown",
+        "cmdb_sync_kind_mismatch",
+        "cmdb_sync_name_required",
+        "cmdb_sync_field_map_too_long",
+    }
+)
 
 
 def field_map_problems(
     field_map: Mapping[str, str],
-    asset_fields: Mapping[str, ValueKind],
-    custom_targets: Mapping[str, ValueKind],
+    asset_fields: Mapping[str, SyncValueKind],
+    custom_targets: Mapping[str, SyncValueKind],
 ) -> list[Problem]:
     """Every problem of a field map (CI attribute → asset field)."""
     if not field_map:
         return [Problem("field_map", "required")]
     if len(field_map) > FIELD_MAP_MAX:
-        return [Problem("field_map", "too_many")]
+        return [Problem("field_map", MAP_TOO_LONG)]
     problems: list[Problem] = []
     if "name" not in field_map:
         problems.append(Problem("field_map", NAME_REQUIRED))

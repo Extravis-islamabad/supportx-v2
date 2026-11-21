@@ -47,8 +47,15 @@ OVERRIDES_MAX = 200  # attributes with an order of their own
 ORDER_INCOMPLETE = "cmdb_source_order_incomplete"
 HAND_FIRST = "cmdb_source_hand_first"
 UNKNOWN_ATTRIBUTE = "cmdb_source_unknown_attribute"
-TOO_MANY = "too_many"
-FIELD_PROBLEMS = frozenset({ORDER_INCOMPLETE, HAND_FIRST, UNKNOWN_ATTRIBUTE, TOO_MANY})
+TOO_MANY = "cmdb_source_too_many_overrides"
+FIELD_PROBLEMS = frozenset(
+    {
+        "cmdb_source_order_incomplete",
+        "cmdb_source_hand_first",
+        "cmdb_source_unknown_attribute",
+        "cmdb_source_too_many_overrides",
+    }
+)
 
 
 @dataclass(frozen=True)

@@ -60,6 +60,7 @@ from app.modules.cmdb.service.catalogue import (
     get_type,
     invalid,
     require_configure,
+    tenant_of,
 )
 from app.modules.identity_access import Subject, unrestricted
 from app.shared.clock import system_clock
@@ -115,14 +116,16 @@ def require_author(subject: Subject) -> None:
         raise PermissionDenied(code=AUTHOR_RESTRICTED, params={"permission": CONFIGURE})
 
 
-async def custom_targets(session: AsyncSession, type_id: uuid.UUID) -> dict[str, domain.ValueKind]:
+async def custom_targets(
+    session: AsyncSession, type_id: uuid.UUID
+) -> dict[str, domain.SyncValueKind]:
     """The target type's custom fields a rule may fill.
 
     Live plain text only, never personal or sensitive (ADR-047, ADR-050).
     """
     definitions = await metadata.definitions(session, cis.ENTITY, type_id=type_id)
     return {
-        m.key: domain.ValueKind.TEXT
+        m.key: domain.SyncValueKind.TEXT
         for m in await metadata.field_marks(session, cis.ENTITY, type_id=type_id)
         if not m.personal_data
         and not m.sensitive
@@ -133,16 +136,16 @@ async def custom_targets(session: AsyncSession, type_id: uuid.UUID) -> dict[str,
     }
 
 
-def _asset_fields() -> dict[str, domain.ValueKind]:
-    return {k: domain.ValueKind(v.value) for k, v in assets.syncable_fields().items()}
+def _asset_fields() -> dict[str, domain.SyncValueKind]:
+    return {k: domain.SyncValueKind(v.value) for k, v in assets.syncable_fields().items()}
 
 
 @dataclass(frozen=True)
 class Mappable:
     """What a rule may map: syncable asset fields, CI attributes, and the filter's fields."""
 
-    asset_fields: dict[str, domain.ValueKind]
-    ci_attributes: dict[str, domain.ValueKind]
+    asset_fields: dict[str, domain.SyncValueKind]
+    ci_attributes: dict[str, domain.SyncValueKind]
     filter_fields: tuple[str, ...]
 
 
@@ -330,7 +333,7 @@ def _typed(values: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in values.items():
         kind = domain.CI_TARGETS.get(key)
-        if kind in (domain.ValueKind.SITE, domain.ValueKind.GROUP) and value is not None:
+        if kind in (domain.SyncValueKind.SITE, domain.SyncValueKind.GROUP) and value is not None:
             out[key] = uuid.UUID(str(value))
         else:
             out[key] = value
@@ -413,7 +416,9 @@ async def queue_run(session: AsyncSession, subject: Subject, rule_id: uuid.UUID)
     rule = await _live(session, rule_id)
     if (queued := await _open_run(session, rule.id, incremental=False)) is not None:
         return queued
-    run = SyncRun(rule_id=rule.id, trigger=domain.SyncTrigger.MANUAL.value)
+    run = SyncRun(
+        tenant_id=tenant_of(session), rule_id=rule.id, trigger=domain.SyncTrigger.MANUAL.value
+    )
     session.add(run)
     await session.flush()
     await _run_event(session, run)
@@ -438,7 +443,10 @@ async def on_asset_changed(envelope: Any, session: AsyncSession | None) -> None:
         run = await _open_run(session, rule_id, incremental=True, lock=True)
         if run is None:
             run = SyncRun(
-                rule_id=rule_id, trigger=domain.SyncTrigger.ASSET_CHANGED.value, asset_ids=[]
+                tenant_id=tenant_of(session),
+                rule_id=rule_id,
+                trigger=domain.SyncTrigger.ASSET_CHANGED.value,
+                asset_ids=[],
             )
             session.add(run)
         ids = list(run.asset_ids or [])
@@ -446,7 +454,13 @@ async def on_asset_changed(envelope: Any, session: AsyncSession | None) -> None:
             continue
         if len(ids) >= INCREMENTAL_MAX:
             if await _open_run(session, rule_id, incremental=False) is None:
-                session.add(SyncRun(rule_id=rule_id, trigger=domain.SyncTrigger.SCHEDULE.value))
+                session.add(
+                    SyncRun(
+                        tenant_id=tenant_of(session),
+                        rule_id=rule_id,
+                        trigger=domain.SyncTrigger.SCHEDULE.value,
+                    )
+                )
             continue
         run.asset_ids = [*ids, asset_id]
     await session.flush()
@@ -503,7 +517,7 @@ async def _apply(
         if record_ is None:
             if not values.get("name"):
                 await savepoint.rollback()
-                tally.add(asset.id, None, domain.SyncOutcome.FAILED, code="name_required")
+                tally.add(asset.id, None, domain.SyncOutcome.FAILED, code=domain.NAME_REQUIRED)
                 return
             core = {k: v for k, v in values.items() if not k.startswith(domain.CUSTOM)}
             custom = {
@@ -684,26 +698,35 @@ async def _queue_due(database: Database, tenant: uuid.UUID) -> None:
                 )
             )
             if last is None or last < due:
-                run = SyncRun(rule_id=rule.id, trigger=domain.SyncTrigger.SCHEDULE.value)
+                run = SyncRun(
+                    tenant_id=tenant,
+                    rule_id=rule.id,
+                    trigger=domain.SyncTrigger.SCHEDULE.value,
+                )
                 session.add(run)
                 await session.flush()
                 await _run_event(session, run)
 
 
+async def run_tenant(database: Database, tenant: uuid.UUID) -> None:
+    """One tenant: queue its due runs, then work through its queued ones in order."""
+    await _queue_due(database, tenant)
+    while (run_id := await _claim(database, tenant)) is not None:
+        try:
+            await _process(database, tenant, run_id)
+        except Exception:  # one broken run must not stop the others; it is logged
+            log.exception("cmdb_sync_run_failed", run_id=str(run_id))
+            await _finish(database, tenant, run_id, _Tally(), failure="unexpected")
+
+
 async def run_sync_rules(database: Database, settings: Settings) -> None:
-    """Schedule: queue each tenant's due runs, then work through its queued ones in order."""
+    """Schedule: every tenant's due and queued sync runs."""
     del settings
     async with database.platform_session() as session:
         tenants = list((await session.scalars(text("SELECT audit_tenant_ids()"))).all())
     for tenant in tenants:
         try:
-            await _queue_due(database, tenant)
-            while (run_id := await _claim(database, tenant)) is not None:
-                try:
-                    await _process(database, tenant, run_id)
-                except Exception:  # one broken run must not stop the others; it is logged
-                    log.exception("cmdb_sync_run_failed", run_id=str(run_id))
-                    await _finish(database, tenant, run_id, _Tally(), failure="unexpected")
+            await run_tenant(database, tenant)
         except Exception:  # pragma: no cover - one tenant's failure must not stop the others
             log.exception("cmdb_sync_tenant_failed", tenant_id=str(tenant))
 
