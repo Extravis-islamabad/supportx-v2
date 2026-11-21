@@ -117,6 +117,7 @@ export const ar: LabelResource = {
   'notification_event.incident.approval_requested': 'طُلبت الموافقة',
   'notification_event.incident.assigned': 'أُسند حادث',
   'notification_event.incident.canceled': 'أُلغي الحادث',
+  'notification_event.incident.cancellation_to_managers': 'أُحيل طلب الإلغاء إلى مديري مكتب الخدمة',
   'notification_event.incident.closed': 'أُغلق الحادث',
   'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
   'notification_event.incident.created_in_group': 'حادث جديد في مجموعة',
@@ -489,6 +490,12 @@ export const ar: LabelResource = {
   'notification_template.incident.canceled.in_app': 'أُلغي {{ record.display_id }}',
   'notification_template.incident.canceled.subject':
     'أُلغي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.cancellation_to_managers.body':
+    'مرحبًا {{ recipient.name }}،\n\nلا أحد مُسند إلى {{ record.display_id }} «{{ record.title }}»، لذا أُحيل طلبك لإلغائها إلى مديري مكتب الخدمة. سيتخذون القرار: {{ record.link }}',
+  'notification_template.incident.cancellation_to_managers.in_app':
+    'طلبك لإلغاء {{ record.display_id }} لدى مديري مكتب الخدمة',
+  'notification_template.incident.cancellation_to_managers.subject':
+    'طلبك لإلغاء {{ record.display_id }}',
   'notification_template.incident.closed.body':
     'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مغلقًا الآن.',
   'notification_template.incident.closed.in_app': 'أُغلق {{ record.display_id }}',

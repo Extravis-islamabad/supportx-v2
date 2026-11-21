@@ -6313,6 +6313,15 @@
       "1": {
         "description": "A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).\n\nIDs only: the reason is the ask's own row, read by those who may decide.",
         "properties": {
+          "deciders": {
+            "title": "Deciders",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
           "requested_by": {
             "format": "uuid",
             "title": "Requested By",
@@ -6331,7 +6340,9 @@
         "required": [
           "work_item_id",
           "type",
-          "requested_by"
+          "requested_by",
+          "request_id",
+          "deciders"
         ],
         "title": "WorkItemCancellationRequested",
         "type": "object"

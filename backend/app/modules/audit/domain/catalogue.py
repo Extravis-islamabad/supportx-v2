@@ -388,6 +388,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
     ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
+    # WP-046b S5: an unassigned ask to cancel fell to the service desk managers.
+    ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a

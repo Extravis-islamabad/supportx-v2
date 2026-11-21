@@ -263,6 +263,8 @@ export const en = {
   'audit.action.incident.assigned': 'Changed who an incident is assigned to',
   'audit.action.incident.bulk_started': 'Started a bulk change of incidents',
   'audit.action.incident.canceled': 'Cancelled an incident',
+  'audit.action.incident.cancellation_to_managers':
+    'Passed an ask to cancel to the service desk managers',
   'audit.action.incident.category_changed': 'Changed an incident category',
   'audit.action.incident.category_created': 'Added an incident category',
   'audit.action.incident.checklist_library_changed': 'Changed a library checklist',

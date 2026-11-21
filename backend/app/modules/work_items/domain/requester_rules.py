@@ -23,6 +23,20 @@ class CancellationState(StrEnum):
     WITHDRAWN = "withdrawn"
 
 
+class CancellationDeciders(StrEnum):
+    """Who decides a waiting ask (the coordinator's Q2 and its conditions, 2026-11-21).
+
+    The assignee; with none, the group's members who may edit it; with none of those, the
+    type's service desk managers (audited, and the requester told); with none at all, nobody
+    yet: the ask stays open and says so, and a log line flags it, never lost.
+    """
+
+    ASSIGNEE = "assignee"
+    GROUP = "group"
+    MANAGERS = "managers"
+    NONE = "none"
+
+
 # Fields a requester may ever be allowed to edit: what they could fill when reporting, never
 # staff-only ones (group, technician, priority, status, due times; the coordinator's test).
 STAFF_ONLY_FIELDS = frozenset(

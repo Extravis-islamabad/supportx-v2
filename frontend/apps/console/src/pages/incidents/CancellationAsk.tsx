@@ -59,7 +59,15 @@ export function CancellationAsk({ item }: { item: Incident }) {
             key: 'cancellation-ask',
             type: 'info',
             dismissible: false,
-            message: t('incidents.cancellation_ask.message', { reason: waiting.reason }),
+            // Who decides it, so "nobody can decide yet" is never silent (S5 condition 1).
+            message: (
+              <>
+                {t('incidents.cancellation_ask.message', { reason: waiting.reason })}{' '}
+                <Typography.Text type="secondary" data-testid="inc-cancellation-deciders">
+                  {t(`cancellation_deciders.${waiting.deciders}`)}
+                </Typography.Text>
+              </>
+            ),
             action: waiting.may_decide ? (
               <Space>
                 <Button

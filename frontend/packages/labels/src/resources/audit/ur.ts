@@ -260,6 +260,7 @@ export const ur: LabelResource = {
   'audit.action.incident.assigned': 'واقعے کی تفویض بدلی',
   'audit.action.incident.bulk_started': 'واقعات کی اجتماعی تبدیلی شروع کی',
   'audit.action.incident.canceled': 'واقعے کو منسوخ کیا',
+  'audit.action.incident.cancellation_to_managers': 'منسوخی کی درخواست سروس ڈیسک مینیجرز کو بھیجی',
   'audit.action.incident.category_changed': 'واقعہ کی زمرہ تبدیل کی',
   'audit.action.incident.category_created': 'واقعہ کی زمرہ شامل کی',
   'audit.action.incident.checklist_library_changed': 'لائبریری کی چیک لسٹ تبدیل کی',

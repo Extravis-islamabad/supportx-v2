@@ -355,6 +355,8 @@ class WorkItemCancellationRequested(DomainEvent):
     work_item_id: uuid.UUID
     type: str
     requested_by: uuid.UUID
+    request_id: uuid.UUID
+    deciders: str  # a `CancellationDeciders` code: who decides it
 
 
 class WorkItemCancellationDecided(DomainEvent):

@@ -260,6 +260,7 @@ export const ar: LabelResource = {
   'audit.action.incident.assigned': 'غيّر إسناد حادثة',
   'audit.action.incident.bulk_started': 'بدأ تغييرًا جماعيًا للحوادث',
   'audit.action.incident.canceled': 'ألغى حادثة',
+  'audit.action.incident.cancellation_to_managers': 'أحال طلب إلغاء إلى مديري مكتب الخدمة',
   'audit.action.incident.category_changed': 'غيّر فئة حوادث',
   'audit.action.incident.category_created': 'أضاف فئة حوادث',
   'audit.action.incident.checklist_library_changed': 'غيّر قائمة تحقق في المكتبة',

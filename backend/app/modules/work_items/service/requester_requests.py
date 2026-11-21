@@ -5,10 +5,12 @@ which reporting fields a requester may still edit (none by default: read-only, a
 replying). Every path starts from the portal's own reach check, so a record outside the
 requester's reach is a 404 and their own is the only one they act on.
 
-Deciding an ask: the assignee; with none, anyone who may edit the record at its scope (the
-group's members, the type's service desk managers, admins: the coordinator's Q2). Approving runs
-the ordinary cancel as the decider, with the requester's reason; nothing moves that the decider
-could not do on the record.
+Deciding an ask (`CancellationDeciders`): the assignee; with none, the group's members who may
+edit it; with none of those, the type's service desk managers (`config.service_desk` holders who
+may edit it), which is audited and tells the requester; with none at all, the ask stays open
+as "nobody can decide yet" and a log line flags it. Every decider also passes the record's own
+edit check at its scope. Approving runs the ordinary cancel as the decider, with the
+requester's reason; nothing moves that the decider could not do on the record.
 """
 
 import html
@@ -23,11 +25,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied, ValidationFailed
-from app.modules.identity_access import Subject
+from app.core.logging import get_logger
+from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import record as record_audit
+from app.modules.identity_access import Subject, worker_policy
+from app.modules.organization import users_in_groups
 from app.modules.work_items.domain.conversation import EntryKind, ReplyMode, Visibility
 from app.modules.work_items.domain.lifecycle import DONE_CATEGORIES, WorkItemAction
 from app.modules.work_items.domain.portal import PortalReach
 from app.modules.work_items.domain.requester_rules import (
+    CancellationDeciders,
     CancellationState,
     RequesterCancel,
     editable_by_requester,
@@ -45,6 +52,12 @@ from app.shared.events import record_event
 from app.shared.history import Source
 
 REASON_MAX = 2000
+# The type's service desk managers: the service desk's settings right (SDMs by default).
+MANAGERS_PERMISSION = "config.service_desk"
+TO_MANAGERS_AUDIT = "incident.cancellation_to_managers"
+_HOLDER_LIMIT = 500
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -134,14 +147,35 @@ async def cancel(  # noqa: PLR0913 - the record, the reason and the context, exp
             await session.flush()
     except IntegrityError:
         raise Conflict(code="cancellation_already_asked") from None
+    who, _ids = await deciders(session, wtype, record)
     await record_event(
         session,
         WorkItemCancellationRequested(
-            work_item_id=record.id, type=wtype.code.value, requested_by=subject.user_id
+            work_item_id=record.id,
+            type=wtype.code.value,
+            requested_by=subject.user_id,
+            request_id=ask.id,
+            deciders=who.value,
         ),
         aggregate_id=ask.id,
         aggregate_version=ask.version,
     )
+    if who is CancellationDeciders.MANAGERS:
+        await record_audit(
+            session,
+            action_code=TO_MANAGERS_AUDIT,
+            facts=AUDIT_WORKER,
+            object_type=wtype.code.value,
+            object_id=str(record.id),
+            details={"display_id": record.display_id, "request_id": str(ask.id)},
+        )
+    elif who is CancellationDeciders.NONE:
+        # Never lost: it stays open, says so on the record, and this line flags it.
+        log.warning(
+            "cancellation_ask_without_decider",
+            work_item_id=str(record.id),
+            request_id=str(ask.id),
+        )
     return CancelOutcome(canceled=False, request_id=ask.id)
 
 
@@ -156,12 +190,41 @@ async def withdraw(
     await _close(session, wtype, ask, CancellationState.WITHDRAWN, decided_by=None, note=None)
 
 
+async def _may_edit(
+    session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID
+) -> set[uuid.UUID]:
+    found = await worker_policy().holders(
+        session, tenant, wtype.permission("edit"), limit=_HOLDER_LIMIT
+    )
+    return {user for user, _name in found}
+
+
+async def deciders(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem
+) -> tuple[CancellationDeciders, frozenset[uuid.UUID]]:
+    """Who decides the record's ask now, and which people that is (the agreed order)."""
+    if record.technician_id is not None:
+        return CancellationDeciders.ASSIGNEE, frozenset({record.technician_id})
+    editors = await _may_edit(session, wtype, record.tenant_id)
+    if record.group_id is not None:
+        members = set(await session.scalars(users_in_groups(frozenset({record.group_id}))))
+        if found := frozenset(members & editors):
+            return CancellationDeciders.GROUP, found
+    managers = await worker_policy().holders(
+        session, record.tenant_id, MANAGERS_PERMISSION, limit=_HOLDER_LIMIT
+    )
+    if found := frozenset(user for user, _name in managers if user in editors):
+        return CancellationDeciders.MANAGERS, found
+    return CancellationDeciders.NONE, frozenset()
+
+
 async def may_decide(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> bool:
-    """The assignee; with none, anyone who may edit the record at its scope (Q2)."""
-    if record.technician_id is not None:
-        return record.technician_id == subject.user_id
+    """One of the record's deciders, who may also edit the record at its scope."""
+    _who, people = await deciders(session, wtype, record)
+    if subject.user_id not in people:
+        return False
     return await items.may(session, subject, wtype, "edit", record.id)
 
 
@@ -313,6 +376,7 @@ class WaitingAsk:
 
     ask: WorkItemCancellationRequest
     may_decide: bool
+    deciders: CancellationDeciders
 
 
 async def waiting_ask(
@@ -323,4 +387,7 @@ async def waiting_ask(
     ask = await pending_ask(session, record.id)
     if ask is None:
         raise NotFound(code="cancellation_request_not_found")
-    return WaitingAsk(ask=ask, may_decide=await may_decide(session, subject, wtype, record))
+    who, _people = await deciders(session, wtype, record)
+    return WaitingAsk(
+        ask=ask, may_decide=await may_decide(session, subject, wtype, record), deciders=who
+    )

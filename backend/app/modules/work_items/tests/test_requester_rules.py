@@ -36,3 +36,12 @@ def test_custom_fields_follow_the_tenant_list() -> None:
 
 def test_the_two_lists_never_overlap() -> None:
     assert not (REQUESTER_EDITABLE & STAFF_ONLY_FIELDS)
+
+
+def test_the_deciders_codes_are_stable() -> None:
+    """Who decides an ask (S5 condition 1): stored in events, labelled in the UI."""
+    from app.modules.work_items.domain.requester_rules import (  # noqa: PLC0415
+        CancellationDeciders,
+    )
+
+    assert [d.value for d in CancellationDeciders] == ["assignee", "group", "managers", "none"]

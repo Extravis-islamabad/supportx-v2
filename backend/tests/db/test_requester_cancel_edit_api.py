@@ -4,6 +4,7 @@ Real PostgreSQL, the incidents test world. The rules are tenant settings per typ
 sets the ones it needs first (the world's tenant is shared by the module's tests).
 """
 
+import json
 import uuid
 from typing import Any
 
@@ -179,3 +180,105 @@ async def test_editing_follows_the_list_and_never_opens_a_staff_only_field(world
     assert staff_only.status_code == 422, staff_only.text
     assert "field_not_editable_by_requester" in staff_only.text
     assert "p1" not in staff_only.text
+
+
+async def test_an_unassigned_ask_goes_to_the_managers_audited_and_the_requester_told(
+    world: World,
+) -> None:
+    """The coordinator's condition 1: no assignee and no group, so the service desk managers.
+
+    Audited, and the requester's notice comes from the incident source (IDs only in the event).
+    """
+    from app.modules.work_items.service.notifications import (  # noqa: PLC0415 - the source
+        CANCELLATION_TO_MANAGERS,
+        IncidentNotifications,
+    )
+    from app.shared.events import EventEnvelope  # noqa: PLC0415
+
+    a = world.a
+    await _rules(world, a, requester_cancel="ask")
+    item = await world.create(a, a.admin, subject=f"Nobody on it {uuid.uuid4().hex[:6]}")
+    assert item["technician_id"] is None
+    assert item["group_id"] is None
+    asked = await _cancel(world, a, a.requester, item)
+    assert asked.status_code == 200, asked.text
+    request_id = asked.json()["request_id"]
+    staff = await world.call("GET", f"{BASE}/{item['id']}/cancellation-request", a, a.admin)
+    assert staff.json()["deciders"] == "managers"
+    assert staff.json()["may_decide"] is True  # the admin holds the service desk's settings
+    (audit,) = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'incident.cancellation_to_managers' AND object_id = $2",
+        a.tenant,
+        item["id"],
+    )
+    assert json.loads(audit["details"])["request_id"] == request_id
+    (event,) = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'work_items.cancellation_request.created'"
+        " AND envelope->'payload'->>'work_item_id' = $2",
+        a.tenant,
+        item["id"],
+    )
+    envelope = EventEnvelope.model_validate(json.loads(event["envelope"]))
+    assert set(envelope.payload) == {
+        "work_item_id",
+        "type",
+        "requested_by",
+        "request_id",
+        "deciders",
+    }  # IDs and the state only: never the reason
+    assert IncidentNotifications().events_for(envelope) == (CANCELLATION_TO_MANAGERS,)
+    # An assigned record's ask is the assignee's: no manager notice, no audit.
+    mine = await _mine(world, a, f"Assigned {uuid.uuid4().hex[:6]}")
+    await _cancel(world, a, a.requester, mine)
+    assert not await world.sql(
+        "SELECT 1 FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'incident.cancellation_to_managers' AND object_id = $2",
+        a.tenant,
+        mine["id"],
+    )
+
+
+async def test_with_nobody_to_decide_the_ask_stays_open_and_says_so(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The coordinator's condition 1: nobody at all, so it waits, labelled and logged."""
+    from structlog.testing import capture_logs  # noqa: PLC0415
+
+    from app.modules.work_items.domain.requester_rules import (  # noqa: PLC0415
+        CancellationDeciders,
+    )
+    from app.modules.work_items.service import requester_requests  # noqa: PLC0415
+
+    async def nobody(*_args: object) -> tuple[CancellationDeciders, frozenset[uuid.UUID]]:
+        return CancellationDeciders.NONE, frozenset()
+
+    monkeypatch.setattr(requester_requests, "deciders", nobody)
+    a = world.a
+    await _rules(world, a, requester_cancel="ask")
+    item = await world.create(a, a.admin, subject=f"No decider {uuid.uuid4().hex[:6]}")
+    with capture_logs() as logs:
+        asked = await _cancel(world, a, a.requester, item)
+    assert asked.status_code == 200, asked.text
+    assert any(
+        e["event"] == "cancellation_ask_without_decider"
+        and e["log_level"] == "warning"
+        and e["work_item_id"] == item["id"]
+        for e in logs
+    )
+    staff = (
+        await world.call("GET", f"{BASE}/{item['id']}/cancellation-request", a, a.admin)
+    ).json()
+    assert staff["deciders"] == "none"
+    assert staff["may_decide"] is False
+    shown = (await world.call("GET", f"{PORTAL}/{item['id']}", a, a.requester)).json()
+    assert shown["cancellation"]["reason"] == "Fixed itself."  # still open, never lost
+    refused = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/cancellation-request/decide",
+        a,
+        a.admin,
+        json={"approve": True, "reason_code": "duplicate"},
+    )
+    assert refused.status_code == 403, refused.text

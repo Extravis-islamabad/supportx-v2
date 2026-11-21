@@ -120,6 +120,11 @@ export const ur: LabelResource = {
   'bulk_status.failed': 'رکا ہوا',
   'bulk_status.queued': 'منتظر',
   'bulk_status.running': 'جاری',
+  'cancellation_deciders.assignee': 'تفویض شدہ شخص فیصلہ کرے گا',
+  'cancellation_deciders.group': 'گروپ فیصلہ کرے گا',
+  'cancellation_deciders.managers': 'سروس ڈیسک مینیجرز فیصلہ کریں گے',
+  'cancellation_deciders.none':
+    'ابھی کوئی فیصلہ نہیں کر سکتا: اسے تفویض کریں، یا کسی کو اختیار دیں',
   'catalog.answer.files_one': '1 فائل',
   'catalog.answer.files_other': '{{count}} فائلیں',
   'catalog.answer.not_given': 'نہیں دیا گیا',

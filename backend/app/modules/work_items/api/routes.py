@@ -85,7 +85,7 @@ from app.modules.work_items.domain.releases import (
     ReleaseRisk,
     StageOutcome,
 )
-from app.modules.work_items.domain.requester_rules import RequesterCancel
+from app.modules.work_items.domain.requester_rules import CancellationDeciders, RequesterCancel
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
 from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
@@ -1228,6 +1228,8 @@ class CancellationRequestOut(BaseModel):
     requested_by: uuid.UUID
     asked_at: datetime
     may_decide: bool
+    # Who decides it now: assignee, group, managers, or none (nobody can yet; it stays open).
+    deciders: CancellationDeciders
 
 
 class CancellationDecisionIn(BaseModel):
@@ -3174,6 +3176,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             requested_by=found.ask.requested_by,
             asked_at=found.ask.created_at,
             may_decide=found.may_decide,
+            deciders=found.deciders,
         )
 
     @router.post(

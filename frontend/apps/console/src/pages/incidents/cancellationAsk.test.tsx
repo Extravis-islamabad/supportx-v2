@@ -58,6 +58,7 @@ function routes(mayDecide: boolean, extra: Record<string, unknown> = {}) {
         requested_by: '01900000-0000-7000-8000-000000000201',
         asked_at: '2026-11-21T08:00:00Z',
         may_decide: mayDecide,
+        deciders: mayDecide ? 'assignee' : 'none',
       },
     },
     [`POST ${PATH}/cancellation-request/decide`]: { status: 204 },
@@ -125,5 +126,8 @@ describe('A requester asked to cancel (WP-046b S5)', () => {
     const strip = await screen.findByTestId('inc-cancellation-ask');
     expect(strip.textContent).toContain('It works again.');
     expect(within(strip).queryByTestId('inc-cancellation-approve')).toBeNull();
+    expect(within(strip).getByTestId('inc-cancellation-deciders').textContent).toBe(
+      'Nobody can decide this yet: assign it, or give someone the right',
+    );
   });
 });

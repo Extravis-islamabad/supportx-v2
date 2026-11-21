@@ -203,6 +203,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ListLayout": "list_layout",  # WP-046b S3b (REQ-INC-111)
     "BoardGroupBy": "board_group_by",
     "RequesterCancel": "requester_cancel",  # WP-046b S5 (REQ-INC-148)
+    "CancellationDeciders": "cancellation_deciders",  # WP-046b S5 condition 1
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
