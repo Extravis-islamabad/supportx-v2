@@ -32,8 +32,7 @@ pytestmark = [pytest.mark.db, pytest.mark.valkey]
 def valkey_url() -> str | None:
     if url := os.environ.get("SUPPORTX_TEST_VALKEY_URL"):
         return url
-    if db_testing.STACK_ENV.is_file():
-        env = db_testing._read_env_file(db_testing.STACK_ENV)  # noqa: SLF001 - shared test helper
+    if (env := db_testing.dev_stack_env()) is not None:
         return f"valkey://:{env['VALKEY_PASSWORD']}@127.0.0.1:{env['VALKEY_PORT']}/0"
     return None
 

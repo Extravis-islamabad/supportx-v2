@@ -64,6 +64,7 @@ export const ur: LabelResource = {
   'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
   'notification_area.support_grant': 'وینڈر سپورٹ رسائی',
   'notification_area.task': 'کام',
+  'notification_area.verified_domain': 'تصدیق شدہ ڈومینز',
   'notification_area.work_item_view': 'محفوظ منظر',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
@@ -189,6 +190,7 @@ export const ur: LabelResource = {
   'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
   'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
   'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
+  'notification_event.verified_domain.lapsed': 'تصدیق شدہ ڈومین اب تصدیق شدہ نہیں رہا',
   'notification_event.work_item_view.unshared': 'آپ کا شیئر کیا ہوا منظر نجی کر دیا گیا',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
@@ -883,6 +885,12 @@ export const ur: LabelResource = {
     '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
   'notification_template.task.starts_soon.subject':
     'جلد شروع: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.verified_domain.lapsed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nSupportX تین دن تک {{ record.title }} کا تصدیقی ریکارڈ نہیں ڈھونڈ سکا، اس لیے یہ ڈومین اب تصدیق شدہ نہیں اور اس کے سائن اِن اب آپ کے سنگل سائن آن پر نہیں بھیجے جاتے۔ ریکارڈ دوبارہ شائع کریں اور سائن اِن اور سکیورٹی میں اسے جانچیں: {{ record.link }}',
+  'notification_template.verified_domain.lapsed.in_app':
+    '{{ record.title }} اب تصدیق شدہ نہیں: اس کی سائن اِن روٹنگ رک گئی ہے',
+  'notification_template.verified_domain.lapsed.subject':
+    'ڈومین {{ record.title }} اب تصدیق شدہ نہیں رہا',
   'notification_template.work_item_view.unshared.body':
     'السلام علیکم {{ recipient.name }}،\nآپ کا محفوظ منظر {{ record.title }} {{ view.field }} پر فلٹر کرتا ہے، جسے وہ کچھ لوگ نہیں دیکھ سکتے جن کے ساتھ آپ نے اسے شیئر کیا۔ اب یہ صرف آپ کے لیے ہے؛ اور کچھ نہیں بدلا۔ اسے دوبارہ شیئر کرنے کے لیے وہ شرط ہٹائیں اور چنیں کہ کون دیکھے۔ {{ record.link }}',
   'notification_template.work_item_view.unshared.in_app':
@@ -951,6 +959,7 @@ export const ur: LabelResource = {
   'notification_variable.task.title': 'کام کا عنوان',
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
+  'notification_variable.verified_domain.domain': 'ڈومین › نام',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
   'notification_variable.window.start': 'وقت کا آغاز',
   'notifications.banner.no_mail_one':

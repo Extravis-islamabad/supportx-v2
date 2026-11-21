@@ -62,6 +62,7 @@ export const en = {
   'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
   'notification_area.support_grant': 'Vendor support access',
   'notification_area.task': 'Tasks',
+  'notification_area.verified_domain': 'Verified domains',
   'notification_area.work_item_view': 'Saved views',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
@@ -183,6 +184,7 @@ export const en = {
   'notification_event.task.assigned': 'A task is given to you',
   'notification_event.task.overdue': 'Your task is overdue',
   'notification_event.task.starts_soon': 'Your task starts soon',
+  'notification_event.verified_domain.lapsed': 'A verified domain is no longer verified',
   'notification_event.work_item_view.unshared': 'A view you shared was made private',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
@@ -879,6 +881,12 @@ export const en = {
     '{{ task.title }} starts at {{ task.starts_at }}',
   'notification_template.task.starts_soon.subject':
     'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.verified_domain.lapsed.body':
+    'Hello {{ recipient.name }},\n\nSupportX could not find the verification record of {{ record.title }} for three days, so the domain is no longer verified and sign-ins in it are no longer sent to your single sign-on. Publish the record again and check it in Sign-in and security: {{ record.link }}',
+  'notification_template.verified_domain.lapsed.in_app':
+    '{{ record.title }} is no longer verified: its sign-in routing has stopped',
+  'notification_template.verified_domain.lapsed.subject':
+    'Domain {{ record.title }} is no longer verified',
   'notification_template.work_item_view.unshared.body':
     'Hello {{ recipient.name }},\nYour saved view {{ record.title }} filters on {{ view.field }}, which some of the people you shared it with may not see. It is private to you now; nothing else changed. To share it again, remove that condition and choose who sees it. {{ record.link }}',
   'notification_template.work_item_view.unshared.in_app':
@@ -947,6 +955,7 @@ export const en = {
   'notification_variable.task.title': 'Task title',
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
+  'notification_variable.verified_domain.domain': 'Domain › Name',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notification_variable.window.start': 'Window start',
   'notifications.banner.no_mail_one':

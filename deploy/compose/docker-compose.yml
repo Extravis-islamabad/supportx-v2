@@ -396,20 +396,23 @@ services:
     mem_limit: 1536m
     logging: *default-logging
 
+# Volume names carry SUPPORTX_VOLUME_PREFIX, whose default keeps the shared stack's own names
+# (supportx_dev_*). Any other project MUST set its own prefix: two PostgreSQL servers on one data
+# directory corrupt it (the 2026-11-20 incident). scripts/compose.sh refuses otherwise.
 volumes:
   postgres_data:
-    name: supportx_dev_postgres_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_postgres_data
   valkey_data:
-    name: supportx_dev_valkey_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_valkey_data
   nats_data:
-    name: supportx_dev_nats_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_nats_data
   minio_data:
-    name: supportx_dev_minio_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_minio_data
   mailpit_data:
-    name: supportx_dev_mailpit_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_mailpit_data
   opensearch_data:
-    name: supportx_dev_opensearch_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_opensearch_data
   clickhouse_data:
-    name: supportx_dev_clickhouse_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_clickhouse_data
   clamav_data:
-    name: supportx_dev_clamav_data
+    name: ${SUPPORTX_VOLUME_PREFIX:-supportx_dev}_clamav_data

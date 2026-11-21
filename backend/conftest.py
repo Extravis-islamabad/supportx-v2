@@ -103,7 +103,11 @@ def db_config() -> db_testing.DbTestConfig:
     """Connection settings for test databases (skips/fails when unavailable)."""
     config = db_testing.load_config()
     if config is None:
-        _unavailable("no test database configured (make dev-init / SUPPORTX_TEST_ADMIN_URL)")
+        _unavailable(
+            "no test database configured: set SUPPORTX_TEST_ADMIN_URL and the role passwords to a"
+            " standalone throwaway PostgreSQL (or SUPPORTX_TEST_ALLOW_DEV_STACK=1 for the shared"
+            " dev stack)"
+        )
         msg = "unreachable: _unavailable always raises"
         raise AssertionError(msg)
     if not asyncio.run(db_testing.server_reachable(config)):

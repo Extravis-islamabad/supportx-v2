@@ -275,15 +275,19 @@ export const en = {
   'errors.directory_unavailable':
     'The directory did not answer or refused the sync app. Try again in a moment.',
   'errors.domain_address_not_allowed': 'The domain points to an address SupportX does not contact.',
+  'errors.domain_already_added': 'This domain is already in your list.',
   'errors.domain_check_failed': 'The domain answered, but not like this SupportX.',
   'errors.domain_invalid': 'Enter a domain name such as help.example.com.',
   'errors.domain_limit': 'You can add at most {{max}} domains.',
+  'errors.domain_manual_verify_not_allowed':
+    "Verifying a domain by hand isn't allowed on this installation: publish its DNS record instead.",
   'errors.domain_not_found': 'This domain was not found.',
   'errors.domain_not_reachable': 'The domain could not be reached.',
   'errors.domain_not_resolving': 'The domain has no DNS record yet.',
   'errors.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
   'errors.domain_taken': 'This domain is already used.',
+  'errors.domain_verified_elsewhere': 'Another organisation has already verified this domain.',
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
@@ -479,8 +483,12 @@ export const en = {
     'Fields with several choices cannot be used for grouping yet.',
   'errors.field.disabled_cannot_be_default': 'Turn this template on before making it the default.',
   'errors.field.domain_invalid': 'Enter a domain name such as help.example.com.',
+  'errors.field.domain_public_mail': "A public e-mail domain can't belong to one organisation.",
+  'errors.field.domain_public_suffix': "This is a registry's suffix, not an organisation's domain.",
   'errors.field.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
+  'errors.field.domain_single_label': 'Enter a full domain, such as example.com.',
+  'errors.field.domains_too_many': "You've reached the limit of domains.",
   'errors.field.draft_not_values': 'A draft keeps form values only.',
   'errors.field.draft_too_large': 'This draft is too large to keep.',
   'errors.field.due_in_past': 'Choose a moment in the future.',

@@ -2581,6 +2581,15 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   - [ ] S4c: vendor support access (D-173; design note in
     ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+  - [~] **S5d (#569, migration 0189): REQ-SEC-010 verified e-mail domains, PARTLY DONE.** Built:
+    adding a domain with a TXT record shown once (only its hash kept), one tenant per verified
+    domain (a partial unique index; AC2), Keycloak-native routing (a verified domain marks the
+    organisation's domain verified through the outbox; a lapse or delete removes it on a shared
+    realm and keeps the routing on a single-tenant one; a daily reconcile; AC3, tested in a real
+    Keycloak), the 3-failures-over-72-hours lapse with a notice to admins, a manual verify on
+    single-tenant installations only, the console card. **The DNS check waits for a dependency
+    decision** (dnspython, Haider): until then a check says automatic checking isn't available
+    yet, so on multi-tenant installations no domain can be verified (AC1 is not yet met there).
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).
 
