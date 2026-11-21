@@ -1668,8 +1668,8 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
   - Seed version 6 tops up the `converted` status for older tenants.
 - [~] **S3, views, lists and bulk:** S3a done (0178; #549 merged 2026-11-18; lane C blocked
-  under D-175); S3b (cards, board and calendar; 0182) in review, its draft PR blocked by lane
-  C; S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
+  under D-175); S3b done (cards, board and calendar; 0182; #559 merged 2026-11-20; lane C
+  blocked); S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
   - REQ-INC-111 (S3b): table, cards or board per person and view (0182: `layout`,
     `group_by`). A board grouped by status, priority, technician or group; its counts are the
     list's own query (only records you may see) and its columns keep a stable order (every
@@ -1690,6 +1690,15 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     theirs (checked on every read); sharing on a restricted or sealed field refused; the view
     audit makes existing offending views private (history, events, the owner told, a report).
   - A link opens a view (`?view=open`, `?view=custom:<id>`).
+- [~] **S5, requester cancel and edit rules (0184; REQ-INC-148; lane C blocks):** in review.
+  - Per type: `requester_cancel` off (as today), direct, or ask; `requester_edit_fields`, the
+    reporting fields a requester may still change (none by default: read-only apart from
+    replying). Staff-only fields can never be listed or edited (domain rule, tested).
+  - Direct: the requester's own cancel, with their words, through the life cycle. Ask: one
+    waiting ask per record; the assignee decides (with none, whoever may edit it); approving
+    runs the ordinary cancel as the decider; declining sends their note as a public reply; the
+    requester may withdraw. Events, history, labels en/ar/ur; the portal, the record's strip
+    and the admin card.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

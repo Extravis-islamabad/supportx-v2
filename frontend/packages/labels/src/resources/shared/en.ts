@@ -704,6 +704,14 @@ export const en = {
   'settings.release_roles.take_title': 'What Take makes you',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
+  'settings.requester_cancel': 'Requesters can cancel',
+  'settings.requester_edit_fields': 'Fields requesters can edit',
+  'settings.requester_edit_fields_help':
+    'None: the incident is read-only for them, apart from replying.',
+  'settings.requester_edit_none': 'None (read-only)',
+  'settings.requester_rules': 'Requesters cancel and edit',
+  'settings.requester_rules_help':
+    'What requesters may still do on their own incidents after reporting them. Off and none: as before.',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
   'settings.resume_on_requester_reply_for': 'A requester reply resumes “{{status}}”',
   'settings.retire': 'Retire',

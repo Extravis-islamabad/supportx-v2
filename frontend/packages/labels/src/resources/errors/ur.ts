@@ -194,6 +194,10 @@ export const ur: LabelResource = {
   'errors.calendar_in_use':
     'سائٹس یا سپورٹ گروپس ابھی یہ کیلنڈر استعمال کرتے ہیں۔ پہلے انہیں دوسرا کیلنڈر دیں۔',
   'errors.calendar_not_found': 'یہ کیلنڈر موجود نہیں یا حذف ہو چکا ہے۔',
+  'errors.cancellation_already_asked':
+    'آپ پہلے ہی اسے منسوخ کرنے کی درخواست کر چکے ہیں۔ ٹیم فیصلہ کرے گی۔',
+  'errors.cancellation_request_not_found':
+    'اس ریکارڈ پر منسوخی کی کوئی درخواست فیصلے کی منتظر نہیں۔',
   'errors.cannot_deactivate_self': 'آپ خود کو غیر فعال نہیں کر سکتے۔',
   'errors.cannot_publish': 'یہ اعلان ابھی شائع نہیں کیا جا سکتا۔',
   'errors.cannot_stop_own_sign_in': 'آپ اپنا سائن اِن خود بند نہیں کر سکتے۔',
@@ -525,6 +529,7 @@ export const ur: LabelResource = {
     'موضوع اور درخواست گزار ہمیشہ دکھائے جاتے ہیں اور لازمی ہیں۔',
   'errors.field.field_locked':
     'فارم کا ایک اصول اس فیلڈ کو مقفل کرتا ہے، اس لیے اسے یہاں نہیں بدلا جا سکتا۔',
+  'errors.field.field_not_editable_by_requester': 'آپ یہاں یہ فیلڈ تبدیل نہیں کر سکتے۔',
   'errors.field.field_not_filterable_sealed':
     'یہ فیلڈ محفوظ شدہ حالت میں سیل ہے: اسے صرف عین قدر سے فلٹر کیا جا سکتا ہے (برابر ہے، ان میں سے ایک)، اور سیل یا کھولے جانے کے دوران نہیں۔',
   'errors.field.field_not_permitted':
@@ -1112,6 +1117,8 @@ export const ur: LabelResource = {
   'errors.not_major': '{{display_id}} بڑا واقعہ نہیں ہے۔',
   'errors.not_merged': '{{display_id}} ضم شدہ نہیں، اس لیے واپس لینے کو کچھ نہیں۔',
   'errors.not_resolved': 'یہ اب آپ کے جواب کا منتظر نہیں: یہ اب حل شدہ نہیں ہے۔',
+  'errors.not_the_decider':
+    'صرف تفویض شدہ شخص (یا، اگر کوئی نہیں، تو جو اسے ترمیم کر سکے) اس کا فیصلہ کر سکتا ہے۔',
   'errors.not_visible': 'آپ یہ تبدیلی نہیں دیکھ سکتے، اس لیے اسے ویسے ہی چھوڑ دیا گیا۔',
   'errors.nothing_to_override':
     'یہ تبدیلی دوبارہ منظوری کی منتظر نہیں، اس لیے نظر انداز کرنے کو کچھ نہیں۔',
@@ -1204,6 +1211,12 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.requester_action_closed':
+    'اب آپ اسے تبدیل نہیں کر سکتے: یہ پہلے ہی حل، بند یا منسوخ ہو چکا ہے۔',
+  'errors.requester_cancel_not_possible':
+    'اس مرحلے پر اسے منسوخ نہیں کیا جا سکتا۔ ٹیم کو بتانے کے لیے جواب بھیجیں۔',
+  'errors.requester_cancel_off':
+    'آپ کی تنظیم یہاں درخواست گزاروں کو منسوخ کرنے نہیں دیتی۔ اس کے بجائے جواب بھیج کر ٹیم سے کہیں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
   'errors.resource_access_limit_reached':
     'آپ کی تنظیم کے پاس پہلے ہی {{limit}} ریکارڈ رسائی اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',

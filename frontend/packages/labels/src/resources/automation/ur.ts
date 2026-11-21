@@ -175,6 +175,7 @@ export const ur: LabelResource = {
   'automation.why.first_task_started': 'تکمیل کا پہلا کام مکمل ہونے پر کام شروع ہوا۔',
   'automation.why.fulfilled': 'تکمیل شدہ: تمام لازمی کام مکمل ہو گئے',
   'automation.why.matrix': 'ترجیحی میٹرکس سے (اثر اور فوریت)۔',
+  'automation.why.requester_canceled': 'درخواست گزار نے اسے پورٹل میں منسوخ کیا۔',
   'automation.why.requester_confirmed': 'درخواست گزار نے حل کی تصدیق کی، اس لیے یہ بند کیا گیا۔',
   'automation.why.requester_rejected':
     'درخواست گزار نے کہا کہ مسئلہ حل نہیں ہوا، اس لیے یہ دوبارہ کھولا گیا۔',
