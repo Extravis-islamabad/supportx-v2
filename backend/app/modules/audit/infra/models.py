@@ -502,6 +502,10 @@ class SiemDestination(TenantEntity):
             name="kind_target",
         ),
         CheckConstraint("kind = 'syslog' OR secret_sealed IS NOT NULL", name="webhook_secret"),
+        # D-181 (0190): plain TCP or UDP only by an admin's choice, and never for a webhook.
+        CheckConstraint("transport IN ('tls', 'tcp', 'udp')", name="transport_code"),
+        CheckConstraint("kind = 'syslog' OR transport = 'tls'", name="webhook_tls"),
+        CheckConstraint("udp_max_bytes BETWEEN 480 AND 8192", name="udp_max_range"),
         CheckConstraint(
             "(sign_in_after_at IS NULL) = (sign_in_after_id IS NULL)", name="sign_in_cursor"
         ),
@@ -510,6 +514,8 @@ class SiemDestination(TenantEntity):
     name: Mapped[str] = mapped_column(String(100))
     kind: Mapped[str] = mapped_column(String(20))
     format: Mapped[str] = mapped_column(String(20), default="json", server_default="json")
+    transport: Mapped[str] = mapped_column(String(8), default="tls", server_default="tls")
+    udp_max_bytes: Mapped[int] = mapped_column(Integer, default=2048, server_default="2048")
     host: Mapped[str | None] = mapped_column(String(253))
     port: Mapped[int | None] = mapped_column(Integer)
     url: Mapped[str | None] = mapped_column(String(2048))

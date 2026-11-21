@@ -737,6 +737,7 @@ export const ur: LabelResource = {
   'errors.field.siem_pem_invalid': 'یہ قابلِ استعمال سرٹیفکیٹ یا کلید (PEM) نہیں۔',
   'errors.field.siem_port_not_allowed': 'TLS پر Syslog کا پورٹ استعمال کریں: 6514، 1514 یا 10514۔',
   'errors.field.siem_secret_webhook_only': 'دستخطی راز صرف ویب ہک کا ہوتا ہے۔',
+  'errors.field.siem_webhook_https_only': 'ویب ہک ہمیشہ HTTPS پر بھیجا جاتا ہے۔',
   'errors.field.siem_webhook_json_only': 'ویب ہک صرف JSON بھیجتا ہے۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
   'errors.field.site_network_invalid':

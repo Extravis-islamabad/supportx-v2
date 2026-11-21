@@ -23,7 +23,7 @@ from app.modules.audit.api.routes import MANAGE, _hidden
 from app.modules.audit.domain import siem as domain
 from app.modules.audit.infra.models import SiemDestination
 from app.modules.audit.service import siem
-from app.modules.audit.service.recording import AuditNote, audited
+from app.modules.audit.service.recording import AuditNote, RequestFacts, audited, record
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -43,6 +43,7 @@ NO_STORE = {"Cache-Control": "no-store"}
 SiemKind = domain.SiemKind
 SiemFormat = domain.SiemFormat
 SiemStream = domain.SiemStream
+SiemTransport = domain.SiemTransport
 
 
 class SiemDestinationIn(BaseModel):
@@ -61,6 +62,11 @@ class SiemDestinationIn(BaseModel):
     ca_pem: str | None = Field(default=None, max_length=65536)
     client_cert_pem: str | None = Field(default=None, max_length=65536)
     client_key_pem: str | None = Field(default=None, max_length=65536)
+    transport: SiemTransport = Field(
+        default=SiemTransport.TLS,
+        description="Syslog only: tls, or plain tcp or udp for older SIEMs on internal networks.",
+    )
+    udp_max_bytes: int = Field(default=domain.UDP_MAX_DEFAULT, ge=480, le=8192)
 
     def data(self) -> siem.DestinationInput:
         """The service's input."""
@@ -76,6 +82,8 @@ class SiemDestinationIn(BaseModel):
             ca_pem=self.ca_pem,
             client_cert_pem=self.client_cert_pem,
             client_key_pem=self.client_key_pem,
+            transport=self.transport,
+            udp_max_bytes=self.udp_max_bytes,
         )
 
 
@@ -99,6 +107,8 @@ class SiemDestinationOut(BaseModel):
     host: str | None
     port: int | None
     url: str | None
+    transport: SiemTransport
+    udp_max_bytes: int
     streams: list[SiemStream]
     enabled: bool
     has_secret: bool
@@ -119,6 +129,8 @@ class SiemDestinationOut(BaseModel):
             host=row.host,
             port=row.port,
             url=row.url,
+            transport=SiemTransport(row.transport),
+            udp_max_bytes=row.udp_max_bytes,
             streams=[SiemStream(s) for s in row.streams],
             enabled=row.enabled,
             has_secret=row.secret_sealed is not None,
@@ -167,6 +179,22 @@ async def _out(
     return SiemDestinationMadeOut(**SiemDestinationOut.of(row, health).model_dump(), secret=secret)
 
 
+async def _plaintext_chosen(
+    session: TenantSession, request: Request, row: SiemDestination, previous: str | None
+) -> None:
+    """D-181: choosing plain TCP or UDP (from TLS, or on a new destination) is its own entry."""
+    plain = {t.value for t in domain.PLAINTEXT}
+    if row.transport in plain and previous not in plain:
+        await record(
+            session,
+            action_code="audit.siem_plaintext_enabled",
+            facts=RequestFacts.of(request),
+            object_type="siem_destination",
+            object_id=row.id,
+            details={"transport": row.transport, "previous": previous or "new"},
+        )
+
+
 @router.get("/destinations", summary="Where audit and sign-in entries stream")
 async def list_destinations(session: TenantSession, subject: Manage) -> list[SiemDestinationOut]:
     """By name, each with its health; never a secret."""
@@ -197,7 +225,8 @@ async def add_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     async def run() -> Created:
         made = await siem.add_destination(session, subject, request.app.state.settings, body.data())
         note.object_id = str(made.row.id)
-        note.details = {"kind": made.row.kind}
+        note.details = {"kind": made.row.kind, "transport": made.row.transport}
+        await _plaintext_chosen(session, request, made.row, previous=None)
         if made.secret is not None:
             secret.append(made.secret)
         out = await _out(session, made.row)  # the stored answer (for replays) never holds it
@@ -237,6 +266,7 @@ async def change_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     ],
 ) -> SiemDestinationOut:
     """Its cursors stay where they are; a fixed destination is tried at once."""
+    before = (await siem.get_destination(session, destination_id)).transport
     row = await siem.change_destination(
         session,
         subject,
@@ -245,7 +275,8 @@ async def change_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body.data(),
         expected_version=version,
     )
-    note.details = {"kind": row.kind, "enabled": row.enabled}
+    note.details = {"kind": row.kind, "enabled": row.enabled, "transport": row.transport}
+    await _plaintext_chosen(session, request, row, previous=before)
     set_etag(response, row.version)
     return await _out(session, row)
 

@@ -21,6 +21,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",
+    "SiemTransport": "siem_transport",
     "SiemStream": "siem_stream",
     "SiemTestOut.result": "siem_test_result",
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles

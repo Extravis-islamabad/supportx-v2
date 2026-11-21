@@ -47,6 +47,7 @@ class SecurityArea(StrEnum):
     ENCRYPTION = "encryption"
     SIGN_IN_EVENTS = "sign_in_events"
     VENDOR_SUPPORT = "vendor_support"  # WP-057 S4c (D-173)
+    SIEM = "siem"  # D-181: audit streaming
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,7 @@ class Choices:
     locked_sign_ins: int
     # Vendor support grants ended over 24 hours ago whose account is not confirmed gone (lane B).
     support_removals_stuck: int = 0
+    plaintext_siem_destinations: int = 0  # D-181: syslog sent without TLS
 
 
 def _expiry_flags(days_left: int | None) -> Iterable[Flag]:
@@ -178,6 +180,12 @@ def _count_flags(c: Choices) -> Iterable[Flag]:
             "support_removals_stuck",
             SecurityArea.VENDOR_SUPPORT,
             SecuritySeverity.HIGH,
+        ),
+        (
+            c.plaintext_siem_destinations,
+            "siem_plaintext",
+            SecurityArea.SIEM,
+            SecuritySeverity.MEDIUM,
         ),
     )
     for count, code, area, severity in counted:
