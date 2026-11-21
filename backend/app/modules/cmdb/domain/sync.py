@@ -82,6 +82,7 @@ UNKNOWN_TARGET = "cmdb_sync_target_unknown"
 KIND_MISMATCH = "cmdb_sync_kind_mismatch"
 NAME_REQUIRED = "cmdb_sync_name_required"
 MAP_TOO_LONG = "cmdb_sync_field_map_too_long"
+ITEM_REFUSED = "cmdb_sync_item_refused"  # a CI save refused for a reason that is not a field
 FIELD_PROBLEMS = frozenset(
     {
         "cmdb_sync_field_not_syncable",
@@ -89,6 +90,7 @@ FIELD_PROBLEMS = frozenset(
         "cmdb_sync_kind_mismatch",
         "cmdb_sync_name_required",
         "cmdb_sync_field_map_too_long",
+        "cmdb_sync_item_refused",
     }
 )
 

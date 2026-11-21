@@ -498,9 +498,10 @@ class _Tally:
 
 
 def _code(error: AppError) -> str:
+    """A field code the run screen can label (`errors.field.<code>`)."""
     if isinstance(error, ValidationFailed) and error.errors:
         return error.errors[0].code
-    return error.instance_code
+    return domain.ITEM_REFUSED
 
 
 async def _apply(
