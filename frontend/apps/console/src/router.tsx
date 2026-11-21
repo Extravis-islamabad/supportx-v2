@@ -514,6 +514,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-053 S4a: sync rules from assets (template A) and one rule (template B).
+            path: 'cmdb/sync-rules',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/SyncRulesPage')).SyncRulesPage,
+            }),
+          },
+          {
+            path: 'cmdb/sync-rules/:ruleId',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/SyncRulePage')).SyncRulePage,
+            }),
+          },
+          {
             // 0175 part 2: one CI type's custom fields (template E).
             path: 'cmdb/types/:typeId/fields',
             lazy: async () => ({

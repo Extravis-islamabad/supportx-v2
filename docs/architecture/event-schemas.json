@@ -2911,6 +2911,64 @@
         "type": "object"
       }
     },
+    "cmdb.sync_rule.changed": {
+      "1": {
+        "description": "A sync rule was created, changed or removed (WP-053 S4a; field names only).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "SyncRuleChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.sync_run.changed": {
+      "1": {
+        "description": "A sync run was queued, started or finished (WP-053 S4a; IDs and its status code only).",
+        "properties": {
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "rule_id",
+          "status"
+        ],
+        "title": "SyncRunChanged",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",

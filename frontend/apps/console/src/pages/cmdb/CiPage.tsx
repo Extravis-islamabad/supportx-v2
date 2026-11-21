@@ -53,6 +53,7 @@ import { useSubscribersSection } from './useSubscribersSection';
 import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
 import { refText } from './refNames';
+import { SourceLabel } from './SourceLabel';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
 const TABS = ['details', 'map', 'impact', 'versions'] as const;
@@ -274,21 +275,33 @@ function CiRecord({ ci }: { ci: Ci }) {
                   items={[
                     {
                       key: 'state',
-                      label: t('cmdb.field.state_id'),
+                      label: (
+                        <SourceLabel ci={ci} field="state_id">
+                          {t('cmdb.field.state_id')}
+                        </SourceLabel>
+                      ),
                       content:
                         stateOf === undefined ? '' : nameOf(t, locale, stateOf, 'cmdb_ci_state'),
                       filled: true,
                     },
                     {
                       key: 'impact',
-                      label: t('cmdb.field.business_impact'),
+                      label: (
+                        <SourceLabel ci={ci} field="business_impact">
+                          {t('cmdb.field.business_impact')}
+                        </SourceLabel>
+                      ),
                       content:
                         ci.business_impact === null ? '' : t(`cmdb_impact.${ci.business_impact}`),
                       filled: ci.business_impact !== null,
                     },
                     {
                       key: 'criticality',
-                      label: t('cmdb.field.criticality'),
+                      label: (
+                        <SourceLabel ci={ci} field="criticality">
+                          {t('cmdb.field.criticality')}
+                        </SourceLabel>
+                      ),
                       content: ci.criticality === null ? '' : t(`cmdb_impact.${ci.criticality}`),
                       filled: ci.criticality !== null,
                     },
@@ -307,7 +320,11 @@ function CiRecord({ ci }: { ci: Ci }) {
                           }
                         : {
                             key: name,
-                            label: t(`cmdb.field.${name}`),
+                            label: (
+                              <SourceLabel ci={ci} field={name}>
+                                {t(`cmdb.field.${name}`)}
+                              </SourceLabel>
+                            ),
                             content: id === null ? '' : <bdi>{refText(t, ci.names, id)}</bdi>,
                             filled: id !== null,
                           };
@@ -400,7 +417,11 @@ function CiCustomValues({ ci }: { ci: Ci }) {
       testId="ci-custom-values"
       items={shown.map((f) => ({
         key: f.key,
-        label: <bdi dir="auto">{fieldName(f, locale)}</bdi>,
+        label: (
+          <SourceLabel ci={ci} field={`custom.${f.key}`}>
+            <bdi dir="auto">{fieldName(f, locale)}</bdi>
+          </SourceLabel>
+        ),
         content: <CustomFieldValue field={f} value={ci.custom[f.key]} />,
         filled: true,
         // The shared row says "masked" itself (ADR-047), as records of other kinds do.
