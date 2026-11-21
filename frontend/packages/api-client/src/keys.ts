@@ -144,6 +144,16 @@ export const queryKeys = {
     types: ['cmdb', 'types'] as const,
     states: ['cmdb', 'states'] as const,
     settings: ['cmdb', 'settings'] as const,
+    // WP-053 S4a: sync rules, their runs and which source wins.
+    sync: {
+      all: ['cmdb', 'sync'] as const,
+      rules: ['cmdb', 'sync', 'rules'] as const,
+      rule: (id: string) => ['cmdb', 'sync', 'rule', id] as const,
+      fields: (typeId: string | null) => ['cmdb', 'sync', 'fields', typeId] as const,
+      runs: (ruleId: string) => ['cmdb', 'sync', 'runs', ruleId] as const,
+      run: (id: string) => ['cmdb', 'sync', 'run', id] as const,
+      precedence: ['cmdb', 'sync', 'precedence'] as const,
+    },
     list: (query: CisQuery) => ['cmdb', 'list', query] as const,
     detail: (id: string) => ['cmdb', 'detail', id] as const,
     history: (id: string) => ['cmdb', 'history', id] as const,
