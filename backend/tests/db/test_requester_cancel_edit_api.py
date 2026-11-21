@@ -282,3 +282,55 @@ async def test_with_nobody_to_decide_the_ask_stays_open_and_says_so(
         json={"approve": True, "reason_code": "duplicate"},
     )
     assert refused.status_code == 403, refused.text
+
+
+async def test_a_finished_record_is_never_edited_or_asked_about(world: World) -> None:
+    """Lane C's B1: resolved, closed or cancelled: the API refuses, not only the portal's offer."""
+    a = world.a
+    await _rules(world, a, requester_cancel="ask", requester_edit_fields=["subject"])
+    item = await _mine(world, a, f"Finished {uuid.uuid4().hex[:6]}")
+    moved = await world.act(a, a.admin, item, "resolve")
+    assert moved.status_code == 200, moved.text
+    resolved = moved.json()
+    edit = await world.call(
+        "PATCH",
+        f"{PORTAL}/{item['id']}",
+        a,
+        a.requester,
+        json={"changes": {"subject": "Rewritten after the fact"}},
+        headers={"If-Match": f'"{resolved["version"]}"'},
+    )
+    assert edit.status_code == 409, edit.text
+    assert edit.json()["code"] == "requester_action_closed"
+    asked = await _cancel(world, a, a.requester, item)
+    assert asked.status_code == 409, asked.text
+    assert asked.json()["code"] == "requester_action_closed"
+    assert not await world.sql(
+        "SELECT 1 FROM work_item_cancellation_requests WHERE tenant_id = $1 AND work_item_id = $2",
+        a.tenant,
+        item["id"],
+    )
+    staff = (await world.call("GET", f"{BASE}/{item['id']}", a, a.admin)).json()
+    assert staff["subject"] == item["subject"]
+
+
+async def test_a_custom_field_is_never_requester_editable(world: World) -> None:
+    """Lane C's B2: refused when the admin lists one, and when a requester sends one."""
+    a = world.a
+    listed = await admin_write(
+        world, a, "PATCH", "/incidents/settings", {"requester_edit_fields": ["custom.cost_code"]}
+    )
+    assert listed.status_code == 422, listed.text
+    assert field_codes(listed) == {"requester_edit_fields": "invalid_choice"}
+    await _rules(world, a, requester_edit_fields=["subject"])
+    item = await _mine(world, a, f"Custom {uuid.uuid4().hex[:6]}")
+    sent = await world.call(
+        "PATCH",
+        f"{PORTAL}/{item['id']}",
+        a,
+        a.requester,
+        json={"changes": {"custom.cost_code": "CC-1"}},
+        headers={"If-Match": f'"{item["version"]}"'},
+    )
+    assert sent.status_code == 422, sent.text
+    assert set(field_codes(sent).values()) == {"field_not_editable_by_requester"}

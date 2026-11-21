@@ -29,9 +29,15 @@ def test_a_reporting_field_is_editable_only_when_the_tenant_allows_it() -> None:
     assert not editable_by_requester("not_a_field", frozenset({"not_a_field"}))
 
 
-def test_custom_fields_follow_the_tenant_list() -> None:
-    assert editable_by_requester("custom.asset_tag", frozenset({"custom.asset_tag"}))
-    assert not editable_by_requester("custom.asset_tag", frozenset())
+def test_a_custom_field_is_never_editable_even_when_listed() -> None:
+    """Lane C's B2: the portal shows requesters no custom field, so none is theirs to write."""
+    assert not editable_by_requester("custom.asset_tag", frozenset({"custom.asset_tag"}))
+
+
+def test_a_field_the_portal_hides_on_this_record_is_not_editable() -> None:
+    allowed = frozenset({"subject", "impact"})
+    assert editable_by_requester("impact", allowed, frozenset({"subject", "impact"}))
+    assert not editable_by_requester("impact", allowed, frozenset({"subject"}))
 
 
 def test_the_two_lists_never_overlap() -> None:

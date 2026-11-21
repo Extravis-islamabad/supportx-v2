@@ -1108,6 +1108,7 @@ export const ar: LabelResource = {
   'errors.report_schedule_not_found': 'هذه الجدولة غير موجودة أو ليست لك.',
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
+  'errors.requester_action_closed': 'لم يعد بإمكانك تغيير هذا: فقد حُلّ أو أُغلق أو أُلغي بالفعل.',
   'errors.requester_cancel_not_possible':
     'لا يمكن إلغاء هذا في هذه المرحلة. أرسل ردًا لإبلاغ الفريق.',
   'errors.requester_cancel_off':

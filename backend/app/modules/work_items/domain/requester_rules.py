@@ -58,10 +58,18 @@ STAFF_ONLY_FIELDS = frozenset(
 REQUESTER_EDITABLE = frozenset({"subject", "description", "impact", "urgency", "impact_details"})
 
 
-def editable_by_requester(field: str, allowed: frozenset[str]) -> bool:
-    """A field the tenant lets requesters edit, and one they may ever edit at all."""
-    if field in STAFF_ONLY_FIELDS:
+def editable_by_requester(
+    field: str, allowed: frozenset[str], shown: frozenset[str] | None = None
+) -> bool:
+    """A field the tenant lets requesters edit, one they may ever edit, and one they can see.
+
+    `shown`: the fields the portal returns for this record (its template's rules); a field the
+    requester cannot read is never theirs to write. Custom fields never are: the portal shows
+    requesters none, so a staff-only, restricted (ADR-047) or sealed one could otherwise be
+    written blind (lane C's B2 on #572).
+    """
+    if field in STAFF_ONLY_FIELDS or field.startswith("custom."):
         return False
-    if field.startswith("custom."):
-        return field in allowed
+    if shown is not None and field not in shown:
+        return False
     return field in REQUESTER_EDITABLE and field in allowed

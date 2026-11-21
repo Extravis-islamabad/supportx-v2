@@ -68,17 +68,39 @@ class CancelOutcome:
     request_id: uuid.UUID | None
 
 
-async def _own(
+async def _own_shown(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
-) -> WorkItem:
-    """The requester's own record (the portal's reach; 404 otherwise, never 403)."""
+) -> tuple[WorkItem, frozenset[str]]:
+    """The requester's own record, and the fields the portal shows them on it.
+
+    Out of their reach: 404 (`portal.get_record`), never a sign it exists. In reach but not
+    their own (a department or reports reach): 403 `no_permission`, which reveals nothing they
+    cannot already see.
+    """
     found = await portal.get_record(session, subject, record_id, wtype)
     if found.reach is not PortalReach.OWN:
         raise PermissionDenied(params={"permission": portal.CREATE, "reason": "no_permission"})
     record = await session.get(WorkItem, record_id)
     if record is None or record.deleted_at is not None:
         raise NotFound(code="work_item_not_found")
+    return record, found.fields
+
+
+async def _own(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    record, _shown = await _own_shown(session, subject, wtype, record_id)
     return record
+
+
+def _still_open(record: WorkItem) -> None:
+    """Resolved, closed or cancelled: nothing left for the requester to cancel or edit (B1).
+
+    The portal offers nothing then (`requester_options`); this is the API's own refusal, so a
+    closed record's history is never rewritten and no ask opens on a finished one.
+    """
+    if record.status_category in DONE_CATEGORIES:
+        raise Conflict(code="requester_action_closed")
 
 
 def _reason(text: str) -> str:
@@ -115,6 +137,8 @@ async def cancel(  # noqa: PLR0913 - the record, the reason and the context, exp
     record = await _own(session, subject, wtype, record_id)
     cat = await config.load(session, wtype)
     mode = RequesterCancel(cat.requester_cancel)
+    if mode is not RequesterCancel.OFF:
+        _still_open(record)
     if mode is RequesterCancel.OFF:
         raise PermissionDenied(code="requester_cancel_off")
     why = _reason(reason)
@@ -205,6 +229,9 @@ async def deciders(
     """Who decides the record's ask now, and which people that is (the agreed order)."""
     if record.technician_id is not None:
         return CancellationDeciders.ASSIGNEE, frozenset({record.technician_id})
+    # Capped at _HOLDER_LIMIT people: in a tenant with more editors than that, a group member
+    # beyond the cap is missed here and the ask falls to the managers (who still decide, and
+    # it is audited). Each decider is re-checked with `items.may` in `may_decide`.
     editors = await _may_edit(session, wtype, record.tenant_id)
     if record.group_id is not None:
         members = set(await session.scalars(users_in_groups(frozenset({record.group_id}))))
@@ -332,9 +359,11 @@ async def edit(  # noqa: PLR0913 - the record, its version, the change and its c
     A field outside the list, or a staff-only one whatever the list says, is refused by name,
     never echoed back; nothing is changed then.
     """
-    record = await _own(session, subject, wtype, record_id)
+    record, shown = await _own_shown(session, subject, wtype, record_id)
+    _still_open(record)
     cat = await config.load(session, wtype)
-    refused = [f for f in changes if not editable_by_requester(f, cat.requester_edit_fields)]
+    allowed = frozenset(cat.requester_edit_fields)
+    refused = [f for f in changes if not editable_by_requester(f, allowed, shown)]
     if refused:
         raise items.field_errors([(f, "field_not_editable_by_requester") for f in sorted(refused)])
     return await items.set_fields(

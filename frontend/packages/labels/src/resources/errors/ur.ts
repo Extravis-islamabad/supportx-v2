@@ -1203,6 +1203,8 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.requester_action_closed':
+    'اب آپ اسے تبدیل نہیں کر سکتے: یہ پہلے ہی حل، بند یا منسوخ ہو چکا ہے۔',
   'errors.requester_cancel_not_possible':
     'اس مرحلے پر اسے منسوخ نہیں کیا جا سکتا۔ ٹیم کو بتانے کے لیے جواب بھیجیں۔',
   'errors.requester_cancel_off':

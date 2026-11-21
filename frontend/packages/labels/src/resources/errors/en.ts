@@ -1194,6 +1194,8 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.requester_action_closed':
+    "You can no longer change this: it's already resolved, closed or cancelled.",
   'errors.requester_cancel_not_possible':
     "This can't be cancelled at this stage. Reply to tell the team.",
   'errors.requester_cancel_off':
