@@ -144,7 +144,11 @@ class SyncPreviewOut(BaseModel):
 
 
 class SyncRunOut(BaseModel):
-    """One run: its trigger, status and counts."""
+    """One run: its trigger, status and counts.
+
+    The counts are null for a reader who does not see every CI and asset: they count records
+    outside that reader's reach (the coordinator's condition 1).
+    """
 
     id: uuid.UUID
     rule_id: uuid.UUID
@@ -153,18 +157,18 @@ class SyncRunOut(BaseModel):
     incremental: bool
     started_at: datetime | None
     ended_at: datetime | None
-    created_count: int
-    updated_count: int
-    kept_count: int
-    unchanged_count: int
-    failed_count: int
+    created_count: int | None
+    updated_count: int | None
+    kept_count: int | None
+    unchanged_count: int | None
+    failed_count: int | None
     failure: str | None
     created_at: datetime
     version: int
 
     @classmethod
-    def of(cls, row: SyncRun) -> "SyncRunOut":
-        """From the row (the item outcomes come with the run on its own)."""
+    def of(cls, row: SyncRun, *, totals: bool = True) -> "SyncRunOut":
+        """From the row; `totals` False hides the counts (the item outcomes come apart)."""
         return cls(
             id=row.id,
             rule_id=row.rule_id,
@@ -173,11 +177,11 @@ class SyncRunOut(BaseModel):
             incremental=row.asset_ids is not None,
             started_at=row.started_at,
             ended_at=row.ended_at,
-            created_count=row.created_count,
-            updated_count=row.updated_count,
-            kept_count=row.kept_count,
-            unchanged_count=row.unchanged_count,
-            failed_count=row.failed_count,
+            created_count=row.created_count if totals else None,
+            updated_count=row.updated_count if totals else None,
+            kept_count=row.kept_count if totals else None,
+            unchanged_count=row.unchanged_count if totals else None,
+            failed_count=row.failed_count if totals else None,
             failure=row.failure,
             created_at=row.created_at,
             version=row.version,
@@ -205,7 +209,10 @@ class SyncRunItemOut(BaseModel):
 
 
 class SyncRunDetailOut(SyncRunOut):
-    """A run with its item outcomes (at most the first 500 that did something)."""
+    """A run with its item outcomes (at most the first 500 that did something).
+
+    A reader who does not see every CI and asset gets only the items in their reach.
+    """
 
     items: list[SyncRunItemOut]
 
@@ -426,7 +433,8 @@ async def list_runs(
 ) -> SyncRunList:
     """The latest runs, newest first."""
     runs = await sync.list_runs(session, subject, rule_id, limit=limit)
-    return SyncRunList(items=[SyncRunOut.of(r) for r in runs])
+    totals = sync.sees_everything(subject)
+    return SyncRunList(items=[SyncRunOut.of(r, totals=totals) for r in runs])
 
 
 @router.post(
@@ -465,7 +473,7 @@ async def get_run(
     """The run's counts and items; a CI or asset you may not see is `restricted`, with no ID."""
     row, items = await sync.get_run(session, subject, run_id)
     return SyncRunDetailOut(
-        **SyncRunOut.of(row).model_dump(),
+        **SyncRunOut.of(row, totals=sync.sees_everything(subject)).model_dump(),
         items=[
             SyncRunItemOut(
                 outcome=domain.SyncOutcome(i.outcome),

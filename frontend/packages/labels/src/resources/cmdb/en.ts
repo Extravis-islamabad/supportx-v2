@@ -299,6 +299,7 @@ export const en = {
   'cmdb.sync.target_state': 'State of new CIs',
   'cmdb.sync.target_type': 'CI type',
   'cmdb.sync.title': 'Sync rules',
+  'cmdb.sync.totals_hidden': 'Totals hidden: some items are outside your access.',
   'cmdb.sync.trigger': 'Started by',
   'cmdb.sync.when': 'When',
   'cmdb.sync.why.incomplete': 'Give the rule a name and a CI type first.',

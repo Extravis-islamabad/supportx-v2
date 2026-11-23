@@ -293,7 +293,7 @@ async def test_a_run_creates_and_updates_cis_through_the_save_path(world: World)
         uuid.UUID(ci["id"]),
     )
     assert rows
-    assert {r["source"] for r in rows} == {"system"}
+    assert {r["source"] for r in rows} == {"asset_sync"}
     assert {str(r["batch_id"]) for r in rows} == {run["id"]}
     assert all('"cmdb_sync"' in str(r["automation_ref"]) for r in rows)
     assert all(run["id"] in str(r["automation_ref"]) for r in rows)
@@ -517,12 +517,21 @@ async def test_run_items_and_sources_show_only_what_the_reader_may_see(world: Wo
     try:
         seen = await world.call("GET", f"{BASE}/sync-runs/{run['id']}", a, a.requester2)
         assert seen.status_code == 200, seen.text
-        item = seen.json()["items"][0]
-        assert item["ci_restricted"] is True
-        assert item["ci_id"] is None
-        assert item["ci_label"] is None
-        assert item["kept"] == []
+        # Narrowed (servers only): no totals (they count CIs outside their reach) and no item
+        # for the workstation CI, not even a placeholder (the coordinator's condition 1).
+        body = seen.json()
+        assert [
+            body[f"{c}_count"] for c in ("created", "updated", "kept", "unchanged", "failed")
+        ] == [None] * 5
+        assert body["items"] == []
         assert ci["id"] not in seen.text
+        listed = await world.call("GET", f"{BASE}/sync-rules/{rule['id']}/runs", a, a.requester2)
+        assert listed.status_code == 200, listed.text
+        assert {r["kept_count"] for r in listed.json()["items"]} == {None}
+        # The unrestricted admin gets the totals and the item.
+        full = (await world.call("GET", f"{BASE}/sync-runs/{run['id']}", a, a.admin)).json()
+        assert full["kept_count"] == 1
+        assert [i["ci_id"] for i in full["items"]] == [ci["id"]]
         # A reader who sees the CI but not the masked field: no source for it.
         server_role = await role(
             world, a, f"Sync wide {uuid.uuid4().hex[:4]}", [("cmdb.view", "all")]

@@ -323,6 +323,7 @@ export const ar: LabelResource = {
   'cmdb.sync.target_state': 'حالة عناصر التهيئة الجديدة',
   'cmdb.sync.target_type': 'نوع عنصر التهيئة',
   'cmdb.sync.title': 'قواعد المزامنة',
+  'cmdb.sync.totals_hidden': 'الإجماليات مخفية: بعض العناصر خارج صلاحياتك.',
   'cmdb.sync.trigger': 'بدأ بسبب',
   'cmdb.sync.when': 'متى',
   'cmdb.sync.why.incomplete': 'امنح القاعدة اسمًا ونوع عنصر تهيئة أولًا.',

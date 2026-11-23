@@ -12,6 +12,9 @@ Expand only, no data step:
 - `cmdb_sync_runs`: each run's trigger, status, counts and a capped list of item outcomes (IDs
   and codes only). Written by the worker.
 
+`field_changes`' source check gains `asset_sync` (a sync run's saves: the run is the batch, the
+rule the automation reference), widened as 0152 widened it; the downgrade takes it out again.
+
 Both tables are tenant-scoped with RLS forced, through migrations/helpers.py only; every index
 starts with tenant_id. The downgrade refuses while any tenant has a rule, a run, a stamped
 attribute or an order of its own (rule 5h), per tenant with app.tenant_id set.
@@ -21,6 +24,7 @@ Revises: 0189 (main's head now; re-pointed at its queue turn)
 Created: 2026-11-21
 """
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -41,6 +45,9 @@ CIS = "cmdb_cis"
 SETTINGS = "cmdb_settings"
 SOURCES = ("assets",)
 TRIGGERS = ("schedule", "manual", "asset_changed")
+HISTORY_TABLE = "field_changes"
+HISTORY_CHECK = "ck_field_changes_source_code"
+HISTORY_SOURCE = "asset_sync"
 STATUSES = ("queued", "running", "succeeded", "failed")
 
 
@@ -88,6 +95,22 @@ def _tenant_fk(table: str) -> sa.ForeignKeyConstraint:
 def _to(column: str, target: str, name: str) -> sa.ForeignKeyConstraint:
     return sa.ForeignKeyConstraint(
         ["tenant_id", column], [f"{target}.tenant_id", f"{target}.id"], name=name
+    )
+
+
+def _codes_now(check: str) -> list[str]:
+    """The codes a check allows now, in their order (the 0152 pattern)."""
+    definition = op.get_bind().scalar(
+        sa.text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+        {"n": check},
+    )
+    return re.findall(r"'([a-z_]+)'::", str(definition))
+
+
+def _set_codes(table: str, check: str, column: str, codes: Sequence[str]) -> None:
+    op.drop_constraint(op.f(check), table, type_="check")
+    op.create_check_constraint(
+        op.f(check), table, f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
     )
 
 
@@ -169,6 +192,9 @@ def upgrade() -> None:
         enable_tenant_rls(table)
         grant_app(table, ("SELECT", "INSERT", "UPDATE"))  # soft delete only
         enable_actor_audit(table)
+    now = _codes_now(HISTORY_CHECK)
+    if HISTORY_SOURCE not in now:
+        _set_codes(HISTORY_TABLE, HISTORY_CHECK, "source", [*now, HISTORY_SOURCE])
 
 
 # Each tenant's rows are visible only with its app.tenant_id set (RLS FORCE); a fixed statement.
@@ -181,6 +207,7 @@ BEGIN
         IF EXISTS (SELECT 1 FROM cmdb_sync_rules) OR EXISTS (SELECT 1 FROM cmdb_sync_runs)
             OR EXISTS (SELECT 1 FROM cmdb_cis WHERE sources <> '{}'::jsonb)
             OR EXISTS (SELECT 1 FROM cmdb_settings WHERE source_precedence <> '{}'::jsonb)
+            OR EXISTS (SELECT 1 FROM field_changes WHERE source = 'asset_sync')
         THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has CMDB sources or sync rules (rule 5h)', t;
         END IF;
@@ -193,6 +220,12 @@ END $$;
 def downgrade() -> None:
     """Drops the tables and columns only while no tenant has anything in them."""
     op.execute(_REFUSE_IF_ANY)
+    _set_codes(
+        HISTORY_TABLE,
+        HISTORY_CHECK,
+        "source",
+        [c for c in _codes_now(HISTORY_CHECK) if c != HISTORY_SOURCE],
+    )
     op.drop_table(RUNS)  # its indexes and policies go with it
     op.drop_table(RULES)
     op.drop_column(SETTINGS, "source_precedence")

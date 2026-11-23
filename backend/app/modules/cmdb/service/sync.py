@@ -12,16 +12,17 @@
   those the author may read; nothing is written.
 - **A run writes as the sync identity (condition 4):** through the CI service's own save path
   (`cis.sync_create` / `sync_update`): its checks, metadata's custom rules, field history (source
-  `system`, the run named in the history's automation reference and batch ID, each attribute
+  `asset_sync`, the run as the batch ID and the rule in the automation reference, each attribute
   stamped `asset_sync`), versions and outbox events. It is never narrowed by a reader's rules
   (the coordinator's condition 1). One audit entry per run: the rule, its trigger and counts,
   actor "automation".
 - **Who wins (REQ-CMDB-016):** a changed asset value replaces the CI's value only where the
   asset sync's source wins (domain/sources.py); elsewhere the attribute is `kept`.
-- **Reading runs (condition 5, the coordinator's condition 1):** `cmdb.configure` only. Item
-  outcomes name a CI or an asset only when the reader may see it (otherwise a `restricted`
-  placeholder with no ID), and list kept attributes only where the reader may read the field
-  (never a hidden, masked or sealed one, the coordinator's condition 6).
+- **Reading runs (condition 5, the coordinator's condition 1):** `cmdb.configure` only. A reader
+  who sees every CI and asset (unrestricted `cmdb.view` and `assets.view`) gets the totals and
+  every item; anyone narrower gets no totals (they count CIs outside their reach) and only the
+  items whose CI and asset they may see. Kept attributes are listed only where the reader may
+  read the field (never a hidden, masked or sealed one, the coordinator's condition 6).
 - **When:** on demand, hourly for each enabled rule, and incrementally when an asset changes:
   the consumer queues the asset's ID on the rule's next incremental run (IDs only); the run
   re-reads the asset through assets' interface.
@@ -84,7 +85,7 @@ INCREMENTAL_MAX = 1000  # assets one incremental run collects; more and it reads
 PREVIEW_SCAN = 5000  # assets a preview counts at most
 PREVIEW_ITEMS = 50
 TEXT_KINDS = frozenset({metadata.FieldType.TEXT, metadata.FieldType.LONG_TEXT})
-_HISTORY_SOURCE: Source = "system"  # the shared history has no sync source: the ref names it
+_HISTORY_SOURCE: Source = "asset_sync"  # the run is the batch, the rule the automation ref
 
 
 class SyncRuleRepository(Repository[SyncRule]):
@@ -616,7 +617,6 @@ async def _process(database: Database, tenant: uuid.UUID, run_id: uuid.UUID) -> 
                 "kind": AUTOMATION_KIND,
                 "id": str(rule.id),
                 "run_id": str(run.id),
-                "source": source_rules.AttributeSource.ASSET_SYNC.value,
             }
             with automated(session, ref):
                 for asset in page:
@@ -766,11 +766,21 @@ class OutcomeView:
     code: str | None
 
 
+def sees_everything(subject: Subject) -> bool:
+    """Whether a reader may see a run's totals: every CI and every asset is in their reach."""
+    return unrestricted(subject, VIEW) and unrestricted(subject, ASSETS_VIEW)
+
+
 async def get_run(
     session: AsyncSession, subject: Subject, run_id: uuid.UUID
 ) -> tuple[SyncRun, list[OutcomeView]]:
-    """A run and its item outcomes through the reader's view (`cmdb.configure`)."""
+    """A run and its item outcomes through the reader's view (`cmdb.configure`).
+
+    A narrower reader gets only the items whose CI and asset they may see (the caller hides
+    the totals, `sees_everything`).
+    """
     require_configure(subject)
+    everything = sees_everything(subject)
     run: SyncRun | None = await session.scalar(select(SyncRun).where(SyncRun.id == run_id))
     if run is None:
         raise NotFound(code=RUN_NOT_FOUND)
@@ -808,4 +818,6 @@ async def get_run(
                 code=item.get("code"),
             )
         )
+    if not everything:
+        views = [v for v in views if not v.ci_restricted and not v.asset_restricted]
     return run, views

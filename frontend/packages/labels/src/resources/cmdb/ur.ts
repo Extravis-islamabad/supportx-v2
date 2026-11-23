@@ -300,6 +300,7 @@ export const ur: LabelResource = {
   'cmdb.sync.target_state': 'نئے CI کی حالت',
   'cmdb.sync.target_type': 'CI کی قسم',
   'cmdb.sync.title': 'مطابقت کے اصول',
+  'cmdb.sync.totals_hidden': 'کل تعداد چھپی ہوئی ہے: کچھ آئٹمز آپ کی رسائی سے باہر ہیں۔',
   'cmdb.sync.trigger': 'شروع ہوا بذریعہ',
   'cmdb.sync.when': 'کب',
   'cmdb.sync.why.incomplete': 'پہلے اصول کو نام اور CI کی قسم دیں۔',

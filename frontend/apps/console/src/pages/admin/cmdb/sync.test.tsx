@@ -204,4 +204,28 @@ describe('Admin › CMDB › sync rules', () => {
     });
     expect(body.textContent).not.toContain(HIDDEN_CI);
   });
+
+  it('says the totals are hidden when the server withholds them', async () => {
+    const hidden = {
+      ...run,
+      created_count: null,
+      updated_count: null,
+      kept_count: null,
+      unchanged_count: null,
+      failed_count: null,
+    };
+    api({
+      [`GET /api/v1/cmdb/sync-rules/${RULE}/runs`]: { body: { items: [hidden] } },
+      [`GET /api/v1/cmdb/sync-runs/${RUN}`]: { body: { ...hidden, items: [] } },
+    });
+    open(`/admin/cmdb/sync-rules/${RULE}`);
+    const runs = await screen.findByTestId('cmdb-sync-runs');
+    await waitFor(() => {
+      expect(within(runs).queryByText(/Created/)).toBeNull();
+    });
+    fireEvent.click(await screen.findByTestId(`cmdb-sync-run-${RUN}`));
+    expect((await screen.findByTestId('cmdb-sync-totals-hidden')).textContent).toContain(
+      'Totals hidden: some items are outside your access.',
+    );
+  });
 });

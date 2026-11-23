@@ -1005,6 +1005,7 @@ export const ar: LabelResource = {
   'change_kind.updated': 'عُدّل',
   'change_source.ai_agent': 'بواسطة وكيل ذكاء اصطناعي',
   'change_source.api': 'عبر الواجهة البرمجية',
+  'change_source.asset_sync': 'بواسطة قاعدة مزامنة الأصول',
   'change_source.email': 'عبر البريد الإلكتروني',
   'change_source.import': 'بواسطة استيراد',
   'change_source.integration': 'بواسطة تكامل',

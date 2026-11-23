@@ -1009,6 +1009,7 @@ export const en = {
   'change_kind.updated': 'Edited',
   'change_source.ai_agent': 'by an AI agent',
   'change_source.api': 'through the API',
+  'change_source.asset_sync': 'by an asset sync rule',
   'change_source.email': 'by email',
   'change_source.import': 'by an import',
   'change_source.integration': 'by an integration',

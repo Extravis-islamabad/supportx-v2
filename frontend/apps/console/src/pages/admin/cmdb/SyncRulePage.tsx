@@ -618,13 +618,20 @@ function RunsSection({ ruleId }: { ruleId: string }) {
             {
               key: 'counts',
               title: t('cmdb.sync.counts'),
+              // Blank for a reader the server withholds totals from (they count records
+              // outside that reader's reach).
               render: (_, r) =>
-                t('cmdb.sync.counts_line', {
-                  created: r.created_count,
-                  updated: r.updated_count,
-                  kept: r.kept_count,
-                  failed: r.failed_count,
-                }),
+                r.created_count === null ||
+                r.updated_count === null ||
+                r.kept_count === null ||
+                r.failed_count === null
+                  ? ''
+                  : t('cmdb.sync.counts_line', {
+                      created: r.created_count,
+                      updated: r.updated_count,
+                      kept: r.kept_count,
+                      failed: r.failed_count,
+                    }),
             },
           ]}
         />
@@ -655,15 +662,24 @@ function RunBody({ runId }: { runId: string }) {
       {data.failure !== null && (
         <Alert type="error" showIcon message={t(`cmdb_sync_failure.${data.failure}`)} />
       )}
-      <Counts
-        counts={{
-          created: data.created_count,
-          updated: data.updated_count,
-          kept: data.kept_count,
-          unchanged: data.unchanged_count,
-          failed: data.failed_count,
-        }}
-      />
+      {data.created_count === null ? (
+        <Alert
+          type="info"
+          showIcon
+          message={t('cmdb.sync.totals_hidden')}
+          data-testid="cmdb-sync-totals-hidden"
+        />
+      ) : (
+        <Counts
+          counts={{
+            created: data.created_count,
+            updated: data.updated_count ?? 0,
+            kept: data.kept_count ?? 0,
+            unchanged: data.unchanged_count ?? 0,
+            failed: data.failed_count ?? 0,
+          }}
+        />
+      )}
       <Table<SyncRunItem>
         rowKey={(i) => `${i.asset_id ?? 'x'}-${i.ci_id ?? 'y'}-${i.outcome}`}
         size="small"
