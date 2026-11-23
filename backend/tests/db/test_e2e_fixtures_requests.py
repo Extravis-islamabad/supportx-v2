@@ -9,6 +9,7 @@ approval and link, and an "E2E" item a remaining request still names all stay.
 import uuid
 from typing import Any
 
+import pytest
 from sqlalchemy import select
 
 from app.core.tenancy import TenantContext
@@ -76,7 +77,9 @@ async def test_the_teardown_removes_the_suites_requests_with_their_approvals(
     kept = await _request(world, a, keep_item, "Laptop for Sara")
     still_named = await _request(world, a, shared_item, "Desk for Omar")  # not the suite's
 
-    removed = await e2e_fixtures.delete_suite_records(world.db.migrator_url, (a.tenant,))
+    removed = await e2e_fixtures.delete_suite_records(
+        world.db.migrator_url, (a.tenant,), test_tenants=True
+    )
 
     assert removed["work_items"] == 2
     assert removed["work_item_approvals"] == 2
@@ -99,3 +102,55 @@ async def test_the_teardown_removes_the_suites_requests_with_their_approvals(
         "SELECT names->>'en' AS name FROM catalog_items WHERE tenant_id = $1 ORDER BY 1", a.tenant
     )
     assert [r["name"] for r in items] == ["E2E desk", "Keep laptop"]
+
+
+async def test_the_teardown_removes_every_row_that_references_a_suite_record(world: World) -> None:
+    """Children found in the catalogue, not a hand-kept list (the nightly k3d run's FK failure).
+
+    An unread marker (work_item_reads, WP-046b S3) was not on the old list, so the teardown failed
+    on its foreign key. Every table with a blocking foreign key onto work_items is now covered
+    whatever adds it later: the suite's request goes with its marker, another record keeps its own.
+    """
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    item = await an_item(world, a, names={"en": "Keep monitor"}, **MANAGER)
+    suite = await _request(world, a, item, "E2E monitor for Adel")
+    kept = await _request(world, a, item, "Monitor for Sara")
+    for record in (suite, kept):
+        await world.sql(
+            "INSERT INTO work_item_reads (tenant_id, user_id, work_item_id, seen_version)"
+            " VALUES ($1, $2, $3, 1)",
+            a.tenant,
+            a.tech_a,
+            record,
+        )
+
+    removed = await e2e_fixtures.delete_suite_records(
+        world.db.migrator_url, (a.tenant,), test_tenants=True
+    )
+
+    assert removed["work_items"] == 1
+    assert removed[e2e_fixtures.WORK_ITEM_DEPENDENTS] >= 1  # the marker, and whatever else
+    reads = await world.sql(
+        "SELECT work_item_id FROM work_item_reads WHERE tenant_id = $1", a.tenant
+    )
+    assert {r["work_item_id"] for r in reads} == {kept}
+    # Coverage: no blocking foreign key onto work_items still points at a removed record.
+    fks = await world.sql(
+        "SELECT conrelid::regclass::text AS child FROM pg_constraint"
+        " WHERE contype = 'f' AND confrelid = 'work_items'::regclass"
+        " AND confdeltype IN ('a', 'r')"
+    )
+    assert fks, "work_items has blocking foreign keys to cover"
+
+
+async def test_the_teardown_refuses_a_tenant_other_than_the_dev_ones(world: World) -> None:
+    """Rule 5h: pointed at another tenant without a test's say-so, it refuses before any delete."""
+    a = world.a
+    await manager_of(world, a.requester, a.tech_a)
+    item = await an_item(world, a, names={"en": "Keep dock"}, **MANAGER)
+    record = await _request(world, a, item, "E2E dock for Adel")
+    with pytest.raises(ValueError, match="dev tenants"):
+        await e2e_fixtures.delete_suite_records(world.db.migrator_url, (a.tenant,))
+    left = await world.sql("SELECT id FROM work_items WHERE id = $1", record)
+    assert [r["id"] for r in left] == [record]  # nothing was removed

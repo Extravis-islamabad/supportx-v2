@@ -25,7 +25,9 @@ test('erasure: ask, review the report, redact, approve (mocked API)', async ({ p
   await page.getByTitle('The person asked').click();
   await ask.getByTestId('erasure-request-successor').click();
   await page.keyboard.type('Samir');
-  await page.getByRole('option', { name: /Samir Khan/ }).click();
+  // The visible option: antd also renders a hidden accessibility listbox whose `option` nodes
+  // are never visible, and `getByRole('option')` can resolve to one (the nightly k3d timeout).
+  await page.locator('.ant-select-item-option').filter({ hasText: 'Samir Khan' }).click();
   await ask.getByTestId('erasure-request-name').fill('Noor Hassan');
   await expectAccessible(page, 'erasure request');
   await ask.getByTestId('erasure-request-submit').click();

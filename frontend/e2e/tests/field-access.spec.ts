@@ -39,6 +39,70 @@ async function open(browser: Browser, user: 'tech' | 'admin', path: string) {
   return { context, page };
 }
 
+interface Session {
+  tenant?: { id?: string };
+  user: { id: string; roles?: string[] };
+}
+
+/**
+ * The nightly k3d run's open question (a hidden field still served about 2 s after its rule):
+ * logs who and where each side is, and polls the technician's read for up to 10 s. IDs, role
+ * keys and booleans only, never a field's value. Never fails the test itself.
+ */
+async function logDiagnostics(
+  admin: Page,
+  tech: Page,
+  incidentId: string,
+  technicianRoleId: string,
+  ruleRoleId: string | undefined,
+): Promise<void> {
+  const session = async (page: Page) =>
+    (await (await page.request.get('/api/v1/auth/me')).json()) as Session;
+  const [adminSession, techSession] = [await session(admin), await session(tech)];
+  const techUser = (await (
+    await tech.request.get(`/api/v1/users/${techSession.user.id}`)
+  ).json()) as { roles?: unknown };
+  const roleIds = Array.isArray(techUser.roles)
+    ? techUser.roles.map((r: unknown) =>
+        typeof r === 'object' && r !== null && 'id' in r ? String(r.id) : String(r),
+      )
+    : null;
+  const polls: {
+    ms: number;
+    status: number;
+    value: boolean;
+    hidden: boolean;
+    pod: string | null;
+  }[] = [];
+  const started = Date.now();
+  while (Date.now() - started < 10_000) {
+    const read = await tech.request.get(`/api/v1/incidents/${incidentId}`);
+    const body = (await read.json()) as { impact_details?: unknown; hidden_fields?: string[] };
+    const hidden = (body.hidden_fields ?? []).includes(FIELD);
+    polls.push({
+      ms: Date.now() - started,
+      status: read.status(),
+      value: typeof body.impact_details === 'string' && body.impact_details !== '',
+      hidden,
+      pod: read.headers()['x-served-by'] ?? null,
+    });
+    if (hidden) break;
+    await tech.waitForTimeout(500);
+  }
+  console.log(
+    'field-access diagnostics',
+    JSON.stringify({
+      tenant_admin: adminSession.tenant?.id ?? null,
+      tenant_tech: techSession.tenant?.id ?? null,
+      rule_role_id: ruleRoleId ?? null,
+      technician_role_id: technicianRoleId,
+      tech_role_keys: techSession.user.roles ?? null,
+      tech_role_ids: roleIds,
+      polls,
+    }),
+  );
+}
+
 /** Takes away the technician role's impact-details rule, if one is left (suite-owned). */
 async function removeRule(admin: Page, roleId: string): Promise<void> {
   const listed = await call(admin, 'GET', `/field-access/rules?role_id=${roleId}`);
@@ -81,8 +145,13 @@ test('a field hidden for a role reads "Not shown to you" on an open record, live
     await admin.page.getByRole('tab', { name: 'Field access' }).click();
     await expect(admin.page.getByTestId('field-access-help')).toBeVisible();
     await admin.page.getByTestId(`field-access-mode-${FIELD}`).click();
+    const posted = admin.page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith('/api/v1/field-access/rules'),
+    );
     await admin.page.locator('.ant-select-item-option[title="Hidden"]').last().click();
+    const rule = (await (await posted).json()) as { role_id?: string };
     await expect(admin.page.getByText('Field access saved')).toBeVisible();
+    await logDiagnostics(admin.page, tech.page, incident.id, technician.id, rule.role_id);
     await expectAccessible(admin.page, 'role field access tab');
     await admin.page.screenshot({ path: 'test-results/field-access-tab.png', fullPage: true });
 
