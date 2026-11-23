@@ -1373,6 +1373,8 @@ export const en = {
   'system_log_code.integrations.mailbox.send_failed': 'Sending mail from a mailbox failed',
   'system_log_code.licensing.check_failed': 'The licence check failed',
   'system_log_code.notifications.mail.refused': "An e-mail notification couldn't be sent",
+  'system_log_code.work_items.cancellation.no_decider':
+    'No one can decide the ask to cancel {{display_id}}: name an assignee or give the service desk managers the right',
   'system_log_module.assets': 'Assets',
   'system_log_module.audit': 'Audit',
   'system_log_module.automation': 'Automation',

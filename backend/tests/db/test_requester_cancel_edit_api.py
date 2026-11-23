@@ -243,9 +243,7 @@ async def test_an_unassigned_ask_goes_to_the_managers_audited_and_the_requester_
 async def test_with_nobody_to_decide_the_ask_stays_open_and_says_so(
     world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The coordinator's condition 1: nobody at all, so it waits, labelled and logged."""
-    from structlog.testing import capture_logs  # noqa: PLC0415
-
+    """The coordinator's condition 1: nobody at all, so it waits, labelled and in the system log."""
     from app.modules.work_items.domain.requester_rules import (  # noqa: PLC0415
         CancellationDeciders,
     )
@@ -258,14 +256,24 @@ async def test_with_nobody_to_decide_the_ask_stays_open_and_says_so(
     a = world.a
     await _rules(world, a, requester_cancel="ask")
     item = await world.create(a, a.admin, subject=f"No decider {uuid.uuid4().hex[:6]}")
-    with capture_logs() as logs:
-        asked = await _cancel(world, a, a.requester, item)
+    asked = await _cancel(world, a, a.requester, item)
     assert asked.status_code == 200, asked.text
-    assert any(
-        e["event"] == "cancellation_ask_without_decider"
-        and e["log_level"] == "warning"
-        and e["work_item_id"] == item["id"]
-        for e in logs
+    entries = await world.sql(
+        "SELECT severity, module, params, object_type FROM system_log_entries"
+        " WHERE tenant_id = $1 AND code = 'work_items.cancellation.no_decider'"
+        " AND params->>'display_id' = $2",
+        a.tenant,
+        item["display_id"],
+    )
+    assert len(entries) == 1
+    [entry] = entries
+    params = entry["params"] if isinstance(entry["params"], dict) else json.loads(entry["params"])
+    # Lane C's (c): the display ID only, never a name, the subject or the reason.
+    assert (entry["severity"], entry["module"], params, entry["object_type"]) == (
+        "warning",
+        "work_items",
+        {"display_id": item["display_id"]},
+        None,
     )
     staff = (
         await world.call("GET", f"{BASE}/{item['id']}/cancellation-request", a, a.admin)
