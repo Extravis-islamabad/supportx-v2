@@ -579,7 +579,8 @@ async def _mail_link(
     tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
     brand = await email_branding(session, settings, tenant_id, "en")
     query = "" if settings.tenant_base_domain else f"?t={quote(brand.tenant_slug)}"
-    link = f"{brand.console_url}{SUPPORT_PAGE}{query}#{token}"
+    # The branded console URL ends with "/" (email_branding); the page path starts with one.
+    link = f"{brand.console_url.rstrip('/')}{SUPPORT_PAGE}{query}#{token}"
     short = rules.mail_subject_id(row.id)
     tenant = await get_current_tenant(session)
     expires = row.link_expires_at.strftime("%d %b %Y, %H:%M UTC") if row.link_expires_at else ""
@@ -675,17 +676,23 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     session.add(row)
     await session.flush()
     organization = await organization_of(session, admin)
-    # A generated login and no address (D-177 fallback): the shared realm allows one account per
-    # address, so the engineer's real address stays on the grant, where SupportX's mail uses it.
+    # A generated login and its own .invalid address, verified, with both names (D-177; lane B's
+    # conditions on #566): the profile is complete, so a fresh realm never asks the engineer to
+    # fill it in. The engineer's real address stays on the grant, where SupportX's mail uses it.
+    first_name, last_name = rules.support_names(row.engineer_name, grant_id)
     account = await admin.create_user(
-        email=None,
+        email=rules.support_address(grant_id),
+        email_verified=True,
         username=login,
-        first_name=row.engineer_name[:100],
-        last_name="",
+        first_name=first_name,
+        last_name=last_name,
         locale="en",
     )
     password: str | None = None
     try:
+        # No account-console role (the realm's default roles), so it can never change its own
+        # profile or address; SupportX's sign-in needs no realm role (lane B's condition 3).
+        await admin.drop_default_roles(account)
         await admin.add_member(organization.id, account)
         # Keycloak makes the engineer choose their own password and enrol TOTP before any session.
         await admin.require_actions(account, list(rules.FIRST_SIGN_IN_ACTIONS))

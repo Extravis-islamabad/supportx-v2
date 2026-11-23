@@ -1051,6 +1051,7 @@ export const en = {
   'errors.mail_not_configured':
     'Outgoing mail is not set up on this installation. Ask your operator to configure it.',
   'errors.mail_not_waiting': 'This message is no longer waiting: someone handled it already.',
+  'errors.mail_recipient_undeliverable': 'This message has no address it can be delivered to.',
   'errors.mail_recipients': 'Send to between 1 and 50 recipients.',
   'errors.mail_sender_invalid': 'The sender name or reply-to address is not valid.',
   'errors.mail_status_staff_only': 'Only people who reply on records can see this.',

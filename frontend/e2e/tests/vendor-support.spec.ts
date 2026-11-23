@@ -56,19 +56,44 @@ async function signInAtKeycloak(page: Page, login: string, password: string): Pr
   await page.locator('#kc-login').click();
 }
 
-/** The first sign-in's required actions: a new password, then a one-time code (D-177). */
+/**
+ * The first sign-in's required actions: a new password and a one-time code (D-177), then the
+ * recovery codes if offered. Keycloak orders them by the realm's priorities (a fresh realm asks for
+ * the code first), so each is handled as it appears; both the password and the code are required.
+ */
 async function firstSignIn(page: Page): Promise<void> {
-  await expect(page.locator('#password-new')).toBeVisible({ timeout: 30_000 });
-  await setPassword(page, NEW_PASSWORD);
-  await expect(page.locator('#totp')).toBeVisible({ timeout: 30_000 });
-  const secret = await page.locator('#totpSecret').inputValue();
-  await page.locator('#totp').fill(totp(secret));
-  await page.locator('#saveTOTPBtn').click();
+  const password = page.locator('#password-new');
+  const code = page.locator('#totp');
   const codes = page.locator('#kcRecoveryCodesConfirmationCheck');
-  if (await codes.isVisible().catch(() => false)) {
-    await codes.check();
-    await page.locator('#saveRecoveryAuthnCodesBtn').click();
+  const done = new Set<string>();
+  for (let step = 0; step < 3; step += 1) {
+    const timeout = done.size === 0 ? 30_000 : 10_000;
+    const shown = await password
+      .or(code)
+      .or(codes)
+      .first()
+      .waitFor({ state: 'visible', timeout })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) break;
+    if (await password.isVisible()) {
+      await setPassword(page, NEW_PASSWORD);
+      done.add('password');
+    } else if (await code.isVisible()) {
+      const secret = await page.locator('#totpSecret').inputValue();
+      await code.fill(totp(secret));
+      await page.locator('#saveTOTPBtn').click();
+      done.add('code');
+    } else {
+      await codes.check();
+      await page.locator('#saveRecoveryAuthnCodesBtn').click();
+      done.add('recovery');
+    }
+    await expect(password.or(code).or(codes).first())
+      .toBeHidden({ timeout: 10_000 })
+      .catch(() => undefined);
   }
+  expect([...done].filter((d) => d !== 'recovery').sort()).toEqual(['code', 'password']);
 }
 
 test.describe('vendor support', () => {

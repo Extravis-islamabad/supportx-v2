@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.background import BackgroundTask
 
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
@@ -517,10 +518,16 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
     set-password e-mail in the tenant's brand, valid 60 minutes, once (REQ-SEC-006, 035; D-099).
     """
     database: Database | None = getattr(request.app.state, "db", None)
-    if database is not None:
-        address = await _address(request)
-        tenant = await _address_tenant(request, address)
-        await password_reset_service.request_reset(
+    if database is None:
+        return Response(status_code=status.HTTP_202_ACCEPTED)
+    address = await _address(request)
+    tenant = await _address_tenant(request, address)
+    # The work runs after the answer is sent: an unknown address, a support account (refused,
+    # D-177) and a real one all answer equally fast (lane B's condition 7 on #566).
+    return Response(
+        status_code=status.HTTP_202_ACCEPTED,
+        background=BackgroundTask(
+            password_reset_service.request_reset,
             database,
             request.app.state.settings,
             auth.store,
@@ -530,8 +537,8 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
                 network=request.client.host if request.client else None,
                 tenant_id=tenant,
             ),
-        )
-    return Response(status_code=status.HTTP_202_ACCEPTED)
+        ),
+    )
 
 
 async def _address_tenant(request: Request, address: LoginAddress | None) -> uuid.UUID | None:

@@ -7,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.modules.identity_access.domain import support_grants
+from app.modules.identity_access.domain import support_grants as rules
+from app.modules.identity_access.domain.identity import identity_from
 from app.modules.identity_access.domain.support_grants import (
     MAX_TOTAL,
     WITH_MAIL,
@@ -25,6 +27,7 @@ from app.modules.identity_access.domain.support_grants import (
     support_username,
     window,
 )
+from app.shared.mail.domain.message import undeliverable
 
 NOW = datetime(2026, 11, 18, 9, tzinfo=UTC)
 GOOD = GrantRequest(
@@ -153,3 +156,30 @@ def test_the_fallback_login_and_link_token() -> None:
     assert not support_grants.link_usable(stored, token, later, NOW, NOW)  # used
     assert not support_grants.link_usable(None, token, later, None, NOW)
     assert len(support_grants.mail_subject_id(grant)) == 8
+
+
+def test_the_account_profile_is_complete_and_its_address_never_delivers() -> None:
+    """Lane B's conditions on #566: a fresh realm never asks the engineer for an address or name."""
+    grant = uuid.UUID("0190f2a3-b4c5-7d6e-8f90-a1b2c3d4e5f6")
+    address = rules.support_address(grant)
+    assert address == f"support-{grant.hex}@support.invalid"
+    assert undeliverable(address)  # the one mail sender refuses it
+    assert rules.support_names("Omar Farooq Khan", grant) == ("Omar Farooq", "Khan")
+    assert rules.support_names("  Omar  ", grant) == ("Omar", "Support")
+    assert rules.support_names("   ", grant) == ("Support", rules.mail_subject_id(grant))
+    first, last = rules.support_names("A" * 150 + " " + "B" * 150, grant)
+    assert (len(first), len(last)) == (100, 100)
+
+
+def test_a_support_session_keeps_its_login_not_the_invalid_address() -> None:
+    grant = uuid.UUID("0190f2a3-b4c5-7d6e-8f90-a1b2c3d4e5f6")
+    found = identity_from(
+        {
+            "sub": "kc-1",
+            "email": rules.support_address(grant),
+            "preferred_username": rules.support_login(grant),
+        }
+    )
+    assert found.email == rules.support_login(grant)
+    person = identity_from({"sub": "kc-2", "email": "Pat@Acme.test", "preferred_username": "x"})
+    assert person.email == "pat@acme.test"

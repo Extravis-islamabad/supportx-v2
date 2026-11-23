@@ -15,6 +15,8 @@ from enum import StrEnum
 from typing import Any, Literal, get_args
 from urllib.parse import unquote, urlsplit
 
+from app.modules.identity_access.domain.support_grants import SUPPORT_ADDRESS_DOMAIN
+
 ORGANIZATIONS_CLAIM = "supportx_organizations"
 ROLES_CLAIM = "supportx_roles"
 TENANT_ATTRIBUTE = "tenant_id"
@@ -201,7 +203,12 @@ def identity_from(claims: Mapping[str, Any]) -> Identity:
     """Build the identity from already validated claims."""
     roles = claims.get(ROLES_CLAIM)
     locale = claims.get("locale")
-    email = str(claims.get("email") or claims.get("preferred_username") or "").strip().lower()
+    address = str(claims.get("email") or "").strip().lower()
+    if address.endswith(f"@{SUPPORT_ADDRESS_DOMAIN}"):
+        # A vendor support account's .invalid address only completes its Keycloak profile (D-177):
+        # the session keeps naming the account by its generated login, as before it had one.
+        address = ""
+    email = str(address or claims.get("preferred_username") or "").strip().lower()
     name = str(claims.get("name") or email).strip()
     sid = claims.get("sid")
     return Identity(

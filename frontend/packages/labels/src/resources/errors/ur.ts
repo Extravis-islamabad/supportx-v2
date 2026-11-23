@@ -1056,6 +1056,7 @@ export const ur: LabelResource = {
   'errors.mail_not_configured':
     'اس انسٹالیشن پر باہر جانے والی ای میل سیٹ اپ نہیں۔ اپنے آپریٹر سے اسے ترتیب دینے کو کہیں۔',
   'errors.mail_not_waiting': 'یہ پیغام اب منتظر نہیں: کسی نے پہلے ہی اسے نمٹا دیا۔',
+  'errors.mail_recipient_undeliverable': 'اس پیغام میں کوئی ایسا پتا نہیں جس پر یہ پہنچ سکے۔',
   'errors.mail_recipients': '1 سے 50 وصول کنندگان کو بھیجیں۔',
   'errors.mail_sender_invalid': 'بھیجنے والے کا نام یا جواب کا پتا درست نہیں۔',
   'errors.mail_status_staff_only': 'یہ صرف وہ لوگ دیکھ سکتے ہیں جو ریکارڈز پر جواب دیتے ہیں۔',

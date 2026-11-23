@@ -19,6 +19,7 @@ import {
   useSupportActivity,
   type SupportGrant,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   Drawer,
   EmptyText,
@@ -93,6 +94,7 @@ export function GrantDetailsDrawer({
   onClose: () => void;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const { format } = useDateTime();
   const { can } = useAccess();
@@ -151,7 +153,7 @@ export function GrantDetailsDrawer({
           </Descriptions.Item>
           {grant.ip_allowlist.length > 0 && (
             <Descriptions.Item label={t('vendor_support.field.ip_allowlist')}>
-              <span dir="ltr">{grant.ip_allowlist.join(', ')}</span>
+              <span dir="ltr">{listFormat(grant.ip_allowlist)}</span>
             </Descriptions.Item>
           )}
         </Descriptions>
