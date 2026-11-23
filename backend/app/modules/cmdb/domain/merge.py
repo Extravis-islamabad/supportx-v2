@@ -180,6 +180,7 @@ class CiRowOutcome(StrEnum):
     CREATED = "created"
     UPDATED = "updated"
     UNCHANGED = "unchanged"  # the same values, or a relationship already there (AC2)
+    KEPT = "kept"  # nothing written: a stronger source set every differing value (S4a)
 
 
 # Row problem codes (labelled `errors.field.<code>`).

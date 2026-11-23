@@ -125,6 +125,7 @@ export const ar: LabelResource = {
     'أُضيف {{created}}، وحُدّث {{updated}}، وتُرك {{unchanged}} كما هي؛ رُفض {{failed}} صف.',
   'cmdb.import.download_problems': 'تنزيل الصفوف المرفوضة',
   'cmdb.import.file': 'الملف',
+  'cmdb.import.kept': 'صفوف تُركت كما هي لأن مصدرًا أعلى رتبة حدّد قيمها: {{kept}}.',
   'cmdb.import.kind': 'يحتوي الملف على',
   'cmdb.import.limits': 'ملف CSV أو مصنف Excel، حتى {{max_megabytes}} ميغابايت و{{max_rows}} صف.',
   'cmdb.import.match': 'تسمّي الصفوف عناصر التهيئة',

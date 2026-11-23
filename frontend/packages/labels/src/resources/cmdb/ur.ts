@@ -125,6 +125,8 @@ export const ur: LabelResource = {
     '{{created}} شامل ہوئے، {{updated}} اپ ڈیٹ ہوئے، {{unchanged}} جوں کے توں رہے؛ {{failed}} قطاریں رد۔',
   'cmdb.import.download_problems': 'رد شدہ قطاریں ڈاؤن لوڈ کریں',
   'cmdb.import.file': 'فائل',
+  'cmdb.import.kept':
+    'وہ قطاریں جو جوں کی توں رہیں کیونکہ ان کی قدریں کسی اعلیٰ درجے کے ماخذ نے طے کی تھیں: {{kept}}۔',
   'cmdb.import.kind': 'فائل میں ہیں',
   'cmdb.import.limits':
     'CSV فائل یا Excel ورک بک، زیادہ سے زیادہ {{max_megabytes}} MB اور {{max_rows}} قطاریں۔',

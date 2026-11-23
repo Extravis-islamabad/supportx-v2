@@ -216,6 +216,9 @@ class CiImportOut(BaseModel):
     created_count: int
     updated_count: int
     unchanged_count: int
+    kept_count: int = Field(
+        description="Rows that changed nothing: a stronger source set the values (who wins)."
+    )
     failed_count: int
     problems: list[CiImportProblemOut]
     failure: str | None

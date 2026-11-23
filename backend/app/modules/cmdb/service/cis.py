@@ -799,8 +799,13 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    stamp_as: AttributeSource = AttributeSource.HAND,
 ) -> CiView:
-    """Change the fields sent (If-Match). Unchanged input: no new version, no event."""
+    """Change the fields sent (If-Match). Unchanged input: no new version, no event.
+
+    `stamp_as`: the source the changed attributes are stamped with (`hand` for a person's own
+    edit; an import's rows say `import`).
+    """
     record = await _writable(session, subject, EDIT, ci_id)
     draft = {k: v for k, v in values.items() if k in EDITABLE}
     if problems := _check_codes(draft):
@@ -815,7 +820,13 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
         _require_writable(subject, _changed_custom(held, custom))
         columns["custom"] = custom
     saved = await _save(
-        session, subject, record, expected_version=expected_version, columns=columns, source=source
+        session,
+        subject,
+        record,
+        expected_version=expected_version,
+        columns=columns,
+        source=source,
+        stamp_as=stamp_as,
     )
     return await _view(session, subject, saved)
 
@@ -1319,7 +1330,14 @@ async def save_merged(  # noqa: PLR0913 - the survivor, its new values and the m
 async def add_imported(
     session: AsyncSession, subject: Subject, values: Mapping[str, Any], source: Source
 ) -> Ci:
-    """A new CI from an import row (S4b): the ordinary create, its source `import`."""
+    """A new CI from an import row (S4b): the ordinary create, its attributes stamped `import`."""
     if writer(subject, ADD) is None:
         raise _denied(ADD)
-    return await _add(session, subject, values, source, origin=domain.CiSource.IMPORT)
+    return await _add(
+        session,
+        subject,
+        values,
+        source,
+        origin=domain.CiSource.IMPORT,
+        stamp_as=AttributeSource.IMPORT,
+    )

@@ -14,7 +14,7 @@ Tenant first, RLS forced (migrations/helpers.py only), soft delete, actor audit.
 refuses while any tenant has an alias or an import (rule 5h), per tenant with app.tenant_id set.
 
 Revision ID: 0192
-Revises: 0190 (re-pointed at its queue turn, after S4a's 0191)
+Revises: 0191 (main's head now; re-pointed at its queue turn, after #582's 0194)
 Created: 2026-11-23
 """
 
@@ -28,7 +28,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0192"
-down_revision: str | None = "0190"  # main's head now; re-pointed at its queue turn (after 0191)
+down_revision: str | None = "0191"  # main's head now; re-pointed at its queue turn (after 0194)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -141,6 +141,7 @@ def upgrade() -> None:
         _count("created_count"),
         _count("updated_count"),
         _count("unchanged_count"),
+        _count("kept_count"),
         _count("failed_count"),
         sa.Column("problems", postgresql.JSONB(), server_default="[]", nullable=False),
         sa.Column("failure", sa.String(length=50), nullable=True),

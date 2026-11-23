@@ -35,6 +35,7 @@ const checked = {
   created_count: 1,
   updated_count: 0,
   unchanged_count: 1,
+  kept_count: 2,
   failed_count: 1,
   problems: [{ row: 3, field: 'to', code: 'not_found' }],
   failure: null,
@@ -96,6 +97,10 @@ describe('CMDB › importing CIs and relationships', () => {
     fireEvent.click(within(drawer).getByTestId('ci-import-check'));
     const would = await within(drawer).findByTestId('ci-import-would');
     expect(would.textContent).toContain('Would add 1');
+    // Rows a higher-ranked source set are named as left alone, never as refused.
+    const kept = within(drawer).getByTestId('ci-import-kept');
+    expect(kept.textContent).toContain('2');
+    expect(kept.textContent).not.toContain('kept_count');
     const problems = within(drawer).getByTestId('ci-import-problems');
     expect(problems.textContent).toContain('To');
     expect(problems.textContent).not.toContain('not_found');

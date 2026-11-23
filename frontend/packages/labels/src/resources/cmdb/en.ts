@@ -125,6 +125,7 @@ export const en = {
     'Added {{created}}, updated {{updated}}, left {{unchanged}} as they were; {{failed}} rows refused.',
   'cmdb.import.download_problems': 'Download the refused rows',
   'cmdb.import.file': 'File',
+  'cmdb.import.kept': 'Rows left alone because a higher-ranked source set their values: {{kept}}.',
   'cmdb.import.kind': 'The file holds',
   'cmdb.import.limits':
     'A CSV file or an Excel workbook, up to {{max_megabytes}} MB and {{max_rows}} rows.',

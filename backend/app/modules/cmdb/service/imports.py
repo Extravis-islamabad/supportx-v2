@@ -24,8 +24,10 @@ channel), so the import screen moves live. Every import is a background job, wha
 - **Re-importing the same file creates no duplicates (AC2):** "add and update" updates what it
   matches (unchanged when the values are the same), and a relationship already there is
   unchanged.
-- TODO(WP-053 S4a, #574): stamp each imported attribute's source `import` once S4a's attribute
-  sources land; until then the history line's source says `import`.
+- **The source of every attribute (S4a, REQ-CMDB-016):** what a row writes is stamped `import`,
+  and an update goes through the tenant's who-wins order like a sync run (the same `plan`): a
+  value a stronger source set (by default, a hand edit) is kept, never overwritten. A row that
+  changes nothing because of that is `kept` and counted so, never an error.
 """
 
 import csv
@@ -51,12 +53,15 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import merge as domain
 from app.modules.cmdb.domain import relationships as rel
+from app.modules.cmdb.domain import sources as source_rules
+from app.modules.cmdb.domain import sync as sync_rules
 from app.modules.cmdb.events import CiImportProgressed
 from app.modules.cmdb.infra.models import Ci, CiImport, CiState, Relationship, RelationshipType
 from app.modules.cmdb.service import cis, relationships
-from app.modules.cmdb.service.catalogue import ADD, EDIT, ensure_defaults, get_type
+from app.modules.cmdb.service.catalogue import ADD, EDIT, ensure_defaults, get_settings, get_type
 from app.modules.identity_access import Subject, subject_for
 from app.shared import sheets
 from app.shared.db.repository import Repository
@@ -196,7 +201,7 @@ async def start_run(
     job.dry_run = False
     job.status = domain.CiImportStatus.QUEUED.value
     job.processed = job.created_count = job.updated_count = 0
-    job.unchanged_count = job.failed_count = 0
+    job.unchanged_count = job.kept_count = job.failed_count = 0
     job.problems = []
     job.finished_at = None
     job.version += 1
@@ -359,6 +364,7 @@ class _How:
     match_on: domain.CiImportMatch
     type_id: uuid.UUID | None
     dry_run: bool
+    precedence: source_rules.Precedence  # the tenant's who-wins order (S4a)
 
 
 async def _batch(
@@ -379,6 +385,7 @@ async def _batch(
         match_on=domain.CiImportMatch(job.match_on),
         type_id=job.type_id,
         dry_run=job.dry_run,
+        precedence=source_rules.precedence_of((await get_settings(session)).source_precedence),
     )
     deadline = time.monotonic() + BATCH_SECONDS
     tally = _Tally(problems=list(job.problems))
@@ -392,6 +399,7 @@ async def _batch(
     job.created_count += tally.counts.get(domain.CiRowOutcome.CREATED, 0)
     job.updated_count += tally.counts.get(domain.CiRowOutcome.UPDATED, 0)
     job.unchanged_count += tally.counts.get(domain.CiRowOutcome.UNCHANGED, 0)
+    job.kept_count += tally.counts.get(domain.CiRowOutcome.KEPT, 0)
     job.failed_count += tally.counts.get(None, 0)
     job.problems = tally.problems
     job.version += 1
@@ -506,14 +514,25 @@ async def _ci_row(
         return domain.CiRowOutcome.CREATED
     if how.mode is domain.CiImportMode.ADD:
         raise RowProblem(key_field, domain.ROW_CONFLICT)
+    # Who wins, per attribute (S4a): only what the import's source may change is written.
+    found = sync_rules.plan(
+        how.precedence,
+        field_rules.flat(cis.snapshot(record)),
+        cis.effective_stamps(record),
+        {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in fields.items()},
+        source=source_rules.AttributeSource.IMPORT,
+    )
+    if not found.changes:
+        return domain.CiRowOutcome.KEPT if found.kept else domain.CiRowOutcome.UNCHANGED
     before = record.version
     updated = await cis.update(
         session,
         how.subject,
         record.id,
         expected_version=record.version,
-        values=fields,
+        values={k: fields[k] for k in found.changes},
         source=SOURCE,
+        stamp_as=source_rules.AttributeSource.IMPORT,
     )
     changed = updated.record.version != before
     return domain.CiRowOutcome.UPDATED if changed else domain.CiRowOutcome.UNCHANGED

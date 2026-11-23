@@ -461,6 +461,80 @@ async def test_a_dry_run_changes_nothing_then_the_run_adds_and_a_reimport_duplic
     assert events[0]["n"] >= 3  # queued, running, checked, then the run's own
 
 
+def _sources(ci: dict[str, Any]) -> dict[str, str]:
+    return {k: v["source"] for k, v in ci["sources"].items()}
+
+
+async def test_an_import_stamps_what_it_writes_and_never_overwrites_a_hand_edit(
+    world: World,
+) -> None:
+    """S4a's who wins on an import (REQ-CMDB-016): `import` ranks below `hand` by default.
+
+    A value set by hand is kept (the row is `kept`, counted, never an error); a value nobody set
+    is written and stamped `import`; a CI the file adds has every value stamped `import`. A second
+    run of the same file changes nothing: the same counts, the same sources (the coordinator's
+    re-import check).
+    """
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    held = (await _ci(world, a, f"Hand box {tag}", description="Typed by hand")).json()
+    open_ = (await _ci(world, a, f"Open box {tag}")).json()
+    added = f"New box {tag}"
+    sheet = (
+        "Name,Description,Criticality\n"
+        f"{held['name']},From a file,\n"  # only the hand-set description differs: kept
+        f"{open_['name']},,high\n"  # criticality nobody set: written
+        f"{added},From a file,low\n"
+    ).encode()
+    first = await _worked(
+        world, a, await _upload(world, a, sheet, type_code="server", dry_run=False)
+    )
+    assert (first["created_count"], first["updated_count"], first["kept_count"]) == (1, 1, 1)
+    assert first["failed_count"] == 0
+    kept = await _fresh(world, a, held)
+    assert kept["description"] == "Typed by hand"
+    assert kept["version"] == held["version"]  # nothing written to it
+    assert _sources(kept)["description"] == "hand"
+    written = await _fresh(world, a, open_)
+    assert written["criticality"] == "high"
+    assert _sources(written)["criticality"] == "import"
+    assert _sources(written)["name"] == "hand"  # the same name: untouched
+    rows = await world.sql(
+        "SELECT id FROM cmdb_cis WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL",
+        a.tenant,
+        added,
+    )
+    made = await _fresh(world, a, {"id": str(rows[0]["id"])})
+    assert set(_sources(made).values()) == {"import"}, _sources(made)
+    after_first = {c["id"]: c["sources"] for c in (kept, written, made)}
+    again = await _worked(
+        world, a, await _upload(world, a, sheet, type_code="server", dry_run=False)
+    )
+    assert (again["created_count"], again["updated_count"]) == (0, 0)
+    assert (again["kept_count"], again["unchanged_count"]) == (1, 2)
+    for ci_id, sources in after_first.items():
+        assert (await _fresh(world, a, {"id": ci_id}))["sources"] == sources
+
+
+async def test_an_import_overwrites_a_value_a_weaker_source_set(world: World) -> None:
+    """The negative control: `import` ranks above `asset_sync`, so it writes over a synced value."""
+    a = world.a
+    ci = (await _ci(world, a, f"Synced box {uuid.uuid4().hex[:6]}", description="From sync")).json()
+    await world.sql(  # superuser: the tenant filtered by hand
+        "UPDATE cmdb_cis SET sources = jsonb_set(sources, '{description}',"
+        " jsonb_build_object('source', 'asset_sync', 'at', now()::text))"
+        " WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(ci["id"]),
+    )
+    sheet = f"Name,Description\n{ci['name']},From a file\n".encode()
+    job = await _worked(world, a, await _upload(world, a, sheet, type_code="server", dry_run=False))
+    assert (job["updated_count"], job["kept_count"]) == (1, 0)
+    found = await _fresh(world, a, ci)
+    assert found["description"] == "From a file"
+    assert _sources(found)["description"] == "import"
+
+
 async def test_an_upload_with_the_same_idempotency_key_makes_one_import(world: World) -> None:
     a = world.a
     key = f"cmdb-import-{uuid.uuid4().hex}"
@@ -550,7 +624,9 @@ async def test_a_ci_row_naming_an_unseen_ci_reads_as_one_that_exists_nowhere(wor
         await _upload(world, a, sheet, mode="update", match_on="display_id", type_code="server",
                       dry_run=False),
     )  # fmt: skip
-    assert job["updated_count"] == 1
+    # Found and matched, never not_found. Its name was set by hand, which outranks an import
+    # (S4a's who wins), so the row is kept rather than written.
+    assert (job["failed_count"], job["kept_count"], job["problems"]) == (0, 1, [])
 
 
 async def test_a_file_over_d092s_limits_is_refused_whole(world: World) -> None:

@@ -577,6 +577,8 @@ class CiImport(TenantEntity):
     created_count: Mapped[int] = mapped_column(Integer, server_default="0")
     updated_count: Mapped[int] = mapped_column(Integer, server_default="0")
     unchanged_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Rows that changed nothing because a stronger source set the values (S4a's who wins).
+    kept_count: Mapped[int] = mapped_column(Integer, server_default="0")
     failed_count: Mapped[int] = mapped_column(Integer, server_default="0")
     # [{"row": 12, "field": "to", "code": "not_found"}, ...] (codes only, never values).
     problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")

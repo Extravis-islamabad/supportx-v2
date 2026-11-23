@@ -92,6 +92,12 @@ function ImportProgress({
           {t('cmdb.import.did', counts)}
         </Typography.Text>
       )}
+      {(job.status === 'checked' || job.status === 'done') && job.kept_count > 0 && (
+        // S4a's who wins: rows whose values a higher-ranked source (by default, a hand edit) set.
+        <Typography.Text type="secondary" data-testid="ci-import-kept">
+          {t('cmdb.import.kept', { kept: job.kept_count })}
+        </Typography.Text>
+      )}
       {job.problems.length > 0 && (
         <>
           <Table<CiImportProblem>
