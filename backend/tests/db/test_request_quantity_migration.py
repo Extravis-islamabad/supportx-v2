@@ -13,7 +13,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0184"  # 0193's down revision (main's head now; re-pointed at its queue turn)
+BEFORE = "0187"  # 0193's down revision (main's head at its queue turn)
 ITEM_COLUMNS = {"max_quantity", "asks_needed_by"}
 REQUEST_COLUMNS = {"quantity", "needed_by", "expected_delivery_at"}
 

@@ -21,7 +21,7 @@ NULL):
 The downgrade drops the five columns: the quantities and dates go, the items and requests stay.
 
 Revision ID: 0193
-Revises: 0184
+Revises: 0187
 Created: 2026-11-23
 """
 
@@ -31,7 +31,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0193"
-down_revision: str | None = "0184"  # main's head now (… 0190 → 0184); re-pointed at its queue turn
+down_revision: str | None = "0187"  # main's head at its queue turn (… 0184 → 0187)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
