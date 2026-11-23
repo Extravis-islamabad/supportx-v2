@@ -38,6 +38,14 @@
   (`/service-requests/bulk`, the visibility-first runner); WP-047a S1 gives the requests list its
   row checkboxes and selection bar with **assign and take**. Close, resolve, cancel and delete
   follow with their own dialogs (as the change list's), recorded for WP-047a S5.
+- [x] **`person_placement` fails closed** (lane A, 2026-11-23; lane B's #582 review; lane B
+  reviews): an ID with no row this session can see (a random ID, another tenant's user) or no
+  ID reads as nobody, not active and unable to sign in, instead of the defaults (active, may
+  sign in). The callers that read `active` / `can_sign_in` only become stricter: an unknown
+  named approver goes to the backup or administrators, an unknown approver is rerouted, an
+  unknown problem approver is refused, and raising on behalf of an unknown person is refused
+  by the scope (`on_behalf_out_of_scope`; under `all_users` it used to pass the scope and be
+  refused only by a later field check, a 422).
 - **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
   WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
   `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
