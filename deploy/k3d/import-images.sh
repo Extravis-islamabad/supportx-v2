@@ -26,8 +26,10 @@ missing() {  # prints "<node> <image>" for each image a node's containerd does n
   for node in $(nodes); do
     listed="$(docker exec "$node" ctr -n k8s.io images ls -q 2>/dev/null || true)"
     for image in "$@"; do
-      # A local `name:tag` is stored as docker.io/library/name:tag.
-      grep -qxF -e "$image" -e "docker.io/library/$image" <<<"$listed" || echo "$node $image"
+      # containerd stores Docker Hub short names in full: `name:tag` as
+      # docker.io/library/name:tag and `org/name:tag` as docker.io/org/name:tag (lane C).
+      grep -qxF -e "$image" -e "docker.io/library/$image" -e "docker.io/$image" <<<"$listed" ||
+        echo "$node $image"
     done
   done
 }
