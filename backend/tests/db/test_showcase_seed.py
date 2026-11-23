@@ -5,7 +5,7 @@ import copy
 import json
 import uuid
 from collections import Counter
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -23,6 +23,7 @@ from app.shared.events.outbox import OUTBOX_TABLE
 from conftest import create_tenant, make_settings
 from tooling import db_testing
 from tooling import showcase_assets as assets
+from tooling import showcase_cmdb as cmdb
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
@@ -106,7 +107,17 @@ async def _counts(url: str, tenant: uuid.UUID) -> dict[str, int]:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
             return {
                 table: await conn.fetchval(f"SELECT count(*) FROM {table}")  # noqa: S608 - fixed names
-                for table in ("users", "work_items", "sites", "support_groups", "dashboards")
+                for table in (
+                    "users",
+                    "work_items",
+                    "sites",
+                    "support_groups",
+                    "dashboards",
+                    "cmdb_cis",
+                    "cmdb_relationships",
+                    "cmdb_business_views",
+                    "cmdb_service_subscribers",
+                )
             }
     finally:
         await conn.close()
@@ -659,7 +670,32 @@ def seeded_copy(
         db_testing.destroy(db_config, database)
 
 
-def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
+def _check_cmdb(first: seed.Report, counts: Mapping[str, int]) -> None:
+    """WP-053: a CMDB to look at (showcase_cmdb).
+
+    The CIs and the one from the finance laptop, every relationship and the laptop's link, the
+    views, the subscribers and the access rule.
+    """
+    subscribers = sum(len(refs) for refs in cmdb.SUBSCRIBERS.values())
+    assert (counts["cmdb_cis"], counts["cmdb_relationships"]) == (
+        len(cmdb.CIS) + 1,
+        len(cmdb.LINKS) + 1,
+    )
+    assert counts["cmdb_business_views"] == len(cmdb.VIEWS)
+    assert counts["cmdb_service_subscribers"] == subscribers
+    # The CI made from the finance laptop and its link make the 2; the access rule the 1.
+    assert first.cmdb == (
+        len(cmdb.OWN_TYPES)
+        + len(cmdb.CIS)
+        + len(cmdb.LINKS)
+        + len(cmdb.VIEWS)
+        + subscribers
+        + 2
+        + 1
+    )
+
+
+def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # noqa: PLR0915 - one whole seed run, checked step by step
     seeded: Seeded, seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak]
 ) -> None:
     database, keycloak = seeded_copy
@@ -698,6 +734,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     )
     assert counts["work_items"] == 81 + len(seed.RELEASES)
     assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
+    _check_cmdb(first, counts)
     # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
     # has targets, the urgent ones and the network ones on the showcase's own policies.
     assert first.sla_policies == len(lane_a.SLA_POLICIES) == 2
@@ -749,7 +786,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.sla_from_creation,
         second.audit,
         second.scans,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        second.cmdb,
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert asyncio.run(_seed_audit(database.migrator_url)) == audit
     assert second.backdated == 0  # nothing made now, so nothing moved
     assert asyncio.run(_seed_assets(database.migrator_url)) == found
