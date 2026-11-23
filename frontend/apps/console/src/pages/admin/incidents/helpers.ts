@@ -79,6 +79,8 @@ const SETTING_NAMES: Record<string, string> = {
   auto_status_on_assign: 'settings.auto_status_on_assign',
   keep_following_on_handover: 'settings.keep_following',
   portal_show_due_time: 'settings.portal_show_due_time',
+  requester_cancel: 'settings.requester_cancel',
+  requester_edit_fields: 'settings.requester_edit_fields',
   first_response_on: 'settings.first_response_on',
   mail_commands: 'settings.mail_commands',
   mail_command_fields: 'settings.mail_command_fields',

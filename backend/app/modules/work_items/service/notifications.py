@@ -39,10 +39,12 @@ from app.modules.work_items.domain.conversation import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.portal import portal_status
+from app.modules.work_items.domain.requester_rules import CancellationDeciders
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemTypeCode
 from app.modules.work_items.events import (
     WorkItemApprovalChanged,
     WorkItemAssigned,
+    WorkItemCancellationRequested,
     WorkItemConversationAdded,
     WorkItemConversationDeliveryChanged,
     WorkItemCreated,
@@ -90,6 +92,8 @@ APPROVAL_REQUESTED = "incident.approval_requested"
 APPROVAL_REJECTED = "incident.approval_rejected"
 # WP-046b S4 (REQ-INC-141): the major incident team hears a declaration and its end.
 MAJOR_DECLARED = "incident.major_declared"
+# WP-046b S5: an unassigned ask to cancel went to the service desk managers; the requester is told.
+CANCELLATION_TO_MANAGERS = "incident.cancellation_to_managers"
 MAJOR_ENDED = "incident.major_ended"
 MAJOR_TEAM = "major_team"
 APPROVER = "approver"
@@ -256,6 +260,11 @@ EVENTS: tuple[NotificationEvent, ...] = (
         APPROVAL_REJECTED,
         NotificationCategory.APPROVAL,
         EventDefault(enabled=True, recipients=("assignee",)),
+    ),
+    NotificationEvent(
+        CANCELLATION_TO_MANAGERS,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("requester",)),
     ),
 )
 
@@ -567,6 +576,7 @@ class IncidentNotifications:
         WorkItemWorkflowNotice.event_type,
         WorkItemApprovalChanged.event_type,
         WorkItemMajorChanged.event_type,
+        WorkItemCancellationRequested.event_type,
         *_SLA_EVENTS,
     )
 
@@ -584,6 +594,10 @@ class IncidentNotifications:
             return ()
         if kind == WorkItemApprovalChanged.event_type:
             return _approval_events(payload)
+        if kind == WorkItemCancellationRequested.event_type:
+            # Only when it fell to the service desk managers (S5 condition 1); IDs only.
+            to_managers = payload.get("deciders") == CancellationDeciders.MANAGERS.value
+            return (CANCELLATION_TO_MANAGERS,) if to_managers else ()
         if kind == WorkItemMajorChanged.event_type:  # incidents only (`context` checks the type)
             return (MAJOR_DECLARED if payload.get("major") else MAJOR_ENDED,)
         if kind in _ONE_NOTICE:  # a workflow's notice, an assignee left out (incidents only)

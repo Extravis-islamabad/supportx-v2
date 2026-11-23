@@ -33,6 +33,7 @@ from app.modules.work_items.domain.closure import (
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.mail_commands import CommandField
+from app.modules.work_items.domain.requester_rules import RequesterCancel, editable_by_requester
 from app.modules.work_items.domain.service_requests import OnBehalfScope
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
@@ -185,6 +186,17 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
     if "first_task_starts_work" in values:
         changes["first_task_starts_work"] = bool(values["first_task_starts_work"])
+    # WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
+    if "requester_cancel" in values:
+        if values["requester_cancel"] not in set(RequesterCancel):
+            problem("requester_cancel", "invalid_choice")
+        changes["requester_cancel"] = values["requester_cancel"]
+    if "requester_edit_fields" in values:
+        wanted = sorted(set(values["requester_edit_fields"] or []))
+        # Only reporting fields and custom fields; a staff-only one never (the domain's rule).
+        if not all(editable_by_requester(f, frozenset(wanted)) for f in wanted):
+            problem("requester_edit_fields", "invalid_choice")
+        changes["requester_edit_fields"] = wanted
     if "review_required_priorities" in values:
         wanted = list(values["review_required_priorities"] or [])
         if any(code not in set(Priority) for code in wanted):
@@ -237,6 +249,8 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
         "first_task_starts_work": current.first_task_starts_work,
+        "requester_cancel": current.requester_cancel,
+        "requester_edit_fields": list(current.requester_edit_fields),
         "review_required_priorities": list(current.review_required_priorities),
         "segregation_strict": current.segregation_strict,
         "outside_maintenance_blocks": current.outside_maintenance_blocks,
