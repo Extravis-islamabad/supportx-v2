@@ -234,14 +234,38 @@ def test_the_mobile_job_is_gated_through_the_required_frontend_check() -> None:
     assert "uses: ./.github/actions/changes" in mobile
     assert "needs: '^(mobile/|frontend/packages/" in mobile
     frontend = "\n".join(jobs["frontend"])
-    assert "needs: [mobile]" in frontend
+    assert "needs: [mobile, frontend-checks, frontend-builds]" in frontend
     assert "always()" in _job_if(jobs["frontend"])
     assert "success|skipped" in frontend  # anything else fails the required check
+    for carried in (
+        "needs.mobile.result",
+        "needs.frontend-checks.result",
+        "needs.frontend-builds.result",
+    ):
+        assert carried in frontend, carried
+
+
+def test_the_frontend_builds_run_beside_the_checks_with_room_to_spare() -> None:
+    """Merge-group run 45258067785: a 4x slower runner cut the builds off at the one job's 25 min.
+
+    The builds are their own job, in parallel with the checks; neither waits for the other, and
+    each has a timeout well above a normal run (checks about 6.5 min, builds under 1 min).
+    """
+    jobs = _all_jobs()
+    checks, builds = "\n".join(jobs["frontend checks"]), "\n".join(jobs["frontend builds"])
+    assert "make build" in builds
+    assert "make build" not in checks
+    assert "make frontend-test" in checks
+    assert "make frontend-test" not in builds
+    assert "needs:" not in checks  # in parallel with the builds
+    assert "needs:" not in builds
+    assert "timeout-minutes: 35" in checks
+    assert "timeout-minutes: 15" in builds
 
 
 def test_a_mobile_only_change_skips_the_backend_and_frontend_jobs() -> None:
     jobs = _all_jobs()
-    for name in ("backend checks", SHARD_JOB, "backend", "frontend"):
+    for name in ("backend checks", SHARD_JOB, "backend", "frontend checks", "frontend builds"):
         text = "\n".join(jobs[name])
         assert "light: '^(docs/|mobile/|" in text, name
 
