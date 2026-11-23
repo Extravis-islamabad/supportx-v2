@@ -1264,6 +1264,7 @@ export {
   usePortalOnBehalfPeople,
   usePortalRequest,
   usePortalRequests,
+  usePortalRequestAgain,
   usePortalRequestSteps,
   useAnswerRequest,
   portalRequestKeys,

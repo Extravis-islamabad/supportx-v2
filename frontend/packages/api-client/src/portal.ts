@@ -214,6 +214,25 @@ export function usePortalRequestSteps(id: string) {
   });
 }
 
+/**
+ * "Request again" (WP-047a S1; REQ-SR-016): the item of one of your past requests, with its
+ * earlier answers fitted to the form as it is now, and those it dropped. Read once per visit.
+ */
+export function usePortalRequestAgain(id: string | null) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id ?? ''), 'again'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/request-again', {
+          params: { path: { record_id: id ?? '' } },
+        }),
+      ),
+    enabled: id !== null && id !== '',
+    retry: false,
+    staleTime: Infinity,
+  });
+}
+
 /** Confirm receipt of a fulfilled request, or say it is not done (REQ-SR-059). */
 export function useAnswerRequest(id: string) {
   const queryClient = useQueryClient();

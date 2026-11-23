@@ -7,6 +7,7 @@ it is assigned to at creation.
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 from app.modules.work_items.domain.lifecycle import DefaultStatus, ServiceRequestStatus
@@ -135,3 +136,8 @@ __all__ = [
     "may_raise_for",
     "start",
 ]
+
+
+def needed_earlier(needed_by: datetime | None, expected: datetime | None) -> bool:
+    """Needed before it can be delivered (REQ-SR-015 AC2): read from the two dates, never kept."""
+    return needed_by is not None and expected is not None and needed_by < expected

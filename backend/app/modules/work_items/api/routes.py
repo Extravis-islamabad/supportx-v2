@@ -54,6 +54,7 @@ from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import reapproval as reapproval_rules
+from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
 from app.modules.work_items.domain.changes import DETAIL_FIELDS as CHANGE_DETAIL_FIELDS
@@ -158,7 +159,12 @@ class WorkItemIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    subject: str = Field(max_length=SUBJECT_MAX * 2)
+    subject: str | None = Field(
+        default=None,
+        max_length=SUBJECT_MAX * 2,
+        description="Required, except on a service request whose item has a subject template: "
+        "left out, the template fills it from the answers.",
+    )
     description: str | None = Field(
         default=None, max_length=DESCRIPTION_MAX * 2, description="Rich text (HTML), sanitised."
     )
@@ -260,6 +266,17 @@ class WorkItemIn(BaseModel):
     )
     answers: dict[str, Any] | None = Field(
         default=None, description="Service requests: the item form's answers by question key."
+    )
+    quantity: int | None = Field(
+        default=None,
+        ge=1,
+        le=10_000,
+        description="Service requests whose item asks one (REQ-SR-014; Professional): how many, "
+        "up to the item's max_quantity.",
+    )
+    needed_by: datetime | None = Field(
+        default=None,
+        description="Service requests whose item asks it (REQ-SR-015): when it is needed.",
     )
     custom: dict[str, Any] | None = Field(
         default=None, description="Custom field values by key (GET /custom-fields?entity=...)."
@@ -714,6 +731,21 @@ class WorkItemOut(BaseModel):
     approval_status: ApprovalStatus | None = Field(
         default=None, description="Service requests: not needed, pending, approved ..."
     )
+    quantity: int | None = Field(
+        default=None, description="Service requests: how many (null: one; REQ-SR-014)."
+    )
+    needed_by: datetime | None = Field(
+        default=None, description="Service requests: when the requester needs it (REQ-SR-015)."
+    )
+    expected_delivery_at: datetime | None = Field(
+        default=None,
+        description="Service requests: when it should be delivered, from the item's SLA; "
+        "worked out again when approval completes (REQ-SR-015).",
+    )
+    needed_earlier: bool = Field(
+        default=False,
+        description="Service requests: needed before the expected delivery (REQ-SR-015 AC2).",
+    )
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
     stage: str | None = Field(
         default=None, description="Staged types (releases): the stage it is in (ADR-041)."
@@ -820,6 +852,9 @@ class WorkItemOut(BaseModel):
         # Opened and stripped by the service (custom_values.visible_custom, WP-057 S3b-2); a view
         # built without it shows no custom values rather than raw stored ones.
         values["custom"] = view.custom if view.custom is not None else {}
+        values["needed_earlier"] = sr_rules.needed_earlier(
+            values.get("needed_by"), values.get("expected_delivery_at")
+        )
         return cls(
             **values,
             hidden_fields=sorted(view.hidden),
@@ -857,6 +892,9 @@ _RECORD_FIELDS = (
     "catalog_item_id",
     "answers",
     "approval_status",
+    "quantity",  # WP-047a S1 (REQ-SR-014, -015)
+    "needed_by",
+    "expected_delivery_at",
     "id",
     "type",
     "display_id",
