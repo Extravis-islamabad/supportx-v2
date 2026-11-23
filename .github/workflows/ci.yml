@@ -803,9 +803,18 @@ jobs:
           fi
           echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  $tarball" | sha256sum -c -
           sudo tar -xzf "$tarball" -C /usr/local/bin kubeconform
+      # kubeconform's schemas (Kubernetes and the pinned CRD catalog), downloaded from
+      # raw.githubusercontent.com, are kept between runs: a download that gave up after three
+      # tries dropped merge-group run 45238820139 (#582). Keyed on the script that pins them.
+      - name: kubeconform schemas (cached by the pins in chart-lint.sh)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/kubeconform-schemas
+          key: kubeconform-schemas-${{ hashFiles('deploy/scripts/chart-lint.sh') }}
       - name: Lint, render and validate every profile
         if: ${{ steps.changes.outputs.run == 'true' }}
-        run: make chart-lint
+        run: KUBECONFORM_CACHE="$HOME/.cache/kubeconform-schemas" make chart-lint
       # The chart's own tests (tests/test_chart_*.py: D-151's guards, the mobile links), which need
       # the fetched dependencies above and so skip in the backend shards.
       - uses: ./.github/actions/setup-backend
