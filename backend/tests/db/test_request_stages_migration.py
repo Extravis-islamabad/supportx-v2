@@ -13,7 +13,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0193"  # 0194's down revision (main's head at its queue turn)
+BEFORE = "0191"  # 0194's down revision (main's head at its queue turn)
 CHECKS = (
     "ck_work_item_approvals_state_code",
     "ck_work_item_approvals_reason_code",

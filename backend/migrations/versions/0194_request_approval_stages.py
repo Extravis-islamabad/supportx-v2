@@ -16,7 +16,7 @@ The downgrade stops while any tenant has a skipped row or a `no_approver` route 
 drops the three columns and narrows the checks back.
 
 Revision ID: 0194
-Revises: 0193
+Revises: 0191
 Created: 2026-11-23
 """
 
@@ -28,8 +28,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0194"
-# main's head at its queue turn (… 0187 → 0193, WP-047a S1).
-down_revision: str | None = "0193"
+# main's head at its queue turn (… 0193 → 0191, WP-047a S1 then CMDB S4a).
+down_revision: str | None = "0191"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
