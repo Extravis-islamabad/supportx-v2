@@ -13,7 +13,7 @@ Not partitioned (unlike audit_entries): entries are small and a tenant's purge i
 range delete; partitions can follow if volume needs them (an expand migration).
 
 Revision ID: 0187
-Revises: 0190
+Revises: 0184
 Created: 2026-11-20
 """
 
@@ -32,7 +32,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0187"
-down_revision: str | None = "0190"  # main's head at its queue turn
+down_revision: str | None = "0184"  # main's head at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

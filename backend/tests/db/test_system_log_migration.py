@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0190"  # 0187's down revision (re-pointed with it at the lane's queue turn)
+BEFORE = "0184"  # 0187's down revision (re-pointed with it at the lane's queue turn)
 TABLE = "system_log_entries"
 
 
