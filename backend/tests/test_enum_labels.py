@@ -21,6 +21,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",
+    "SiemTransport": "siem_transport",
     "SiemStream": "siem_stream",
     "SiemTestOut.result": "siem_test_result",
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
@@ -84,6 +85,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "RelationshipDirection": "cmdb_relationship_direction",
     "BusinessViewLayout": "cmdb_view_layout",
     "CiAttributeChangeOut.kind": "cmdb_compare_kind",
+    # Who a business service serves (0185)
+    "AudienceKind": "audience_kind",
     # CMDB impact (WP-053 S3b)
     "ImpactDirection": "cmdb_impact_direction",
     "ImpactOut.affected_users_reason": "cmdb_impact_users_reason",
@@ -260,6 +263,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",
     "AnnouncementSeverity": "announcement_severity",

@@ -79,6 +79,7 @@ export {
   useBusinessViews,
   useCiAsOf,
   useCiCompare,
+  useCiSubscribers,
   useCiImpact,
   useCiVersions,
   useCreateBusinessView,
@@ -89,6 +90,7 @@ export {
   useRelationshipTypes,
   useRemoveRelationship,
   useSaveBusinessViewAsNew,
+  useSetCiSubscribers,
   useUpdateBusinessView,
   useUpdateRelationshipType,
   type BusinessView,
@@ -114,6 +116,9 @@ export {
   type RelationshipType,
   type RelationshipTypeInput,
   type RelationshipTypePatch,
+  type CiSubscriber,
+  type CiSubscribers,
+  type SubscriberKind,
 } from './cmdbGraph';
 export {
   downloadAuditExport,
@@ -535,6 +540,16 @@ export {
   type SignInMethod,
   type SignInOutcome,
 } from './identity';
+export {
+  useAddVerifiedDomain,
+  useCheckVerifiedDomain,
+  useRemoveVerifiedDomain,
+  useVerifiedDomains,
+  useVerifyDomainManually,
+  type DomainCheck,
+  type VerifiedDomain,
+  type VerifiedDomainAdded,
+} from './domains';
 export {
   useAiSettings,
   useAiOutcome,

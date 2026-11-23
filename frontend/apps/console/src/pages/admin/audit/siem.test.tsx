@@ -31,6 +31,8 @@ const FAILING: SiemDestination = {
   rotating: false,
   has_ca: true,
   has_client_cert: false,
+  transport: 'tls',
+  udp_max_bytes: 2048,
   health: {
     behind: 12,
     last_success_at: '2026-11-20T09:00:00Z',
@@ -54,7 +56,7 @@ describe('Admin › Audit › Security monitoring', () => {
     await waitFor(() => {
       expect(within(tab).getByText('Splunk')).toBeDefined();
     });
-    expect(tab.textContent).toContain('Syslog over TLS · CEF');
+    expect(tab.textContent).toContain('Syslog · CEF');
     expect(tab.textContent).toContain('Audit log, Sign-ins');
     expect(tab.textContent).toContain('The secure connection failed');
     expect(tab.textContent).not.toMatch(/\btls\b|siem_error|sign_ins/);
@@ -73,5 +75,34 @@ describe('Admin › Audit › Security monitoring', () => {
     expect(tabs.textContent).not.toContain('Security monitoring');
     expect(screen.queryByTestId('siem-tab')).toBeNull();
     fireEvent.click(tabs); // no crash: the fallback tab shows
+  });
+
+  it('marks a plaintext destination and warns when TCP or UDP is chosen (D-181)', async () => {
+    const plain: SiemDestination = {
+      ...FAILING,
+      id: '01900000-0000-7000-8000-0000000000c2',
+      name: 'Legacy',
+      transport: 'udp',
+      port: 514,
+    };
+    const fake = consoleApi({
+      me: MANAGER,
+      routes: { 'GET /api/v1/audit/siem/destinations': { body: [FAILING, plain] } },
+    });
+    restore = fake.restore;
+    window.history.pushState({}, '', '/admin/audit?tab=siem');
+    render(<App />);
+    const tab = await screen.findByTestId('siem-tab');
+    await waitFor(() => {
+      expect(within(tab).getByTestId('siem-plaintext-Legacy').textContent).toContain('Plain UDP');
+    });
+    expect(within(tab).queryByTestId('siem-plaintext-Splunk')).toBeNull(); // TLS: no tag
+    fireEvent.click(within(tab).getByTestId('siem-add'));
+    const drawer = await screen.findByTestId('siem-drawer');
+    expect(within(drawer).queryByTestId('siem-plaintext-warning')).toBeNull(); // TLS by default
+    fireEvent.click(within(drawer).getByText('Plain UDP (not encrypted, not confirmed)'));
+    const warning = await within(drawer).findByTestId('siem-plaintext-warning');
+    expect(warning.textContent).not.toMatch(/\budp\b|siem\./);
+    expect(within(drawer).getByText('Largest message (bytes)')).toBeDefined();
   });
 });

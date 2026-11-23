@@ -488,6 +488,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.view` | cmdb.view: all/site/group/own |
+| PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/versions` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/relationship-types` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/relationship-types` | `cmdb.configure` | cmdb.configure: all |
@@ -551,6 +554,11 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/files/{file_id}/thumbnail` | signed_in | - |
 | GET | `/api/v1/health` | public | - |
 | PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
+| DELETE | `/api/v1/identity/domains/{domain_id}` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains/{domain_id}/check` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/domains/{domain_id}/verify` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |

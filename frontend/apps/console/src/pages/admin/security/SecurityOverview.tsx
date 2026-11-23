@@ -38,6 +38,8 @@ const AREA_TARGET: Record<Area, { card?: string; path?: string }> = {
   sign_in_events: { path: '/admin/audit?tab=sign_ins' },
   // WP-057 S4c-3: the vendor support card on this page.
   vendor_support: { card: 'vendor-support-card' },
+  // D-181: plaintext syslog destinations, on the audit page's Security monitoring tab.
+  siem: { path: '/admin/audit?tab=siem' },
 };
 
 function useOpen() {

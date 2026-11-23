@@ -2,6 +2,9 @@ import type { LabelResource } from '../en';
 
 // organization labels (see ../README.md).
 export const ar: LabelResource = {
+  'audience_kind.department': 'قسم',
+  'audience_kind.group': 'مجموعة',
+  'audience_kind.site': 'موقع',
   'branding.check.dark_links': 'الروابط في الوضع الداكن',
   'branding.check.dark_links_raised': 'الروابط على اللوحات في الوضع الداكن',
   'branding.check.high_contrast': 'اللون الأساسي في التباين العالي',

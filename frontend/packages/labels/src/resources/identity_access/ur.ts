@@ -192,6 +192,13 @@ export const ur: LabelResource = {
     'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
+  'domain_check.dns_check_unavailable': 'اس انسٹالیشن پر خودکار جانچ ابھی دستیاب نہیں۔',
+  'domain_check.dns_unreachable':
+    'اس انسٹالیشن سے DNS تک رسائی نہ ہو سکی۔ اس کے بجائے آپ ڈومین کی تصدیق ہاتھ سے کر سکتے ہیں۔',
+  'domain_check.domain_verified_elsewhere': 'کسی اور ادارے نے یہ ڈومین پہلے ہی تصدیق کر لیا ہے۔',
+  'domain_check.found': 'ریکارڈ مل گیا۔',
+  'domain_check.not_found':
+    'ریکارڈ ابھی نہیں ملا۔ DNS کی تبدیلیاں ظاہر ہونے میں کچھ وقت لگ سکتا ہے۔',
   'erasure_count.action_links_revoked': 'منسوخ شدہ ایکشن لنکس',
   'erasure_count.ai_call_texts_cleared': 'AI کی درخواستوں کے متن صاف کیے گئے',
   'erasure_count.ai_embeddings_removed': 'AI تلاش کے ویکٹر ہٹائے گئے',
@@ -1647,6 +1654,7 @@ export const ur: LabelResource = {
   'security_area.passwords': 'پاس ورڈ',
   'security_area.service_accounts': 'سروس اکاؤنٹس',
   'security_area.sessions': 'سیشن',
+  'security_area.siem': 'سکیورٹی نگرانی',
   'security_area.sign_in': 'واحد سائن اِن',
   'security_area.sign_in_events': 'سائن اِن سرگرمی',
   'security_area.vendor_support': 'وینڈر سپورٹ',
@@ -1670,6 +1678,8 @@ export const ur: LabelResource = {
   'security_flag.roles_without_mfa': 'وہ کردار جن میں کثیر عنصری تصدیق بند ہے: {{count}}',
   'security_flag.service_accounts_without_owner':
     'سروس اکاؤنٹس جنہیں نئے مالک کی ضرورت ہے: {{count}}',
+  'security_flag.siem_plaintext':
+    'بغیر خفیہ کاری کے بھیجنے والی سکیورٹی نگرانی کی منزلیں: {{count}}',
   'security_flag.sign_ins_locked': 'پچھلے 7 دنوں میں لاک ہونے والے سائن اِن: {{count}}',
   'security_flag.sso_credential_expired': 'واحد سائن اِن کا سرٹیفکیٹ یا راز ختم ہو چکا ہے۔',
   'security_flag.sso_credential_expires':
@@ -1929,4 +1939,38 @@ export const ur: LabelResource = {
     'میں نے Extravis کو واپس کال کر کے انجینئر کی تصدیق کی',
   'vendor_support.window': 'سے – تک',
   'vendor_support.yes': 'ہاں',
+  'verified_domain_state.lapsed': 'اب تصدیق شدہ نہیں',
+  'verified_domain_state.pending': 'اس کے ریکارڈ کا انتظار',
+  'verified_domain_state.verified': 'تصدیق شدہ',
+  'verified_domains.add.button': 'ڈومین شامل کریں',
+  'verified_domains.add.label': 'تصدیق کے لیے ڈومین',
+  'verified_domains.add.placeholder': 'example.com',
+  'verified_domains.check': 'ابھی جانچیں',
+  'verified_domains.column.actions': 'اقدامات',
+  'verified_domains.column.checked': 'آخری جانچ',
+  'verified_domains.column.domain': 'ڈومین',
+  'verified_domains.column.state': 'حالت',
+  'verified_domains.intro':
+    'DNS ریکارڈ سے ثابت کریں کہ آپ کا ادارہ اپنے ای میل ڈومینز کا مالک ہے۔ تصدیق شدہ ڈومین کے سائن اِن آپ کے سنگل سائن آن پر جاتے ہیں، اور کوئی دوسرا ادارہ اس کا دعویٰ نہیں کر سکتا۔',
+  'verified_domains.manual.button': 'ہاتھ سے تصدیق کریں',
+  'verified_domains.manual.confirm': 'تصدیق کریں',
+  'verified_domains.manual.intro':
+    'یہ صرف تب استعمال کریں جب یہ انسٹالیشن DNS تک نہ پہنچ سکے۔ آپ تصدیق کرتے ہیں کہ ڈومین آپ کے ادارے کا ہے؛ آپ کی وجہ آڈٹ لاگ میں محفوظ رہتی ہے۔',
+  'verified_domains.manual.reason': 'آپ کو کیوں یقین ہے کہ یہ آپ کے ادارے کا ہے',
+  'verified_domains.manual.title': 'DNS کے بغیر {{domain}} کی تصدیق کریں',
+  'verified_domains.never_checked': 'ابھی جانچا نہیں گیا',
+  'verified_domains.none': 'ابھی کوئی ڈومین نہیں۔',
+  'verified_domains.record.intro':
+    'اپنے DNS فراہم کنندہ کے پاس TXT ریکارڈ شامل کریں، پھر «ابھی جانچیں» منتخب کریں۔ DNS کی تبدیلیاں ظاہر ہونے میں کچھ وقت لگ سکتا ہے۔',
+  'verified_domains.record.name': 'نام',
+  'verified_domains.record.once':
+    'یہ قدر صرف ابھی دکھائی جا رہی ہے۔ اگر یہ کھو جائے تو ڈومین ہٹا کر دوبارہ شامل کریں۔',
+  'verified_domains.record.title': '{{domain}} کے لیے یہ ریکارڈ شائع کریں',
+  'verified_domains.record.value': 'قدر',
+  'verified_domains.remove.body':
+    'اس ڈومین کے سائن اِن اب آپ کے سنگل سائن آن پر نہیں جائیں گے۔ آپ کا سنگل سائن آن سیٹ اپ برقرار رہتا ہے۔',
+  'verified_domains.remove.button': 'ہٹائیں',
+  'verified_domains.remove.confirm': 'ہٹائیں',
+  'verified_domains.remove.title': '{{domain}} ہٹائیں؟',
+  'verified_domains.title': 'تصدیق شدہ ڈومینز',
 };

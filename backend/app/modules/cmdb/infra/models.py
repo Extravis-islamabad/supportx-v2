@@ -352,3 +352,34 @@ class BusinessView(TenantEntity):
     # Pinned nodes by CI ID, each an x and a y (a restricted node is never pinned).
     positions: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     owner_id: Mapped[uuid.UUID | None]
+
+
+class ServiceSubscriber(TenantEntity):
+    """A department, site or group a business service serves (WP-053, D-172 (3); 0185).
+
+    No foreign key to the unit: one removed later stays here, shown "removed", counting nobody.
+    """
+
+    __tablename__ = "cmdb_service_subscribers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_service_subscribers_ci",
+        ),
+        CheckConstraint("kind IN ('department', 'site', 'group')", name="kind_code"),
+        Index(
+            "uq_cmdb_service_subscribers_live",
+            "tenant_id",
+            "ci_id",
+            "kind",
+            "ref_id",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
+        ),
+        Index("ix_cmdb_service_subscribers_tenant_ref", "tenant_id", "kind", "ref_id"),
+    )
+
+    ci_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(20))
+    ref_id: Mapped[uuid.UUID]

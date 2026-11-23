@@ -40,6 +40,7 @@ from app.modules.audit.domain import siem
 from app.modules.audit.domain.integrity import entry_content, format_time
 from app.modules.audit.infra.models import AuditChainLink, SiemDestination
 from app.modules.audit.service.integrity import entries_of
+from app.modules.audit.service.recording import WORKER, record
 from app.modules.licensing import Feature, has_feature, require_feature
 from app.shared.clock import system_clock
 from app.shared.crypto.signing import sign
@@ -118,6 +119,8 @@ CLIENT_KEY = purpose("audit", "siem_client_key")
 
 # The TLS syslog ports a destination may use (RFC 5425's 6514, and the two SIEMs often take).
 SYSLOG_PORTS = frozenset({6514, 1514, 10514})
+# Plain syslog (D-181, an admin's opt-in): the usual ports, still through the egress allowance.
+PLAIN_SYSLOG_PORTS = frozenset({514, 1514, 10514})
 SEND_TIMEOUT = 10.0
 BACKOFF_FIRST = timedelta(seconds=5)
 BACKOFF_MAX = timedelta(minutes=5)
@@ -149,6 +152,9 @@ class DestinationInput:
     ca_pem: str | None = None
     client_cert_pem: str | None = None
     client_key_pem: str | None = None
+    # D-181: plain TCP or UDP only by an admin's deliberate choice (syslog only).
+    transport: siem.SiemTransport = siem.SiemTransport.TLS
+    udp_max_bytes: int = siem.UDP_MAX_DEFAULT
 
 
 @dataclass(frozen=True)
@@ -189,23 +195,39 @@ def _invalid(*problems: tuple[str, str]) -> ValidationFailed:
     )
 
 
+def _syslog_problems(data: DestinationInput) -> list[tuple[str, str]]:
+    problems: list[tuple[str, str]] = []
+    if not (data.host or "").strip():
+        problems.append(("host", "required"))
+    tls = data.transport is siem.SiemTransport.TLS
+    if data.port not in (SYSLOG_PORTS if tls else PLAIN_SYSLOG_PORTS):
+        problems.append(("port", "siem_port_not_allowed"))
+    if not siem.UDP_MAX_LOWEST <= data.udp_max_bytes <= siem.UDP_MAX_HIGHEST:
+        problems.append(("udp_max_bytes", "out_of_range"))
+    return problems
+
+
+def _webhook_problems(data: DestinationInput) -> list[tuple[str, str]]:
+    problems: list[tuple[str, str]] = []
+    parts = urlsplit(data.url or "")
+    if parts.scheme != "https" or not parts.hostname:
+        problems.append(("url", "https_required"))
+    if data.format is not siem.SiemFormat.JSON:
+        problems.append(("format", "siem_webhook_json_only"))
+    if data.transport is not siem.SiemTransport.TLS:  # D-181: a webhook is HTTPS, always
+        problems.append(("transport", "siem_webhook_https_only"))
+    return problems
+
+
 def _checked(data: DestinationInput) -> None:
     problems: list[tuple[str, str]] = []
     if not data.name.strip():
         problems.append(("name", "required"))
     if not data.streams:
         problems.append(("streams", "required"))
-    if data.kind is siem.SiemKind.SYSLOG:
-        if not (data.host or "").strip():
-            problems.append(("host", "required"))
-        if data.port not in SYSLOG_PORTS:
-            problems.append(("port", "siem_port_not_allowed"))
-    else:
-        parts = urlsplit(data.url or "")
-        if parts.scheme != "https" or not parts.hostname:
-            problems.append(("url", "https_required"))
-        if data.format is not siem.SiemFormat.JSON:
-            problems.append(("format", "siem_webhook_json_only"))
+    problems += (
+        _syslog_problems(data) if data.kind is siem.SiemKind.SYSLOG else _webhook_problems(data)
+    )
     if bool(data.client_cert_pem) != bool(data.client_key_pem) and (
         data.client_cert_pem is not None and data.client_key_pem is not None
     ):
@@ -313,6 +335,11 @@ async def _live(session: AsyncSession, destination_id: uuid.UUID) -> SiemDestina
     return row
 
 
+async def get_destination(session: AsyncSession, destination_id: uuid.UUID) -> SiemDestination:
+    """One live destination of the tenant (locked for the change that follows), or 404."""
+    return await _live(session, destination_id)
+
+
 async def add_destination(
     session: AsyncSession,
     subject: Actor,
@@ -336,6 +363,8 @@ async def add_destination(
         host=(data.host or "").strip() or None if data.kind is siem.SiemKind.SYSLOG else None,
         port=data.port if data.kind is siem.SiemKind.SYSLOG else None,
         url=data.url if data.kind is siem.SiemKind.WEBHOOK else None,
+        transport=data.transport.value,
+        udp_max_bytes=data.udp_max_bytes,
         streams=[s.value for s in data.streams],
         enabled=data.enabled,
         audit_seq_sent=await _chain_end(session),
@@ -378,6 +407,7 @@ async def change_destination(  # noqa: PLR0913 - the change, its version and who
     row.format = data.format.value
     if row.kind == siem.SiemKind.SYSLOG:
         row.host, row.port = (data.host or "").strip(), data.port
+        row.transport, row.udp_max_bytes = data.transport.value, data.udp_max_bytes
     else:
         row.url = data.url
     row.streams = [s.value for s in data.streams]
@@ -501,18 +531,28 @@ async def _send_syslog(
     session: AsyncSession, settings: Settings, row: SiemDestination, lines: Sequence[str]
 ) -> None:
     host, port = row.host or "", row.port or 0
-    if port not in SYSLOG_PORTS:
+    transport = siem.SiemTransport(row.transport)
+    allowed = SYSLOG_PORTS if transport is siem.SiemTransport.TLS else PLAIN_SYSLOG_PORTS
+    if port not in allowed:
         raise EgressError(NOT_ALLOWED)
     ip = await pinned_address(host, port, installation_allowance(settings))
-    context = tls_context(await _tls(session, settings, row))
     at = system_clock.now()
     # HOSTNAME is the sender (RFC 5424 §6.2.4), never the receiver (lane B (4)).
-    payload = b"".join(
-        siem.frame(siem.syslog_line(line, hostname=siem.APP_NAME, at=at)) for line in lines
+    messages = [siem.syslog_line(line, hostname=siem.APP_NAME, at=at) for line in lines]
+    if transport is siem.SiemTransport.UDP:
+        await _send_udp(session, row, str(ip), port, messages)
+        return
+    context = (
+        tls_context(await _tls(session, settings, row))
+        if transport is siem.SiemTransport.TLS
+        else None
     )
+    payload = b"".join(siem.frame(message) for message in messages)
     try:
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(str(ip), port, ssl=context, server_hostname=host),
+            asyncio.open_connection(
+                str(ip), port, ssl=context, server_hostname=host if context else None
+            ),
             SEND_TIMEOUT,
         )
     except TimeoutError:
@@ -531,6 +571,45 @@ async def _send_syslog(
             await asyncio.wait_for(writer.wait_closed(), SEND_TIMEOUT)
         except (TimeoutError, OSError):
             log.info("siem_close_unclean", destination_id=str(row.id))
+
+
+class _Datagrams(asyncio.DatagramProtocol):
+    """Sends and forgets: UDP has no acknowledgement (the status says "sent, not confirmed")."""
+
+
+async def _send_udp(
+    session: AsyncSession, row: SiemDestination, ip: str, port: int, messages: Sequence[str]
+) -> None:
+    """One RFC 5426 datagram per entry, never silently cut (D-181).
+
+    A cut one is marked, and the audit log records how many were cut for this destination.
+    """
+    loop = asyncio.get_running_loop()
+    try:
+        transport, _ = await asyncio.wait_for(
+            loop.create_datagram_endpoint(_Datagrams, remote_addr=(ip, port)), SEND_TIMEOUT
+        )
+    except (TimeoutError, OSError):
+        raise EgressError(UNREACHABLE) from None
+    cut = 0
+    try:
+        for message in messages:
+            data, truncated = siem.datagram(message, row.udp_max_bytes)
+            cut += truncated
+            transport.sendto(data)
+    except OSError:
+        raise EgressError(UNREACHABLE) from None
+    finally:
+        transport.close()
+    if cut:
+        await record(
+            session,
+            action_code="audit.siem_entries_truncated",
+            facts=WORKER,
+            object_type="siem_destination",
+            object_id=row.id,
+            details={"entries": cut, "limit_bytes": row.udp_max_bytes},
+        )
 
 
 async def _batch(session: AsyncSession, row: SiemDestination) -> _Batch:
@@ -732,3 +811,16 @@ async def send_test(
     except Exception as exc:  # noqa: BLE001 - every failure becomes a code
         error = _failure_code(exc)
     return error
+
+
+async def plaintext_destinations(session: AsyncSession) -> int:
+    """How many live destinations send in plaintext (D-181: the security overview's flag)."""
+    return int(
+        await session.scalar(
+            select(func.count()).where(
+                SiemDestination.deleted_at.is_(None),
+                SiemDestination.transport.in_([t.value for t in siem.PLAINTEXT]),
+            )
+        )
+        or 0
+    )

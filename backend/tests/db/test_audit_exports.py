@@ -49,8 +49,7 @@ def s3_config() -> tuple[str, str, str] | None:
             os.environ.get("SUPPORTX_TEST_S3_ACCESS_KEY", "any"),
             os.environ.get("SUPPORTX_TEST_S3_SECRET_KEY", "any"),
         )
-    if db_testing.STACK_ENV.is_file():
-        env = db_testing._read_env_file(db_testing.STACK_ENV)  # noqa: SLF001 - shared test helper
+    if (env := db_testing.dev_stack_env()) is not None:
         return (
             f"http://127.0.0.1:{env.get('MINIO_API_PORT', '29000')}",
             env["MINIO_ROOT_USER"],

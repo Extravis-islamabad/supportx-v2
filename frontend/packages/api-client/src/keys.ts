@@ -54,6 +54,7 @@ export const queryKeys = {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,
     sso: ['identity', 'sso'] as const,
+    domains: ['identity', 'domains'] as const,
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
@@ -151,6 +152,7 @@ export const queryKeys = {
     relationshipTypes: (forType: string | null) => ['cmdb', 'relationship-types', forType] as const,
     neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
     neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
+    subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
     impactOf: (id: string) => ['cmdb', 'impact', id] as const,
     impact: (id: string, direction: string, depth: number) =>
       ['cmdb', 'impact', id, direction, depth] as const,
