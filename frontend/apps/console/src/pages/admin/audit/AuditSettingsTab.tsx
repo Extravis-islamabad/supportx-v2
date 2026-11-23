@@ -19,6 +19,7 @@ const NUMBERS = [
   'read_window_minutes',
   'refusal_threshold',
   'refusal_window_minutes',
+  'system_log_retention_days',
 ] as const;
 type NumberSetting = (typeof NUMBERS)[number];
 const READS: AuditReadCategory[] = [
@@ -48,6 +49,7 @@ const settingsView = (settings: AuditSettings) => ({
   refusal_window_minutes: settings.refusal_window_minutes,
   read_categories: settings.read_categories,
   personal_data_log: settings.personal_data_log,
+  system_log_retention_days: settings.system_log_retention_days,
 });
 
 function SettingsForm({ latest }: { latest: AuditSettings }) {
@@ -81,6 +83,7 @@ function SettingsForm({ latest }: { latest: AuditSettings }) {
           refusal_window_minutes: draft.refusal_window_minutes,
           read_categories: draft.read_categories,
           personal_data_log: draft.personal_data_log,
+          system_log_retention_days: draft.system_log_retention_days,
         },
       },
       {
