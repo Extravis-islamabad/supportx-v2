@@ -46,11 +46,5 @@ allowBuilds:
 overrides:
   'minimatch@>=7.0.0 <11.0.1': ^11.0.1
 
-# D-174 (Haider, 2026-11-17): the one accepted advisory, for dev and build tools only.
-auditConfig:
-  ignoreGhsas:
-    # picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf, high, ReDoS): dev/build tools only, patterns from
-    # our own config, not in any shipped image or bundle (make not-shipped-check and the
-    # cluster SBOM step prove it). Expires 2026-12-01 (audit-frontend fails after it); re-checked
-    # every Monday; removed as soon as a fixed picomatch is released.
-    - GHSA-fc5q-39xc-vjpf
+# D-174: no advisory is ignored. picomatch's GHSA-fc5q-39xc-vjpf was withdrawn on 2026-11-18,
+# so its ignore went (2026-11-23); the mobile Trivy entry for the CVE stays (.trivyignore.yaml).

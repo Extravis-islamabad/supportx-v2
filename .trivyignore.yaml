@@ -29,10 +29,11 @@ vulnerabilities:
   - id: CVE-2026-112366
     paths:
       - mobile/pnpm-lock.yaml
-    expired_at: 2026-12-01
+    expired_at: 2026-12-15
     statement: >-
-      D-174 (Haider, 2026-11-18): picomatch 2.3.2's ReDoS (GHSA-fc5q-39xc-vjpf), no patched
-      release. In the mobile app it comes with expo/metro build tooling (@expo/cli, jest-worker,
-      metro-file-map). Accepted until 2026-12-01; lane B's next PR adds a check that bundles the
-      app with Metro and fails if picomatch is in the output. If it is, this entry goes and it is
-      fixed before any mobile release.
+      D-174 (Haider, 2026-11-18), extended by D-182 (Haider, 2026-11-23) to 2026-12-15:
+      picomatch 2.3.2's ReDoS, no patched release (its GHSA was withdrawn 2026-11-18, the CVE
+      was not). In the mobile app it comes with expo/metro build tooling (@expo/cli,
+      jest-worker, metro-file-map), and it is in no shipped bundle (#540's Metro check) or
+      image (the cluster SBOM step). Re-checked every Monday; if picomatch reaches a bundle,
+      this entry goes and it is fixed before any mobile release.
