@@ -111,7 +111,12 @@ def _now() -> datetime:
 
 
 def require_author(subject: Subject) -> None:
-    """403 unless the person may make sync rules (lane C's condition 1)."""
+    """403 unless the person may make sync rules (lane C's condition 1).
+
+    Checked when a rule is made or changed, never when it runs: a saved rule keeps running as the
+    sync identity if its author later loses unrestricted access (lane C (b)). Turning it off or
+    changing it then needs someone who still qualifies.
+    """
     require_configure(subject)
     if not all(unrestricted(subject, p) for p in (CONFIGURE, VIEW, ASSETS_VIEW)):
         raise PermissionDenied(code=AUTHOR_RESTRICTED, params={"permission": CONFIGURE})
@@ -505,14 +510,23 @@ def _code(error: AppError) -> str:
     return domain.ITEM_REFUSED
 
 
+@dataclass(frozen=True)
+class _Target:
+    """What a batch writes: the rule's CI type and state, and its map as it may run now."""
+
+    type_id: uuid.UUID
+    state_id: uuid.UUID | None
+    field_map: Mapping[str, str]
+
+
 async def _apply(
     session: AsyncSession,
-    rule: SyncRule,
+    target: _Target,
     precedence: source_rules.Precedence,
     asset: assets.SyncedAsset,
     tally: _Tally,
 ) -> None:
-    values = domain.mapped(rule.field_map, asset.values)
+    values = domain.mapped(target.field_map, asset.values)
     record_ = await cis.ci_of_asset(session, asset.id)
     savepoint = await session.begin_nested()
     try:
@@ -531,8 +545,8 @@ async def _apply(
                 session,
                 {
                     **core,
-                    "type_id": rule.target_type_id,
-                    "state_id": rule.target_state_id,
+                    "type_id": target.type_id,
+                    "state_id": target.state_id,
                     "custom": custom or None,
                 },
                 asset_id=asset.id,
@@ -609,6 +623,14 @@ async def _process(database: Database, tenant: uuid.UUID, run_id: uuid.UUID) -> 
             if rule.deleted_at is not None:
                 break
             precedence = source_rules.precedence_of((await get_settings(session)).source_precedence)
+            # Lane C (a): the targets are re-checked for every batch, so a CI field that has
+            # turned sensitive, personal, sealed or retired since the rule was saved is skipped.
+            field_map, skipped = domain.live_map(
+                rule.field_map, await custom_targets(session, rule.target_type_id)
+            )
+            if skipped:
+                run.skipped_targets = sorted({*run.skipped_targets, *skipped})
+            target = _Target(rule.target_type_id, rule.target_state_id, field_map)
             page = await _batches(session, rule, run, after)
             if not page:
                 break
@@ -620,7 +642,7 @@ async def _process(database: Database, tenant: uuid.UUID, run_id: uuid.UUID) -> 
             }
             with automated(session, ref):
                 for asset in page:
-                    await _apply(session, rule, precedence, asset, tally)
+                    await _apply(session, target, precedence, asset, tally)
             in_batch(session, None)
             _save_tally(run, tally)
             await session.flush()

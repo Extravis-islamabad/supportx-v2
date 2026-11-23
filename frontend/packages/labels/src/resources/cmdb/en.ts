@@ -294,6 +294,8 @@ export const en = {
   'cmdb.sync.section.rule': 'Rule',
   'cmdb.sync.section.runs': 'Runs',
   'cmdb.sync.sites': 'Sites',
+  'cmdb.sync.skipped_targets':
+    'Left alone: {{count}} field(s) can no longer be filled by a sync (now sensitive, personal, sealed or retired).',
   'cmdb.sync.state': 'State',
   'cmdb.sync.status': 'Status',
   'cmdb.sync.target_state': 'State of new CIs',

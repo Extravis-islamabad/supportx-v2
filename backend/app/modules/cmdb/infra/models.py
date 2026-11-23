@@ -478,4 +478,6 @@ class SyncRun(TenantEntity):
     # At most OUTCOMES_MAX: {asset_id, ci_id, outcome, kept: [attributes], code}. IDs and codes
     # only; names are looked up when read, through the reader's view.
     outcomes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    # The rule's custom targets this run skipped (no longer a plain field); keys only.
+    skipped_targets: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
     failure: Mapped[str | None] = mapped_column(String(60))

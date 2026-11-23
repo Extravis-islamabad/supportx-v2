@@ -318,6 +318,8 @@ export const ar: LabelResource = {
   'cmdb.sync.section.rule': 'القاعدة',
   'cmdb.sync.section.runs': 'التشغيلات',
   'cmdb.sync.sites': 'المواقع',
+  'cmdb.sync.skipped_targets':
+    'تُركت دون تغيير: {{count}} من الحقول لم يعد بالإمكان تعبئتها بالمزامنة (أصبحت حساسة أو شخصية أو مختومة أو أُوقف استخدامها).',
   'cmdb.sync.state': 'الحالة',
   'cmdb.sync.status': 'الحالة',
   'cmdb.sync.target_state': 'حالة عناصر التهيئة الجديدة',

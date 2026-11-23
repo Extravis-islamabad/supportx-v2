@@ -243,6 +243,27 @@ async def test_a_sensitive_or_personal_ci_field_is_never_a_target(world: World) 
     )
 
 
+async def test_a_run_skips_a_target_made_personal_after_the_rule_was_saved(world: World) -> None:
+    """Lane C (a): checked at each run; a protected field is never filled, and the run says so."""
+    a = world.a
+    product, made = await _assets(world, a, 1)
+    later = (await _field(world, a, f"Rack {uuid.uuid4().hex[:4]}", "workstation"))["key"]
+    body = await _body(world, a, product, field_map={"name": "name", f"custom.{later}": "tag"})
+    rule = await _rule(world, a, body)
+    assert rule.status_code == 201, rule.text
+    await world.sql(
+        "UPDATE custom_fields SET personal_data = true WHERE tenant_id = $1 AND key = $2",
+        a.tenant,
+        later,
+    )
+    run = await _run(world, a, rule.json())
+    assert run["skipped_targets"] == [later]
+    ci = await _ci_of(world, a, made[0]["id"])
+    assert ci["name"] == made[0]["name"]  # the rest of the map still ran
+    assert later not in (ci.get("custom_fields") or {})
+    assert f"custom.{later}" not in ci["sources"]
+
+
 # --- preview (lane C 2; REQ-CMDB-015 AC1) --------------------------------------------------------
 
 

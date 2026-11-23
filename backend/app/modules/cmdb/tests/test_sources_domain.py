@@ -146,3 +146,14 @@ def test_mapped_values_trim_text_and_drop_empty_text() -> None:
         "name": "A",
         "description": None,
     }
+
+
+def test_a_run_skips_a_custom_target_that_is_no_longer_plain() -> None:
+    """Lane C (a): a field made sensitive, personal, sealed or retired since is left alone."""
+    field_map = {"name": "name", "custom.rack": "location", "custom.owner": "tag"}
+    live, skipped = sync.live_map(field_map, {"rack"})
+    assert live == {"name": "name", "custom.rack": "location"}
+    assert skipped == ["owner"]
+    assert sync.live_map(field_map, {"rack", "owner"}) == (field_map, [])
+    # The core targets never depend on the custom ones.
+    assert sync.live_map({"name": "name"}, set()) == ({"name": "name"}, [])

@@ -459,7 +459,9 @@ export function SyncRulePage() {
           )}
         </Flex>
       </FormSection>
-      {editing !== undefined && <RunsSection ruleId={editing} />}
+      {editing !== undefined && (
+        <RunsSection ruleId={editing} customName={(key) => targetLabel(`custom.${key}`)} />
+      )}
       <Drawer
         open={preview !== undefined}
         size="large"
@@ -544,7 +546,13 @@ function PreviewBody({
   );
 }
 
-function RunsSection({ ruleId }: { ruleId: string }) {
+function RunsSection({
+  ruleId,
+  customName,
+}: {
+  ruleId: string;
+  customName: (key: string) => string;
+}) {
   const t = useLabel();
   const dateTime = useDateTime();
   const { message } = App.useApp();
@@ -645,13 +653,13 @@ function RunsSection({ ruleId }: { ruleId: string }) {
         }}
         data-testid="cmdb-sync-run-drawer"
       >
-        {open !== undefined && <RunBody runId={open} />}
+        {open !== undefined && <RunBody runId={open} customName={customName} />}
       </Drawer>
     </FormSection>
   );
 }
 
-function RunBody({ runId }: { runId: string }) {
+function RunBody({ runId, customName }: { runId: string; customName: (key: string) => string }) {
   const t = useLabel();
   const run = useSyncRun(runId);
   if (run.data === undefined) return null;
@@ -661,6 +669,16 @@ function RunBody({ runId }: { runId: string }) {
     <Flex vertical gap={12} data-testid="cmdb-sync-run-body">
       {data.failure !== null && (
         <Alert type="error" showIcon message={t(`cmdb_sync_failure.${data.failure}`)} />
+      )}
+      {data.skipped_targets.length > 0 && (
+        // Lane C (a): fields that stopped being plain since the rule was saved were left alone.
+        <Alert
+          type="warning"
+          showIcon
+          message={t('cmdb.sync.skipped_targets', { count: data.skipped_targets.length })}
+          description={data.skipped_targets.map(customName).join(', ')}
+          data-testid="cmdb-sync-skipped-targets"
+        />
       )}
       {data.created_count === null ? (
         <Alert

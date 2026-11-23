@@ -295,6 +295,8 @@ export const ur: LabelResource = {
   'cmdb.sync.section.rule': 'اصول',
   'cmdb.sync.section.runs': 'عمل',
   'cmdb.sync.sites': 'مقامات',
+  'cmdb.sync.skipped_targets':
+    'چھوڑ دیا گیا: {{count}} فیلڈ اب ہم آہنگی سے نہیں بھری جا سکتیں (اب حساس، ذاتی، سیل شدہ یا بند کر دی گئی ہیں)۔',
   'cmdb.sync.state': 'حالت',
   'cmdb.sync.status': 'حالت',
   'cmdb.sync.target_state': 'نئے CI کی حالت',

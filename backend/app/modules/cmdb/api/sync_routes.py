@@ -163,6 +163,8 @@ class SyncRunOut(BaseModel):
     unchanged_count: int | None
     failed_count: int | None
     failure: str | None
+    # Custom fields the run left alone: no longer plain (sensitive, personal, sealed, retired).
+    skipped_targets: list[str]
     created_at: datetime
     version: int
 
@@ -183,6 +185,7 @@ class SyncRunOut(BaseModel):
             unchanged_count=row.unchanged_count if totals else None,
             failed_count=row.failed_count if totals else None,
             failure=row.failure,
+            skipped_targets=list(row.skipped_targets),
             created_at=row.created_at,
             version=row.version,
         )

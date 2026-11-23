@@ -173,6 +173,9 @@ def upgrade() -> None:
         _count("unchanged_count"),
         _count("failed_count"),
         sa.Column("outcomes", postgresql.JSONB(), server_default="[]", nullable=False),
+        # Custom targets the run skipped: made sensitive, personal, sealed or retired since the
+        # rule was saved (lane C (a)). Keys only.
+        sa.Column("skipped_targets", postgresql.JSONB(), server_default="[]", nullable=False),
         sa.Column("failure", sa.String(length=60), nullable=True),
         *_audit_columns(),
         sa.CheckConstraint(_codes("trigger", TRIGGERS), name=op.f(f"ck_{RUNS}_trigger_code")),

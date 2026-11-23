@@ -12,7 +12,7 @@ writes the CIs through the CI service's own save path; this decides what a run w
   overwritten), `unchanged`, or `failed` (the CI's own checks refused a value).
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -130,6 +130,25 @@ def _clean(value: object) -> object:
         text = value.strip()
         return text or None
     return value
+
+
+def live_map(
+    field_map: Mapping[str, str], custom_allowed: Collection[str]
+) -> tuple[dict[str, str], list[str]]:
+    """The rule's map as it may run now, and the custom targets it must skip (lane C (a)).
+
+    A custom field that turned sensitive, personal, sealed or retired after the rule was saved is
+    no longer a target: the run leaves it alone and says so, never writes it.
+    """
+    live: dict[str, str] = {}
+    skipped: list[str] = []
+    for target, source in field_map.items():
+        key = target.removeprefix(CUSTOM)
+        if target.startswith(CUSTOM) and key not in custom_allowed:
+            skipped.append(key)
+        else:
+            live[target] = source
+    return live, sorted(skipped)
 
 
 def mapped(field_map: Mapping[str, str], asset: Mapping[str, Any]) -> dict[str, Any]:

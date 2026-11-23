@@ -49,6 +49,7 @@ const run = {
   unchanged_count: 0,
   failed_count: 0,
   failure: null,
+  skipped_targets: [] as string[],
   created_at: '2026-11-21T09:00:00Z',
   version: 3,
 };
@@ -203,6 +204,20 @@ describe('Admin › CMDB › sync rules', () => {
       expect(within(body).getAllByText('Not visible to you')).toHaveLength(2);
     });
     expect(body.textContent).not.toContain(HIDDEN_CI);
+  });
+
+  it('names the fields a run left alone, never by their key', async () => {
+    const skipped = { ...run, skipped_targets: ['rack_8758'] };
+    api({
+      [`GET /api/v1/cmdb/sync-rules/${RULE}/runs`]: { body: { items: [skipped] } },
+      [`GET /api/v1/cmdb/sync-runs/${RUN}`]: { body: { ...skipped, items: [] } },
+    });
+    open(`/admin/cmdb/sync-rules/${RULE}`);
+    fireEvent.click(await screen.findByTestId(`cmdb-sync-run-${RUN}`));
+    const alert = await screen.findByTestId('cmdb-sync-skipped-targets');
+    expect(alert.textContent).toContain('1 field(s) can no longer be filled by a sync');
+    // Not among the target type's fields any more: shown by a label, never its raw key (rule 5d).
+    expect(alert.textContent).not.toContain('rack_8758');
   });
 
   it('says the totals are hidden when the server withholds them', async () => {
