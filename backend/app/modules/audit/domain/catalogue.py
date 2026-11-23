@@ -482,6 +482,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.settings_changed", AuditCategory.SECURITY, "audit"),
     # REQ-AUD-011 (WP-057 S5a): streaming to a SIEM; codes and IDs only, never a secret.
     ("audit.siem_destination_added", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_entries_truncated", AuditCategory.DATA, "audit"),  # D-181: UDP, never silent
+    ("audit.siem_plaintext_enabled", AuditCategory.SECURITY, "audit"),  # D-181: TCP/UDP chosen
     ("audit.siem_destination_changed", AuditCategory.SECURITY, "audit"),
     ("audit.siem_destination_removed", AuditCategory.SECURITY, "audit"),
     ("audit.siem_secret_rotated", AuditCategory.SECURITY, "audit"),

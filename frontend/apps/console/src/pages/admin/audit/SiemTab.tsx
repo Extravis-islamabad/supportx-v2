@@ -43,6 +43,8 @@ import {
 } from '@supportx/ui';
 
 const SYSLOG_PORT = 6514; // RFC 5425: syslog over TLS
+const PLAIN_PORT = 514; // plain syslog (D-181: only by an admin's choice)
+const UDP_MAX_DEFAULT = 2048;
 
 interface Values {
   name: string;
@@ -56,6 +58,8 @@ interface Values {
   ca_pem?: string;
   client_cert_pem?: string;
   client_key_pem?: string;
+  transport: NonNullable<SiemDestinationInput['transport']>;
+  udp_max_bytes?: number;
 }
 
 function body(values: Values): SiemDestinationInput {
@@ -74,6 +78,9 @@ function body(values: Values): SiemDestinationInput {
     ca_pem: pem(values.ca_pem),
     client_cert_pem: pem(values.client_cert_pem),
     client_key_pem: pem(values.client_key_pem),
+    // D-181: a webhook is always HTTPS; plain TCP or UDP only for syslog.
+    transport: syslog ? values.transport : 'tls',
+    udp_max_bytes: values.udp_max_bytes ?? UDP_MAX_DEFAULT,
   };
 }
 
@@ -140,6 +147,8 @@ function DestinationDrawer({
   // Undefined until the form mounts (antd's type says otherwise).
   const watched = Form.useWatch('kind', form) as Values['kind'] | undefined;
   const kind = watched ?? editing?.kind ?? 'syslog';
+  const watchedTransport = Form.useWatch('transport', form) as Values['transport'] | undefined;
+  const transport = watchedTransport ?? editing?.transport ?? 'tls';
   const initial: Values = editing
     ? {
         name: editing.name,
@@ -150,6 +159,8 @@ function DestinationDrawer({
         url: editing.url ?? undefined,
         streams: editing.streams,
         enabled: editing.enabled,
+        transport: editing.transport,
+        udp_max_bytes: editing.udp_max_bytes,
       }
     : {
         name: '',
@@ -158,6 +169,8 @@ function DestinationDrawer({
         port: SYSLOG_PORT,
         streams: ['audit'],
         enabled: true,
+        transport: 'tls',
+        udp_max_bytes: UDP_MAX_DEFAULT,
       };
   const close = () => {
     form.resetFields();
@@ -236,9 +249,49 @@ function DestinationDrawer({
             >
               <Input dir="ltr" count={lengthLimit(253)} data-testid="siem-host" />
             </Form.Item>
+            <Form.Item name="transport" label={t('siem.field.transport')}>
+              <Radio.Group
+                onChange={(event) => {
+                  // The usual port for the transport, unless the admin set their own.
+                  const port = form.getFieldValue('port') as number | undefined;
+                  if (port === SYSLOG_PORT || port === PLAIN_PORT || port === undefined) {
+                    form.setFieldValue(
+                      'port',
+                      event.target.value === 'tls' ? SYSLOG_PORT : PLAIN_PORT,
+                    );
+                  }
+                }}
+                data-testid="siem-transport"
+              >
+                <Radio value="tls">{t('siem_transport.tls')}</Radio>
+                <Radio value="tcp">{t('siem_transport.tcp')}</Radio>
+                <Radio value="udp">{t('siem_transport.udp')}</Radio>
+              </Radio.Group>
+            </Form.Item>
+            {transport !== 'tls' && (
+              <Alert
+                type="warning"
+                showIcon
+                message={t('siem.plaintext.title')}
+                description={t(
+                  transport === 'udp' ? 'siem.plaintext.body_udp' : 'siem.plaintext.body_tcp',
+                )}
+                data-testid="siem-plaintext-warning"
+                style={{ marginBottom: 16 }}
+              />
+            )}
             <Form.Item name="port" label={t('siem.field.port')} extra={t('siem.field.port_help')}>
               <InputNumber min={1} max={65535} precision={0} style={{ width: 168 }} />
             </Form.Item>
+            {transport === 'udp' && (
+              <Form.Item
+                name="udp_max_bytes"
+                label={t('siem.field.udp_max_bytes')}
+                extra={t('siem.field.udp_max_bytes_help')}
+              >
+                <InputNumber min={480} max={8192} precision={0} style={{ width: 168 }} />
+              </Form.Item>
+            )}
             <Form.Item name="format" label={t('siem.field.format')}>
               <Radio.Group>
                 <Radio value="cef">{t('siem_format.cef')}</Radio>
@@ -360,8 +413,18 @@ export function SiemTab() {
           {
             key: 'kind',
             title: t('siem.column.kind'),
-            render: (_, row) =>
-              `${t(`siem_destination_kind.${row.kind}`)} · ${t(`siem_format.${row.format}`)}`,
+            render: (_, row) => (
+              <Flex gap={4} wrap align="center">
+                <span>
+                  {`${t(`siem_destination_kind.${row.kind}`)} · ${t(`siem_format.${row.format}`)}`}
+                </span>
+                {row.transport !== 'tls' && (
+                  <span data-testid={`siem-plaintext-${row.name}`}>
+                    <ToneTag tone="warning">{t(`siem_transport.${row.transport}`)}</ToneTag>
+                  </span>
+                )}
+              </Flex>
+            ),
           },
           {
             key: 'streams',
@@ -385,7 +448,10 @@ export function SiemTab() {
               }
               return (
                 <Flex vertical>
-                  <ToneTag tone="success">{t('siem.health.ok')}</ToneTag>
+                  <ToneTag tone="success">
+                    {/* UDP never confirms delivery (D-181): only that it was sent. */}
+                    {t(row.transport === 'udp' ? 'siem.health.sent_unconfirmed' : 'siem.health.ok')}
+                  </ToneTag>
                   <Typography.Text type="secondary">
                     {row.health.behind > 0
                       ? t('siem.health.behind', { n: row.health.behind })
@@ -452,6 +518,9 @@ export function SiemTab() {
                           url: row.url,
                           streams: row.streams,
                           enabled,
+                          // Unchanged: switching it on or off never changes how it is sent.
+                          transport: row.transport,
+                          udp_max_bytes: row.udp_max_bytes,
                         },
                       },
                       { onError: failed },

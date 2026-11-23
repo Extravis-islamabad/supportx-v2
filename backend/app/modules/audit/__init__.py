@@ -72,6 +72,7 @@ from app.modules.audit.service.recording import (
 )
 from app.modules.audit.service.redaction import redact_signed_history
 from app.modules.audit.service.siem import SignInRow, register_sign_in_source
+from app.modules.audit.service.siem import plaintext_destinations as plaintext_siem_destinations
 from app.shared.events import ConsumerSpec
 from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
@@ -172,6 +173,7 @@ __all__ = [
     "erase_saved_searches",
     "erase_subject",
     "module",
+    "plaintext_siem_destinations",
     "record",
     "record_access",
     "record_alone",

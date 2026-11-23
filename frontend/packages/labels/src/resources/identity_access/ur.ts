@@ -1654,6 +1654,7 @@ export const ur: LabelResource = {
   'security_area.passwords': 'پاس ورڈ',
   'security_area.service_accounts': 'سروس اکاؤنٹس',
   'security_area.sessions': 'سیشن',
+  'security_area.siem': 'سکیورٹی نگرانی',
   'security_area.sign_in': 'واحد سائن اِن',
   'security_area.sign_in_events': 'سائن اِن سرگرمی',
   'security_area.vendor_support': 'وینڈر سپورٹ',
@@ -1677,6 +1678,8 @@ export const ur: LabelResource = {
   'security_flag.roles_without_mfa': 'وہ کردار جن میں کثیر عنصری تصدیق بند ہے: {{count}}',
   'security_flag.service_accounts_without_owner':
     'سروس اکاؤنٹس جنہیں نئے مالک کی ضرورت ہے: {{count}}',
+  'security_flag.siem_plaintext':
+    'بغیر خفیہ کاری کے بھیجنے والی سکیورٹی نگرانی کی منزلیں: {{count}}',
   'security_flag.sign_ins_locked': 'پچھلے 7 دنوں میں لاک ہونے والے سائن اِن: {{count}}',
   'security_flag.sso_credential_expired': 'واحد سائن اِن کا سرٹیفکیٹ یا راز ختم ہو چکا ہے۔',
   'security_flag.sso_credential_expires':

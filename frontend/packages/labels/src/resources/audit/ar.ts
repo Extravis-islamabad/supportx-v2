@@ -102,6 +102,8 @@ export const ar: LabelResource = {
   'audit.action.audit.siem_destination_added': 'أضاف وجهة لمراقبة الأمان',
   'audit.action.audit.siem_destination_changed': 'غيّر وجهة لمراقبة الأمان',
   'audit.action.audit.siem_destination_removed': 'أزال وجهة لمراقبة الأمان',
+  'audit.action.audit.siem_entries_truncated': 'اقتطع إدخالات تدقيق لتناسب حزم UDP',
+  'audit.action.audit.siem_plaintext_enabled': 'اختار syslog غير مشفّر لوجهة',
   'audit.action.audit.siem_secret_rotated': 'دوّر سر التوقيع لمراقبة الأمان',
   'audit.action.audit.siem_test_sent': 'أرسل إدخالًا تجريبيًا إلى مراقبة الأمان',
   'audit.action.audit.subject_erased': 'محا البيانات الشخصية لشخص',
@@ -1281,6 +1283,9 @@ export const ar: LabelResource = {
   'siem.field.tls': 'الاتصال الآمن',
   'siem.field.tls_help':
     'اختياري: جهة إصدار موثوقة، وشهادة عميل ومفتاح إذا طلبها المستقبِل. تُخزّن مختومة؛ ولا تُعرض مجددًا.',
+  'siem.field.transport': 'طريقة الإرسال',
+  'siem.field.udp_max_bytes': 'أكبر رسالة (بالبايت)',
+  'siem.field.udp_max_bytes_help': 'من 480 إلى 8192. يُقتطع الإدخال الأطول مع علامة ظاهرة.',
   'siem.field.url': 'العنوان (HTTPS)',
   'siem.field.url_help':
     'كل دفعة موقّعة: تحقّق من الترويسة X-SupportX-Signature باستخدام السر الذي يُعرض مرة واحدة.',
@@ -1289,9 +1294,15 @@ export const ar: LabelResource = {
   'siem.health.last': 'آخر تسليم {{time}}',
   'siem.health.off': 'متوقف',
   'siem.health.ok': 'يتم التسليم',
+  'siem.health.sent_unconfirmed': 'أُرسل، دون تأكيد',
   'siem.health.waiting': 'لم يُرسل شيء بعد',
   'siem.intro':
     'أرسل سجل التدقيق وعمليات تسجيل الدخول إلى نظام مراقبة الأمان (SIEM) فور حدوثها. لا تحمل الإدخالات بيانات شخصية: لا عناوين ولا أجهزة ولا أسماء.',
+  'siem.plaintext.body_tcp':
+    'تعبر إدخالات التدقيق الشبكة كنص واضح. استخدم هذا فقط عندما يتعذّر على نظام SIEM استقبال TLS وكان المسار إليه داخل شبكتك. يتطلب اختياره تأكيد تسجيل دخولك، ويُسجَّل في سجل التدقيق ويظهر تنبيهًا في نظرة الأمان العامة.',
+  'siem.plaintext.body_udp':
+    'تعبر إدخالات التدقيق الشبكة كنص واضح، ولا يؤكّد UDP التسليم أبدًا: قد يضيع إدخال دون أن يعلم أحد، ولا تستطيع الحالة إلا أن تقول إنه أُرسل. يُقتطع الإدخال الأطول من الحد الأقصى للرسالة مع علامة ظاهرة، ويُسجَّل الاقتطاع في سجل التدقيق. يتطلب اختياره تأكيد تسجيل دخولك، ويُسجَّل ويظهر تنبيهًا في نظرة الأمان العامة.',
+  'siem.plaintext.title': 'غير مشفّر: لأنظمة SIEM القديمة على الشبكات الداخلية فقط',
   'siem.remove.confirm': 'إيقاف الإرسال إلى {{name}}؟',
   'siem.rotating_notice':
     'توقّع وجهة بالسرين الجديد والقديم. أوقف القديم عندما يستخدم المستقبِل السر الجديد.',
@@ -1301,7 +1312,7 @@ export const ar: LabelResource = {
   'siem.secret.explain': 'أعطِ هذا للمستقبِل للتحقق من توقيع كل دفعة. لن يُعرض مرة أخرى.',
   'siem.secret.title': 'سر التوقيع',
   'siem.test.delivered': 'وصل الإدخال التجريبي.',
-  'siem_destination_kind.syslog': 'Syslog عبر TLS',
+  'siem_destination_kind.syslog': 'Syslog',
   'siem_destination_kind.webhook': 'Webhook عبر HTTPS',
   'siem_error.address_not_allowed': 'هذا العنوان غير مسموح به',
   'siem_error.blocked': 'هذا العنوان غير مسموح به',
@@ -1323,4 +1334,7 @@ export const ar: LabelResource = {
   'siem_stream.sign_ins': 'عمليات تسجيل الدخول',
   'siem_test_result.delivered': 'تم التسليم',
   'siem_test_result.failed': 'فشل',
+  'siem_transport.tcp': 'TCP عادي (غير مشفّر)',
+  'siem_transport.tls': 'TLS (مشفّر)',
+  'siem_transport.udp': 'UDP عادي (غير مشفّر ولا مؤكَّد)',
 };

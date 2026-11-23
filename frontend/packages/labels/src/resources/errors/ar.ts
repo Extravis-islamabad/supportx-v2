@@ -685,6 +685,7 @@ export const ar: LabelResource = {
   'errors.field.siem_pem_invalid': 'هذه ليست شهادة أو مفتاحًا صالحًا للاستخدام (PEM).',
   'errors.field.siem_port_not_allowed': 'استخدم منفذ Syslog عبر TLS: 6514 أو 1514 أو 10514.',
   'errors.field.siem_secret_webhook_only': 'سر التوقيع للـWebhook فقط.',
+  'errors.field.siem_webhook_https_only': 'يُرسَل الـ webhook دائمًا عبر HTTPS.',
   'errors.field.siem_webhook_json_only': 'يرسل الـWebhook بتنسيق JSON فقط.',
   'errors.field.site_inactive': 'هذا الموقع غير نشط. اختر موقعًا نشطًا.',
   'errors.field.site_network_invalid':

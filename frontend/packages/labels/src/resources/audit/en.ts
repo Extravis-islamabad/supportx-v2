@@ -100,6 +100,8 @@ export const en = {
   'audit.action.audit.siem_destination_added': 'Added a security monitoring destination',
   'audit.action.audit.siem_destination_changed': 'Changed a security monitoring destination',
   'audit.action.audit.siem_destination_removed': 'Removed a security monitoring destination',
+  'audit.action.audit.siem_entries_truncated': 'Cut audit entries to fit UDP datagrams',
+  'audit.action.audit.siem_plaintext_enabled': 'Chose plaintext syslog for a destination',
   'audit.action.audit.siem_secret_rotated': 'Rotated a security monitoring signing secret',
   'audit.action.audit.siem_test_sent': 'Sent a test entry to security monitoring',
   'audit.action.audit.subject_erased': "Erased a person's personal data",
@@ -1280,6 +1282,9 @@ export const en = {
   'siem.field.tls': 'Secure connection',
   'siem.field.tls_help':
     'Optional: a CA to trust, and a client certificate and key if the receiver asks for one. Stored sealed; never shown again.',
+  'siem.field.transport': 'How it is sent',
+  'siem.field.udp_max_bytes': 'Largest message (bytes)',
+  'siem.field.udp_max_bytes_help': '480 to 8,192. A longer entry is cut, with a visible mark.',
   'siem.field.url': 'Address (HTTPS)',
   'siem.field.url_help':
     'Each batch is signed: check the X-SupportX-Signature header with the secret shown once.',
@@ -1288,9 +1293,15 @@ export const en = {
   'siem.health.last': 'Last delivered {{time}}',
   'siem.health.off': 'Off',
   'siem.health.ok': 'Delivering',
+  'siem.health.sent_unconfirmed': 'Sent, not confirmed',
   'siem.health.waiting': 'Nothing sent yet',
   'siem.intro':
     'Stream the audit log and sign-ins to your security monitoring system (SIEM), as they happen. Entries carry no personal data: no addresses, devices or names.',
+  'siem.plaintext.body_tcp':
+    "Audit entries cross the network in clear text. Use this only when your SIEM can't receive TLS and the path to it is inside your own network. Choosing it asks you to confirm your sign-in, is recorded in the audit log and is flagged on the security overview.",
+  'siem.plaintext.body_udp':
+    'Audit entries cross the network in clear text, and UDP never confirms delivery: an entry can be lost without anyone knowing, and the status can only say it was sent. An entry longer than the largest message is cut, with a visible mark, and the cut is recorded in the audit log. Choosing it asks you to confirm your sign-in, is recorded and is flagged on the security overview.',
+  'siem.plaintext.title': 'Not encrypted: for older SIEMs on internal networks only',
   'siem.remove.confirm': 'Stop streaming to {{name}}?',
   'siem.rotating_notice':
     'A destination signs with both its new and its old secret. Retire the old one once the receiver uses the new one.',
@@ -1301,7 +1312,7 @@ export const en = {
     "Give this to the receiver to check each batch's signature. It won't be shown again.",
   'siem.secret.title': 'Signing secret',
   'siem.test.delivered': 'The test entry arrived.',
-  'siem_destination_kind.syslog': 'Syslog over TLS',
+  'siem_destination_kind.syslog': 'Syslog',
   'siem_destination_kind.webhook': 'HTTPS webhook',
   'siem_error.address_not_allowed': "This address isn't allowed",
   'siem_error.blocked': "This address isn't allowed",
@@ -1323,4 +1334,7 @@ export const en = {
   'siem_stream.sign_ins': 'Sign-ins',
   'siem_test_result.delivered': 'Delivered',
   'siem_test_result.failed': 'Failed',
+  'siem_transport.tcp': 'Plain TCP (not encrypted)',
+  'siem_transport.tls': 'TLS (encrypted)',
+  'siem_transport.udp': 'Plain UDP (not encrypted, not confirmed)',
 } as const;
