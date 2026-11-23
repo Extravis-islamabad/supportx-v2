@@ -54,6 +54,7 @@ const laptop: CatalogItem = {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
   },
   plan: [],

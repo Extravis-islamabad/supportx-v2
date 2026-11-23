@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules import service_catalog
 from app.modules.identity_access import person_placement
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import ApprovalChange, WorkItemApprovalChanged
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.shared.events import record_event
@@ -121,16 +122,34 @@ async def open_stage(
     return opened
 
 
-async def after_submission(
+async def after_submission(  # noqa: PLR0913 - the request and its context, explicit
     session: AsyncSession,
     record: WorkItem,
     item: service_catalog.RequestItem | None,
     *,
     source: Source,
     holders: Holders | None = None,
+    wtype: WorkItemType | None = None,
 ) -> None:
     """A new request from an item: its approval stage, or its fulfilment plan when none."""
     if item is None:
+        return
+    # Imported here: the stages service reaches the assets and CMDB ports (WP-047a S2a).
+    from app.modules.work_items.service import request_stages  # noqa: PLC0415 - see above
+
+    if wtype is not None and request_stages.staged(item):
+        outcome = await request_stages.open_first(session, record, item)
+        if outcome is not rules.LevelOutcome.PENDING:  # every stage skipped: decided now
+            # Imported here: the decisions import this module.
+            from app.modules.work_items.service import approvals  # noqa: PLC0415 - see above
+
+            await approvals.finish_staged(
+                session,
+                wtype,
+                record,
+                approved=outcome is rules.LevelOutcome.APPROVED,
+                source=source,
+            )
         return
     if item.needs_approval:
         await open_stage(session, record, item, holders)

@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +42,7 @@ from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import (
     change_freeze,
     fulfilment,
+    request_stages,
     stage_approvals,
     workflow_approvals,
 )
@@ -63,6 +65,8 @@ class ApprovalView:
     comment: str | None
     can_decide: bool
     self_approved: bool
+    # WP-047a S2a: a skipped stage's condition, shown with it (REQ-SR-032 AC2).
+    condition: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +120,11 @@ def _shown(
         ),
         self_approved=row.decided_by is not None
         and row.decided_by in {record.requester_id, requested_for(record)},
+        # The item's set-up, for staff only (lane C's #582 review): a requester sees why a
+        # stage was skipped (the labelled reason), never the item's condition itself.
+        condition=request_stages.condition_of(record, row.stage)
+        if row.skip_reason is not None and _staff(subject, wtype)
+        else None,
     )
 
 
@@ -317,6 +326,9 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
     if wtype.code is WorkItemTypeCode.INCIDENT:  # its own rule decides (WP-046b S1, REQ-INC-083)
         await _incident_vote(session, record, row, source=source)
         return
+    if record.approval_stages is not None and row.purpose == rules.ApprovalPurpose.RECORD:
+        await _request_stage_vote(session, wtype, record, row, source=source)  # WP-047a S2a
+        return
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
     )
@@ -325,6 +337,48 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
         # A problem's approvals decide, but never move its status (WP-044b s4).
         await _problem_decided(session, record, status, purpose=row.purpose, source=source)
         return
+    await _finish(session, wtype, record, status, source=source)
+
+
+async def _request_stage_vote(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    row: WorkItemApproval,
+    *,
+    source: Source,
+) -> None:
+    """A staged request's vote: its stage's rule, then the next step or the end (REQ-SR-029)."""
+    outcome = request_stages.stage_outcome(record, await _rows(session, record.id), row.stage)
+    if outcome is rules.LevelOutcome.PENDING:
+        return
+    await _close_others(
+        session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
+    )
+    if outcome is rules.LevelOutcome.REJECTED:  # REQ-SR-030 AC2: the step's others withdrawn
+        for number in request_stages.step_of(record, row.stage):
+            if number != row.stage:
+                await _close_others(
+                    session, record, number, keep=None, state=rules.ApprovalState.NOT_NEEDED
+                )
+    overall = await request_stages.advance(session, record)
+    if overall is rules.LevelOutcome.PENDING:
+        return
+    await finish_staged(
+        session, wtype, record, approved=overall is rules.LevelOutcome.APPROVED, source=source
+    )
+
+
+async def finish_staged(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    approved: bool,
+    source: Source,
+) -> None:
+    """A staged request's approval is decided: the record moves on as today (`_finish`)."""
+    status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
     await _finish(session, wtype, record, status, source=source)
 
 
