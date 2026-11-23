@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.background import BackgroundTask
 
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
@@ -52,7 +53,8 @@ from app.modules.identity_access.domain.mobile import (
     valid_challenge,
 )
 from app.modules.identity_access.domain.session import Session
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
+from app.modules.identity_access.infra.models import SupportGrant, User
 from app.modules.identity_access.infra.oidc import IdentityProviderUnavailable
 from app.modules.identity_access.service import confirm as confirm_service
 from app.modules.identity_access.service import password_reset as password_reset_service
@@ -91,7 +93,10 @@ from app.shared.realtime import (
 )
 
 if TYPE_CHECKING:
+    from app.core.config import Settings
     from app.core.database import Database
+    from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin
+    from app.modules.identity_access.infra.store import SessionStore
     from app.modules.identity_access.service.policy import PolicyService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -239,6 +244,20 @@ class EffectivePermission(BaseModel):
     conditional: bool = Field(description="Some grants only apply to records matching a rule.")
 
 
+class SupportSessionOut(BaseModel):
+    """What the console's support banner needs: the grant, its level and its end. No contact."""
+
+    grant_id: uuid.UUID
+    access: Literal["view", "view_and_change"]
+    ends_at: datetime
+    contacts_masked: bool = Field(
+        description="People's e-mail addresses and phones are withheld (always, D-180)."
+    )
+    names_masked: bool = Field(
+        default=False, description="People's names are withheld too (the grant's tick, D-180)."
+    )
+
+
 class MeResponse(BaseModel):
     """Session summary for the UI.
 
@@ -252,6 +271,10 @@ class MeResponse(BaseModel):
     tenants: list[TenantOut]
     csrf_token: str
     permissions: list[EffectivePermission] = Field(default_factory=list)
+    support: SupportSessionOut | None = Field(
+        default=None,
+        description="A vendor support session's grant (WP-057 S4c-3); null for everyone else.",
+    )
     idle_timeout_seconds: int | None = Field(
         default=None,
         description="Signed out after this long without activity (warned 2 minutes ahead).",
@@ -498,10 +521,16 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
     set-password e-mail in the tenant's brand, valid 60 minutes, once (REQ-SEC-006, 035; D-099).
     """
     database: Database | None = getattr(request.app.state, "db", None)
-    if database is not None:
-        address = await _address(request)
-        tenant = await _address_tenant(request, address)
-        await password_reset_service.request_reset(
+    if database is None:
+        return Response(status_code=status.HTTP_202_ACCEPTED)
+    address = await _address(request)
+    tenant = await _address_tenant(request, address)
+    # The work runs after the answer is sent: an unknown address, a support account (refused,
+    # D-177) and a real one all answer equally fast (lane B's condition 7 on #566).
+    return Response(
+        status_code=status.HTTP_202_ACCEPTED,
+        background=BackgroundTask(
+            _reset_after_answer,
             database,
             request.app.state.settings,
             auth.store,
@@ -511,8 +540,22 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
                 network=request.client.host if request.client else None,
                 tenant_id=tenant,
             ),
-        )
-    return Response(status_code=status.HTTP_202_ACCEPTED)
+        ),
+    )
+
+
+async def _reset_after_answer(
+    database: "Database",
+    settings: "Settings",
+    store: "SessionStore",
+    admin: "IdentityAdmin | None",
+    reset: password_reset_service.ResetRequest,
+) -> None:
+    """The reset's work, after the 202: a failure is logged, never shown (lane B on #566)."""
+    try:
+        await password_reset_service.request_reset(database, settings, store, admin, reset)
+    except Exception:
+        log.exception("password_reset_failed")
 
 
 async def _address_tenant(request: Request, address: LoginAddress | None) -> uuid.UUID | None:
@@ -681,6 +724,28 @@ async def _describe(request: Request, session: Session) -> MeResponse:
             ).first()
             offered, default = await offered_languages(db)
             regional = await regional_defaults(db, row.site_id if row else None)
+            if session.user_type == SUPPORT_USER_TYPE:
+                grant = (
+                    await db.execute(
+                        select(
+                            SupportGrant.id,
+                            SupportGrant.access,
+                            SupportGrant.ends_at,
+                            SupportGrant.unmask_personal,
+                        )
+                        .where(SupportGrant.support_user_id == session.user_uuid)
+                        .order_by(SupportGrant.created_at.desc())
+                        .limit(1)
+                    )
+                ).first()
+                if grant is not None:
+                    described["support"] = {
+                        "grant_id": grant.id,
+                        "access": grant.access,
+                        "ends_at": grant.ends_at,
+                        "contacts_masked": True,  # D-180: always, whatever unmask_personal says
+                        "names_masked": False,  # the grant's "Mask names too" tick comes in 0188
+                    }
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None

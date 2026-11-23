@@ -111,6 +111,7 @@ class Subject:
     # People's e-mail addresses and phones withheld wherever a contact comes out (D-173): set by
     # the compile (a support grant without unmask_personal), never decided by who the actor is.
     mask_contacts: bool = False
+    mask_names: bool = False  # D-180: the grant's "Mask names too" tick (0188)
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def holds(self, permission: str) -> bool:
@@ -153,6 +154,7 @@ class Subject:
             if self.support_grant_id is None
             else str(self.support_grant_id),
             "mask_contacts": self.mask_contacts,
+            "mask_names": self.mask_names,
         }
 
     @classmethod
@@ -181,6 +183,7 @@ class Subject:
                 else uuid.UUID(data["support_grant_id"])
             ),
             mask_contacts=bool(data.get("mask_contacts", False)),
+            mask_names=bool(data.get("mask_names", False)),
         )
 
     @property

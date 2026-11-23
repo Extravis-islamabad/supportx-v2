@@ -50,6 +50,7 @@ import { ChangeScheduleTab } from './ChangeSchedule';
 import { EmergencyOverrideDialog } from './EmergencyOverride';
 import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const NO_TYPING: Typing = {};
 
@@ -85,6 +86,7 @@ type Tab = (typeof TABS)[number];
  * a role or a risk assessment shows at once.
  */
 export function ChangePage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -308,7 +310,7 @@ export function ChangePage() {
           title={c.subject}
           meta={[
             <span key="people" data-testid="change-people">
-              {t('incidents.requested_by', { name: personName(c.people, c.requester_id) })}
+              {t('incidents.requested_by', { name: personName(c.people, c.requester_id, hidden) })}
             </span>,
             <span key="created">
               {t('incidents.created_on', { date: dates.format(c.created_at) })}

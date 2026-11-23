@@ -8,11 +8,13 @@ Rules every message follows, whoever builds it:
 - the sender is the installation's (or the tenant's configured sender, REQ-SEC-018); never a
   person's own address (REQ-SEC-019): there is no field for one;
 - header values never contain line breaks (no header injection);
-- at most `MAX_RECIPIENTS` recipients, attachments at most `MAX_ATTACHMENT_BYTES` in total.
+- at most `MAX_RECIPIENTS` recipients, attachments at most `MAX_ATTACHMENT_BYTES` in total;
+- never to an RFC 2606 .invalid address (`mail_recipient_undeliverable` when none is left).
 """
 
 import re
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.headerregistry import Address
@@ -137,12 +139,34 @@ def check(mail: OutgoingMail) -> None:
     _check_attachments(mail.attachments)
 
 
+# RFC 2606 / RFC 6761: a name under .invalid never resolves, so mail to it can never arrive. A
+# vendor support account holds such an address (D-177, lane B's conditions on #566) only so the
+# realm's user profile is complete; nothing is ever sent to it.
+UNDELIVERABLE_TLDS = frozenset({"invalid"})
+UNDELIVERABLE = "mail_recipient_undeliverable"
+
+
+def undeliverable(address: str) -> bool:
+    """Whether `address` is under a top-level name that never receives mail (.invalid)."""
+    domain = address.rpartition("@")[2].strip().rstrip(".").lower()
+    return domain.rpartition(".")[2] in UNDELIVERABLE_TLDS
+
+
+def deliverable(addresses: Sequence[str]) -> tuple[str, ...]:
+    """`addresses` without the undeliverable ones, in their order."""
+    return tuple(a for a in addresses if not undeliverable(a))
+
+
 def _check_addresses(mail: OutgoingMail) -> None:
     if not mail.to or len(mail.to) > MAX_RECIPIENTS:
         raise MailRefused(code="mail_recipients")
     addresses = [*mail.to, *([mail.reply_to] if mail.reply_to is not None else [])]
     if any(not _ADDRESS.fullmatch(address) for address in addresses):
         raise MailRefused(code="mail_address_invalid")
+    # Never to .invalid: refused when no real recipient is left or the reply goes there (one
+    # among others is dropped by `queue_mail`, so it never holds back everyone else's copy).
+    if not deliverable(mail.to) or (mail.reply_to is not None and undeliverable(mail.reply_to)):
+        raise MailRefused(code=UNDELIVERABLE)
 
 
 def _check_headers(mail: OutgoingMail) -> None:

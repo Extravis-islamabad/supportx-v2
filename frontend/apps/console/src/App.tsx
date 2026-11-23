@@ -30,15 +30,13 @@ import {
 
 import { createRouter } from './router';
 import { SSO_TEST_DONE_PATH, SsoTestDonePage } from './pages/admin/security/SsoTestDonePage';
+import { SUPPORT_START_PATH } from './pages/vendorSupport/supportLink';
+import { SupportStartPage } from './pages/vendorSupport/SupportStartPage';
+import { requesterOnly } from './requesterOnly';
 
 export interface AppProps {
   /** For tests: replaces the browser navigation to the login page. */
   navigate?: SessionGateProps['navigate'];
-}
-
-/** D-129: holding no role but `requester` (or none) means the portal, never the console. */
-function requesterOnly(roles: string[]): boolean {
-  return roles.every((role) => role === 'requester');
 }
 
 /**
@@ -71,6 +69,9 @@ export function App({ navigate }: AppProps) {
               // A confirmation's landing (REQ-SEC-027): it tells the opener and closes. Outside
               // the session gate, so it never starts a sign-in of its own.
               <ConfirmedPage />
+            ) : window.location.pathname === SUPPORT_START_PATH ? (
+              // A vendor support engineer's mailed link (D-177): no session, one POST (S4c-3).
+              <SupportStartPage />
             ) : window.location.pathname === SSO_TEST_DONE_PATH ? (
               // The SSO test's landing page needs no session: the test may run in a private
               // window, signed in as nobody (WP-039).
@@ -87,7 +88,7 @@ export function App({ navigate }: AppProps) {
             ) : (
               <SessionGate app="console" navigate={navigate}>
                 {(session) =>
-                  requesterOnly(session.user.roles) ? (
+                  requesterOnly(session.user) ? (
                     <ToPortal navigate={navigate} />
                   ) : (
                     // Keyed by tenant: a tenant switch remounts everything below with fresh state.

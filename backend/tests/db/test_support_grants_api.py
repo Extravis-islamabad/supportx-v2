@@ -1,8 +1,10 @@
 """Vendor support grants (WP-057 S4c-1, REQ-SEC-045, D-173), against a real database.
 
-- A grant makes a temporary account under a generated login with no address (D-177), in the
-  tenant's organization; out of band, the admin sees a one-time password once, never again
-  (not in the replay, not in the database, not in the audit).
+- A grant makes a temporary account under a generated login (D-177), in the tenant's
+  organization, with a complete profile the engineer can never edit: its own verified .invalid
+  address, both names, and no default roles (lane B's conditions on #566). Out of band, the
+  admin sees a one-time password once, never again (not in the replay, not in the database, not
+  in the audit).
 - With mail (D-177), no credential exists until the engineer's own mailbox sets one, with MFA.
 - D-173's rules refuse: another domain, a fourth open grant, the opt-out; the opt-out is refused
   while a grant is open; only tenant admins act.
@@ -12,7 +14,9 @@
 - Another tenant sees none of it, and its schedule pass touches none of it.
 """
 
+import dataclasses
 import logging
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -22,9 +26,15 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.database import Database, create_engine
+from app.core.errors import PermissionDenied
 from app.modules.identity_access.domain import support_grants as rules
+from app.modules.identity_access.domain.identity import identity_from
+from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import IdentityAdminUnavailable
-from app.modules.identity_access.service import support_grant_job, support_grants
+from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import password_reset, support_grant_job, support_grants
+from app.modules.identity_access.service.users import provision_user
+from app.modules.identity_access.tests.fake_idp import MemoryKeyValue
 from tests.app_state import set_state
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
 
@@ -103,12 +113,18 @@ async def test_an_out_of_band_grant_shows_its_password_once_and_makes_a_support_
     assert again.status_code == 201, again.text
     assert again.json()["id"] == body["id"]
     assert again.json()["one_time_password"] is None
-    # The account: a generated login, no address, in the tenant's organization (D-177).
+    # The account: a generated login in the tenant's organization (D-177), its profile complete
+    # (a .invalid verified address, both names) so a fresh realm asks the engineer for nothing
+    # but a password and a code, and no default roles, so it can never change itself.
     grant_id = uuid.UUID(body["id"])
     account, user_id = await _account(world, grant_id)
-    assert world.admin.required[account] == list(rules.FIRST_SIGN_IN_ACTIONS)
+    assert world.admin.required[account] == list(rules.FIRST_SIGN_IN_ACTIONS)  # nothing else
     assert account in world.admin.temporary_passwords  # Keycloak makes them choose their own
-    assert world.admin.usernames == {rules.support_login(grant_id): ""}
+    address = rules.support_address(grant_id)
+    assert world.admin.usernames == {rules.support_login(grant_id): address}
+    assert world.admin.verified[address] is True
+    assert world.admin.names[account] == ("Omar", "Engineer")  # the named engineer (D-180)
+    assert account in world.admin.without_default_roles
     rows = await _sql(
         world,
         "SELECT user_type, email, can_sign_in, display_name FROM users"
@@ -138,7 +154,7 @@ async def test_the_actions_email_path_holds_no_credential(
     grant_id = uuid.UUID(body["id"])
     account, _ = await _account(world, grant_id)
     assert account not in world.admin.passwords_set  # no credential before the link (8)
-    assert world.admin.emails == []  # Keycloak sends nothing: the account has no address
+    assert world.admin.emails == []  # Keycloak sends nothing: its address is .invalid
     (mail,) = await _sql(
         world,
         "SELECT recipients, subject, text_body, kind FROM mail_messages WHERE tenant_id = $1",
@@ -148,6 +164,10 @@ async def test_the_actions_email_path_holds_no_credential(
     assert mail["kind"] == "vendor_support_link"
     assert rules.mail_subject_id(grant_id) in mail["subject"]
     assert rules.support_login(grant_id) in mail["text_body"]
+    # The console page itself, one slash after the origin: the branded console URL ends with "/",
+    # and a doubled one opened the sign-in instead of the page (lane C's fresh-stack e2e).
+    (link,) = re.findall(r"https?://\S+/vendor-support/start\S*", str(mail["text_body"]))
+    assert "//vendor-support" not in link, link
     (grant,) = await _sql(
         world, "SELECT link_token_hash, link_expires_at FROM support_grants WHERE id = $1", grant_id
     )
@@ -467,6 +487,7 @@ async def test_the_link_opens_once_and_every_failure_looks_the_same(
     opened = await _open(world, token)
     assert opened.status_code == 200, opened.text
     assert opened.headers["cache-control"] == "no-store"
+    assert opened.headers["referrer-policy"] == "no-referrer"  # the API's own (S4c-3, lane B)
     assert "default-src 'none'" in opened.headers["content-security-policy"]
     assert opened.json()["login"] == rules.support_login(uuid.UUID(body["id"]))
     assert account in world.admin.temporary_passwords  # Keycloak makes them choose their own
@@ -567,3 +588,109 @@ async def test_an_open_session_is_cut_on_revoke_and_on_expiry(
     finally:
         await engine.dispose()
     assert cut[-1] == (world.a.tenant, expiring_user)  # expiry: the schedule cuts it too
+
+
+async def test_a_support_account_never_gets_a_password_reset(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B's condition 7 on #566: its grant is its only way in, and the answer is the same.
+
+    Decided by the account's own row (not its address): the reset sends nothing and changes no
+    required action, while a staff account in the same tenant gets its e-mail (the control).
+    """
+    made = await _grant(world)
+    assert made.status_code == 201, made.text
+    grant_id = uuid.UUID(made.json()["id"])
+    account, _ = await _account(world, grant_id)
+    address = rules.support_address(grant_id)
+    # As after its first sign-in: a password of its own, so only the account's kind refuses it.
+    world.admin.accounts[account] = dataclasses.replace(
+        world.admin.accounts[account], has_password=True
+    )
+    required = list(world.admin.required[account])
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    store = SessionStore(MemoryKeyValue(), SessionCipher("x" * 40))
+    settings = world.app.state.settings
+    world.admin.emails.clear()
+    await password_reset.request_reset(
+        database, settings, store, world.admin, password_reset.ResetRequest(address, None, None)
+    )
+    assert world.admin.emails == []
+    assert world.admin.required[account] == required
+    # The control: staff in the same tenant and organization get the reset e-mail.
+    org = world.admin.orgs[str(world.a.tenant)]
+    world.admin.accounts["kc-staff"] = dataclasses.replace(
+        world.admin.accounts[account], id="kc-staff", email="staff@acme.test"
+    )
+    world.admin.members.setdefault(org.id, set()).add("kc-staff")
+    await _sql(
+        world,
+        "UPDATE users SET external_subject = 'kc-staff', email = 'staff@acme.test' WHERE id = $1",
+        world.a.tech,
+    )
+    await password_reset.request_reset(
+        database,
+        settings,
+        store,
+        world.admin,
+        password_reset.ResetRequest("staff@acme.test", None, None),
+    )
+    assert world.admin.emails == [("kc-staff", ["UPDATE_PASSWORD"], 3600)]
+
+
+async def test_an_invalid_address_signs_in_by_subject_only(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B's condition 8 on #566: a .invalid e-mail claim never links or makes a person.
+
+    The session names such an account by its login, so without this a stranger's account whose
+    login is a pre-added person's address would have been linked to that person (D-092's link).
+    The support account itself still signs in (its row holds its subject from the grant).
+    """
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    await _sql(
+        world,
+        "UPDATE users SET external_subject = NULL, email = 'added@acme.test' WHERE id = $1",
+        world.a.tech,
+    )
+    before = await _sql(
+        world, "SELECT count(*) AS n FROM users WHERE tenant_id = $1", world.a.tenant
+    )
+    stranger = identity_from(
+        {"sub": "kc-stranger", "email": "x@evil.invalid", "preferred_username": "added@acme.test"}
+    )
+    assert stranger.subject_only
+    with pytest.raises(PermissionDenied) as refused:
+        await provision_user(
+            database, world.a.tenant, stranger, datetime.now(UTC), client="console", reason="login"
+        )
+    assert refused.value.instance_code == "sign_in_unknown_person"
+    (row,) = await _sql(world, "SELECT external_subject FROM users WHERE id = $1", world.a.tech)
+    assert row["external_subject"] is None  # not linked
+    after = await _sql(
+        world, "SELECT count(*) AS n FROM users WHERE tenant_id = $1", world.a.tenant
+    )
+    assert after[0]["n"] == before[0]["n"]  # and nobody made
+    # The support account itself: found by its subject, as the grant made it.
+    made = await _grant(world)
+    assert made.status_code == 201, made.text
+    grant_id = uuid.UUID(made.json()["id"])
+    account, user_id = await _account(world, grant_id)
+    support = identity_from(
+        {
+            "sub": account,
+            "email": rules.support_address(grant_id),
+            "preferred_username": rules.support_login(grant_id),
+        }
+    )
+    signed_in = await provision_user(
+        database, world.a.tenant, support, datetime.now(UTC), client="console", reason="login"
+    )
+    assert signed_in.user_id == user_id
+    # The control: a real address links the pre-added person, as D-092 says.
+    real = identity_from({"sub": "kc-real", "email": "added@acme.test"})
+    assert not real.subject_only
+    linked = await provision_user(
+        database, world.a.tenant, real, datetime.now(UTC), client="console", reason="login"
+    )
+    assert linked.user_id == world.a.tech

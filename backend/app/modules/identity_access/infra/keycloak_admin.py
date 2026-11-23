@@ -131,6 +131,8 @@ class IdentityAdmin(Protocol):
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
 
+    async def drop_default_roles(self, user_id: str) -> None: ...  # noqa: D102
+
     async def set_enabled(self, user_id: str, *, enabled: bool) -> None: ...  # noqa: D102
 
     async def add_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
@@ -586,6 +588,20 @@ class KeycloakAdmin:
         )
         assert response is not None  # noqa: S101 - not missing_ok
         return response.headers["location"].rsplit("/", 1)[1]
+
+    async def drop_default_roles(self, user_id: str) -> None:
+        """Take the realm's default roles (`default-roles-<realm>`) off a user.
+
+        For a vendor support account (lane B's condition 3 on #566): the default composite holds
+        the account console's manage-account, which would let it change its own address.
+        manage-users may unmap it (checked on a fresh realm, 2026-11-23). None mapped is fine.
+        """
+        found = await self._call("GET", f"/users/{user_id}/role-mappings/realm")
+        assert found is not None  # noqa: S101 - not missing_ok
+        default = f"default-roles-{self.realm}"
+        mapped = [r for r in found.json() if r.get("name") == default]
+        if mapped:
+            await self._call("DELETE", f"/users/{user_id}/role-mappings/realm", json=mapped)
 
     async def delete_user(self, user_id: str) -> None:
         """Remove a realm user (an unused invitation's); already gone is fine."""

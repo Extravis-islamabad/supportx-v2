@@ -36,6 +36,8 @@ export interface ColumnContext {
   locale: string;
   /** The language's list format ("a, b and c"; useListFormat). */
   list: (items: readonly string[]) => string;
+  /** A masked support session's stand-in for withheld names (useHiddenPersonLabel), else null. */
+  hiddenPerson: string | null;
 }
 
 export interface ColumnSpec {
@@ -100,7 +102,9 @@ const OWN: ColumnSpec[] = [
     key: 'requester_id',
     width: 124, // about 16 characters of a name at 13 px (Haider, 2026-11-10)
     title: field('requester_id'),
-    render: (row, c) => <CellText>{personName(c.people, row.requester_id)}</CellText>,
+    render: (row, c) => (
+      <CellText>{personName(c.people, row.requester_id, c.hiddenPerson)}</CellText>
+    ),
   },
   {
     key: 'status',
@@ -127,7 +131,9 @@ const OWN: ColumnSpec[] = [
     key: 'technician_id',
     width: 124, // about 16 characters of a name
     title: field('technician_id'),
-    render: (row, c) => <CellText>{personName(c.people, row.technician_id)}</CellText>,
+    render: (row, c) => (
+      <CellText>{personName(c.people, row.technician_id, c.hiddenPerson)}</CellText>
+    ),
   },
   {
     key: 'resolution_due_at',

@@ -55,6 +55,7 @@ import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 import { RecordAssets } from '../incidents/RecordAssets';
 import { ConvertDialog, MovedBanner } from '../incidents/MergeConvert';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const NO_TYPING: Typing = {};
 
@@ -116,6 +117,7 @@ function ApprovalsSummary({ recordId }: { recordId: string }) {
 }
 
 function RequestRecord({ r }: { r: ServiceRequest }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const answerWords = useAnswerWords();
   const { locale } = useAppearance();
@@ -232,7 +234,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             }
             meta={[
               <span key="by">
-                {t('requests.requested_by', { name: personName(r.people, r.requester_id) })}
+                {t('requests.requested_by', { name: personName(r.people, r.requester_id, hidden) })}
               </span>,
               <span key="created">
                 {t('incidents.created_on', { date: dates.format(r.created_at) })}
@@ -305,12 +307,14 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   <div data-testid="sr-details">
                     <PropertyRow label={t('requests.requester')}>
                       <Tooltip title={r.people[r.requester_id]?.email}>
-                        <bdi data-testid="sr-requester">{personName(r.people, r.requester_id)}</bdi>
+                        <bdi data-testid="sr-requester">
+                          {personName(r.people, r.requester_id, hidden)}
+                        </bdi>
                       </Tooltip>
                     </PropertyRow>
                     {r.on_behalf_of_id !== null && (
                       <PropertyRow label={t('work_item.field.on_behalf_of_id')}>
-                        <bdi>{personName(r.people, r.on_behalf_of_id)}</bdi>
+                        <bdi>{personName(r.people, r.on_behalf_of_id, hidden)}</bdi>
                       </PropertyRow>
                     )}
                     {siteName !== undefined && (
@@ -335,7 +339,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                           {t('incidents.unassigned')}
                         </Typography.Text>
                       ) : (
-                        <bdi>{personName(r.people, r.technician_id)}</bdi>
+                        <bdi>{personName(r.people, r.technician_id, hidden)}</bdi>
                       )}
                     </PropertyRow>
                     <PropertyRow label={t('incidents.col.updated')}>

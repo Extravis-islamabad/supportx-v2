@@ -45,6 +45,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
+import { SupportBanner } from './SupportBanner';
 import { NotificationBell } from './notifications/NotificationBell';
 import { RemindersDrawer } from './pages/incidents/RemindersDrawer';
 import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
@@ -275,22 +276,26 @@ export function ConsoleLayout() {
         />
       )}
       banners={
-        // One notice at a time, the others behind "N more notices · View" (D-124).
-        <NoticeStack testId="shell-notices">
-          <ConnectivityBanner />
-          <EventDeliveryBanner />
-          {pathname !== '/profile' && <MfaReminder />}
-          <LicenceBanners />
-          <AuditAlertBanner />
-          <LoopBanner />
-          <FilesBanner />
-          <NotificationsBanner />
-          <TechnicianVisibilityQuestion />
-          <AnnouncementBanners
-            enabled={licence.has('incident')}
-            onOpen={(id) => void navigate(`/announcements/${id}`)}
-          />
-        </NoticeStack>
+        <>
+          {/* A vendor support session says so on every page, never behind "N more" (S4c-3). */}
+          <SupportBanner />
+          {/* One notice at a time, the others behind "N more notices · View" (D-124). */}
+          <NoticeStack testId="shell-notices">
+            <ConnectivityBanner />
+            <EventDeliveryBanner />
+            {pathname !== '/profile' && <MfaReminder />}
+            <LicenceBanners />
+            <AuditAlertBanner />
+            <LoopBanner />
+            <FilesBanner />
+            <NotificationsBanner />
+            <TechnicianVisibilityQuestion />
+            <AnnouncementBanners
+              enabled={licence.has('incident')}
+              onOpen={(id) => void navigate(`/announcements/${id}`)}
+            />
+          </NoticeStack>
+        </>
       }
     >
       <Outlet />

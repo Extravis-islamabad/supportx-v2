@@ -609,6 +609,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/vendor-support/grants/{grant_id}` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/vendor-support/grants/{grant_id}/activity` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants/{grant_id}/extend` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants/{grant_id}/resend-link` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/vendor-support/grants/{grant_id}/revoke` | `identity.manage` | identity.manage: all |

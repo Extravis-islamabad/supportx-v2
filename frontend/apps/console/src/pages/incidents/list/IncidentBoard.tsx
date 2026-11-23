@@ -26,6 +26,7 @@ import { scaleLabel, statusLabel } from '../labels';
 import { useStatusActions } from '../StatusActions';
 import { BOARD_COLUMNS_SHOWN, both, columnCondition } from './boardModel';
 import { PriorityMoveDialog } from './PriorityMoveDialog';
+import { shownName, useHiddenPersonLabel } from '../../../maskedPeople';
 
 /** Each column's first page (lane C's condition 1); "Show more" loads the next. */
 const PAGE = 25;
@@ -189,6 +190,7 @@ export function IncidentBoard({
   groupBy: BoardGroupBy;
   onGroupBy: (next: BoardGroupBy) => void;
 }) {
+  const hiddenPerson = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const navigate = useNavigate();
@@ -246,11 +248,10 @@ export function IncidentBoard({
     if (groupBy === 'priority') return scaleLabel(t, catalogue.data, 'priority', key, locale);
     if (groupBy === 'group')
       return groups.data?.find((g) => g.id === key)?.name ?? t('incidents.board.unknown_group');
-    return (
-      assignable.data?.find((p) => p.id === key)?.display_name ??
-      people[key]?.display_name ??
-      t('incidents.board.unknown_person')
-    );
+    const name =
+      assignable.data?.find((p) => p.id === key)?.display_name ?? people[key]?.display_name;
+    // A masked support session's withheld name is the labelled stand-in (D-180, lane A).
+    return name === undefined ? t('incidents.board.unknown_person') : shownName(name, hiddenPerson);
   };
   const columns: BoardColumn[] = shown.map((c) => ({
     key: c.key ?? NONE,

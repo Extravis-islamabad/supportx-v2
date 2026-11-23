@@ -29,3 +29,8 @@ ecf1df020b57418a0aa946a5b493418d2a1b186b:backend/tests/test_list_by_post_spans.p
 # coordinator's check.
 790467dc7a07674b21ed25bb45ee05061b584219:backend/app/shared/crypto/tests/test_signing.py:generic-api-key:22
 790467dc7a07674b21ed25bb45ee05061b584219:backend/app/shared/crypto/tests/test_signing.py:generic-api-key:23
+
+# Not a secret: a made-up link token in the vendor support screens' unit test (jsdom, a fake API,
+# used nowhere else). A later commit on the branch makes it at test time. Lane C, 2026-11-23,
+# for the coordinator's check.
+ebc4a574c9a4885ec07df065ebd0cb1522b2a279:frontend/apps/console/src/pages/vendorSupport/vendorSupport.test.tsx:generic-api-key:19

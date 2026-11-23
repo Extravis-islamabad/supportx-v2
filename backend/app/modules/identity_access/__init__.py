@@ -161,7 +161,7 @@ from app.modules.identity_access.service.field_access import (
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
-from app.modules.identity_access.service.masking import contacts_masked
+from app.modules.identity_access.service.masking import contacts_masked, names_masked
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
@@ -626,6 +626,7 @@ __all__ = [
     "legal_hold",
     "mail_recipients",
     "module",
+    "names_masked",
     "notifiable_people",
     "people_matching",
     "person_by_email",

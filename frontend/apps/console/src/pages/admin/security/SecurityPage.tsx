@@ -15,6 +15,8 @@ import { SecurityOverview } from './SecurityOverview';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
 import { SsoPolicyCard } from './SsoPolicyCard';
+import { VendorSupportCard } from './VendorSupportCard';
+import { vendorSupportKeys } from '@supportx/api-client';
 
 /**
  * Admin › Sign-in and security (WP-039, REQ-SEC-017): every sign-in setting in SupportX itself,
@@ -26,7 +28,11 @@ export function SecurityPage() {
   const refetch = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.identity.all });
   };
-  useListChannel('identity', refetch);
+  useListChannel('identity', () => {
+    refetch();
+    // A vendor support grant changed (WP-057 S4c-3): its list and the open grant's drawer.
+    void queryClient.invalidateQueries({ queryKey: vendorSupportKeys.all });
+  });
   useListChannel('invitations', refetch);
   // Keys and service accounts change on the people channel: the overview counts them (S4d).
   useListChannel('users', () => {
@@ -47,6 +53,7 @@ export function SecurityPage() {
       <SessionsCard />
       <NetworkRulesCard />
       <SiteNetworksCard />
+      <VendorSupportCard />
     </Flex>
   );
 }

@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.modules.identity_access.infra.models import GroupRole, Role, User, UserRole
+from app.modules.identity_access.infra.models import GroupRole, Role, SupportGrant, User, UserRole
 from app.modules.identity_access.service.authz_consumer import handler as authz_handler
 from app.modules.identity_access.service.directory import USERS
 from app.modules.identity_access.service.policy import UNMAPPED_DEFAULT, authorize_stored
@@ -374,6 +374,31 @@ async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> R
 
 
 CONTACT_EDITING_CHANGED = "identity_access.contact_editing_changed"
+SUPPORT_GRANT_CHANGED = "identity_access.support_grant_changed"
+
+
+async def _support_grant_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A vendor support grant changed (WP-057 S4c-3): the admins' list, and the account's banner.
+
+    IDs only (rule c). The support account hears it on its own channel, so its banner's end
+    time follows an extension; it never holds identity.manage, so never the admins' list.
+    """
+    publications = IDENTITY_LIST.publications(
+        envelope.tenant_id,
+        "identity.changed",
+        uuid.UUID(str(envelope.aggregate_id)),
+        actor_id=_actor(envelope),
+    )
+    account = await session.scalar(
+        select(SupportGrant.support_user_id).where(
+            SupportGrant.id == uuid.UUID(str(envelope.aggregate_id))
+        )
+    )
+    if account is not None:
+        publications.append(
+            Publication(personal(envelope.tenant_id, account), SUPPORT_GRANT_CHANGED)
+        )
+    return RealtimeEffects(publications=publications)
 
 
 async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -489,6 +514,7 @@ ROUTES = [
         _invitation_changed,
     ),
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
+    RealtimeRoute(("identity_access.support_grant.changed",), _support_grant_changed),
     RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
     RealtimeRoute(("identity_access.sign_in.recorded",), _sign_in_recorded),
     RealtimeRoute(("identity_access.person_erasure.changed",), _erasure_changed),

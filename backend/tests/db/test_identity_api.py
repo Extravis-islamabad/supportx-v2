@@ -75,6 +75,8 @@ class FakeAdmin:
     verified: dict[str, bool] = field(default_factory=dict)  # e-mail -> emailVerified at create
     emails: list[tuple[str, list[str], int]] = field(default_factory=list)
     required: dict[str, list[str]] = field(default_factory=dict)
+    without_default_roles: set[str] = field(default_factory=set)  # account IDs (support accounts)
+    names: dict[str, tuple[str, str]] = field(default_factory=dict)  # account ID -> first, last
     # Keycloak user id -> its credentials (WP-039 session 3: MFA).
     credentials_of: dict[str, list[Credential]] = field(default_factory=dict)
 
@@ -94,7 +96,6 @@ class FakeAdmin:
         email_verified: bool = True,
         username: str | None = None,
     ) -> str:
-        del first_name, last_name
         address = (email or "").lower()
         if username is not None:
             self.usernames[username] = address  # a generated login (vendor support, D-177)
@@ -106,6 +107,7 @@ class FakeAdmin:
         )
         self.accounts[account.id] = account
         self.account_attributes[account.id] = {"locale": locale}
+        self.names[account.id] = (first_name, last_name)
         return account.id
 
     async def delete_user(self, user_id: str) -> None:
@@ -127,6 +129,9 @@ class FakeAdmin:
         self, user_id: str, actions: list[str], lifespan_seconds: int
     ) -> None:
         self.emails.append((user_id, actions, lifespan_seconds))
+
+    async def drop_default_roles(self, user_id: str) -> None:
+        self.without_default_roles.add(user_id)
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None:
         self.required[user_id] = actions

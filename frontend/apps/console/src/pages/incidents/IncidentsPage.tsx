@@ -105,6 +105,7 @@ import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
 import { restoredStanding } from './slaWords';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -134,6 +135,7 @@ const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'acce
  */
 export function IncidentsPage() {
   const t = useLabel();
+  const hiddenPerson = useHiddenPersonLabel();
   const navigate = useNavigate();
   const dates = useDateTime();
   const { can } = useAccess();
@@ -386,6 +388,7 @@ export function IncidentsPage() {
     groupNames,
     locale,
     list: listFormat,
+    hiddenPerson,
   };
   const current = sortOf(sort);
   // REQ-INC-107 AC1: starred views first (yours only), then yours and those shared with you.

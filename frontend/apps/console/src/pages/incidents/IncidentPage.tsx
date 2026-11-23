@@ -134,6 +134,7 @@ import { TagsInput } from './TagsInput';
 import { CausingProblemCard } from './CausingProblemCard';
 import { RecordAssets } from './RecordAssets';
 import { CancellationAsk } from './CancellationAsk';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -178,6 +179,7 @@ export function IncidentPage() {
 }
 
 function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promise<unknown> }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const dates = useDateTime();
   const navigate = useNavigate();
@@ -671,7 +673,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             meta={[
               // Names are isolated, so a mixed Arabic and English line keeps its order (QA C6).
               <span key="people" data-testid="inc-people">
-                {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
+                {t('incidents.requested_by', {
+                  name: personName(item.people, item.requester_id, hidden),
+                })}
               </span>,
               <span key="created">
                 {t('incidents.created_on', { date: dates.format(item.created_at) })}
@@ -788,7 +792,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                           {t('incidents.unassigned')}
                         </Typography.Text>
                       ) : (
-                        <bdi>{personName(item.people, item.technician_id)}</bdi>
+                        <bdi>{personName(item.people, item.technician_id, hidden)}</bdi>
                       )}
                     </PropertyRow>
                   </>

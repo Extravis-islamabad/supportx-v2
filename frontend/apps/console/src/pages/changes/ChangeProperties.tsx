@@ -9,12 +9,14 @@ import {
 
 import { personName } from '../incidents/labels';
 import { listValueName, statusName } from '../staged/labels';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 /**
  * The change's properties on the end side (template A): where it is, what kind it is, its risk
  * and its people. Only the fields that hold a value (D-155); editing stays in the tabs.
  */
 export function ChangeProperties({ change }: { change: Change }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const details = useChangeDetails(change.id).data;
@@ -63,13 +65,15 @@ export function ChangeProperties({ change }: { change: Change }) {
     {
       key: 'owner',
       label: t('work_item_role.change_owner'),
-      content: change.technician_id ? personName(change.people, change.technician_id) : null,
+      content: change.technician_id
+        ? personName(change.people, change.technician_id, hidden)
+        : null,
       filled: Boolean(change.technician_id),
     },
     {
       key: 'requester',
       label: t('work_item.field.requester_id'),
-      content: personName(change.people, change.requester_id),
+      content: personName(change.people, change.requester_id, hidden),
       filled: true,
     },
   ];

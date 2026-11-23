@@ -13,6 +13,8 @@ from app.shared.mail.domain.message import (
     OutgoingMail,
     build_mime,
     check,
+    deliverable,
+    undeliverable,
 )
 
 MAIL = OutgoingMail(kind="report", to=("pat@acme.test",), subject="Weekly report", text="Hi")
@@ -89,3 +91,25 @@ def test_the_layout_carries_the_brand_escaped_and_reads_right_to_left_in_arabic(
     english = wrap_html("<p>Hi</p>", brand=Brand(logo_url=None), language="en", title="T")
     assert 'dir="ltr"' in english
     assert ">Acme &lt;Desk&gt;</span>" in english  # no logo: the name
+
+
+def test_mail_never_goes_to_an_invalid_address() -> None:
+    """RFC 2606 .invalid never receives mail (a vendor support account's address, D-177)."""
+    support = "support-0190f2a3b4c5@support.invalid"
+    assert undeliverable(support)
+    assert undeliverable("someone@INVALID.")  # any case, a trailing dot
+    assert undeliverable("erased@invalid")
+    assert not undeliverable("pat@acme.test")
+    assert not undeliverable("pat@invalid.example.com")  # only the top-level name counts
+    assert deliverable(("pat@acme.test", support, "sam@acme.test")) == (
+        "pat@acme.test",
+        "sam@acme.test",
+    )
+    for refused in (
+        replace(MAIL, to=(support,)),  # nobody real left
+        replace(MAIL, reply_to=support),  # a reply would go nowhere
+    ):
+        with pytest.raises(MailRefused) as caught:
+            check(refused)
+        assert caught.value.code == "mail_recipient_undeliverable"
+    check(replace(MAIL, to=("pat@acme.test", support)))  # one among others: queue_mail drops it

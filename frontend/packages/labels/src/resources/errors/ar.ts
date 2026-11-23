@@ -991,6 +991,7 @@ export const ar: LabelResource = {
   'errors.mail_language_invalid': 'هذه اللغة غير متاحة للبريد.',
   'errors.mail_not_configured': 'البريد الصادر غير مُعدّ في هذا التثبيت. اطلب من المشغّل إعداده.',
   'errors.mail_not_waiting': 'لم تعد هذه الرسالة في الانتظار: تعامل معها شخص ما بالفعل.',
+  'errors.mail_recipient_undeliverable': 'لا يوجد في هذه الرسالة عنوان يمكن التسليم إليه.',
   'errors.mail_recipients': 'أرسل إلى ما بين 1 و50 مستلمًا.',
   'errors.mail_sender_invalid': 'اسم المرسل أو عنوان الرد غير صالح.',
   'errors.mail_status_staff_only': 'لا يرى هذا إلا من يردّون على السجلات.',
