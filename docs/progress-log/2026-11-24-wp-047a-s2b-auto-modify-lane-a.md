@@ -1,4 +1,4 @@
-### 2026-11-24: WP-047a S2b, automatic approval and adjusting a running approval (lane A)
+### 2026-11-24 — WP-047a S2b, automatic approval and adjusting a running approval (lane A)
 
 Migration 0195 (on 0194). REQ-SR-033 (automatic approval) and REQ-SR-042 (technicians adjust
 a running approval). Draft #593. Plan: `~/Extravis/plans/wp-047a-s2-plan-lane-a.md` ("S2b
