@@ -243,3 +243,12 @@ def openapi_contract(_openapi_contract_json: str) -> dict[str, Any]:
     """The app's OpenAPI document as `make generated` builds it; a fresh copy per test."""
     document: dict[str, Any] = json.loads(_openapi_contract_json)
     return document
+
+
+@pytest.fixture(autouse=True)
+def _no_real_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test ever asks real DNS (D-183): verified domains' TXT lookup is the "no resolver"
+    stand-in unless a test installs its own fake, or the local fake DNS server's lookup."""
+    from app.modules.identity_access.service import verified_domains  # noqa: PLC0415 - lazy
+
+    monkeypatch.setattr(verified_domains, "resolver", verified_domains._no_resolver)  # noqa: SLF001 - the stand-in
