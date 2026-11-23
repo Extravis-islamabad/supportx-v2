@@ -670,3 +670,45 @@ export function useDecideIncidentApproval(id: string) {
     },
   });
 }
+
+// WP-046b S5 (REQ-INC-148): a requester's waiting ask to cancel, as staff see and decide it.
+export type IncidentCancellationRequest = components['schemas']['CancellationRequestOut'];
+
+/** The waiting ask on this record, or null when none (a 404 is "nothing waits"). */
+export function useIncidentCancellationRequest(id: string | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.detail(id ?? ''), 'cancellation-request'] as const,
+    queryFn: async () => {
+      try {
+        return await call(
+          api.GET('/api/v1/incidents/{record_id}/cancellation-request', {
+            params: { path: { record_id: id ?? '' } },
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: id !== undefined,
+    retry: false,
+    meta: { silent: true },
+  });
+}
+
+/** Approve (cancelled by you, with the requester's reason) or decline (your note goes to them). */
+export function useDecideCancellation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (decision: { approve: boolean; note?: string; reason_code?: string }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/cancellation-request/decide', {
+          params: { path: { record_id: id } },
+          body: decision,
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    },
+  });
+}

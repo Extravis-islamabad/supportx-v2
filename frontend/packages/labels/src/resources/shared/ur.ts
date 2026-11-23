@@ -703,6 +703,14 @@ export const ur: LabelResource = {
   'settings.release_roles.take_title': 'لینے سے آپ کیا بنتے ہیں',
   'settings.rename': 'نام بدلیں',
   'settings.rename_value': '"{{name}}" کا نام بدلیں',
+  'settings.requester_cancel': 'درخواست گزار منسوخ کر سکتے ہیں',
+  'settings.requester_edit_fields': 'وہ فیلڈز جو درخواست گزار ترمیم کر سکتے ہیں',
+  'settings.requester_edit_fields_help':
+    'کچھ نہیں: جواب دینے کے سوا واقعہ ان کے لیے صرف پڑھنے کے لیے ہے۔',
+  'settings.requester_edit_none': 'کچھ نہیں (صرف پڑھنے کے لیے)',
+  'settings.requester_rules': 'درخواست گزاروں کی منسوخی اور ترمیم',
+  'settings.requester_rules_help':
+    'رپورٹ کرنے کے بعد درخواست گزار اپنے واقعات پر کیا کر سکتے ہیں۔ بند اور کچھ نہیں: پہلے کی طرح۔',
   'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
   'settings.resume_on_requester_reply_for':
     'درخواست گزار کا جواب “{{status}}” کو دوبارہ شروع کرتا ہے',

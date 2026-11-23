@@ -452,6 +452,9 @@ async def test_050_attachments_are_the_assets_files_seen_by_viewers_added_by_man
 
 async def test_049_history_filters_by_view_field_source_person_and_day(world: World) -> None:
     a = world.a
+    # Days are UTC days. Taken before the first write and after the last, so a run that crosses
+    # midnight still finds every row between them and none before the first day.
+    first_day = _today()
     asset = await _asset(world, a, "Filtered")
     renamed = await world.call(
         "PATCH", f"{BASE}/{asset['id']}", a, a.admin,
@@ -485,9 +488,9 @@ async def test_049_history_filters_by_view_field_source_person_and_day(world: Wo
     assert await fields(source="email") == []
     assert len(await fields(actor_id=str(a.admin))) >= 3
     assert await fields(actor_id=str(a.tech_b)) == []
-    today = _today()  # days are UTC days
-    assert await fields(until=str(today - timedelta(days=1))) == []
-    assert len(await fields(since=str(today), until=str(today))) >= 4
+    last_day = _today()
+    assert await fields(until=str(first_day - timedelta(days=1))) == []
+    assert len(await fields(since=str(first_day), until=str(last_day))) >= 4
 
 
 # --- isolation, the sweep ------------------------------------------------------------------------

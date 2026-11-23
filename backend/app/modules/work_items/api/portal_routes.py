@@ -35,15 +35,17 @@ from app.modules.work_items.domain.portal import (
     PortalStatus,
     requester_fillable,
 )
+from app.modules.work_items.domain.requester_rules import RequesterCancel
 from app.modules.work_items.domain.templates import (
     IMPACT_DETAILS_MAX,
     TemplateField,
     rules_from_json,
 )
-from app.modules.work_items.domain.types import DESCRIPTION_MAX, SUBJECT_MAX
+from app.modules.work_items.domain.types import DESCRIPTION_MAX, INCIDENT, SUBJECT_MAX
 from app.modules.work_items.infra.models import WorkItemTemplate
-from app.modules.work_items.service import asset_links
+from app.modules.work_items.service import asset_links, requester_requests
 from app.modules.work_items.service import portal as service
+from app.shared.api.concurrency import ExpectedVersion
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query
 from app.shared.api.ratelimit import rate_limit
@@ -54,6 +56,13 @@ Query_ = Annotated[
     ListQuery,
     Depends(list_query(service.FIELDS, extra_parameters=frozenset({"reach", "state", "q"}))),
 ]
+
+
+class PortalCancellationOut(BaseModel):
+    """Your waiting ask to cancel (WP-046b S5): staff decide; the incident stays open."""
+
+    reason: str
+    asked_at: datetime
 
 
 class PortalIncidentOut(BaseModel):
@@ -68,6 +77,17 @@ class PortalIncidentOut(BaseModel):
         default=None,
         description="The issue is known and being worked on, or was fixed (REQ-PRB-075); never"
         " the problem itself.",
+    )
+    # WP-046b S5 (REQ-INC-148): on your own incident only (absent elsewhere).
+    may_cancel: RequesterCancel | None = Field(
+        default=None, description="Off, cancel directly, or ask (staff decide)."
+    )
+    editable_fields: list[str] | None = Field(
+        default=None,
+        description="Fields you may still edit; empty: read-only but for replies.",
+    )
+    cancellation: PortalCancellationOut | None = Field(
+        default=None, description="Your waiting ask to cancel, if any."
     )
     requester_id: uuid.UUID
     on_behalf_of_id: uuid.UUID | None = None
@@ -242,6 +262,24 @@ def _out(found: service.PortalRecord) -> PortalIncidentOut:
     return PortalIncidentOut.model_validate(found.values())
 
 
+async def _with_options(session: TenantSession, found: service.PortalRecord) -> PortalIncidentOut:
+    """Your own record, with what you may still do on it (WP-046b S5; REQ-INC-148)."""
+    out = _out(found)
+    if found.reach is not PortalReach.OWN:
+        return out
+    options = await requester_requests.requester_options(session, INCIDENT, found.record)
+    out.may_cancel = options.may_cancel
+    out.editable_fields = sorted(options.editable_fields)
+    out.cancellation = (
+        None
+        if options.pending is None
+        else PortalCancellationOut(
+            reason=options.pending.reason, asked_at=options.pending.created_at
+        )
+    )
+    return out
+
+
 router = APIRouter(
     prefix="/portal/incidents",
     tags=["portal"],
@@ -348,7 +386,7 @@ async def get_portal_incident(
     session: TenantSession, subject: SignedIn, record_id: uuid.UUID
 ) -> PortalIncidentOut:
     """The record as the requester's side sees it; 404 when out of reach."""
-    return _out(await service.get_record(session, subject, record_id))
+    return await _with_options(session, await service.get_record(session, subject, record_id))
 
 
 @router.get("/{record_id}/conversation", summary="The public conversation of your incident")
@@ -447,3 +485,91 @@ async def portal_reject(
 
 
 __all__ = ["router"]
+
+
+# --- WP-046b S5 (REQ-INC-148): the requester's cancel and edit, as the tenant allows ------------
+
+
+class PortalCancelIn(BaseModel):
+    """Why you no longer need it (recorded, and shown to whoever decides an ask)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=requester_requests.REASON_MAX)
+
+
+class PortalCancelOut(BaseModel):
+    """Cancelled now (`canceled`), or asked: staff decide, and the incident stays open."""
+
+    canceled: bool
+    request_id: uuid.UUID | None = None
+
+
+class PortalEditIn(BaseModel):
+    """The fields the tenant lets requesters change; anything else is refused by name."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    changes: dict[str, object] = Field(max_length=20)
+
+
+@router.post("/{record_id}/cancel", summary="Cancel your incident, or ask to")
+async def portal_cancel(
+    record_id: uuid.UUID,
+    body: PortalCancelIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+) -> PortalCancelOut:
+    """As your organisation set it: cancelled at once, or asked (AC1).
+
+    403 `requester_cancel_off` when requesters may not; 409 `cancellation_already_asked` when an
+    ask is waiting; 409 `requester_cancel_not_possible` when its status allows no cancel.
+    """
+    outcome = await requester_requests.cancel(
+        session, subject, INCIDENT, record_id, reason=body.reason, source=source_of(request)
+    )
+    return PortalCancelOut(canceled=outcome.canceled, request_id=outcome.request_id)
+
+
+@router.delete(
+    "/{record_id}/cancel-request",
+    summary="Take back your ask to cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def portal_withdraw_cancel(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> Response:
+    """Your waiting ask is withdrawn; 404 when there is none."""
+    await requester_requests.withdraw(session, subject, INCIDENT, record_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/{record_id}",
+    summary="Edit your incident (the fields your organisation allows)",
+    response_model_exclude_unset=True,
+)
+async def portal_edit(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and the body
+    record_id: uuid.UUID,
+    body: PortalEditIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+    version: ExpectedVersion,
+) -> PortalIncidentOut:
+    """With the version you read (If-Match).
+
+    Editing off, or a field not allowed (a staff-only one always): 422
+    `field_not_editable_by_requester`, naming the field (AC2).
+    """
+    await requester_requests.edit(
+        session,
+        subject,
+        INCIDENT,
+        record_id,
+        body.changes,
+        expected_version=version,
+        source=source_of(request),
+    )
+    return await _with_options(session, await service.get_record(session, subject, record_id))

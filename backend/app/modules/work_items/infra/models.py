@@ -68,6 +68,7 @@ from app.modules.work_items.domain.lists import (
     ViewVisibility,
 )
 from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
+from app.modules.work_items.domain.requester_rules import CancellationState, RequesterCancel
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import STANDARD_LIFECYCLE, Channel, WorkItemTypeCode
 from app.modules.work_items.domain.versions import FIRST_VERSION, VersionState
@@ -97,6 +98,10 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     __tablename__ = "work_item_type_settings"
     __table_args__ = (
         CheckConstraint(_codes("row_colour_by", RowColourBy), name="row_colour_by_code"),
+        CheckConstraint(_codes("requester_cancel", RequesterCancel), name="requester_cancel_code"),
+        CheckConstraint(
+            "cardinality(requester_edit_fields) <= 40", name="requester_edit_fields_limit"
+        ),
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
@@ -226,6 +231,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     major_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     # WP-046b S3a (0178, REQ-INC-115 AC1): what list rows are coloured by, unless a person chose.
     row_colour_by: Mapped[str] = mapped_column(String(10), server_default="none")
+    # WP-046b S5 (0184, REQ-INC-148): what a requester may do after submitting. Off and none by
+    # default: nothing changes for a tenant until an admin turns them on.
+    requester_cancel: Mapped[str] = mapped_column(String(10), server_default="off")
+    requester_edit_fields: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), server_default=text("'{}'::varchar[]")
+    )
     cab_every_match: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-045b S4 (0118): what a change to an approved change does (domain/reapproval.py);
     # NULL: the shipped policy.
@@ -1141,6 +1152,57 @@ class WorkItemReplyTemplate(TenantEntity):
     category_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"
     )
+
+
+class WorkItemCancellationRequest(TenantEntity):
+    """A requester's ask to cancel their record (WP-046b S5, 0184; REQ-INC-148 AC1).
+
+    At most one pending per record. Decided by the assignee, else the group's members who may
+    edit, else the type's service desk managers; the record stays open until then.
+    """
+
+    __tablename__ = "work_item_cancellation_requests"
+    __table_args__ = (
+        CheckConstraint(_codes("state", CancellationState), name="state_code"),
+        CheckConstraint("length(btrim(reason)) BETWEEN 1 AND 2000", name="reason_length"),
+        CheckConstraint(
+            "(state IN ('approved', 'declined'))"
+            " = (decided_by IS NOT NULL AND decided_at IS NOT NULL)",
+            name="decided_shape",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "work_item_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_wicr_work_item",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "requested_by"], ["users.tenant_id", "users.id"], name="fk_wicr_requester"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "decided_by"], ["users.tenant_id", "users.id"], name="fk_wicr_decider"
+        ),
+        Index(
+            "ix_work_item_cancellation_requests_tenant_item",
+            "tenant_id",
+            "work_item_id",
+            "created_at",
+        ),
+        Index(
+            "uq_work_item_cancellation_requests_tenant_item_pending",
+            "tenant_id",
+            "work_item_id",
+            unique=True,
+            postgresql_where=text("state = 'pending' AND deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    requested_by: Mapped[uuid.UUID]
+    reason: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(12), server_default="pending")
+    decided_by: Mapped[uuid.UUID | None]
+    decided_at: Mapped[datetime | None]
+    decision_note: Mapped[str | None] = mapped_column(Text)
 
 
 class WorkItemView(TenantEntity):

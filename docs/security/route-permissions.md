@@ -391,6 +391,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/changes/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
 | POST | `/api/v1/changes/{record_id}/assign` | `changes.assign` | changes.assign: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/automation` | `changes.view` | changes.view: all/site/group/own |
+| GET | `/api/v1/changes/{record_id}/cancellation-request` | `changes.view` | changes.view: all/site/group/own |
+| POST | `/api/v1/changes/{record_id}/cancellation-request/decide` | `changes.view` | changes.view: all/site/group/own |
 | PATCH | `/api/v1/changes/{record_id}/checklist-items/{item_id}` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own |
@@ -691,6 +693,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/incidents/{record_id}/assets/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/assign` | `incidents.assign` | incidents.assign: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/automation` | `incidents.view` | incidents.view: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/cancellation-request` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/cancellation-request/decide` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/causing-problem` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/checklist-items/{item_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own |
@@ -888,6 +892,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/portal/incidents/on-behalf-people` | signed_in | - |
 | GET | `/api/v1/portal/incidents/templates` | signed_in | - |
 | GET | `/api/v1/portal/incidents/{record_id}` | signed_in | - |
+| PATCH | `/api/v1/portal/incidents/{record_id}` | signed_in | - |
+| POST | `/api/v1/portal/incidents/{record_id}/cancel` | signed_in | - |
+| DELETE | `/api/v1/portal/incidents/{record_id}/cancel-request` | signed_in | - |
 | GET | `/api/v1/portal/incidents/{record_id}/conversation` | signed_in | - |
 | POST | `/api/v1/portal/incidents/{record_id}/replies` | signed_in | - |
 | POST | `/api/v1/portal/incidents/{record_id}/resolution/confirm` | signed_in | - |
@@ -992,6 +999,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
 | POST | `/api/v1/problems/{record_id}/assign` | `problems.assign` | problems.assign: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/automation` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/{record_id}/cancellation-request` | `problems.view` | problems.view: all/site/group/own |
+| POST | `/api/v1/problems/{record_id}/cancellation-request/decide` | `problems.view` | problems.view: all/site/group/own |
 | PATCH | `/api/v1/problems/{record_id}/checklist-items/{item_id}` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own |
@@ -1152,6 +1161,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/releases/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
 | POST | `/api/v1/releases/{record_id}/assign` | `releases.assign` | releases.assign: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/automation` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/{record_id}/cancellation-request` | `releases.view` | releases.view: all/site/group/own |
+| POST | `/api/v1/releases/{record_id}/cancellation-request/decide` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/changes` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/changes` | `releases.edit` | releases.edit: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/changes/close` | `releases.view` | releases.view: all/site/group/own |
@@ -1347,6 +1358,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/service-requests/{record_id}/assets/{link_id}` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/assign` | `requests.assign` | requests.assign: all/site/group |
 | GET | `/api/v1/service-requests/{record_id}/automation` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/cancellation-request` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/cancellation-request/decide` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}/checklist-items/{item_id}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own |
