@@ -71,6 +71,11 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
     const stopWatching = connection.onReconnect((code) => {
       if (code === ACCESS_CHANGED) refreshAccess();
     });
+    // The session ended (an admin's sign-out, a vendor support grant's end): ask for the session
+    // again now; its 401 signs the app out, even on a record page making no requests.
+    const stopEnded = connection.onEnded(() => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    });
     // One connection per tab (QA BUG-02): acquire/release instead of connect/close, so React
     // StrictMode's unmount-and-remount in development keeps the same live connection.
     connection.acquire();
@@ -87,6 +92,7 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
       leaveOwn();
       leaveTenant();
       stopWatching();
+      stopEnded();
       connection.release();
     };
   }, [value, queryClient]);
