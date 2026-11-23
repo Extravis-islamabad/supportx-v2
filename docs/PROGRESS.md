@@ -142,6 +142,10 @@ decisions D1-D13 (D-038).
    the installation rather than a tenant (sign-in key rotations, D-162) are written into every
    tenant's log today, by a background announcer; a platform log for the operator would hold
    them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
+8. **Web image on nginx mainline (lane B, 2026-11-24, #596):** `deploy/images/web.Dockerfile`
+   runs nginx-unprivileged **1.31.7** (mainline, digest-pinned), because stable 1.30.6 has six
+   fixable HIGH/CRITICAL nginx CVEs and no stable 1.30.7 image was published. Move back to the
+   stable line once 1.30.7 or later is published. Check it at each Monday re-check.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
