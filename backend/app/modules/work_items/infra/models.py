@@ -665,6 +665,10 @@ class WorkItem(TenantEntity):
             name="approval_status_code",
         ),
         CheckConstraint("jsonb_typeof(answers) = 'object'", name="answers_object"),
+        # WP-047a S1 (0193; REQ-SR-014): how many of the item; NULL is one.
+        CheckConstraint(
+            "quantity IS NULL OR (quantity >= 1 AND quantity <= 10000)", name="quantity_range"
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "catalog_item_id"],
             ["catalog_items.tenant_id", "catalog_items.id"],
@@ -888,6 +892,10 @@ class WorkItem(TenantEntity):
     catalog_item_id: Mapped[uuid.UUID | None]
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     approval_status: Mapped[str | None] = mapped_column(String(20))
+    # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
+    quantity: Mapped[int | None]
+    needed_by: Mapped[datetime | None]
+    expected_delivery_at: Mapped[datetime | None]
     # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
     # clock keeps running while it waits for approval.
     sla_counts_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")

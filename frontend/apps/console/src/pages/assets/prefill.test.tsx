@@ -65,6 +65,7 @@ const laptop: CatalogItem = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   can_manage: true,
   version: 1,
 };

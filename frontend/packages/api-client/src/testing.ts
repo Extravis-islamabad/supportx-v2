@@ -467,6 +467,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     subject: 'Mail is down',
     description: '<p>Since <strong>9:00</strong>.</p>',
     custom: {},
+    needed_earlier: false, // WP-047a S1: service requests only
     requester_id: requester,
     on_behalf_of_id: null,
     channel: 'phone',

@@ -142,6 +142,9 @@ class CatalogItemIn(BaseModel):
     technician_after_approval: bool | None = None
     count_approval_time: bool | None = None
     auto_fulfil: bool | None = None
+    # WP-047a S1: REQ-SR-014 (Professional: `catalog`) and REQ-SR-015.
+    max_quantity: int | None = Field(default=None, ge=1, le=10_000)
+    asks_needed_by: bool | None = None
 
 
 class CatalogMissingTranslation(BaseModel):
@@ -157,6 +160,11 @@ class ExpectedDeliveryOut(BaseModel):
     amount: int
     unit: str = Field(description="minutes, hours or business_days.")
     around_the_clock: bool = Field(description="False: counted in working time.")
+    at: datetime | None = Field(
+        default=None,
+        description="When a request raised now should be delivered (REQ-SR-015 AC1), on the "
+        "SLA's calendar; the form shows it in the requester's time zone.",
+    )
 
 
 class CatalogItemOut(BaseModel):
@@ -197,6 +205,10 @@ class CatalogItemOut(BaseModel):
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
+    max_quantity: int | None = Field(
+        default=None, description="The most one request may ask for; null: no quantity asked."
+    )
+    asks_needed_by: bool = False
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
@@ -486,7 +498,10 @@ async def get_item(
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(
-            amount=target.amount, unit=target.unit, around_the_clock=target.around_the_clock
+            amount=target.amount,
+            unit=target.unit,
+            around_the_clock=target.around_the_clock,
+            at=await service.expected_delivery_at(session, view.item),
         )
     return out
 

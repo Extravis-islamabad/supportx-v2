@@ -8,6 +8,7 @@ import {
   Flex,
   Form,
   Input,
+  InputNumber,
   Popover,
   Radio,
   Segmented,
@@ -118,6 +119,8 @@ function draftOf(item: CatalogItem | undefined): Draft {
     technician_after_approval: item.technician_after_approval,
     count_approval_time: item.count_approval_time,
     auto_fulfil: item.auto_fulfil,
+    max_quantity: item.max_quantity ?? null,
+    asks_needed_by: item.asks_needed_by,
     publish_at: item.publish_at,
     retire_at: item.retire_at,
   };
@@ -385,6 +388,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
                     />
                     <Typography.Text>{t('catalog_admin.auto_fulfil')}</Typography.Text>
                   </Flex>
+                  <RequestOptions draft={draft} set={set} />
                 </Flex>
               )}
               {key === 'life' && (
@@ -490,6 +494,62 @@ function PerLanguage({
 interface TabProps {
   draft: Draft;
   set: (next: Partial<Draft>) => void;
+}
+
+/**
+ * What the request form asks besides the questions (WP-047a S1): a quantity up to a maximum
+ * (REQ-SR-014, Professional: shown only with the catalogue feature, and refused by the server
+ * without it) and when it is needed (REQ-SR-015).
+ */
+function RequestOptions({ draft, set }: TabProps) {
+  const t = useLabel();
+  const hasCatalog = useLicence().has('catalog');
+  const asksQuantity = draft.max_quantity != null;
+  return (
+    <Flex vertical gap={12} data-testid="catalog-request-options">
+      {(hasCatalog || asksQuantity) && (
+        <Flex align="center" gap={12} wrap>
+          <Switch
+            checked={asksQuantity}
+            disabled={!hasCatalog && !asksQuantity}
+            onChange={(on) => {
+              set({ max_quantity: on ? 10 : null });
+            }}
+            aria-label={t('catalog_admin.asks_quantity')}
+            data-testid="catalog-asks-quantity"
+          />
+          <Typography.Text>{t('catalog_admin.asks_quantity')}</Typography.Text>
+          {asksQuantity && (
+            <Typography.Text type="secondary">{t('catalog_admin.max_quantity')}</Typography.Text>
+          )}
+          {asksQuantity && (
+            <InputNumber
+              min={1}
+              max={10_000}
+              precision={0}
+              value={draft.max_quantity ?? 1}
+              onChange={(value) => {
+                set({ max_quantity: value ?? 1 });
+              }}
+              aria-label={t('catalog_admin.max_quantity')}
+              data-testid="catalog-max-quantity"
+            />
+          )}
+        </Flex>
+      )}
+      <Flex align="center" gap={12}>
+        <Switch
+          checked={draft.asks_needed_by ?? false}
+          onChange={(asks_needed_by) => {
+            set({ asks_needed_by });
+          }}
+          aria-label={t('catalog_admin.asks_needed_by')}
+          data-testid="catalog-asks-needed-by"
+        />
+        <Typography.Text>{t('catalog_admin.asks_needed_by')}</Typography.Text>
+      </Flex>
+    </Flex>
+  );
 }
 
 function DetailsTab({ draft, set }: TabProps) {

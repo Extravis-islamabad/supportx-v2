@@ -51,6 +51,7 @@ function item(id: string, name: string, extra: Partial<CatalogItem> = {}): Catal
     technician_after_approval: false,
     count_approval_time: false,
     auto_fulfil: false,
+    asks_needed_by: false,
     can_manage: false,
     version: 1,
     ...extra,

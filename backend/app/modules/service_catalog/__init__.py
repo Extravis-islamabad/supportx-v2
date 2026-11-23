@@ -7,7 +7,8 @@ Licensed with `service_request` (Essentials, catalog basics, D-133); the advance
 `catalog` (Professional).
 
 Public interface for other modules: `item_decides` (an existing request's item, for the
-approval engine), `request_item` (what an item decides for a new service request, with its
+approval engine), `requester_question_keys` (the answers a requester may see,
+WP-047a), `request_item` (what an item decides for a new service request, with its
 form's answers checked), `RequestItem`, `PlanStep`, `rules_of`, `catalog_settings` (the tenant's
 catalog settings), and the ports `register_item_usage` / `register_template_check` (work_items
 answers them: it depends on the catalog, so the catalog cannot ask it directly).
@@ -21,11 +22,15 @@ from app.modules.service_catalog.infra import models  # noqa: F401 - registers t
 from app.modules.service_catalog.service import person_data
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
+    AgainForm,
     PlanStep,
     RequestItem,
+    again_form,
     item_decides,
     request_item,
+    requester_question_keys,
     rules_of,
+    templated_subject,
 )
 from app.modules.service_catalog.service.ports import (
     register_item_usage,
@@ -65,8 +70,10 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "AgainForm",
     "PlanStep",
     "RequestItem",
+    "again_form",
     "catalog_settings",
     "item_decides",
     "module",
@@ -74,5 +81,7 @@ __all__ = [
     "register_request_counts",
     "register_template_check",
     "request_item",
+    "requester_question_keys",
     "rules_of",
+    "templated_subject",
 ]

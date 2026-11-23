@@ -22,6 +22,9 @@ import {
   type FilterExpression,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
+
+import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
+import { useBulkRefresh, type Selection } from '../incidents/list/model';
 import {
   CellText,
   ChannelIcon,
@@ -150,6 +153,9 @@ function ViewTiles({ active, onPick }: { active?: string; onPick: (view?: string
  */
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
 
+// What a request list can do in bulk now; close and cancel follow with their dialogs (S1).
+const SR_BULK: readonly string[] = ['assign', 'take'];
+
 export function RequestsPage() {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -160,6 +166,11 @@ export function RequestsPage() {
   const [approval, setApproval] = useState<ApprovalStatus | undefined>(undefined);
   const [view, setView] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
+  // Bulk on requests (WP-047a S1; REQ-SR-002, QA10V-05): the engine's runner, as on changes.
+  const [selection, setSelection] = useState<Selection>({ ids: [], all: false });
+  const [bulkAction, setBulkAction] = useState<'assign' | 'take' | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const canBulk = can('requests.edit');
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
   // The approval filter and the search through the filter DSL: the list route reads no
   // approval_status parameter, so the old one filtered nothing (QA10V-05).
@@ -177,6 +188,9 @@ export function RequestsPage() {
   const items = useCatalogItems();
   const byId = new Map((items.data ?? []).map((i) => [i.id, i]));
   useListChannel('service-requests', () => {
+    void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
+  });
+  useBulkRefresh('service_request', () => {
     void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
   });
   if (list.error) reportError(list.error);
@@ -223,72 +237,122 @@ export function RequestsPage() {
       }
       kpis={<ViewTiles active={view} onPick={setView} />}
       filters={
-        <FilterBar
-          testId="sr-filterbar"
-          view={
-            <Select
-              id="sr-view-filter"
-              allowClear
-              prefix={`${t('requests.view_filter')}:`}
-              aria-label={t('requests.view_filter')}
-              value={view}
-              onChange={(value: string | undefined) => {
-                setView(value);
-              }}
-              placeholder={t('requests.any_view')}
-              style={{ minWidth: 260 }}
-              options={(views.data ?? []).map((v) => ({
-                value: v.view,
-                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-              }))}
-              data-testid="sr-view-filter"
-            />
-          }
-          quick={
-            <Select
-              id="sr-approval-filter"
-              allowClear
-              prefix={`${t('requests.approval_filter')}:`}
-              aria-label={t('requests.approval_filter')}
-              value={approval}
-              onChange={(value: ApprovalStatus | undefined) => {
-                setApproval(value);
-              }}
-              placeholder={t('requests.any_approval')}
-              style={{ minWidth: 220 }}
-              options={APPROVAL.map((code) => ({
-                value: code,
-                label: t(`approval_status.${code}`),
-              }))}
-              data-testid="sr-approval-filter"
-            />
-          }
-          search={
-            <Input.Search
-              allowClear
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-              }}
-              placeholder={t('incidents.search')}
-              aria-label={t('incidents.search')}
-              style={{ maxWidth: 280 }}
-              data-testid="sr-search"
-            />
-          }
-          extra={
-            widths.changed ? (
-              <Button onClick={widths.reset} data-testid="sr-reset-widths">
-                {t('layout.reset_widths')}
-              </Button>
-            ) : undefined
-          }
-        />
+        selection.ids.length > 0 ? (
+          <BulkBar
+            selection={selection}
+            onSelection={setSelection}
+            pageCount={rows.length}
+            total={null}
+            capped={false}
+            onAction={(action) => {
+              if (action === 'assign' || action === 'take') setBulkAction(action);
+            }}
+            canEdit={(action) => SR_BULK.includes(action)}
+            noun="service-requests"
+          />
+        ) : (
+          <FilterBar
+            testId="sr-filterbar"
+            view={
+              <Select
+                id="sr-view-filter"
+                allowClear
+                prefix={`${t('requests.view_filter')}:`}
+                aria-label={t('requests.view_filter')}
+                value={view}
+                onChange={(value: string | undefined) => {
+                  setView(value);
+                }}
+                placeholder={t('requests.any_view')}
+                style={{ minWidth: 260 }}
+                options={(views.data ?? []).map((v) => ({
+                  value: v.view,
+                  label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+                }))}
+                data-testid="sr-view-filter"
+              />
+            }
+            quick={
+              <Select
+                id="sr-approval-filter"
+                allowClear
+                prefix={`${t('requests.approval_filter')}:`}
+                aria-label={t('requests.approval_filter')}
+                value={approval}
+                onChange={(value: ApprovalStatus | undefined) => {
+                  setApproval(value);
+                }}
+                placeholder={t('requests.any_approval')}
+                style={{ minWidth: 220 }}
+                options={APPROVAL.map((code) => ({
+                  value: code,
+                  label: t(`approval_status.${code}`),
+                }))}
+                data-testid="sr-approval-filter"
+              />
+            }
+            search={
+              <Input.Search
+                allowClear
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                }}
+                placeholder={t('incidents.search')}
+                aria-label={t('incidents.search')}
+                style={{ maxWidth: 280 }}
+                data-testid="sr-search"
+              />
+            }
+            extra={
+              widths.changed ? (
+                <Button onClick={widths.reset} data-testid="sr-reset-widths">
+                  {t('layout.reset_widths')}
+                </Button>
+              ) : undefined
+            }
+          />
+        )
       }
     >
+      <BulkDialog
+        base="service-requests"
+        action={bulkAction}
+        count={selection.ids.length}
+        request={{ recordIds: selection.ids }}
+        onClose={() => {
+          setBulkAction(null);
+        }}
+        onStarted={(job) => {
+          setBulkAction(null);
+          setSelection({ ids: [], all: false });
+          setJobId(job.id);
+        }}
+      />
+      <BulkProgress
+        base="service-requests"
+        jobId={jobId}
+        onClose={() => {
+          setJobId(null);
+        }}
+      />
       <Table
         rowKey="id"
         loading={list.isPending}
+        rowSelection={
+          canBulk
+            ? {
+                fixed: true,
+                selectedRowKeys: selection.ids,
+                onChange: (keys) => {
+                  setSelection({ ids: keys.map(String), all: false });
+                },
+                getCheckboxProps: (row) => ({
+                  title: t('incidents.bulk.select_row', { id: row.display_id }),
+                }),
+              }
+            : undefined
+        }
         dataSource={rows}
         pagination={false}
         scroll={{ x: 960 }}
