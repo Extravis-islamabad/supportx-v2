@@ -564,3 +564,22 @@ def test_the_smoke_suite_covers_every_journey_and_stays_small() -> None:
     assert missing == [], f"journeys without a @smoke test: {missing}"
     total = sum(counts.values())
     assert 12 <= total <= 16, {name: n for name, n in counts.items() if n}
+
+
+def test_the_frontend_jobs_can_never_pass_the_required_check_by_being_skipped() -> None:
+    """The coordinator's condition on #591: only `mobile` may be skipped.
+
+    `frontend checks` and `frontend builds` have no job-level `if:` and no `needs:`, so GitHub
+    always runs them (a docs-only or mobile-only PR skips their steps, and they end `success`).
+    The required `frontend` check accepts nothing but `success` from them, in the queue too.
+    """
+    jobs = _all_jobs()
+    for name in ("frontend checks", "frontend builds"):
+        assert _job_if(jobs[name]) == "", name  # never skipped as a whole
+        assert "needs:" not in "\n".join(jobs[name]), name
+    frontend = "\n".join(jobs["frontend"])
+    assert 'case "$MOBILE" in' in frontend
+    assert "success|skipped" in frontend  # mobile's own path filter only
+    assert '[ "${pair#*=}" != success ]' in frontend  # checks and builds: success or fail
+    assert "frontend checks=$CHECKS" in frontend
+    assert "frontend builds=$BUILDS" in frontend

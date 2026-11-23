@@ -764,14 +764,22 @@ jobs:
           MOBILE: ${{ needs.mobile.result }}
           CHECKS: ${{ needs.frontend-checks.result }}
           BUILDS: ${{ needs.frontend-builds.result }}
+        # Only `mobile` may be skipped (its own path filter). The two frontend jobs have no job-level
+        # `if:` and no `needs:`, so they always run: a docs-only or mobile-only PR skips their
+        # steps and they still end `success`. Anything else from them, skipped included (in the
+        # queue or anywhere), fails this check (the coordinator's condition on #591).
         run: |
           echo "mobile: $MOBILE, frontend checks: $CHECKS, frontend builds: $BUILDS"
           failed=0
-          for pair in "mobile=$MOBILE" "frontend checks=$CHECKS" "frontend builds=$BUILDS"; do
-            case "${pair#*=}" in
-              success|skipped) ;;
-              *) echo "::error title=${pair%%=*}::the ${pair%%=*} job ${pair#*=}"; failed=1 ;;
-            esac
+          case "$MOBILE" in
+            success|skipped) ;;
+            *) echo "::error title=mobile::the mobile job $MOBILE"; failed=1 ;;
+          esac
+          for pair in "frontend checks=$CHECKS" "frontend builds=$BUILDS"; do
+            if [ "${pair#*=}" != success ]; then
+              echo "::error title=${pair%%=*}::the ${pair%%=*} job ${pair#*=}"
+              failed=1
+            fi
           done
           exit "$failed"
 
