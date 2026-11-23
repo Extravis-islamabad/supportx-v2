@@ -149,7 +149,11 @@ export function CiMergeDrawer({ ci, onClose }: { ci: Ci; onClose: () => void }) 
               loading={picker.isFetching}
               options={(picker.data?.items ?? [])
                 .filter((x) => x.id !== ci.id)
-                .map((x) => ({ value: x.id, label: `${x.display_id} · ${x.name}` }))}
+                .map((x) => ({
+                  value: x.id,
+                  // A name may be Arabic or Urdu: isolated, as the field radios are (lane C).
+                  label: <bdi dir="auto">{`${x.display_id} · ${x.name}`}</bdi>,
+                }))}
               data-testid="ci-merge-pick"
             />
           </Form.Item>
