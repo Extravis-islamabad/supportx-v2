@@ -246,3 +246,80 @@ describe('Admin › Service catalog', () => {
     });
   });
 });
+
+// WP-047a S2a (REQ-SR-029..032): the stages editor.
+describe('Admin › Service catalog › approval stages', () => {
+  it('turns one stage into two, runs them in parallel and saves the list', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const fake = api({
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: { body: { ...laptop, version: 4 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTestId('cat-approval-on'));
+    fireEvent.click(await screen.findByTestId('cat-stages-start'));
+    expect(await screen.findByTestId('cat-stage-0')).toBeDefined();
+    const second = await screen.findByTestId('cat-stage-1');
+    expect(within(second).getByText('Stage 2')).toBeDefined();
+    fireEvent.click(screen.getByTestId('cat-stage-1-parallel'));
+    // The last stage can't move further down, and one stage left can't be removed.
+    expect(
+      within(second).getByRole('button', { name: 'Move stage 2 down' }).hasAttribute('disabled'),
+    ).toBe(true);
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`);
+    const approval = (sent?.body as { approval: { stages: Record<string, unknown>[] } }).approval;
+    expect(approval.stages).toHaveLength(2);
+    const [one, two] = approval.stages;
+    expect(one?.parallel_group).toBeTruthy();
+    expect(two?.parallel_group).toBe(one?.parallel_group);
+    expect(two?.approvers).toEqual([{ kind: 'requested_for_manager' }]);
+  });
+
+  it('removing a stage dissolves a parallel group left with one stage', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const paired = {
+      ...laptop,
+      approval: {
+        approvers: [{ kind: 'requested_for_manager' as const, person_id: null }],
+        rule: 'any' as const,
+        comments_required: false,
+        self_approval: false,
+        stages: [
+          {
+            approvers: [{ kind: 'requested_for_manager' as const }],
+            rule: 'any' as const,
+            comments_required: false,
+            self_approval: false,
+            parallel_group: 'p1',
+          },
+          {
+            approvers: [{ kind: 'department_head' as const }],
+            rule: 'all' as const,
+            comments_required: false,
+            self_approval: false,
+            parallel_group: 'p1',
+          },
+        ],
+      },
+    };
+    const fake = api({
+      [`GET /api/v1/catalog/items/${ITEM}`]: { body: paired },
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: { body: { ...paired, version: 4 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTestId('cat-stage-remove-1'));
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`);
+    const approval = (sent?.body as { approval: { stages: Record<string, unknown>[] } }).approval;
+    expect(approval.stages).toHaveLength(1);
+    expect(approval.stages[0]?.parallel_group ?? null).toBeNull();
+  });
+});

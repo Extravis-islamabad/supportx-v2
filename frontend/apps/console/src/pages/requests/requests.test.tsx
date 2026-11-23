@@ -49,6 +49,7 @@ const laptop: CatalogItem = {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
   },
   plan: [],
@@ -721,5 +722,46 @@ describe('console: the service request record (template A)', () => {
     expect(screen.getByTestId('sr-needed-earlier').textContent).toContain(
       'Needed earlier than expected',
     );
+  });
+});
+
+// WP-047a S2a (REQ-SR-030, -032): a staged request's approvals on the record.
+describe('console: service request stages', () => {
+  it('numbers the stages, marks a parallel one and says why one was skipped, in words', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a011',
+              approver_id: null,
+              origin: 'administrators',
+              state: 'skipped',
+              skip_reason: 'condition_not_met',
+              condition: { field: 'model', op: 'eq', value: 'pro' },
+              can_decide: false,
+            },
+            { ...pendingApproval, stage: 2, branch: 'p2' },
+          ],
+          people: approvalsBody.people,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const skipped = await screen.findByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a011');
+    expect(within(skipped).getByTestId('approval-stage').textContent).toBe('Stage 1');
+    expect(within(skipped).getByTestId('approval-state').textContent).toBe('Skipped');
+    const why = within(skipped).getByTestId('approval-skip-reason').textContent;
+    expect(why).toContain('Skipped because its condition did not apply');
+    expect(why).toContain('Model is pro'); // the question's label, never its key or a code
+    // A skipped stage names nobody: no "approval administrators" on it, and no buttons.
+    expect(skipped.textContent).not.toContain('administrators');
+    expect(within(skipped).queryByTestId('approval-approve')).toBeNull();
+    const waiting = screen.getByTestId(`sr-approval-${APPROVAL_ID}`);
+    expect(within(waiting).getByText('Runs in parallel')).toBeDefined();
+    expect(within(waiting).getByText('Omar Manager')).toBeDefined();
   });
 });

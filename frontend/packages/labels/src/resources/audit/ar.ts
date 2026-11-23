@@ -473,6 +473,7 @@ export const ar: LabelResource = {
   'audit.action.security.session_key_rotated': 'تم تدوير مفتاح تسجيل الدخول الخاص بالتثبيت',
   'audit.action.service_request.access_changed': 'غيّر صلاحيات الوصول إلى طلب خدمة',
   'audit.action.service_request.approval_decided': 'وافق على طلب خدمة أو رفضه',
+  'audit.action.service_request.approver_was_requester': 'استبعد مقدّم الطلب من معتمدي طلبه',
   'audit.action.service_request.assigned': 'غيّر إسناد طلب خدمة',
   'audit.action.service_request.bulk_started': 'بدأ تغييرًا جماعيًا لطلبات الخدمة',
   'audit.action.service_request.canceled': 'ألغى طلب خدمة',

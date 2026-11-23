@@ -27,6 +27,13 @@ class ApprovalState(StrEnum):
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"  # the requester withdrew the request (REQ-SR-061)
     NOT_NEEDED = "not_needed"  # another approver decided the stage first
+    SKIPPED = "skipped"  # WP-047a S2a (REQ-SR-032): the stage's condition did not hold
+
+
+class SkipReason(StrEnum):
+    """Why a request stage was skipped (shown on the record with the stage's condition)."""
+
+    CONDITION_NOT_MET = "condition_not_met"
 
 
 OPEN_STATES = frozenset({ApprovalState.PENDING})
@@ -64,6 +71,8 @@ class RouteReason(StrEnum):
     # ADR-052 (the coordinator, 2026-11-14): an erased approver's pending approval is rerouted,
     # never granted; the record shows why.
     APPROVER_ERASED = "approver_erased"
+    # WP-047a S2a (condition 3): a request stage's approvers resolve to nobody.
+    NO_APPROVER = "no_approver"
 
 
 class DecisionChannel(StrEnum):

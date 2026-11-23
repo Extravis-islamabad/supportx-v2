@@ -53,6 +53,7 @@ from app.modules.assets.service import (
     reporting,
     type_tree,
 )
+from app.modules.assets.service.approver_owners import owners_of
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     VIEW_FINANCIALS,
@@ -230,6 +231,7 @@ __all__ = [
     "can_see",
     "email_includes_assets",
     "module",
+    "owners_of",
     "record_scan",
     "register_disposal_guard",
     "register_draft_purchase_requests",

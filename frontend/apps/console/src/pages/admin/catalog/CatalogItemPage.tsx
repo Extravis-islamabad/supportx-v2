@@ -58,6 +58,8 @@ import { StatusTag } from './CatalogAdminPage';
 import { ICONS } from './icons';
 import { PlanEditor } from './PlanEditor';
 import { PreviewDrawer } from './PreviewDrawer';
+import { blankStage, stageOf } from './stages';
+import { StagesEditor } from './StagesEditor';
 import { QuestionsEditor } from './QuestionsEditor';
 import { categoryPaths } from './tree';
 
@@ -748,12 +750,16 @@ function ApprovalTab({ draft, set }: TabProps) {
   const approvers = approval?.approvers ?? [];
   const manager = approvers.some((a) => a.kind === 'requested_for_manager');
   const people = approvers.filter((a) => a.kind === 'person');
+  // WP-047a S2a: an item with stages edits them as a list (REQ-SR-029..032, Professional).
+  const stages = approval?.stages ?? [];
+  const staged = stages.length > 0;
   const put = (next: Partial<NonNullable<Draft['approval']>>) => {
     set({
       approval: {
         approvers: [],
         comments_required: false,
         self_approval: false,
+        rule: 'any',
         ...(approval ?? {}),
         ...next,
       },
@@ -771,6 +777,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                     approvers: [{ kind: 'requested_for_manager', person_id: null }],
                     comments_required: false,
                     self_approval: false,
+                    rule: 'any',
                   }
                 : null,
             });
@@ -779,84 +786,112 @@ function ApprovalTab({ draft, set }: TabProps) {
           data-testid="cat-approval-on"
         />
       </Form.Item>
+      {approval !== null && staged && (
+        <StagesEditor
+          stages={stages}
+          questions={draft.questions ?? []}
+          onChange={(next) => {
+            put({ stages: next });
+          }}
+        />
+      )}
+      {approval !== null && !staged && licence.has('catalog') && (
+        <WriteButton
+          style={{ marginBottom: 16 }}
+          onClick={() => {
+            put({ stages: [stageOf(approval), blankStage()] });
+          }}
+          data-testid="cat-stages-start"
+        >
+          {t('catalog_admin.stages.start')}
+        </WriteButton>
+      )}
       {approval !== null && (
         <>
-          <Form.Item label={t('catalog_admin.approval.who')}>
-            <Flex vertical gap={8}>
-              <Switch
-                checked={manager}
-                onChange={(on) => {
-                  put({
-                    approvers: on
-                      ? [{ kind: 'requested_for_manager', person_id: null }, ...people]
-                      : people,
-                  });
-                }}
-                aria-label={t('catalog_approver_kind.requested_for_manager')}
-                checkedChildren={t('catalog_approver_kind.requested_for_manager')}
-                unCheckedChildren={t('catalog_approver_kind.requested_for_manager')}
-                data-testid="cat-approval-manager"
-              />
-              {people.map((p, i) => (
-                <Flex key={p.person_id ?? i} gap={8}>
-                  <UserPicker
-                    value={p.person_id ?? null}
-                    onChange={(person_id) => {
-                      const next = [...people];
-                      next[i] = { kind: 'person', person_id };
+          {!staged && (
+            <>
+              <Form.Item label={t('catalog_admin.approval.who')}>
+                <Flex vertical gap={8}>
+                  <Switch
+                    checked={manager}
+                    onChange={(on) => {
                       put({
-                        approvers: [
-                          ...(manager
-                            ? [{ kind: 'requested_for_manager' as const, person_id: null }]
-                            : []),
-                          ...next,
-                        ],
+                        approvers: on
+                          ? [{ kind: 'requested_for_manager', person_id: null }, ...people]
+                          : people,
                       });
                     }}
-                    testId={`cat-approver-${String(i)}`}
-                    ariaLabel={t('catalog_approver_kind.person')}
+                    aria-label={t('catalog_approver_kind.requested_for_manager')}
+                    checkedChildren={t('catalog_approver_kind.requested_for_manager')}
+                    unCheckedChildren={t('catalog_approver_kind.requested_for_manager')}
+                    data-testid="cat-approval-manager"
                   />
+                  {people.map((p, i) => (
+                    <Flex key={p.person_id ?? i} gap={8}>
+                      <UserPicker
+                        value={p.person_id ?? null}
+                        onChange={(person_id) => {
+                          const next = [...people];
+                          next[i] = { kind: 'person', person_id };
+                          put({
+                            approvers: [
+                              ...(manager
+                                ? [{ kind: 'requested_for_manager' as const, person_id: null }]
+                                : []),
+                              ...next,
+                            ],
+                          });
+                        }}
+                        testId={`cat-approver-${String(i)}`}
+                        ariaLabel={t('catalog_approver_kind.person')}
+                      />
+                    </Flex>
+                  ))}
+                  <WriteButton
+                    size="small"
+                    style={{ alignSelf: 'flex-start' }}
+                    disabled={approvers.length >= 10}
+                    whyDisabled={t('why.max_approvers', { max: 10 })}
+                    onClick={() => {
+                      put({ approvers: [...approvers, { kind: 'person', person_id: null }] });
+                    }}
+                    data-testid="cat-approver-add"
+                  >
+                    {t('catalog_admin.approval.add_person')}
+                  </WriteButton>
                 </Flex>
-              ))}
-              <WriteButton
-                size="small"
-                style={{ alignSelf: 'flex-start' }}
-                disabled={approvers.length >= 10}
-                whyDisabled={t('why.max_approvers', { max: 10 })}
-                onClick={() => {
-                  put({ approvers: [...approvers, { kind: 'person', person_id: null }] });
-                }}
-                data-testid="cat-approver-add"
-              >
-                {t('catalog_admin.approval.add_person')}
-              </WriteButton>
-            </Flex>
-          </Form.Item>
-          <Form.Item label={t('catalog_admin.approval.backup')} style={{ maxWidth: 360 }}>
-            <UserPicker
-              value={approval.backup_id ?? null}
-              onChange={(backup_id) => {
-                put({ backup_id });
-              }}
-              testId="cat-approval-backup"
-              ariaLabel={t('catalog_admin.approval.backup')}
-            />
-          </Form.Item>
+              </Form.Item>
+              <Form.Item label={t('catalog_admin.approval.backup')} style={{ maxWidth: 360 }}>
+                <UserPicker
+                  value={approval.backup_id ?? null}
+                  onChange={(backup_id) => {
+                    put({ backup_id });
+                  }}
+                  testId="cat-approval-backup"
+                  ariaLabel={t('catalog_admin.approval.backup')}
+                />
+              </Form.Item>
+            </>
+          )}
           <Flex gap={24} wrap>
-            <SwitchRow
-              label={t('catalog_admin.approval.comments_required')}
-              checked={approval.comments_required}
-              onChange={(comments_required) => {
-                put({ comments_required });
-              }}
-            />
-            <SwitchRow
-              label={t('catalog_admin.approval.self_approval')}
-              checked={approval.self_approval}
-              onChange={(self_approval) => {
-                put({ self_approval });
-              }}
-            />
+            {!staged && (
+              <>
+                <SwitchRow
+                  label={t('catalog_admin.approval.comments_required')}
+                  checked={approval.comments_required}
+                  onChange={(comments_required) => {
+                    put({ comments_required });
+                  }}
+                />
+                <SwitchRow
+                  label={t('catalog_admin.approval.self_approval')}
+                  checked={approval.self_approval}
+                  onChange={(self_approval) => {
+                    put({ self_approval });
+                  }}
+                />
+              </>
+            )}
             <SwitchRow
               label={t('catalog_admin.approval.requesters_see')}
               checked={draft.requesters_see_approval ?? true}
@@ -874,19 +909,17 @@ function ApprovalTab({ draft, set }: TabProps) {
           </Flex>
         </>
       )}
-      {/* REQ-SR-029..033: more stages, parallel, conditions and rules (Professional, built later). */}
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginTop: 16 }}
-        message={t('catalog_admin.approval.advanced')}
-        description={t(
-          licence.has('catalog')
-            ? 'catalog_admin.approval.advanced_later'
-            : 'catalog_admin.approval.advanced_upgrade',
-        )}
-        data-testid="cat-approval-advanced"
-      />
+      {/* REQ-SR-029..032 are Professional: Essentials keeps today's one stage (S2a). */}
+      {!licence.has('catalog') && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginTop: 16 }}
+          message={t('catalog_admin.approval.advanced')}
+          description={t('catalog_admin.approval.advanced_upgrade')}
+          data-testid="cat-approval-advanced"
+        />
+      )}
     </Form>
   );
 }

@@ -12,7 +12,7 @@ approval administrators, the record's own requester), so a requester-only manage
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -103,6 +103,15 @@ class ApprovalOut(BaseModel):
         description="An optional board member's vote: shown, never counted (WP-045b)."
     )
     state: rules.ApprovalState
+    branch: str | None = Field(
+        default=None, description="Requests: the parallel group this stage runs in (REQ-SR-030)."
+    )
+    skip_reason: rules.SkipReason | None = Field(
+        default=None, description="Requests: why the stage was skipped (REQ-SR-032)."
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None, description="A skipped stage's condition, in the form rules' terms."
+    )
     decided_at: datetime | None
     decided_by: uuid.UUID | None
     channel: rules.DecisionChannel | None
@@ -130,6 +139,9 @@ class ApprovalOut(BaseModel):
             board_reason=BoardChoice(row.board_reason) if row.board_reason else None,
             advisory=row.advisory,
             state=rules.ApprovalState(row.state),
+            branch=row.branch,
+            skip_reason=rules.SkipReason(row.skip_reason) if row.skip_reason else None,
+            condition=dict(view.condition) if view.condition is not None else None,
             decided_at=row.decided_at,
             decided_by=row.decided_by,
             channel=rules.DecisionChannel(row.channel) if row.channel else None,

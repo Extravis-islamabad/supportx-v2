@@ -347,6 +347,7 @@ def _now() -> datetime:
 
 # REQ-SR-014's quantity is Professional (D-133).
 REQUEST_QUANTITY_FEATURE = "catalog"
+REQUEST_STAGES_FEATURE = "catalog"  # WP-047a S2a: REQ-SR-029..032 are Professional
 
 
 def _errors(problems: Sequence[tuple[str, str]], **params: Any) -> ValidationFailed:  # noqa: ANN401 - problem params
@@ -2705,6 +2706,16 @@ async def _check_request_details(
             raise _errors([("quantity", "quantity_over_max")], quantity={"max": item.max_quantity})
     if needed_by is not None and not item.asks_needed_by:
         raise _errors([("needed_by", "not_allowed")])
+    # WP-047a S2a, a downgrade from Professional (the coordinator's case): a new request on an
+    # item still using stages is refused with the labelled entitlement reason, never run on
+    # stage 1 alone (dropping the later stages would skip approvals the item asks for). The
+    # admin reduces the item to one stage, which every edition may save; requests already in
+    # flight finish on their snapshot, which no licence check touches.
+    # Imported here: the stages service reaches the assets and CMDB ports.
+    from app.modules.work_items.service import request_stages  # noqa: PLC0415 - see above
+
+    if request_stages.staged(item):
+        await licensing.require_feature(subject.tenant_id, REQUEST_STAGES_FEATURE)
 
 
 async def _delivery_columns(  # noqa: PLR0913 - the request, its moment and its placement
@@ -3102,7 +3113,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         aggregate_version=record.version,
     )
     await approval_stage.after_submission(  # REQ-SR-021
-        session, record, item, source=source, holders=holders
+        session, record, item, source=source, holders=holders, wtype=wtype
     )
     if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
         # Imported here: the task service builds on this module (WP-046a S1).

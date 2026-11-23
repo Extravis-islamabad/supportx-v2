@@ -479,6 +479,8 @@ export const en = {
   'audit.action.security.session_key_rotated': 'The installation’s sign-in key was rotated',
   'audit.action.service_request.access_changed': 'Changed who can see or work on a service request',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
+  'audit.action.service_request.approver_was_requester':
+    'Left the requester out of their own request’s approvers',
   'audit.action.service_request.assigned': 'Changed who a service request is assigned to',
   'audit.action.service_request.bulk_started': 'Started a bulk change of service requests',
   'audit.action.service_request.canceled': 'Cancelled a service request',

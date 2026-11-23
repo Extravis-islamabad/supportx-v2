@@ -30,6 +30,7 @@ from app.modules.cmdb.service import field_catalogue as _field_catalogue
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
 from app.modules.cmdb.service import type_tree as _type_tree
+from app.modules.cmdb.service.approver_owners import Owner, owners_of
 from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
 from app.modules.cmdb.service.impact import (
     AffectedUsers,
@@ -89,11 +90,13 @@ __all__ = [
     "ImpactService",
     "OpenCounts",
     "OpenCountsPort",
+    "Owner",
     "can_link",
     "can_see",
     "ci_refs",
     "impact_of",
     "module",
+    "owners_of",
     "register_open_counts",
     "visible_ci_ids",
 ]
