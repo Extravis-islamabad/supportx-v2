@@ -7,9 +7,11 @@ verified (AC2): the partial unique index decides, and a conflicting verify gets 
 
 - **The lookup** goes through `resolver`, a port (`lookup(name) -> TXT strings`). It raises
   `DnsUnreachable` when DNS can't be asked; that's a labelled outcome of its own, never "not
-  found". Until a resolver is installed, every lookup says automatic checking isn't available yet
-  (`dns_check_unavailable`, never a failure that counts towards a lapse), and on a single-tenant
-  installation a tenant admin can verify by hand (recent sign-in, a reason, audited). A domain
+  found". The installed lookup is dnspython on the installation's own resolver (D-183,
+  `infra/dns_txt.py`: resolv.conf, never a public resolver; bounded). A host with no resolver
+  configured says automatic checking isn't possible (`dns_check_unavailable`, never a failure
+  that counts towards a lapse), and on a single-tenant installation (on-prem, air-gapped) a
+  tenant admin can verify by hand (recent sign-in, a reason, audited). A domain
   verified by hand is not re-checked by DNS there; on a multi-tenant installation it is, like any
   other (`rules.scheduled`).
 - **Keycloak follows our database** (lane B (1)): a verify or un-verify raises
@@ -38,8 +40,13 @@ from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import verified_domains as rules
-from app.modules.identity_access.domain.verified_domains import DomainState
+from app.modules.identity_access.domain.verified_domains import (
+    DnsCheckUnavailable,
+    DnsUnreachable,
+    DomainState,
+)
 from app.modules.identity_access.events import VerifiedDomainChanged
+from app.modules.identity_access.infra import dns_txt
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminRefused,
@@ -59,16 +66,8 @@ ELSEWHERE = "domain_verified_elsewhere"
 FOUND = "found"
 NOT_FOUND = "not_found"
 UNREACHABLE = "dns_unreachable"
-UNAVAILABLE = "dns_check_unavailable"  # no TXT lookup installed yet (the dependency decision)
+UNAVAILABLE = "dns_check_unavailable"  # no resolver configured (an air-gapped host without DNS)
 TOO_MANY = "domains_too_many"
-
-
-class DnsUnreachable(Exception):
-    """DNS could not be asked (a timeout, a refused query)."""
-
-
-class DnsCheckUnavailable(DnsUnreachable):
-    """No TXT lookup is installed yet (the coordinator: never worded as a network fault)."""
 
 
 async def _no_resolver(name: str) -> list[str]:
@@ -76,8 +75,9 @@ async def _no_resolver(name: str) -> list[str]:
     raise DnsCheckUnavailable
 
 
-# The installed TXT lookup (swapped in tests; a real one comes once its library is approved).
-resolver: TxtLookup = _no_resolver
+# The TXT lookup: dnspython on the installation's own resolver (D-183, infra/dns_txt.py); tests
+# swap it for a fake, and tests/conftest.py makes sure none of them ever asks real DNS.
+resolver: TxtLookup = dns_txt.lookup
 admin_factory: Callable[[Settings], IdentityAdmin | None] = KeycloakAdmin.from_settings
 
 
