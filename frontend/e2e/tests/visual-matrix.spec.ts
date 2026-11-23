@@ -110,6 +110,10 @@ function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
 
 const STOP_TOKEN = 'S'.repeat(43);
 
+// WP-053 S4b (#577): the duplicate a merge picks, and an import job.
+const MERGE_DUPLICATE = '01936f2a-5b1c-7000-8000-00000000c601';
+const IMPORT_JOB = '01936f2a-5b1c-7000-8000-00000000c602';
+
 /** The stop-mails page with its public calls answered in the browser; `press`: also stop. */
 function stopMails(press: boolean): (page: Page) => Promise<void> {
   return async (page) => {
@@ -908,6 +912,23 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
     state: { name: 'compare', open: ciCompare },
+  },
+  // WP-053 S4b (lane B, #577; lane C's matrix conditions): the merge drawer on the matrix's own CI
+  // with a duplicate picked and its preview, and the import drawer, empty and with a finished run
+  // that refused rows (a CI that isn't there, or the reader may not see: one reason). The merge
+  // and import endpoints are answered here; the CI and its type are the stack's own.
+  {
+    key: 'cmdb-merge',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: ciMergeState(),
+  },
+  { key: 'cmdb-import', path: '/cmdb', app: 'console', state: ciImportState('upload') },
+  {
+    key: 'cmdb-import-finished',
+    path: '/cmdb',
+    app: 'console',
+    state: ciImportState('finished'),
   },
   // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
   // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
@@ -1798,6 +1819,143 @@ async function ciCompare(page: Page): Promise<void> {
     await page.unroute(compare, compared);
     await page.unroute(fields, defined);
   }
+}
+
+/**
+ * The merge drawer on the matrix's CI (#577): the picker offers one duplicate and the preview
+ * compares them (lane C's conditions: one route per endpoint, only GET, anything else passed
+ * on). A field the reader may not read is never in a preview at all (ADR-047), so there is none
+ * to show here.
+ */
+function ciMergeState(): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  return {
+    name: 'preview',
+    open: async (page) => {
+      const id = new URL(page.url()).pathname.split('/').pop() ?? '';
+      const found = await page.request.get(`/api/v1/cmdb/cis/${id}`);
+      const ci = (await found.json()) as Record<string, unknown> & { name: string };
+      const duplicate = {
+        ...ci,
+        id: MERGE_DUPLICATE,
+        display_id: 'CI-9001',
+        name: `${ci.name} (old)`,
+        description: 'Recorded twice by an earlier import.',
+        version: 1,
+      };
+      const get = (json: unknown) => (route: Route) =>
+        route.request().method() === 'GET' ? route.fulfill({ json }) : route.continue();
+      routes.push(
+        [/\/api\/v1\/cmdb\/cis\/picker(\?.*)?$/u, get({ items: [duplicate] })],
+        [
+          /\/api\/v1\/cmdb\/merges\/preview(\?.*)?$/u,
+          get({
+            survivor: ci,
+            merged: duplicate,
+            swapped: false,
+            fields: [
+              { field: 'name', survivor: ci.name, merged: duplicate.name, side: 'survivor' },
+              {
+                field: 'description',
+                survivor: ci.description ?? null,
+                merged: duplicate.description,
+                side: ci.description ? 'survivor' : 'merged',
+              },
+            ],
+          }),
+        ],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      const merge = page.getByTestId('ci-merge');
+      if (!(await merge.isVisible())) {
+        await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
+      }
+      await merge.first().click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-drawer').waitFor({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-pick').click({ timeout: STATE_TIMEOUT });
+      const list = page.locator('.ant-select-dropdown:visible');
+      await list.locator('.ant-select-item-option').first().click({ timeout: STATE_TIMEOUT });
+      await list.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-fields').waitFor({ timeout: STATE_TIMEOUT });
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
+}
+
+/**
+ * The CI import drawer (#577): `upload` as it opens; `finished` after a run that added and
+ * updated CIs and refused two rows. A refused row names the field and a labelled reason, never
+ * a code, and a CI that isn't there reads exactly as one the importer may not see.
+ */
+function ciImportState(name: 'upload' | 'finished'): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  return {
+    name,
+    open: async (page) => {
+      await page.getByTestId('cmdb-import').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-drawer').waitFor({ timeout: STATE_TIMEOUT });
+      if (name === 'upload') return;
+      const now = new Date().toISOString();
+      const job = {
+        id: IMPORT_JOB,
+        kind: 'cis',
+        mode: 'add_update',
+        match_on: 'name',
+        type_id: null,
+        dry_run: false,
+        file_name: 'network-cis.csv',
+        file_format: 'csv',
+        status: 'done',
+        total: 42,
+        processed: 42,
+        created_count: 31,
+        updated_count: 8,
+        unchanged_count: 1,
+        failed_count: 2,
+        problems: [
+          { row: 17, field: 'display_id', code: 'not_found' },
+          { row: 29, field: 'name', code: 'row_conflict' },
+        ],
+        failure: null,
+        failure_detail: null,
+        created_at: now,
+        checked_at: now,
+        finished_at: now,
+        version: 6,
+      };
+      routes.push(
+        [
+          /\/api\/v1\/cmdb\/imports(\?.*)?$/u,
+          (route) =>
+            route.request().method() === 'POST'
+              ? route.fulfill({ status: 201, json: { ...job, status: 'queued' } })
+              : route.continue(),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/imports/${IMPORT_JOB}(\\?.*)?$`, 'u'),
+          (route) =>
+            route.request().method() === 'GET' ? route.fulfill({ json: job }) : route.continue(),
+        ],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      await page.getByTestId('ci-import-type').click({ timeout: STATE_TIMEOUT });
+      const list = page.locator('.ant-select-dropdown:visible');
+      await list.locator('.ant-select-item-option').first().click({ timeout: STATE_TIMEOUT });
+      await list.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-file').setInputFiles({
+        name: 'network-cis.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('name,description\nCore switch SW-02,Floor 3 network core\n'),
+      });
+      await page.getByTestId('ci-import-check').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-problems').waitFor({ timeout: STATE_TIMEOUT });
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
 }
 
 /**
