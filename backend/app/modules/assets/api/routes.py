@@ -1307,7 +1307,13 @@ async def _loan_out(
     if hidden is None:
         hidden = (await loans.hidden_loan_items(session, [row.id], subject))[row.id]
     out = [a.id for a in items if a.returned_at is None]
-    status = loan_status(due_at=row.due_at, outstanding=len(out), now=system_clock.now())
+    # The loan's own state, never only the lines this person may see: a line outside their set
+    # may still be out. The last return closes the loan (`closed_at`), so that is the truth.
+    status = (
+        "closed"
+        if row.closed_at is not None
+        else loan_status(due_at=row.due_at, outstanding=max(len(out), 1), now=system_clock.now())
+    )
     return LoanOut(
         id=row.id,
         display_id=row.display_id,

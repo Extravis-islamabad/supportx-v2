@@ -270,14 +270,18 @@ export const ur: LabelResource = {
     'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.domain_address_not_allowed':
     'ڈومین ایسے پتے کی طرف اشارہ کرتا ہے جس سے SupportX رابطہ نہیں کرتا۔',
+  'errors.domain_already_added': 'یہ ڈومین پہلے سے آپ کی فہرست میں ہے۔',
   'errors.domain_check_failed': 'ڈومین نے جواب دیا، مگر اس SupportX کی طرح نہیں۔',
   'errors.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
   'errors.domain_limit': 'آپ زیادہ سے زیادہ {{max}} ڈومین شامل کر سکتے ہیں۔',
+  'errors.domain_manual_verify_not_allowed':
+    'اس انسٹالیشن پر ڈومین کی ہاتھ سے تصدیق کی اجازت نہیں: اس کے بجائے اس کا DNS ریکارڈ شائع کریں۔',
   'errors.domain_not_found': 'یہ ڈومین نہیں ملا۔',
   'errors.domain_not_reachable': 'ڈومین تک رسائی نہیں ہو سکی۔',
   'errors.domain_not_resolving': 'ڈومین کا ابھی کوئی DNS ریکارڈ نہیں ہے۔',
   'errors.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
   'errors.domain_taken': 'یہ ڈومین پہلے سے استعمال میں ہے۔',
+  'errors.domain_verified_elsewhere': 'کسی اور ادارے نے یہ ڈومین پہلے ہی تصدیق کر لیا ہے۔',
   'errors.domain_wrong_answer':
     'ڈومین ابھی اس SupportX کی طرف اشارہ نہیں کرتا: اس کا DNS ریکارڈ دیکھیں۔',
   'errors.domains_not_configured': 'اس انسٹالیشن پر کسٹم ڈومین ترتیب نہیں دیے گئے۔',
@@ -441,6 +445,10 @@ export const ur: LabelResource = {
     'روکنے والا ٹکراؤ تسلیم نہیں کیا جا سکتا۔ کوئی اور وقت چنیں، یا اجازت رکھنے والا وجہ کے ساتھ اسے آگے بڑھنے دے سکتا ہے۔',
   'errors.field.conflict_not_found': 'یہ ٹکراؤ اب موجود نہیں۔ فہرست موجودہ ٹکراؤ دکھاتی ہے۔',
   'errors.field.country_invalid': 'فہرست میں سے ملک چنیں۔',
+  'errors.field.criteria_required': 'کم از کم ایک چیز بتائیں جسے اصول گزرنے دے۔',
+  'errors.field.criteria_too_large': 'یہ اصول بہت کچھ بتاتا ہے۔ اسے چھوٹے اصولوں میں بانٹیں۔',
+  'errors.field.criterion_invalid': 'یہ معیار درست نہیں۔',
+  'errors.field.criterion_unknown': 'یہ اصول یہ معیار استعمال نہیں کر سکتا۔',
   'errors.field.currency_unknown': 'فہرست میں سے کرنسی چنیں۔',
   'errors.field.custom_field_scope_unknown': 'یہ قسم موجود نہیں (اب نہیں)۔',
   'errors.field.custom_field_scope_unsupported':
@@ -470,7 +478,11 @@ export const ur: LabelResource = {
     'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
   'errors.field.disabled_cannot_be_default': 'ڈیفالٹ بنانے سے پہلے یہ سانچہ آن کریں۔',
   'errors.field.domain_invalid': 'help.example.com جیسا ڈومین نام درج کریں۔',
+  'errors.field.domain_public_mail': 'عوامی ای میل ڈومین کسی ایک ادارے کا نہیں ہو سکتا۔',
+  'errors.field.domain_public_suffix': 'یہ رجسٹری کا لاحقہ ہے، کسی ادارے کا ڈومین نہیں۔',
   'errors.field.domain_reserved': 'اس انسٹالیشن کے اپنے ڈومین کے پتے خودکار طور پر دیے جاتے ہیں۔',
+  'errors.field.domain_single_label': 'پورا ڈومین درج کریں، جیسے example.com۔',
+  'errors.field.domains_too_many': 'آپ ڈومینز کی حد تک پہنچ گئے ہیں۔',
   'errors.field.draft_not_values': 'مسودہ صرف فارم کی قدریں رکھتا ہے۔',
   'errors.field.draft_too_large': 'یہ مسودہ رکھنے کے لیے بہت بڑا ہے۔',
   'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
@@ -545,6 +557,7 @@ export const ur: LabelResource = {
   'errors.field.holiday_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
   'errors.field.holiday_range_too_long': 'ایک تعطیل زیادہ سے زیادہ ایک سال لمبی ہو سکتی ہے۔',
   'errors.field.host_name_invalid': 'صرف سرور کے نام لکھیں، جیسے mx.google.com۔',
+  'errors.field.https_required': 'https:// والا پتہ استعمال کریں۔',
   'errors.field.ical_invalid': 'یہ iCalendar (.ics) فائل نہیں ہے۔',
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
@@ -719,6 +732,13 @@ export const ur: LabelResource = {
   'errors.field.session_absolute_out_of_range':
     'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
   'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.siem_cert_and_key_together': 'کلائنٹ سرٹیفکیٹ اور اس کی کلید ایک ساتھ دیں۔',
+  'errors.field.siem_kind_fixed': 'بھیجنے کا طریقہ نہیں بدل سکتا؛ اس کے بجائے نئی منزل شامل کریں۔',
+  'errors.field.siem_pem_invalid': 'یہ قابلِ استعمال سرٹیفکیٹ یا کلید (PEM) نہیں۔',
+  'errors.field.siem_port_not_allowed': 'TLS پر Syslog کا پورٹ استعمال کریں: 6514، 1514 یا 10514۔',
+  'errors.field.siem_secret_webhook_only': 'دستخطی راز صرف ویب ہک کا ہوتا ہے۔',
+  'errors.field.siem_webhook_https_only': 'ویب ہک ہمیشہ HTTPS پر بھیجا جاتا ہے۔',
+  'errors.field.siem_webhook_json_only': 'ویب ہک صرف JSON بھیجتا ہے۔',
   'errors.field.site_inactive': 'یہ سائٹ غیر فعال ہے۔ فعال سائٹ منتخب کریں۔',
   'errors.field.site_network_invalid':
     '10.1.0.0/16 جیسی رینج درج کریں (ہوسٹ والا حصہ صفر ہو)، یا ایک ایڈریس۔',
@@ -1186,6 +1206,9 @@ export const ur: LabelResource = {
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.resource_access_limit_reached':
+    'آپ کی تنظیم کے پاس پہلے ہی {{limit}} ریکارڈ رسائی اصول ہیں، جو زیادہ سے زیادہ حد ہے۔ پہلے ایک ہٹائیں۔',
+  'errors.resource_access_rule_not_found': 'ریکارڈ تک رسائی کا یہ اصول اب موجود نہیں۔',
   'errors.restart_at_end': 'چلانے کے لیے کوئی مرحلہ چنیں، اختتام نہیں۔',
   'errors.role_in_use':
     'یہ کردار ابھی صارفین کو تفویض ہے۔ پہلے وہ کردار منتخب کریں جس میں انہیں منتقل کرنا ہے۔',
@@ -1211,6 +1234,10 @@ export const ur: LabelResource = {
   'errors.session_key_still_in_use':
     'یہ سرور شروع نہیں ہو سکتا: سائن اِن کی جو کلید اب فہرست میں نہیں، اس کی ابھی ضرورت ہے۔ کلید دوبارہ فہرست میں شامل کریں۔',
   'errors.session_not_found': 'یہ سیشن پہلے ہی ختم ہو چکا ہے یا آپ کا نہیں ہے۔',
+  'errors.siem_destination_name_taken': 'کسی اور منزل کا پہلے سے یہی نام ہے۔',
+  'errors.siem_destination_not_found': 'یہ منزل اب موجود نہیں۔',
+  'errors.siem_destinations_limit': 'زیادہ سے زیادہ {{max}} منزلیں۔',
+  'errors.siem_rotation_open': 'ایک تبدیلی پہلے سے جاری ہے: پہلے پرانا راز ختم کریں۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.sign_in_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ اگر آپ پہلے سے سائن اِن ہیں تو کام جاری رکھ سکتے ہیں۔',

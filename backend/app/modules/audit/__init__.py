@@ -34,6 +34,7 @@ from app.modules.audit.api.routes import (
     VIEW_PERSONAL_ACCESS,
     router,
 )
+from app.modules.audit.api.siem import router as siem_router
 from app.modules.audit.api.system_log import router as system_log_router
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
@@ -52,6 +53,7 @@ from app.modules.audit.service.access_log import Accessor as AccessAccessor
 from app.modules.audit.service.access_log import record_access
 from app.modules.audit.service.erasure import erase_saved_searches, erase_subject
 from app.modules.audit.service.jobs import (
+    SIEM_EVERY_SECONDS,
     anchor_all,
     ensure_partitions,
     expire_all_exports,
@@ -62,6 +64,7 @@ from app.modules.audit.service.jobs import (
     on_verification_requested,
     run_retention,
     seal_sweep,
+    siem_delivery,
     verify_due,
 )
 from app.modules.audit.service.queries import entries_for_changes
@@ -78,6 +81,8 @@ from app.modules.audit.service.recording import (
     record_alone,
 )
 from app.modules.audit.service.redaction import redact_signed_history
+from app.modules.audit.service.siem import SignInRow, register_sign_in_source
+from app.modules.audit.service.siem import plaintext_destinations as plaintext_siem_destinations
 from app.modules.audit.service.system_log import (
     record_system,
     record_system_alone,
@@ -121,7 +126,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="audit",
-    routers=[router, system_log_router],
+    routers=[router, system_log_router, siem_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
@@ -161,6 +166,7 @@ module = ModuleSpec(
         ScheduleSpec("audit__exports_expire", 3600, expire_all_exports),
         ScheduleSpec("audit__retention", 86400, run_retention),
         ScheduleSpec("audit__restored_expire", 3600, expire_all_restored),
+        ScheduleSpec("audit__siem_delivery", SIEM_EVERY_SECONDS, siem_delivery),
     ],
 )
 
@@ -175,6 +181,7 @@ __all__ = [
     "AuditOutcome",
     "ReadCategory",
     "RequestFacts",
+    "SignInRow",
     "SystemLogCode",
     "SystemLogEntryIn",
     "SystemLogObject",
@@ -185,6 +192,7 @@ __all__ = [
     "erase_saved_searches",
     "erase_subject",
     "module",
+    "plaintext_siem_destinations",
     "record",
     "record_access",
     "record_alone",
@@ -192,4 +200,5 @@ __all__ = [
     "record_system_alone",
     "record_system_coalesced",
     "redact_signed_history",
+    "register_sign_in_source",
 ]

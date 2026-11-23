@@ -354,6 +354,38 @@ class RoleFieldAccess(TenantEntity):
     mode: Mapped[str] = mapped_column(String(10))
 
 
+class RoleResourceAccess(TenantEntity):
+    """One role's rule narrowing which assets or CIs it shows (ADR-053; D-172; 0183).
+
+    `resource` is asset or ci; `criteria` names what passes ({criterion: [values]}, the owning
+    module's criteria). Rules only narrow a role's scope, never grant. Removing a rule
+    soft-deletes it; the person's next request has the change (the authz consumer).
+    """
+
+    __tablename__ = "role_resource_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_resource_access_role",
+        ),
+        Index(
+            "ix_rra_tenant_role_resource",
+            "tenant_id",
+            "role_id",
+            "resource",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("resource IN ('asset', 'ci')", name="resource_code"),
+        CheckConstraint("jsonb_typeof(criteria) = 'object'", name="criteria_object"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    resource: Mapped[str] = mapped_column(String(10))
+    criteria: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
 class GroupRole(TenantKeyed, Base):
     """A role a support group carries (WP-042, REQ-ADM-015 AC2).
 
@@ -1245,3 +1277,53 @@ class SecurityExpiryMark(TenantKeyed, Base):
     item: Mapped[str] = mapped_column(String(64))
     threshold: Mapped[int] = mapped_column(SmallInteger)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class VerifiedDomain(TenantEntity):
+    """An e-mail domain a tenant proves it owns by a DNS TXT record (WP-057 S5d; 0189).
+
+    REQ-SEC-010. Only the proof token's SHA-256 is kept (the token is shown once). One tenant per
+    verified domain (AC2): a partial unique index over verified rows, across tenants.
+    """
+
+    __tablename__ = "verified_domains"
+    __table_args__ = (
+        CheckConstraint("state IN ('pending', 'verified', 'lapsed')", name="state_code"),
+        CheckConstraint(
+            "verified_by_method IS NULL OR verified_by_method IN ('dns', 'manual')",
+            name="method_code",
+        ),
+        CheckConstraint(
+            "domain = lower(domain) AND domain !~ '\\.$' AND domain ~ '\\.'", name="domain_form"
+        ),
+        CheckConstraint("failure_count >= 0", name="failures"),
+        CheckConstraint(
+            "(state = 'verified') = (verified_at IS NOT NULL AND verified_by_method IS NOT NULL)"
+            " OR state = 'lapsed'",
+            name="verified_facts",
+        ),
+        Index(
+            "ix_verified_domains_tenant_domain",
+            "tenant_id",
+            "domain",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_verified_domains_verified_domain",
+            "domain",
+            unique=True,
+            postgresql_where=text("state = 'verified' AND deleted_at IS NULL"),
+        ),
+        Index("ix_verified_domains_tenant_state", "tenant_id", "state", "last_checked_at"),
+    )
+
+    domain: Mapped[str] = mapped_column(String(253))
+    state: Mapped[str] = mapped_column(String(16), server_default="pending")
+    token_digest: Mapped[bytes] = mapped_column(LargeBinary(32))
+    verified_at: Mapped[datetime | None]
+    verified_by_method: Mapped[str | None] = mapped_column(String(16))
+    last_checked_at: Mapped[datetime | None]
+    last_outcome: Mapped[str | None] = mapped_column(String(40))
+    failing_since: Mapped[datetime | None]
+    failure_count: Mapped[int] = mapped_column(Integer, server_default="0")

@@ -28,6 +28,9 @@ from app.modules.audit.service.recording import AuditNote, audit_read, audited
 from app.shared.api.ratelimit import rate_limit
 from app.shared.labels import label
 
+# What a spreadsheet reads as a formula, or as one after a leading tab or return (OWASP).
+_FORMULA_STARTS = frozenset({"=", "+", "-", "@", "\t", "\r"})
+
 router = APIRouter(
     prefix="/audit/system-log",
     tags=["audit"],
@@ -146,7 +149,7 @@ def _csv(rows: list[SystemLogEntry], language: str) -> str:
             row.job_id or "",
         ]
         # CSV injection: a cell a spreadsheet would read as a formula starts with a quote.
-        writer.writerow([f"'{v}" if v[:1] in {"=", "+", "-", "@"} else v for v in values])
+        writer.writerow([f"'{v}" if v[:1] in _FORMULA_STARTS else v for v in values])
     return buffer.getvalue()
 
 

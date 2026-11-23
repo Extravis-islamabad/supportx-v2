@@ -15,8 +15,11 @@ the CI's Impact tab uses the same function, so the same question gets the same a
 - **Business services** are the reader-visible affected CIs whose type is `business_service` or
   below it. A restricted one is only a placeholder among the CIs: listing it as a service would
   tell its type.
-- **Affected users** need the service's subscribers (D-172 (3)), which come with 0185; until then
-  `affected_users` is None with the reason `not_configured` (coordinator, 2026-11-20).
+- **Affected users** (D-172 (3), 0185) are the active people the subscribers of the affected
+  business services reach, each counted once: only services the reader may see (a hidden one's
+  subscribers would tell about a CI they can't open), the starts included. `partial` says so
+  whenever any CI in the answer is a placeholder ("of services you can see"). Names only for a
+  reader holding `users.view`. No subscribers on any of them: None, `not_configured`.
 - No event of its own: consumers refetch on `cmdb.relationship.changed` (`ci_id` and
   `other_ci_ids`), `cmdb.ci.updated`, `cmdb.ci.deleted|restored` and `cmdb.config.changed` (a
   type's `carries_impact`).
@@ -36,13 +39,17 @@ from app.modules.cmdb.domain import impact as domain
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain.types import Problem
 from app.modules.cmdb.infra.models import Ci, CiType, Relationship, RelationshipType
+from app.modules.cmdb.service import subscribers
 from app.modules.cmdb.service.catalogue import ensure_defaults, invalid
 from app.modules.cmdb.service.cis import visible_rows
 from app.modules.cmdb.service.relationships import NodeInfo, ensure_types, node_infos
 from app.modules.identity_access import Subject
+from app.modules.organization import count_people, people_in
 
 BUSINESS_SERVICE = "business_service"  # the built-in CI type (domain/types.py BUILT_IN_TYPES)
 NOT_CONFIGURED = "not_configured"  # affected users: no subscribers yet (labelled)
+USERS_VIEW = "users.view"
+PEOPLE_SHOWN = 50  # names in one answer
 FRONTIER_CHUNK = 1000  # frontier CIs per edge read
 LEVEL_EDGE_MAX = 100_000  # edges read for one level of the walk; `truncated` beyond
 LIVE_CHUNK = 5000  # ends checked live per query
@@ -94,6 +101,7 @@ class AffectedUsers:
 
     count: int
     people: list[tuple[uuid.UUID, str]] | None = None
+    partial: bool = False  # services the reader can't see were left out
 
 
 @dataclass(frozen=True)
@@ -308,16 +316,44 @@ async def _answer(
         ),
         key=lambda s: (s.name, str(s.id)),
     )
+    served = [
+        c.info.id
+        for c in [*starts, *cis]
+        if c.info.visible and c.info.type_id in service_types and c.info.id is not None
+    ]
+    affected = await _affected_users(
+        session, subject, served, partial=any(c.restricted for c in [*starts, *cis])
+    )
     return Impact(
         starts=sorted(starts, key=lambda c: c.key),
         cis=cis,
         services=services,
-        affected_users=None,
-        affected_users_reason=NOT_CONFIGURED,
+        affected_users=affected,
+        affected_users_reason=NOT_CONFIGURED if affected is None else None,
         missing=missing,
         truncated=walk.truncated,
         as_of=datetime.now(UTC),
     )
+
+
+async def _affected_users(
+    session: AsyncSession,
+    subject: Subject,
+    service_ids: Sequence[uuid.UUID],
+    *,
+    partial: bool,
+) -> AffectedUsers | None:
+    """The people the visible affected services' subscribers reach, each once."""
+    audience = await subscribers.audience_of(session, service_ids)
+    if audience.empty:
+        return None
+    count = await count_people(session, audience)
+    people = (
+        await people_in(session, subject, audience, limit=PEOPLE_SHOWN)
+        if subject.holds(USERS_VIEW)
+        else None
+    )
+    return AffectedUsers(count=count, people=people, partial=partial)
 
 
 async def ci_impact(

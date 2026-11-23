@@ -103,6 +103,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("role.group_added", AuditCategory.ACCESS, "identity_access"),
     ("role.group_removed", AuditCategory.ACCESS, "identity_access"),
     ("role.field_access_changed", AuditCategory.ACCESS, "identity_access"),  # ADR-047
+    ("role.resource_access_changed", AuditCategory.ACCESS, "identity_access"),  # ADR-053
     ("organization.settings_changed", AuditCategory.CONFIGURATION, "organization"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
@@ -249,6 +250,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("identity.mfa_policy_changed", AuditCategory.SECURITY, "identity_access"),
     ("user.mfa_reset", AuditCategory.SECURITY, "identity_access"),
     ("sso.added", AuditCategory.SECURITY, "identity_access"),
+    # REQ-SEC-010 (WP-057 S5d): verified e-mail domains.
+    ("identity.domain_added", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_checked", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_verified_manually", AuditCategory.SECURITY, "identity_access"),
+    ("identity.domain_removed", AuditCategory.SECURITY, "identity_access"),
     ("sso.updated", AuditCategory.SECURITY, "identity_access"),
     ("sso.tested", AuditCategory.SECURITY, "identity_access"),
     ("sso.switched_on", AuditCategory.SECURITY, "identity_access"),
@@ -298,6 +304,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
@@ -471,6 +478,14 @@ ACTIONS: dict[str, Action] = _actions(
     ("file.purged", AuditCategory.DATA, "system"),
     ("file_settings.changed", AuditCategory.CONFIGURATION, "system"),
     ("audit.settings_changed", AuditCategory.SECURITY, "audit"),
+    # REQ-AUD-011 (WP-057 S5a): streaming to a SIEM; codes and IDs only, never a secret.
+    ("audit.siem_destination_added", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_entries_truncated", AuditCategory.DATA, "audit"),  # D-181: UDP, never silent
+    ("audit.siem_plaintext_enabled", AuditCategory.SECURITY, "audit"),  # D-181: TCP/UDP chosen
+    ("audit.siem_destination_changed", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_destination_removed", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_secret_rotated", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_test_sent", AuditCategory.SECURITY, "audit"),
     ("audit.verification_requested", AuditCategory.SECURITY, "audit"),
     ("audit.verification_failed", AuditCategory.SECURITY, "audit"),
     ("audit.probing_detected", AuditCategory.SECURITY, "audit"),

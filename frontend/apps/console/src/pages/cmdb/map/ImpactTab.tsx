@@ -137,7 +137,9 @@ function ImpactBody({ impact }: { impact: CiImpact }) {
           value={
             impact.affected_users == null
               ? t(`cmdb_impact_users_reason.${impact.affected_users_reason ?? 'not_configured'}`)
-              : String(impact.affected_users)
+              : impact.affected_users_partial
+                ? t('cmdb.impact.affected_users_partial', { total: impact.affected_users })
+                : String(impact.affected_users)
           }
         />
       </Flex>

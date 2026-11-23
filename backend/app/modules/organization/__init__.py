@@ -18,7 +18,10 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `calendar_users`, `CalendarUsers`, `unit_calendars` (WP-025: which calendar a site or group
 names); `leads_group`, `led_groups`, `may_manage_group`, `require_group_manager`, `GroupActor`
 (D-152: a team lead manages only the groups they lead); `erase_person_units` (the
-organisation's part of a GDPR erasure, ADR-052: memberships go, leadership to the successor).
+organisation's part of a GDPR erasure, ADR-052: memberships go, leadership to the successor);
+`Audience`, `AudienceKind`, `count_people`, `people_in`, `register_audience_resolver` (who some
+departments, sites and groups reach, each person once: a business service's subscribers, 0185;
+identity_access registers the resolver).
 """
 
 from fastapi import FastAPI
@@ -32,9 +35,17 @@ from app.modules.organization.api.domains import router as domains_router
 from app.modules.organization.api.routes import router
 from app.modules.organization.api.structure import departments, desks, groups, sites
 from app.modules.organization.api.units import groups_router, sites_router
+from app.modules.organization.domain.audience import Audience, AudienceKind
 from app.modules.organization.domain.tenant import TenantStatus, TenantView
 from app.modules.organization.events import EVENTS
 from app.modules.organization.service import report_names
+from app.modules.organization.service.audience import (
+    AudienceResolver,
+    count_people,
+    people_in,
+    register_audience_resolver,
+    unregister_audience_resolver,
+)
 from app.modules.organization.service.branding import BrandingView, get_branding
 from app.modules.organization.service.calendars import (
     CalendarUsers,
@@ -165,6 +176,9 @@ module = ModuleSpec(
 
 __all__ = [
     "SYSTEM_PATH",
+    "Audience",
+    "AudienceKind",
+    "AudienceResolver",
     "BrandingView",
     "CalendarUsers",
     "EmailBranding",
@@ -180,6 +194,7 @@ __all__ = [
     "add_member",
     "base_currency",
     "calendar_users",
+    "count_people",
     "default_desk_id",
     "default_site",
     "department_site",
@@ -202,8 +217,10 @@ __all__ = [
     "memberships",
     "module",
     "offered_languages",
+    "people_in",
     "record_tenant_provisioned",
     "regional_defaults",
+    "register_audience_resolver",
     "register_calendar_check",
     "register_group_disable_guard",
     "register_member_guard",
@@ -217,6 +234,7 @@ __all__ = [
     "tenant_for_slug",
     "unit_calendars",
     "unit_heads",
+    "unregister_audience_resolver",
     "unregister_group_disable_guard",
     "unregister_member_guard",
     "unregister_site_people_counter",

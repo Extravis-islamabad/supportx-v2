@@ -190,7 +190,7 @@ async def test_the_export_is_the_screens_rows_in_words(world: World) -> None:
     assert "integrations.mailbox.check_failed" not in exported.text  # never the code
     assert "error" not in [r[1] for r in body]  # the severity in words
     assert header[0] != "occurred_at"
-    assert all(not cell.startswith(("=", "+", "-", "@")) for r in body for cell in r)
+    assert all(not cell.startswith(("=", "+", "-", "@", "\t", "\r")) for r in body for cell in r)
     arabic = await world.call(
         "GET", f"{LOG}/export?{query}&language=ar", world.a, user=world.a.admin
     )

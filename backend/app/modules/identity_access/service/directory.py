@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import available_timezones
 
-from sqlalchemy import false, func, select
+from sqlalchemy import ColumnElement, and_, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
@@ -53,7 +53,7 @@ from app.modules.identity_access.service.policy import (
     require,
     scope_filter,
 )
-from app.modules.organization import users_in_groups, users_in_sites
+from app.modules.organization import Audience, AudienceResolver, users_in_groups, users_in_sites
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
@@ -583,6 +583,47 @@ async def people_by_site(session: AsyncSession) -> dict[uuid.UUID, int]:
         .group_by(User.site_id)
     )
     return {site_id: int(count) for site_id, count in rows.all() if site_id is not None}
+
+
+def _in_audience(audience: Audience) -> ColumnElement[bool]:
+    """Active people at the audience's sites or departments, or in its groups (each once)."""
+    reach: list[ColumnElement[bool]] = []
+    if audience.site_ids:
+        reach.append(User.site_id.in_(list(audience.site_ids)))
+    if audience.department_ids:
+        reach.append(User.department_id.in_(list(audience.department_ids)))
+    if audience.group_ids:
+        reach.append(User.id.in_(users_in_groups(audience.group_ids)))
+    return and_(
+        User.deleted_at.is_(None),
+        User.status == "active",
+        User.user_type.not_in(NOT_PEOPLE),
+        or_(*reach) if reach else false(),
+    )
+
+
+async def audience_count(session: AsyncSession, audience: Audience) -> int:
+    """How many active people an audience reaches, each once (organization's resolver, 0185)."""
+    return int(await session.scalar(select(func.count(User.id)).where(_in_audience(audience))) or 0)
+
+
+async def audience_people(
+    session: AsyncSession, audience: Audience, limit: int
+) -> list[tuple[uuid.UUID, str]]:
+    """Up to `limit` of them, by name, in name order.
+
+    The caller checked `users.view`, which a vendor support account never holds (D-173).
+    """
+    rows = await session.execute(
+        select(User.id, User.display_name)
+        .where(_in_audience(audience))
+        .order_by(User.display_name, User.id)
+        .limit(limit)
+    )
+    return [(row.id, row.display_name) for row in rows]
+
+
+AUDIENCE_RESOLVER = AudienceResolver(count=audience_count, people=audience_people)
 
 
 async def active_user_ids(

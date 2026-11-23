@@ -13,7 +13,7 @@ Not partitioned (unlike audit_entries): entries are small and a tenant's purge i
 range delete; partitions can follow if volume needs them (an expand migration).
 
 Revision ID: 0187
-Revises: 0179
+Revises: 0190
 Created: 2026-11-20
 """
 
@@ -32,7 +32,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0187"
-down_revision: str | None = "0179"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0190"  # main's head at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -147,7 +147,28 @@ def upgrade() -> None:
     )
 
 
+_REFUSE_IF_ANY = f"""
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        IF EXISTS (SELECT 1 FROM {TABLE}) THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % has system log entries (append-only)', t;
+        END IF;
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""  # noqa: S608 - a fixed table name, no input
+
+
 def downgrade() -> None:
+    """Drops the log only while no tenant has an entry: the table is append-only (lane B, #567).
+
+    Dropping it with rows would be a way round the grants (SELECT and INSERT only), so the
+    downgrade refuses as 0180's does, counting per tenant with `app.tenant_id` set (forced RLS).
+    """
+    op.execute(_REFUSE_IF_ANY)
     op.drop_constraint(
         op.f("ck_audit_settings_system_log_retention_range"), "audit_settings", type_="check"
     )

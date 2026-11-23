@@ -272,15 +272,19 @@ export const en = {
   'errors.directory_unavailable':
     'The directory did not answer or refused the sync app. Try again in a moment.',
   'errors.domain_address_not_allowed': 'The domain points to an address SupportX does not contact.',
+  'errors.domain_already_added': 'This domain is already in your list.',
   'errors.domain_check_failed': 'The domain answered, but not like this SupportX.',
   'errors.domain_invalid': 'Enter a domain name such as help.example.com.',
   'errors.domain_limit': 'You can add at most {{max}} domains.',
+  'errors.domain_manual_verify_not_allowed':
+    "Verifying a domain by hand isn't allowed on this installation: publish its DNS record instead.",
   'errors.domain_not_found': 'This domain was not found.',
   'errors.domain_not_reachable': 'The domain could not be reached.',
   'errors.domain_not_resolving': 'The domain has no DNS record yet.',
   'errors.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
   'errors.domain_taken': 'This domain is already used.',
+  'errors.domain_verified_elsewhere': 'Another organisation has already verified this domain.',
   'errors.domain_wrong_answer':
     'The domain does not point to this SupportX yet: check its DNS record.',
   'errors.domains_not_configured': 'Custom domains are not set up on this installation.',
@@ -445,6 +449,10 @@ export const en = {
   'errors.field.conflict_not_found':
     'This conflict is no longer there. The list shows the conflicts now.',
   'errors.field.country_invalid': 'Choose a country from the list.',
+  'errors.field.criteria_required': 'Name at least one thing the rule lets through.',
+  'errors.field.criteria_too_large': 'This rule names too much. Split it into smaller rules.',
+  'errors.field.criterion_invalid': 'This criterion is not valid.',
+  'errors.field.criterion_unknown': 'This rule cannot use that criterion.',
   'errors.field.currency_unknown': 'Choose a currency from the list.',
   'errors.field.custom_field_scope_unknown': 'This type does not exist (any more).',
   'errors.field.custom_field_scope_unsupported':
@@ -472,8 +480,12 @@ export const en = {
     'Fields with several choices cannot be used for grouping yet.',
   'errors.field.disabled_cannot_be_default': 'Turn this template on before making it the default.',
   'errors.field.domain_invalid': 'Enter a domain name such as help.example.com.',
+  'errors.field.domain_public_mail': "A public e-mail domain can't belong to one organisation.",
+  'errors.field.domain_public_suffix': "This is a registry's suffix, not an organisation's domain.",
   'errors.field.domain_reserved':
     "Addresses under this installation's own domain are given automatically.",
+  'errors.field.domain_single_label': 'Enter a full domain, such as example.com.',
+  'errors.field.domains_too_many': "You've reached the limit of domains.",
   'errors.field.draft_not_values': 'A draft keeps form values only.',
   'errors.field.draft_too_large': 'This draft is too large to keep.',
   'errors.field.due_in_past': 'Choose a moment in the future.',
@@ -543,6 +555,7 @@ export const en = {
   'errors.field.holiday_range_order': 'The last day must be on or after the first day.',
   'errors.field.holiday_range_too_long': 'A holiday can be at most one year long.',
   'errors.field.host_name_invalid': 'Enter server names only, such as mx.google.com.',
+  'errors.field.https_required': 'Use an https:// address.',
   'errors.field.ical_invalid': 'This is not an iCalendar (.ics) file.',
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
@@ -714,6 +727,14 @@ export const en = {
   'errors.field.session_absolute_out_of_range':
     'Use at least the idle timeout and at most {{max}} hours.',
   'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
+  'errors.field.siem_cert_and_key_together': 'Give the client certificate and its key together.',
+  'errors.field.siem_kind_fixed':
+    "How entries are sent can't change; add a new destination instead.",
+  'errors.field.siem_pem_invalid': "This isn't a usable certificate or key (PEM).",
+  'errors.field.siem_port_not_allowed': 'Use a syslog-over-TLS port: 6514, 1514 or 10514.',
+  'errors.field.siem_secret_webhook_only': 'Only a webhook has a signing secret.',
+  'errors.field.siem_webhook_https_only': 'A webhook is always sent over HTTPS.',
+  'errors.field.siem_webhook_json_only': 'A webhook sends JSON only.',
   'errors.field.site_inactive': 'This site is inactive. Choose an active site.',
   'errors.field.site_network_invalid':
     'Enter a range such as 10.1.0.0/16 (with the host part zero), or one address.',
@@ -1177,6 +1198,9 @@ export const en = {
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
   'errors.required': 'This field is required.',
+  'errors.resource_access_limit_reached':
+    'Your organisation already has {{limit}} record access rules, the most allowed. Remove one first.',
+  'errors.resource_access_rule_not_found': 'This record access rule no longer exists.',
   'errors.restart_at_end': 'Choose a step to run from, not an end.',
   'errors.role_in_use':
     'This role is still assigned to users. Choose a role to move them to first.',
@@ -1201,6 +1225,10 @@ export const en = {
   'errors.session_key_still_in_use':
     'This server cannot start: a sign-in key it no longer lists is still needed. List the key again.',
   'errors.session_not_found': 'That session has already ended or isn’t one of yours.',
+  'errors.siem_destination_name_taken': 'Another destination already has this name.',
+  'errors.siem_destination_not_found': 'This destination no longer exists.',
+  'errors.siem_destinations_limit': 'At most {{max}} destinations.',
+  'errors.siem_rotation_open': 'A rotation is already under way: retire the old secret first.',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.sign_in_unavailable':
     'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',

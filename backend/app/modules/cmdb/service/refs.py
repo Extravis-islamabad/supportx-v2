@@ -53,6 +53,22 @@ async def can_see(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> 
     return await session.scalar(visible_rows(subject).where(Ci.id == ci_id)) is not None
 
 
+async def visible_ci_ids(
+    session: AsyncSession, subject: Subject, ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """The subset of `ids` the person may see now (role scope and ADR-053 rules, never removed).
+
+    For other modules' placeholders and counts, so they never need the predicate themselves.
+    """
+    unique = list(dict.fromkeys(ids))
+    if not unique:
+        return frozenset()
+    found = await session.scalars(
+        visible_rows(subject).with_only_columns(Ci.id).where(Ci.id.in_(unique))
+    )
+    return frozenset(found.all())
+
+
 async def can_link(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
     """Whether the person may link this CI to a record now (`can_see` and the picker's rule)."""
     row = await session.scalar(visible_rows(subject).where(Ci.id == ci_id))

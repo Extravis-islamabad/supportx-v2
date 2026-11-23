@@ -86,6 +86,20 @@ async def tenant_ids(database: Database) -> list[uuid.UUID]:
         return list((await session.scalars(text("SELECT audit_tenant_ids()"))).all())
 
 
+SIEM_EVERY_SECONDS = 5  # entries reach a SIEM within 10 s of being sealed (REQ-AUD-011 AC1)
+
+
+async def siem_delivery(database: Database, settings: Settings) -> None:
+    """Every tenant's due SIEM destinations (WP-057 S5a); one failing never stops the rest."""
+    from app.modules.audit.service import siem  # noqa: PLC0415 - the schedule's own step
+
+    for tenant in await tenant_ids(database):
+        try:
+            await siem.deliver_tenant(database, settings, tenant)
+        except Exception:
+            log.exception("siem_delivery_failed", tenant_id=str(tenant))
+
+
 async def on_entry_recorded(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """Consumer: seal the tenant's queue right away (the event is only a wake-up)."""
     del envelope

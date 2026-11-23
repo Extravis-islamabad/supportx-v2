@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     ForeignKeyConstraint,
@@ -37,7 +38,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantKeyed, TenantScoped, UuidPrimaryKey, utc_now
+from app.shared.db.models import (
+    Base,
+    TenantEntity,
+    TenantKeyed,
+    TenantScoped,
+    UuidPrimaryKey,
+    utc_now,
+)
 
 OUTCOMES = "('done', 'refused', 'failed')"
 ACTOR_TYPES = (
@@ -498,3 +506,79 @@ class SystemLogEntry(UuidPrimaryKey, TenantScoped, Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     created_by: Mapped[uuid.UUID | None]
     updated_by: Mapped[uuid.UUID | None]
+
+
+SIEM_KINDS = "('syslog', 'webhook')"
+SIEM_FORMATS = "('json', 'cef')"
+
+
+class SiemDestination(TenantEntity):
+    """Where a tenant's audit and sign-in entries stream (REQ-AUD-011, WP-057 S5a; 0186).
+
+    `audit_seq_sent` and `sign_in_after_*` are the cursors: what the destination acknowledged.
+    Secrets are sealed text (field cipher); never read back to the API.
+    """
+
+    __tablename__ = "siem_destinations"
+    __table_args__ = (
+        Index(
+            "uq_siem_destinations_tenant_name",
+            "tenant_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_siem_destinations_tenant_due",
+            "tenant_id",
+            "next_attempt_at",
+            postgresql_where=text("deleted_at IS NULL AND enabled"),
+        ),
+        CheckConstraint(f"kind IN {SIEM_KINDS}", name="kind_code"),
+        CheckConstraint(f"format IN {SIEM_FORMATS}", name="format_code"),
+        CheckConstraint(
+            "streams <@ ARRAY['audit', 'sign_ins']::varchar[] AND cardinality(streams) > 0",
+            name="streams_codes",
+        ),
+        CheckConstraint(
+            "(kind = 'syslog' AND host IS NOT NULL AND port BETWEEN 1 AND 65535 AND url IS NULL)"
+            " OR (kind = 'webhook' AND url IS NOT NULL AND host IS NULL AND port IS NULL"
+            " AND format = 'json')",
+            name="kind_target",
+        ),
+        CheckConstraint("kind = 'syslog' OR secret_sealed IS NOT NULL", name="webhook_secret"),
+        # D-181 (0190): plain TCP or UDP only by an admin's choice, and never for a webhook.
+        CheckConstraint("transport IN ('tls', 'tcp', 'udp')", name="transport_code"),
+        CheckConstraint("kind = 'syslog' OR transport = 'tls'", name="webhook_tls"),
+        CheckConstraint("udp_max_bytes BETWEEN 480 AND 8192", name="udp_max_range"),
+        CheckConstraint(
+            "(sign_in_after_at IS NULL) = (sign_in_after_id IS NULL)", name="sign_in_cursor"
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(20), default="json", server_default="json")
+    transport: Mapped[str] = mapped_column(String(8), default="tls", server_default="tls")
+    udp_max_bytes: Mapped[int] = mapped_column(Integer, default=2048, server_default="2048")
+    host: Mapped[str | None] = mapped_column(String(253))
+    port: Mapped[int | None] = mapped_column(Integer)
+    url: Mapped[str | None] = mapped_column(String(2048))
+    streams: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), server_default=text("ARRAY['audit']::varchar[]")
+    )
+    enabled: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    secret_sealed: Mapped[str | None] = mapped_column(Text)
+    previous_secret_sealed: Mapped[str | None] = mapped_column(Text)
+    ca_pem_sealed: Mapped[str | None] = mapped_column(Text)
+    client_cert_sealed: Mapped[str | None] = mapped_column(Text)
+    client_key_sealed: Mapped[str | None] = mapped_column(Text)
+    audit_seq_sent: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    sign_in_after_at: Mapped[datetime | None]
+    sign_in_after_id: Mapped[uuid.UUID | None]
+    last_success_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(40))
+    last_error_at: Mapped[datetime | None]
+    failing_since: Mapped[datetime | None]
+    failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    next_attempt_at: Mapped[datetime | None]

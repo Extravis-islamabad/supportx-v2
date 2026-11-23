@@ -1668,8 +1668,18 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
   - Seed version 6 tops up the `converted` status for older tenants.
 - [~] **S3, views, lists and bulk:** S3a done (0178; #549 merged 2026-11-18; lane C blocked
-  under D-175); S3b (board and calendar) and S3c (split view, peek, in-list edits, chart, bulk
-  merge/link/note/delete) to come.
+  under D-175); S3b (cards, board and calendar; 0182) in review, its draft PR blocked by lane
+  C; S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
+  - REQ-INC-111 (S3b): table, cards or board per person and view (0182: `layout`,
+    `group_by`). A board grouped by status, priority, technician or group; its counts are the
+    list's own query (only records you may see) and its columns keep a stable order (every
+    status in workflow order, even empty); each column loads its first 25, with "Show more". A
+    move runs the real action (the status's transition with its prompts, assign under D-154,
+    priority with its reason); a refused move stays and says why. Cards carry the unread cue
+    and the row colour, and never a field the reader's role withholds.
+  - REQ-INC-112 (S3b): a calendar of the view's incidents by due time, month or week, in your
+    zone, by the POST list (sealed filters stay out of URLs); "N more", arrow keys between
+    days, and a line counting those with no due time.
   - REQ-INC-107 AC1: star saved views (personal, first in the picker).
   - REQ-INC-115: unread rows (changed by someone else, or a public reply, since you opened the
     record; one never opened only for its assignee) in bold with a dot and a spoken "Unread",
@@ -2562,6 +2572,15 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   - [ ] S4c: vendor support access (D-173; design note in
     ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+  - [~] **S5d (#569, migration 0189): REQ-SEC-010 verified e-mail domains, PARTLY DONE.** Built:
+    adding a domain with a TXT record shown once (only its hash kept), one tenant per verified
+    domain (a partial unique index; AC2), Keycloak-native routing (a verified domain marks the
+    organisation's domain verified through the outbox; a lapse or delete removes it on a shared
+    realm and keeps the routing on a single-tenant one; a daily reconcile; AC3, tested in a real
+    Keycloak), the 3-failures-over-72-hours lapse with a notice to admins, a manual verify on
+    single-tenant installations only, the console card. **The DNS check waits for a dependency
+    decision** (dnspython, Haider): until then a check says automatic checking isn't available
+    yet, so on multi-tenant installations no domain can be verified (AC1 is not yet met there).
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).
 

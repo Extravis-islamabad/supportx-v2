@@ -452,7 +452,28 @@ restart keycloak` mounts it again; no data is touched. `docker exec supportx-dev
 **OpenSearch fails with "max virtual memory areas vm.max_map_count is too low" (Linux only)**
 Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows already sets this.
 
-## 7. Notes
+## 7. A second stack beside the shared one
+
+The shared dev stack's data volumes are named `supportx_dev_*`. A second stack from this compose
+file (a throwaway e2e stack, another lane's) must never mount them: two PostgreSQL servers on one
+data directory corrupt it (2026-11-20). So:
+
+- start compose through `deploy/compose/scripts/compose.sh` (every `make dev-*` target does). It
+  refuses a project name other than `supportx-dev` unless `SUPPORTX_VOLUME_PREFIX` names volumes
+  of its own, and refuses the shared project with a foreign prefix:
+
+  ```
+  SUPPORTX_VOLUME_PREFIX=throwaway_e2e deploy/compose/scripts/compose.sh -p throwaway-e2e up -d
+  ```
+
+  Its ports must differ too (a second `.env`, `--env-file`).
+- Local database tests never use the shared stack unless asked: point `SUPPORTX_TEST_ADMIN_URL`
+  and the role passwords (`SUPPORTX_TEST_APP_PASSWORD`, `..._MIGRATOR_PASSWORD`,
+  `..._RELAY_PASSWORD`) at a standalone throwaway PostgreSQL (a plain `docker run` of the stack's
+  image on its own port, no named volume), or set `SUPPORTX_TEST_ALLOW_DEV_STACK=1` to use the
+  shared one on purpose. The same opt-in covers the Valkey, NATS and MinIO fallbacks.
+
+## 8. Notes
 
 - Image versions are pinned. Upgrade them deliberately: change the tag, run `make dev-up-full` and
   `make dev-check`.

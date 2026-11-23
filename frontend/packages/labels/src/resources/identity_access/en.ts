@@ -187,6 +187,14 @@ export const en = {
     'This quick sign-in isn’t available here. It works only on the local dev stack with make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
+  'domain_check.dns_check_unavailable':
+    "Automatic checking isn't available on this installation yet.",
+  'domain_check.dns_unreachable':
+    "DNS couldn't be reached from this installation. You can verify the domain by hand instead.",
+  'domain_check.domain_verified_elsewhere':
+    'Another organisation has already verified this domain.',
+  'domain_check.found': 'The record was found.',
+  'domain_check.not_found': "The record wasn't found yet. DNS changes can take a while to appear.",
   'erasure_count.action_links_revoked': 'Action links revoked',
   'erasure_count.ai_call_texts_cleared': 'AI request texts cleared',
   'erasure_count.ai_embeddings_removed': 'AI search vectors removed',
@@ -238,6 +246,9 @@ export const en = {
   'erasure_count.successor_replaced': 'Successor replaced by the approver',
   'erasure_holding.asset_loans_open': 'Open asset loans',
   'erasure_holding.assets_held': 'Assets they still hold',
+  'erasure_holding.assets_held_outside_view': "Of these, assets you can't see",
+  'erasure_holding.cmdb_cis_owned': 'Configuration items they own',
+  'erasure_holding.cmdb_cis_owned_outside_view': "Of these, configuration items you can't see",
   'erasure_holding.other': 'Other items',
   'field_access.clearest_wins':
     'A person sees a field as clearly as their clearest role allows: one role without a rule shows the field.',
@@ -1226,6 +1237,38 @@ export const en = {
   'reauth.title': 'Confirm it is you',
   'reauth.waiting':
     'Finish signing in in the window that opened. This message closes by itself when you are done.',
+  'resource_access.add': 'Add rule',
+  'resource_access.add_title': 'New rule for {{resource}}',
+  'resource_access.all_must_hold': 'A record passes when it matches everything you choose here.',
+  'resource_access.clearest_wins':
+    'Someone with another role that shows these records without a rule still sees them.',
+  'resource_access.edit': 'Edit',
+  'resource_access.edit_title': 'Edit the rule for {{resource}}',
+  'resource_access.help':
+    "Narrow which assets and configuration items this role shows. A rule only ever hides: it never shows more than the role's scope.",
+  'resource_access.none': 'No rule: the role shows these records as its scope allows.',
+  'resource_access.person_admin': 'Tenant admins see every record',
+  'resource_access.person_not_narrowed': "As their roles' scope allows",
+  'resource_access.person_title': 'Records this person sees',
+  'resource_access.person_whole_scope_roles_one': '1 role shows its whole scope',
+  'resource_access.person_whole_scope_roles_other': '{{count}} roles show their whole scope',
+  'resource_access.remove': 'Remove',
+  'resource_access.remove_confirm':
+    'Remove this rule? The role then shows these records as its scope allows.',
+  'resource_access.removed': 'Rule removed',
+  'resource_access.save': 'Save',
+  'resource_access.saved': 'Rule saved',
+  'resource_access.unknown_value': 'No longer exists',
+  'resource_access.unlicensed':
+    'Your plan no longer includes record access rules. The rules below still apply; you can remove them but not add or change them.',
+  'resource_access_criterion.criticality_max': 'Criticality at most',
+  'resource_access_criterion.managed_by_group_ids': 'Managing groups',
+  'resource_access_criterion.owner_group_ids': 'Owner groups',
+  'resource_access_criterion.product_type_ids': 'Product types (and their subtypes)',
+  'resource_access_criterion.site_ids': 'Sites',
+  'resource_access_criterion.type_ids': 'CI types (and their subtypes)',
+  'resource_access_resource.asset': 'Assets',
+  'resource_access_resource.ci': 'Configuration items',
   'role.asset_manager': 'Asset manager',
   'role.asset_manager.description':
     'Manages assets, the CMDB, software licences and discovery results for the whole organisation.',
@@ -1329,6 +1372,7 @@ export const en = {
   'roles.no_permission_found': 'No permission matches',
   'roles.permissions': 'Permissions',
   'roles.reassign_to': 'Move users to',
+  'roles.records': 'Records',
   'roles.saved': 'The role was saved.',
   'roles.scope_of': 'Scope for {{permission}}',
   'roles.search': 'Find a permission',
@@ -1614,6 +1658,7 @@ export const en = {
   'security_area.passwords': 'Passwords',
   'security_area.service_accounts': 'Service accounts',
   'security_area.sessions': 'Sessions',
+  'security_area.siem': 'Security monitoring',
   'security_area.sign_in': 'Single sign-on',
   'security_area.sign_in_events': 'Sign-in activity',
   'security_area.vendor_support': 'Vendor support',
@@ -1637,6 +1682,8 @@ export const en = {
   'security_flag.roles_without_mfa': 'Roles with multi-factor sign-in off: {{count}}',
   'security_flag.service_accounts_without_owner':
     'Service accounts that need a new owner: {{count}}',
+  'security_flag.siem_plaintext':
+    'Security monitoring destinations sending without encryption: {{count}}',
   'security_flag.sign_ins_locked': 'Sign-ins locked out in the last 7 days: {{count}}',
   'security_flag.sso_credential_expired': 'A single sign-on certificate or secret has run out.',
   'security_flag.sso_credential_expires':
@@ -1800,4 +1847,38 @@ export const en = {
   'users.title': 'Users',
   'users.total_one': '{{count}} user',
   'users.total_other': '{{count}} users',
+  'verified_domain_state.lapsed': 'No longer verified',
+  'verified_domain_state.pending': 'Waiting for its record',
+  'verified_domain_state.verified': 'Verified',
+  'verified_domains.add.button': 'Add domain',
+  'verified_domains.add.label': 'Domain to verify',
+  'verified_domains.add.placeholder': 'example.com',
+  'verified_domains.check': 'Check now',
+  'verified_domains.column.actions': 'Actions',
+  'verified_domains.column.checked': 'Last checked',
+  'verified_domains.column.domain': 'Domain',
+  'verified_domains.column.state': 'State',
+  'verified_domains.intro':
+    'Prove your organisation owns its e-mail domains with a DNS record. Sign-ins in a verified domain go to your single sign-on, and no other organisation can claim it.',
+  'verified_domains.manual.button': 'Verify by hand',
+  'verified_domains.manual.confirm': 'Verify',
+  'verified_domains.manual.intro':
+    "Use this only when this installation can't reach DNS. You confirm that your organisation owns the domain; your reason is kept in the audit log.",
+  'verified_domains.manual.reason': "Why you're sure your organisation owns it",
+  'verified_domains.manual.title': 'Verify {{domain}} without DNS',
+  'verified_domains.never_checked': 'Not checked yet',
+  'verified_domains.none': 'No domains yet.',
+  'verified_domains.record.intro':
+    'Add a TXT record at your DNS provider, then choose Check now. DNS changes can take a while to appear.',
+  'verified_domains.record.name': 'Name',
+  'verified_domains.record.once':
+    'This value is shown only now. If you lose it, remove the domain and add it again.',
+  'verified_domains.record.title': 'Publish this record for {{domain}}',
+  'verified_domains.record.value': 'Value',
+  'verified_domains.remove.body':
+    'Sign-ins in this domain will no longer go to your single sign-on. Your single sign-on set-up stays.',
+  'verified_domains.remove.button': 'Remove',
+  'verified_domains.remove.confirm': 'Remove',
+  'verified_domains.remove.title': 'Remove {{domain}}?',
+  'verified_domains.title': 'Verified domains',
 } as const;

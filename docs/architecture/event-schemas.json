@@ -3419,6 +3419,43 @@
         "type": "object"
       }
     },
+    "identity_access.resource_access.changed": {
+      "1": {
+        "description": "A role's rule narrowing assets or CIs was added, changed or removed (ADR-053, 0183).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only, never its criteria; `removed` once it is taken away.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "resource": {
+            "enum": [
+              "asset",
+              "ci"
+            ],
+            "title": "Resource",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "rule_id",
+          "resource",
+          "removed"
+        ],
+        "title": "ResourceAccessChanged",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",
@@ -4082,6 +4119,37 @@
           "never_allow"
         ],
         "title": "VendorSupportSettingChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.verified_domain.changed": {
+      "1": {
+        "description": "A verified e-mail domain changed (WP-057 S5d, REQ-SEC-010). IDs and codes only.\n\n`verified`, `lapsed` and `unverified` (deleted while verified) also drive the Keycloak\norganisation's routing, through the outbox (lane B (1)); `lapsed` tells the tenant's admins;\nthe screen refetches on any change.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "checked",
+              "verified",
+              "unverified",
+              "lapsed",
+              "deleted",
+              "refused"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "domain_id": {
+            "format": "uuid",
+            "title": "Domain Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_id",
+          "change"
+        ],
+        "title": "VerifiedDomainChanged",
         "type": "object"
       }
     },

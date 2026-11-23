@@ -10,6 +10,7 @@ import { AuditSettingsTab } from './AuditSettingsTab';
 import { ExportsTab } from './ExportsTab';
 import { IntegrityTab } from './IntegrityTab';
 import { PersonalDataAccessTab } from './PersonalDataAccessTab';
+import { SiemTab } from './SiemTab';
 import { SignInsTab } from './SignInsTab';
 import { SystemLogTab } from './SystemLogTab';
 
@@ -21,6 +22,7 @@ const TABS = [
   'integrity',
   'exports',
   'archives',
+  'siem',
   'settings',
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -44,6 +46,8 @@ export function AuditPage() {
   const visible = TABS.filter((tab) => {
     if (tab === 'sign_ins') return signIns;
     if (tab === 'personal_access') return personalAccess;
+    // Where entries stream (WP-057 S5a): the audit's managers only.
+    if (tab === 'siem') return can('audit.manage');
     return can('audit.view') && (tab !== 'exports' || can('audit.export'));
   });
   const requested = params.get('tab') as Tab | null;
@@ -70,6 +74,7 @@ export function AuditPage() {
       {active === 'integrity' && <IntegrityTab />}
       {active === 'exports' && <ExportsTab />}
       {active === 'archives' && <ArchivesTab />}
+      {active === 'siem' && <SiemTab />}
       {active === 'settings' && <AuditSettingsTab />}
     </Space>
   );

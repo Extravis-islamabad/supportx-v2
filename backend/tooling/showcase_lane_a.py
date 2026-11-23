@@ -499,3 +499,73 @@ async def ensure_featured(api: Api) -> int:
         )
         done += 1
     return done
+
+
+# WP-046b S3b (lane C's matrix condition): a board by technician shows twelve columns, the rest
+# under "More columns", so the showcase needs more than twelve people holding incidents. These
+# six join the service desk (no sign-in), each with one incident of their own, assigned in the
+# group (D-154).
+BOARD_TECHNICIANS = (
+    ("Imran", "Qureshi", "imran.qureshi@showcase.test", "Field engineer"),
+    ("Sara", "Khalid", "sara.khalid@showcase.test", "Service desk analyst"),
+    ("Kamran", "Shah", "kamran.shah@showcase.test", "Systems administrator"),
+    ("Hina", "Javed", "hina.javed@showcase.test", "Service desk analyst"),
+    ("Faisal", "Rehman", "faisal.rehman@showcase.test", "Network engineer"),
+    ("Amna", "Yousaf", "amna.yousaf@showcase.test", "Applications specialist"),
+)
+BOARD_SUBJECT = "Showcase board: {name}'s first ticket"
+# The seed's own (step 7 freshens them like its other incidents).
+BOARD_SUBJECTS = frozenset(BOARD_SUBJECT.format(name=first) for first, *_ in BOARD_TECHNICIANS)
+
+
+async def ensure_board_technicians(
+    api: Api, *, known: Mapping[str, str], site_id: str, group_id: str, requester_id: str
+) -> int:
+    """Six more technicians, each holding one incident; returns how many incidents were made.
+
+    `known`: every person by e-mail (the seed's `ensure_people`), so a rerun finds them.
+    """
+    made = 0
+    for first, last, email, title in BOARD_TECHNICIANS:
+        person = known.get(email)
+        if person is None:
+            created = await api.call(
+                "POST",
+                "/api/v1/users",
+                json={
+                    "first_name": first,
+                    "last_name": last,
+                    "email": email,
+                    "user_type": "technician",
+                    "site_id": site_id,
+                    "job_title": title,
+                    "locale": "en",
+                    "can_sign_in": False,
+                },
+                idempotency=_key("board-person", email),
+            )
+            person = str(created["id"])
+        # PUT is idempotent: an existing membership stays as it is.
+        await api.call("PUT", f"/api/v1/organization/groups/{group_id}/members/{person}")
+        subject = BOARD_SUBJECT.format(name=first)
+        found = await api.call(
+            "POST",
+            "/api/v1/incidents/list",
+            json={"filter": {"field": "subject", "op": "eq", "value": subject}, "limit": 1},
+        )
+        if found["items"]:
+            continue
+        await api.call(
+            "POST",
+            "/api/v1/incidents",
+            json={
+                "subject": subject,
+                "requester_id": requester_id,
+                "group_id": group_id,
+                "technician_id": person,
+                "description": f"<p>{subject}.</p>",
+            },
+            idempotency=_key("board-incident", email),
+        )
+        made += 1
+    return made
