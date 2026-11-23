@@ -268,14 +268,12 @@ def test_a_support_account_cannot_change_its_own_address(
     results: dict[str, int] = {}
     for kind in ("support", "staff"):
         who = accounts[kind]
-        if kind == "support":  # its first sign-in done, as the engineer would
-            _first_sign_in(private_keycloak, who["username"], who["password"])
+        if kind == "support":
+            # As once its first sign-in is done (no actions left); no TOTP enrolled, so the
+            # password grant below needs no code. Only the account API's answer is under test.
             with _admin(private_keycloak) as admin:
-                admin.put(
-                    f"/users/{who['id']}/reset-password",
-                    json={"type": "password", "value": who["password"], "temporary": False},
-                )
-                admin.put(f"/users/{who['id']}", json={"requiredActions": []})
+                cleared = admin.put(f"/users/{who['id']}", json={"requiredActions": []})
+                assert cleared.status_code == 204, cleared.text
         token = httpx.post(
             f"{private_keycloak.issuer}/protocol/openid-connect/token",
             data={
