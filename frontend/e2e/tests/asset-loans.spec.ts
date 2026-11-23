@@ -66,6 +66,8 @@ test('asset loan: loanable in bulk, lent, due in the portal, taken back, all liv
     await expect(admin.page.getByText('Marked as loanable')).toBeVisible();
 
     // The register: a new loan to the requester.
+    // In the header's "More" since template C (QA 2026-11-12 V-03).
+    await admin.page.getByTestId('assets-header-actions-more').click();
     await admin.page.getByTestId('assets-loans-link').click();
     await expect(admin.page.getByTestId('asset-loans')).toBeVisible();
     await admin.page.getByTestId('asset-loan-new-open').click();

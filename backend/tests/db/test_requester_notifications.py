@@ -170,26 +170,38 @@ async def test_a_reply_on_a_request_reaches_its_requester_and_carries_the_reply(
     assert carried[0]["n"] == 1
 
 
-async def test_a_reply_on_a_change_is_settled_not_e_mailed_never_left_queued(
+async def test_d156_a_change_reply_is_e_mailed_to_its_requester_and_a_note_never_is(
     world: World,
 ) -> None:
-    """The coordinator, 2026-11-11: a change's reply notice is off by default (a staff record);
-    with no e-mail made, #359's settle step marks the reply not e-mailed at once."""
+    """D-156 (Haider, 2026-11-11): a change's public reply goes to its requester by e-mail;
+    a note on the same change never does."""
     a = world.a
     change = await a_change(world, a)
-    replied = await world.call(
-        "POST",
-        f"{CHG}/{change['id']}/conversation",
-        a,
-        a.admin,
-        json={"kind": "reply", "body": "<p>Scheduled for Saturday.</p>"},
-        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
-    )
-    assert replied.status_code == 201, replied.text
-    entry_id = replied.json()["entry"]["id"]
+
+    async def write(kind: str, body: str) -> str:
+        made = await world.call(
+            "POST",
+            f"{CHG}/{change['id']}/conversation",
+            a,
+            a.admin,
+            json={"kind": kind, "body": body},
+            headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+        )
+        assert made.status_code == 201, made.text
+        return str(made.json()["entry"]["id"])
+
+    reply = await write("reply", "<p>Scheduled for Saturday.</p>")
+    note = await write("note", "<p>Ask the network team first.</p>")
     await run_engine(world, a, settings=MAIL)
-    (row,) = await world.sql(
-        "SELECT delivery_state, delivery_reason FROM work_item_conversations WHERE id = $1",
-        uuid.UUID(entry_id),
-    )
-    assert (row["delivery_state"], row["delivery_reason"]) == ("failed", "not_notified")
+
+    async def mailed(entry_id: str) -> set[uuid.UUID]:
+        rows = await world.sql(
+            "SELECT user_id FROM notification_deliveries WHERE tenant_id = $1"
+            " AND entry_id = $2 AND channel = 'email'",
+            a.tenant,
+            uuid.UUID(entry_id),
+        )
+        return {r["user_id"] for r in rows}
+
+    assert a.requester in await mailed(reply)
+    assert await mailed(note) == set()

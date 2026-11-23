@@ -7,7 +7,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 import { CATEGORY_OF, portName } from './nodes';
 
 /**
- * One node on the canvas (REQ-WF-028): its name in words, its id, and its handles always
+ * One node on the canvas (REQ-WF-028): its name in words (never its id), and its handles always
  * visible. Each output is its own labelled handle at the bottom, so a link always says which
  * way it leaves ("Approved", "Timed out"); the input sits at the top. A node with a problem
  * has a red border and says so in words for screen readers.
@@ -38,7 +38,8 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
         background: passed ? token.colorSuccessBg : token.colorBgContainer,
         border: `${String(current || selected || flagged ? 2 : 1)}px solid ${border}`,
         borderRadius: token.borderRadiusLG,
-        padding: '8px 12px 20px',
+        // Room at the foot for the outputs' names above their handles (QA V-02).
+        padding: data.ports.length > 1 ? '8px 12px 28px' : '8px 12px 20px',
         boxShadow: selected ? token.boxShadowSecondary : undefined,
       }}
     >
@@ -59,9 +60,14 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
             {t(`workflow_node_category.${category}`)}
           </Typography.Text>
         )}
-        <Typography.Text strong>{t(`workflow_node_type.${data.nodeType}`)}</Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }} dir="ltr">
-          {id}
+        {/* Its name in words, numbered when its type repeats; never its internal id (QA F-07). */}
+        <Typography.Text strong>
+          {data.n === undefined
+            ? t(`workflow_node_type.${data.nodeType}`)
+            : t('workflows.step_numbered', {
+                type: t(`workflow_node_type.${data.nodeType}`),
+                n: data.n,
+              })}
         </Typography.Text>
         {flagged && (
           <Typography.Text type="danger" style={{ fontSize: 12 }}>
@@ -85,10 +91,16 @@ export const NodeView = memo(function NodeView({ id, data, selected }: NodeProps
         >
           <span
             style={{
+              // Inside the step, just above its output: below it, the name sat on the links
+              // leaving it and ran into the next step's (QA V-02). Centred physically, as the
+              // handle is placed by left in both directions.
               position: 'absolute',
-              top: 12,
-              insetInlineStart: '50%',
+              bottom: 14,
+              left: '50%',
               transform: 'translateX(-50%)',
+              maxWidth: 96,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               fontSize: 11,
               whiteSpace: 'nowrap',
               color: token.colorTextSecondary,

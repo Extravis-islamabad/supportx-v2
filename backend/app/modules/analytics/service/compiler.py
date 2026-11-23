@@ -83,6 +83,25 @@ def _check_records(definition: ReportDefinition, source: ReportingSource) -> Non
             _invalid(f"sort[{index}].field", "unknown_column")
 
 
+def named_fields(definition: ReportDefinition) -> list[str]:
+    """Every field name a definition uses: filter, groupings, columns and sort."""
+    names = _filter_fields(definition.filter_json()) if definition.filter is not None else []
+    names += [group.field for group in definition.group_by]
+    names += list(definition.columns or [])
+    names += [key.field for key in definition.sort]
+    return names
+
+
+def check_withheld(definition: ReportDefinition, source: ReportingSource) -> None:
+    """A field the viewer's roles hide or mask is refused as such (ADR-047 §5), never unknown.
+
+    The source already leaves it out, so without this the definition would read as invalid;
+    the viewer is told the field is not available to them, and nothing about its values.
+    """
+    if source.withheld and any(name in source.withheld for name in named_fields(definition)):
+        raise PermissionDenied(code="field_not_permitted")
+
+
 def _filter_fields(tree: Any) -> list[str]:  # noqa: ANN401 - filter DSL JSON tree
     if isinstance(tree, dict):
         if "field" in tree:
@@ -97,7 +116,7 @@ def available_measures(source: ReportingSource) -> dict[str, MeasureSpec]:
     out: dict[str, MeasureSpec] = {}
     for code, spec in measures_of(source.entity).items():
         names = [n for n in (spec.field, spec.start, spec.end, spec.minus) if n is not None]
-        names += _filter_fields(spec.where)
+        names += _filter_fields(spec.where) + _filter_fields(spec.of)
         if all(source.fields.get(n) is not None for n in names):
             out[code] = spec
     return out
@@ -136,12 +155,18 @@ def _measure_sql(
     spec: MeasureSpec, source: ReportingSource, now: datetime, path: str
 ) -> ColumnElement[Any]:
     if spec.kind in {MeasureKind.COUNT_WHERE, MeasureKind.RATE}:
-        matched = func.count().filter(
-            compile_filter(spec.where, source.fields, now=now, path=f"{path}.where")
-        )
+        where = compile_filter(spec.where, source.fields, now=now, path=f"{path}.where")
         if spec.kind == MeasureKind.COUNT_WHERE:
-            return matched
-        return case((func.count() == 0, None), else_=100.0 * cast(matched, Float) / func.count())
+            return func.count().filter(where)
+        # The share is of `of` when given (success of changes with an outcome), else of all; a
+        # group with none of them has no rate, never 0% and never a division by zero.
+        base: ColumnElement[Any] = func.count()
+        if spec.of is not None:
+            of = compile_filter(spec.of, source.fields, now=now, path=f"{path}.of")
+            base = func.count().filter(of)
+            where = and_(where, of)
+        matched = func.count().filter(where)
+        return case((base == 0, None), else_=100.0 * cast(matched, Float) / base)
     if spec.kind == MeasureKind.AVERAGE:
         return func.avg(_column(source, spec.field, path))
     if spec.kind == MeasureKind.TOTAL:
@@ -337,6 +362,7 @@ def compile_report(
     """Validate `definition` against `source` and build its queries (422 invalid_report)."""
     if definition.entity != source.entity:  # the caller picked the source by entity
         _invalid("entity", "unknown_entity")
+    check_withheld(definition, source)
     if definition.flow is not None:
         return compile_flow(definition, source, now=now, week_start=week_start)
     specs = _specs(definition, source)

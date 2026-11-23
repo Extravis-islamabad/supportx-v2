@@ -1,0 +1,73 @@
+# Staging laptop (D-169; docs/runbooks/staging-laptop.md), on top of values-single-node.yaml:
+#   helm upgrade --install supportx deploy/helm/supportx -n supportx \
+#     -f deploy/helm/supportx/values-single-node.yaml -f deploy/helm/supportx/values-staging.yaml \
+#     [-f /etc/supportx-staging/values-local.yaml]
+# A different LAN name goes in /etc/supportx-staging/values-local.yaml (publicUrl and
+# routing.hostnames), never in this file. Demo data only, never customer data.
+
+publicUrl: https://sx-staging.lan
+
+# Built on the laptop from the pulled source (make images) and imported into k3s; never pulled.
+# deploy/staging/nightly.sh sets the tag to the commit, so `helm rollback` returns to older images.
+images:
+  backend: {repository: supportx-backend, tag: dev, pullPolicy: Never}
+  worker: {repository: supportx-worker, tag: dev, pullPolicy: Never}
+  web: {repository: supportx-web, tag: dev, pullPolicy: Never}
+
+# The demo tenants and the dev realm's demo users (their passwords are in docs/dev-setup.md, so
+# the laptop stays on the LAN). Keycloak imports the realm only when it does not exist yet.
+app:
+  seedDevData: true
+
+keycloak:
+  realmImport: dev
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "2", memory: 1Gi}
+
+routing:
+  hostnames: [sx-staging.lan]
+  gateway:
+    tlsSecret: supportx-tls     # from the laptop's own CA (runbook step 4)
+
+# Laptop sizes (16 GB of memory). Volume sizes are fixed at the first install: they can grow
+# later, never shrink.
+api:
+  resources:
+    requests: {cpu: 250m, memory: 384Mi}
+    limits: {cpu: "2", memory: 1Gi}
+
+postgresql:
+  cnpg:
+    storage: {size: 30Gi}
+    walStorage: {size: 5Gi}
+    parameters:
+      shared_buffers: 512MB
+      effective_cache_size: 1536MB
+      max_connections: "200"
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {cpu: "2", memory: 2Gi}
+
+nats:
+  config:
+    jetstream:
+      fileStore:
+        pvc: {size: 5Gi}
+
+objectStorage:
+  seaweedfs:
+    storage: {size: 10Gi}
+
+clamav:
+  resources:
+    requests: {cpu: 100m, memory: 1Gi}
+    limits: {cpu: "1", memory: 2Gi}
+
+# Fixed at the first start (Temporal cannot change it later); a laptop needs few.
+temporal:
+  bundled:
+    historyShards: 4
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 1Gi}

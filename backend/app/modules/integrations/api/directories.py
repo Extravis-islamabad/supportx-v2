@@ -17,6 +17,7 @@ from app.core.authorization import require_permission
 from app.core.config import Settings
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.directory import EmailFrom, SyncScope
@@ -200,7 +201,7 @@ async def get_directory(
     status_code=status.HTTP_201_CREATED,
     response_model=DirectoryOut,
     responses=CONFLICT,
-    dependencies=[audited("directory.created", object_type="directory_connector")],
+    dependencies=[RecentAuth, audited("directory.created", object_type="directory_connector")],
 )
 async def create_directory(
     body: DirectoryIn,
@@ -226,7 +227,10 @@ async def create_directory(
     summary="Change a directory connector",
     responses=CONFLICT,
     dependencies=[
-        audited("directory.changed", object_type="directory_connector", object_param="directory_id")
+        RecentAuth,
+        audited(
+            "directory.changed", object_type="directory_connector", object_param="directory_id"
+        ),
     ],
 )
 async def update_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -258,7 +262,10 @@ async def update_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     status_code=status.HTTP_204_NO_CONTENT,
     responses=CONFLICT,
     dependencies=[
-        audited("directory.removed", object_type="directory_connector", object_param="directory_id")
+        RecentAuth,
+        audited(
+            "directory.removed", object_type="directory_connector", object_param="directory_id"
+        ),
     ],
 )
 async def remove_directory(

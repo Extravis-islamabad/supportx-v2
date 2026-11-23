@@ -119,6 +119,21 @@ jobs:
         if: ${{ env.DRAFT != 'true' && !cancelled() }}
         run: make licence-check
 
+  # Audit row 27: Semgrep with the repo's own rules (.semgrep.yml; image pinned in the Makefile).
+  # Not a required check yet: it reports on every ready PR, queue group and nightly run, and is
+  # made required once it has run cleanly for a while. Drafts skip it (fast checks only).
+  semgrep:
+    name: static analysis (Semgrep)
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan with the repo's rules
+        run: make semgrep
+
   trivy:
     name: filesystem scan (Trivy)
     runs-on: ubuntu-24.04

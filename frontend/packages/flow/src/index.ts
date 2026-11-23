@@ -3,10 +3,14 @@
 export {
   emptyDefinition,
   readDefinition,
+  readVariables,
+  VARIABLE_KINDS,
   type FlowDefinition,
   type FlowLinkDef,
   type FlowNodeDef,
   type FlowPosition,
+  type VariableKind,
+  type WorkflowVariable,
 } from './definition';
 export {
   INPUT,
@@ -18,7 +22,8 @@ export {
   type WorkflowNode,
   type WorkflowNodeData,
 } from './graph';
-export { COLUMN, ROW, layout, withLayout } from './layout';
+export { COLUMN, freeSpot, ROW, layout, withLayout } from './layout';
+export { stepNames, type StepName } from './names';
 export {
   HISTORY_LIMIT,
   canRedo,
@@ -31,3 +36,34 @@ export {
   type History,
 } from './history';
 export * from './canvas';
+export {
+  CI_MAP_LAYOUTS,
+  MAP_COLUMN,
+  MAP_NODE_HEIGHT,
+  MAP_NODE_WIDTH,
+  MAP_RING,
+  MAP_ROW,
+  isMapArrow,
+  layoutMap,
+  mirrored,
+  nextNode,
+  type CiMapLayout,
+  type MapArrow,
+  type MapLayoutInput,
+  type MapLink,
+  type MapPoint,
+} from './ciMap';
+export {
+  CSV_BOM,
+  csvCell,
+  mapCsv,
+  mapSvg,
+  toCsv,
+  xmlEscape,
+  type MapCsvEdge,
+  type MapCsvNode,
+  type MapCsvWords,
+  type SvgEdge,
+  type SvgMap,
+  type SvgNode,
+} from './ciExport';

@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { setErrorReporter } from './errors/reporter';
 import { cleanPastedHtml, RichTextField } from './richtext';
 import { renderUi } from './test/render';
 
@@ -125,6 +126,68 @@ describe('The rich-text editor (WP-020b)', () => {
     await waitFor(() => {
       expect(changed.mock.lastCall?.[0]).toContain('Hello there');
     });
+  });
+
+  it('inserts the text the server filled, once, where the click was (WP-046a S5a)', async () => {
+    const changed = vi.fn<(html: string) => void>();
+    let resolve: (html: string) => void = () => undefined;
+    const fill = vi.fn(
+      () =>
+        new Promise<string>((done) => {
+          resolve = done;
+        }),
+    );
+    renderUi(
+      <RichTextField
+        label="Reply"
+        onChange={changed}
+        templates={[{ id: 't1', name: 'Update', body: '<p>{{ record.title }}</p>', fill }]}
+        testId="ed"
+      />,
+    );
+    await screen.findByTestId('ed');
+    fireEvent.click(screen.getByTestId('rt-templates'));
+    fireEvent.click(await screen.findByText('Update'));
+    // While the server fills it, a second click does nothing.
+    fireEvent.click(screen.getByTestId('rt-templates'));
+    fireEvent.click(await screen.findByText('Update'));
+    expect(fill).toHaveBeenCalledTimes(1);
+    act(() => {
+      resolve('<p>Printer jammed</p>');
+    });
+    await waitFor(() => {
+      expect(changed.mock.lastCall?.[0]).toContain('Printer jammed');
+    });
+    expect(changed.mock.lastCall?.[0]).not.toContain('{{');
+  });
+
+  it('inserts nothing when filling fails, never the raw variables (WP-046a S5a)', async () => {
+    const changed = vi.fn<(html: string) => void>();
+    const refused = new Error('refused');
+    const reported = vi.fn();
+    const fill = vi.fn(() => Promise.reject(refused));
+    renderUi(
+      <RichTextField
+        label="Reply"
+        onChange={changed}
+        templates={[{ id: 't1', name: 'Update', body: '<p>{{ record.title }}</p>', fill }]}
+        testId="ed"
+      />,
+    );
+    await screen.findByTestId('ed');
+    // After the app's own reporter is mounted, so this one catches the report.
+    setErrorReporter(reported);
+    fireEvent.click(screen.getByTestId('rt-templates'));
+    fireEvent.click(await screen.findByText('Update'));
+    await waitFor(() => {
+      expect(fill).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(changed.mock.calls.some(([html]) => html.includes('record.title'))).toBe(false);
+    expect(reported).toHaveBeenCalledWith(refused);
+    setErrorReporter(null); // the next test's provider mounts its own
   });
 
   it('wraps text in a callout box of one of four kinds, only when asked (D-108 (9))', async () => {

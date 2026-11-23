@@ -3,8 +3,10 @@ import { App, Flex, Form, Input, Select, Space, Switch, Table, Typography } from
 import { useMemo, useState } from 'react';
 
 import {
+  useChangeSettingsChange,
   useChangeWindows,
   useCreateChangeWindow,
+  useStagedSettings,
   useRemoveChangeWindow,
   useUnits,
   useUpdateChangeWindow,
@@ -15,9 +17,12 @@ import { useTenantChannel } from '@supportx/realtime';
 import {
   DateTimeField,
   EditDrawer,
+  EmptyText,
   FormProblem,
   RowActions,
+  SettingsCard,
   SettingsPageHeader,
+  reportError,
   TimeZoneNote,
   ToneTag,
   TranslatedField,
@@ -38,6 +43,13 @@ const KINDS: Kind[] = ['freeze', 'maintenance'];
 const MODES: Mode[] = ['block', 'warn'];
 // D-156 (held for Haider): a new freeze blocks, a maintenance window warns.
 const DEFAULT_MODE: Record<Kind, Mode> = { freeze: 'block', maintenance: 'warn' };
+// D-156: weekly, or monthly on the Nth weekday ("first Sunday"; week 5 is the last).
+const REPEATS = ['none', 'weekly', 'monthly'] as const;
+type Repeat = (typeof REPEATS)[number];
+const WEEKS = [1, 2, 3, 4, 5] as const;
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const; // Monday .. Sunday, as the server counts
+// The list starts on the tenant's first day of the week (lane C's #384 review).
+const FIRST_WEEKDAY = { monday: 0, sunday: 6, saturday: 5 } as const;
 
 interface Draft {
   kind: Kind;
@@ -46,7 +58,9 @@ interface Draft {
   description: string;
   starts_at: string | null;
   ends_at: string | null;
-  repeat_weekly: boolean;
+  repeat: Repeat;
+  repeat_week: number | null;
+  repeat_weekday: number | null;
   repeat_until: string | null;
   site_ids: string[];
   group_ids: string[];
@@ -59,7 +73,9 @@ const fromWindow = (w: ChangeWindow | undefined): Draft => ({
   description: w?.description ?? '',
   starts_at: w?.starts_at ?? null,
   ends_at: w?.ends_at ?? null,
-  repeat_weekly: w?.repeat_weekly ?? false,
+  repeat: w?.repeat ?? 'none',
+  repeat_week: w?.repeat_week ?? null,
+  repeat_weekday: w?.repeat_weekday ?? null,
   repeat_until: w?.repeat_until ?? null,
   site_ids: w?.site_ids ?? [],
   group_ids: w?.group_ids ?? [],
@@ -73,7 +89,7 @@ function WindowEditor({
   onClose: () => void;
 }) {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, dates } = useAppearance();
   const { message } = App.useApp();
   const sites = useUnits('sites');
   const groups = useUnits('groups');
@@ -88,7 +104,12 @@ function WindowEditor({
     setDirty(true);
   };
   const name = (draft.labels.en ?? '').trim();
-  const ready = name !== '' && draft.starts_at !== null && draft.ends_at !== null;
+  const monthly = draft.repeat === 'monthly';
+  const ready =
+    name !== '' &&
+    draft.starts_at !== null &&
+    draft.ends_at !== null &&
+    (!monthly || (draft.repeat_week !== null && draft.repeat_weekday !== null));
   const body = (): ChangeWindowInput => ({
     kind: draft.kind,
     mode: draft.mode,
@@ -97,8 +118,11 @@ function WindowEditor({
     description: draft.description.trim() === '' ? null : draft.description.trim(),
     starts_at: draft.starts_at ?? '',
     ends_at: draft.ends_at ?? '',
-    repeat_weekly: draft.repeat_weekly,
-    repeat_until: draft.repeat_weekly ? draft.repeat_until : null,
+    repeat: draft.repeat,
+    repeat_weekly: draft.repeat === 'weekly', // kept in step for one release (0137)
+    repeat_week: monthly ? draft.repeat_week : null,
+    repeat_weekday: monthly ? draft.repeat_weekday : null,
+    repeat_until: draft.repeat === 'none' ? null : draft.repeat_until,
     site_ids: draft.site_ids,
     group_ids: draft.group_ids,
   });
@@ -206,18 +230,55 @@ function WindowEditor({
             />
           </Form.Item>
         </Flex>
-        <Space style={{ marginBottom: 16 }}>
-          <Switch
-            checked={draft.repeat_weekly}
-            onChange={(repeat_weekly) => {
-              set({ repeat_weekly });
-            }}
-            aria-label={t('changes.windows.weekly')}
-            data-testid="window-weekly"
-          />
-          <Typography.Text>{t('changes.windows.weekly')}</Typography.Text>
-        </Space>
-        {draft.repeat_weekly && (
+        <Flex gap={12} wrap>
+          <Form.Item label={t('changes.windows.repeat')} htmlFor="window-repeat">
+            <Select<Repeat>
+              id="window-repeat"
+              style={{ minWidth: 180 }}
+              value={draft.repeat}
+              onChange={(repeat) => {
+                set({ repeat });
+              }}
+              options={REPEATS.map((code) => ({ value: code, label: t(`window_repeat.${code}`) }))}
+              data-testid="window-repeat"
+            />
+          </Form.Item>
+          {monthly && (
+            <>
+              <Form.Item label={t('changes.windows.week')} required htmlFor="window-week">
+                <Select<number>
+                  id="window-week"
+                  style={{ minWidth: 140 }}
+                  value={draft.repeat_week ?? undefined}
+                  onChange={(repeat_week) => {
+                    set({ repeat_week });
+                  }}
+                  options={WEEKS.map((n) => ({ value: n, label: t(`window_week.${String(n)}`) }))}
+                  data-testid="window-week"
+                />
+              </Form.Item>
+              <Form.Item label={t('changes.windows.weekday')} required htmlFor="window-weekday">
+                <Select<number>
+                  id="window-weekday"
+                  style={{ minWidth: 160 }}
+                  value={draft.repeat_weekday ?? undefined}
+                  onChange={(repeat_weekday) => {
+                    set({ repeat_weekday });
+                  }}
+                  options={[
+                    ...WEEKDAYS.slice(FIRST_WEEKDAY[dates.weekStart]),
+                    ...WEEKDAYS.slice(0, FIRST_WEEKDAY[dates.weekStart]),
+                  ].map((n) => ({
+                    value: n,
+                    label: t(`window_weekday.${String(n)}`),
+                  }))}
+                  data-testid="window-weekday"
+                />
+              </Form.Item>
+            </>
+          )}
+        </Flex>
+        {draft.repeat !== 'none' && (
           <Form.Item
             label={t('changes.windows.until')}
             htmlFor="window-until"
@@ -318,6 +379,7 @@ export function ChangeWindowsPage() {
           )
         }
       />
+      <OutsideMaintenanceSetting editable={manage} />
       <Table<ChangeWindow>
         rowKey="id"
         loading={windows.isPending}
@@ -325,6 +387,8 @@ export function ChangeWindowsPage() {
         dataSource={windows.data ?? []}
         data-testid="windows-table"
         scroll={{ x: 820 }}
+        // A written empty state, never the generic picture (QA F-19).
+        locale={{ emptyText: <EmptyText>{t('changes.windows.none')}</EmptyText> }}
         columns={[
           { key: 'name', title: t('changes.windows.name'), render: (_, w) => nameOf(w) },
           {
@@ -347,11 +411,19 @@ export function ChangeWindowsPage() {
                 <span
                   style={{ whiteSpace: 'nowrap' }}
                 >{`${format(w.starts_at)} – ${format(w.ends_at)}`}</span>
-                {w.repeat_weekly && (
+                {w.repeat === 'weekly' && (
                   <Typography.Text type="secondary">
                     {w.repeat_until
                       ? t('changes.windows.weekly_until', { date: format(w.repeat_until) })
                       : t('changes.windows.weekly')}
+                  </Typography.Text>
+                )}
+                {w.repeat === 'monthly' && w.repeat_week !== null && w.repeat_weekday !== null && (
+                  <Typography.Text type="secondary" data-testid={`window-monthly-${w.id}`}>
+                    {t('changes.windows.monthly_on', {
+                      week: t(`window_week.${String(w.repeat_week)}`),
+                      day: t(`window_weekday.${String(w.repeat_weekday)}`),
+                    })}
                   </Typography.Text>
                 )}
               </Space>
@@ -417,5 +489,46 @@ export function ChangeWindowsPage() {
         />
       )}
     </Flex>
+  );
+}
+
+/**
+ * D-156: whether a change outside every maintenance window is refused instead of warned (the
+ * tenant's choice; off by default). Saved at once with the settings' If-Match; audited.
+ */
+function OutsideMaintenanceSetting({ editable }: { editable: boolean }) {
+  const t = useLabel();
+  const { message } = App.useApp();
+  const settings = useStagedSettings('changes');
+  const change = useChangeSettingsChange();
+  const current = settings.data;
+  if (current === undefined) return null;
+  return (
+    <SettingsCard title={t('changes.windows.rules')} testId="windows-rules">
+      <Flex gap={12} align="flex-start">
+        <Switch
+          checked={current.outside_maintenance_blocks}
+          disabled={!editable}
+          loading={change.isPending}
+          onChange={(on) => {
+            change.mutate(
+              { body: { outside_maintenance_blocks: on }, version: current.version },
+              {
+                onSuccess: () => void message.success(t('settings.saved')),
+                onError: reportError,
+              },
+            );
+          }}
+          aria-label={t('changes.windows.outside_blocks')}
+          data-testid="windows-outside-blocks"
+        />
+        <Flex vertical gap={2}>
+          <Typography.Text>{t('changes.windows.outside_blocks')}</Typography.Text>
+          <Typography.Text type="secondary">
+            {t('changes.windows.outside_blocks_help')}
+          </Typography.Text>
+        </Flex>
+      </Flex>
+    </SettingsCard>
   );
 }

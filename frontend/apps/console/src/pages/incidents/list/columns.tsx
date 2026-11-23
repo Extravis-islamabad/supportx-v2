@@ -9,10 +9,17 @@ import type {
   ListColumn,
   ReportField,
 } from '@supportx/api-client';
-import { CellText, ChannelIcon, type useDateTime } from '@supportx/ui';
+import {
+  CellText,
+  ChannelIcon,
+  RestrictedValue,
+  restrictionOf,
+  type useDateTime,
+} from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
 import { closureCodeLabel, personName } from '../labels';
+import { MajorTag } from '../MajorIncident';
 import { PriorityTag, SlaTag, StatusTag } from '../tags';
 
 // The columns the incident list can show (REQ-INC-104): its own columns, more built-in fields and
@@ -81,7 +88,13 @@ const OWN: ColumnSpec[] = [
     width: 240,
     title: field('subject'),
     // The whole subject is the tooltip, and it reads in its own direction (QA BUG-12, BUG-16).
-    render: (row) => <CellText title={row.subject}>{row.subject}</CellText>,
+    // A major incident's marker before the subject (REQ-INC-141), live with the list.
+    render: (row) => (
+      <CellText title={row.subject}>
+        {row.major && <MajorTag major />}
+        {row.subject}
+      </CellText>
+    ),
   },
   {
     key: 'requester_id',
@@ -212,7 +225,17 @@ export function columnCatalogue(fields: IncidentListField[]): Map<string, Column
       sortField: spec.sortable ? name : undefined,
       width: spec.type === 'datetime' ? 170 : 160,
       title: field(name),
-      render: (row, c) => fieldCell(spec, rowValue(row, name), c),
+      render: (row, c) => {
+        // A value the person's roles withhold says so, in the cell's own direction (ADR-047).
+        const restricted = restrictionOf(row, name);
+        return restricted === undefined ? (
+          fieldCell(spec, rowValue(row, name), c)
+        ) : (
+          <CellText title={c.t(`layout.restricted_${restricted}`)}>
+            <RestrictedValue kind={restricted} />
+          </CellText>
+        );
+      },
     });
   }
   return new Map(specs.map((s) => [s.key, s]));

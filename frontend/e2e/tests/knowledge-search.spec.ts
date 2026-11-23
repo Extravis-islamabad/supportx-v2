@@ -70,7 +70,7 @@ async function publish(tech: Page, admin: Page, topic: string, title: string): P
   return id;
 }
 
-test('palette, vote with live feedback, suggestions beside a form that never moves (en)', async ({
+test('palette, vote with live feedback, suggestions beside a form that never moves (en) @smoke', async ({
   browser,
 }) => {
   const admin = await open(browser, '/knowledge', 'admin');

@@ -9,6 +9,7 @@ from pydantic import SecretStr
 
 from app.core.config import Settings
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
+from app.modules.identity_access.service.federation import FederationFailed, put_ldap_federation
 
 BASE = "http://keycloak.test/auth"
 
@@ -143,3 +144,28 @@ async def test_federated_users_are_read_page_by_page_and_only_the_components() -
     assert [u["id"] for u in found] == ["u1", "u4", "u5"]
     assert sum(c.endswith("/users") for c in realm.calls) == 3  # 2 + 2 + 1
     await admin.close()
+
+
+async def test_member_tenants_of_a_deleted_user_is_empty_not_an_error() -> None:
+    """An erasure resumed after its delete_user (ADR-052 step 3) asks again: no tenant, no 404."""
+    admin = _admin(FakeRealm())
+    try:
+        assert await admin.member_tenants("gone-user-id") == []
+    finally:
+        await admin.close()
+
+
+async def test_d177_a_multi_tenant_realm_never_gets_a_directory() -> None:
+    """D-118/D-177: refused before Keycloak is touched (no client made, no call sent)."""
+    settings = Settings.load(
+        env_file=None, profile="test", oidc_issuer="http://kc.test/auth/realms/supportx"
+    ).model_copy(
+        update={"keycloak_federation_client_secret": SecretStr("s" * 24), "multi_tenant": True}
+    )
+
+    def never(_realm: str) -> dict[str, Any]:  # Any: Keycloak's JSON
+        raise AssertionError
+
+    with pytest.raises(FederationFailed) as refused:
+        await put_ldap_federation(settings, component=never, mappers=lambda _c: [])
+    assert refused.value.code == "ldap_single_tenant_only"

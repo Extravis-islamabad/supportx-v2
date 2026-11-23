@@ -18,7 +18,7 @@ from app.modules.work_items.domain.changes import REVIEW_SECTIONS
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemLink
-from app.modules.work_items.service import parts
+from app.modules.work_items.service import custom_values, parts, release_links
 from app.modules.work_items.service import work_items as items
 from app.shared.history import Source
 
@@ -94,7 +94,8 @@ async def copy_change(  # noqa: PLR0913 - the copy and its context, explicit
     wtype = TYPES[WorkItemTypeCode.CHANGE]
     original = await items.visible_record(session, subject, wtype, record_id)
     values: dict[str, Any] = {n: getattr(original, n) for n in items.COPIED_FIELDS}
-    values["custom"] = dict(original.custom or {})
+    # Sealed values are bound to the original: opened here, sealed again under the new change.
+    values["custom"] = await custom_values.opened(session, original.id, original.custom)
     own = await items.details(session, subject, wtype, original.id)
     if own.details is not None:
         values |= {n: getattr(own.details, n) for n in ("change_type", "change_reason")}
@@ -217,13 +218,10 @@ async def add_child(
         raise items.field_errors([("child_id", "cannot_link_itself")])
     if await _parent_of(session, child.id) is not None:
         raise items.field_errors([("child_id", "already_linked")])
-    ancestor = await _parent_of(session, change.id)
-    seen = {change.id}
-    while ancestor is not None and ancestor not in seen:
-        if ancestor == child.id:
-            raise items.field_errors([("child_id", "change_would_loop")])
-        seen.add(ancestor)
-        ancestor = await _parent_of(session, ancestor)
+    # No loop through any holding link (lane C's walk, #386): a release that holds this change
+    # (in_release), a sub-release chain, or a parent change chain (part_of_change).
+    if await release_links.holds(session, child.id, change.id):
+        raise items.field_errors([("child_id", "change_would_loop")])
     link = await parts.LinkRepository(session).add(
         WorkItemLink(source_id=child.id, target_id=change.id, kind=LinkKind.PART_OF_CHANGE.value)
     )

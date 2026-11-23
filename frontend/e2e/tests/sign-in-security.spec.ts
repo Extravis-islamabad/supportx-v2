@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { actionLink, mailTo, privateWindow, setPassword } from '../mail';
 import { keycloakAdmin, keycloakUserId, passwordOf, PORTAL_URL, USERS } from '../stack';
 import { nextStep, totp } from '../totp';
-import { expectAccessible, signInAs } from './helpers';
+import { expectAccessible, FIRST_LOAD_AFTER_SIGN_IN_MS, signInAs } from './helpers';
 
 /**
  * WP-039 session 3, against the Compose stack's Keycloak and mail catcher:
@@ -189,7 +189,9 @@ test('required MFA: set up at the next sign-in, codes and recovery, reset by an 
     expect(codes.length).toBeGreaterThan(1);
     await person.locator('#kcRecoveryCodesConfirmationCheck').check();
     await person.locator('#saveRecoveryAuthnCodesBtn').click();
-    await expect(person.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(person.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
     // My account opens without any code and shows MFA on.
     await person.goto(`${PORTAL_URL}/account`);
     await expect(person.getByTestId('account-mfa-state')).toHaveText('On');
@@ -205,7 +207,9 @@ test('required MFA: set up at the next sign-in, codes and recovery, reset by an 
     await nextStep(); // the enrolment just used this step's code: a used code is refused
     await again.locator('#otp').fill(totp(secret));
     await again.locator('#kc-login').click();
-    await expect(again.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(again.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
     await again.context().close();
 
     // A recovery code instead of the app, once.
@@ -220,7 +224,10 @@ test('required MFA: set up at the next sign-in, codes and recovery, reset by an 
         .click();
       await lost.locator('#recoveryCodeInput').fill(codes[0] ?? '');
       await lost.locator('#kc-login').click();
-      if (round === 1) await expect(lost.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
+      if (round === 1)
+        await expect(lost.getByTestId('user-menu')).toBeVisible({
+          timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+        });
       else await expect(lost.getByText(/invalid recovery authentication code/i)).toBeVisible();
       await lost.context().close();
     }
@@ -276,7 +283,7 @@ test('an admin is never offered a reset of their own MFA', async ({ page }) => {
   await expect(page.getByTestId('person-reset-mfa')).toHaveCount(0);
 });
 
-test('a new incident keeps what was typed through the end of the session (REQ-SEC-029 AC2)', async ({
+test('a new incident keeps what was typed through the end of the session (REQ-SEC-029 AC2) @smoke', async ({
   page,
 }) => {
   await signInAs(page, 'admin', '/incidents/new');

@@ -15,6 +15,7 @@ from app.core.errors import Conflict, FieldError, ValidationFailed, message_key_
 from app.modules.audit.domain.catalogue import ALWAYS_LOGGED_READS, DEFAULT_READS, ReadCategory
 from app.modules.audit.events import AuditSettingsChanged
 from app.modules.audit.infra.models import AuditSettings
+from app.modules.licensing import Feature, require_feature
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
 
@@ -26,11 +27,16 @@ RETENTION_MAX_DAYS = 10 * 365
 READ_WINDOW_DEFAULT = 10
 REFUSAL_THRESHOLD_DEFAULT = 10
 REFUSAL_WINDOW_DEFAULT = 10
+# REQ-AUD-016 (WP-057 S5b): the system log's own retention (system_log_purge never goes under 30).
+SYSTEM_LOG_RETENTION_DEFAULT = 90
+SYSTEM_LOG_RETENTION_MIN = 30
+SYSTEM_LOG_RETENTION_MAX = 730
 LIMITS: dict[str, tuple[int, int]] = {
     "retention_days": (RETENTION_MIN_DAYS, RETENTION_MAX_DAYS),
     "read_window_minutes": (1, 1440),
     "refusal_threshold": (3, 1000),
     "refusal_window_minutes": (1, 1440),
+    "system_log_retention_days": (SYSTEM_LOG_RETENTION_MIN, SYSTEM_LOG_RETENTION_MAX),
 }
 
 if TYPE_CHECKING:
@@ -47,6 +53,9 @@ class AuditSettingsView:
     refusal_window_minutes: int
     read_categories: tuple[str, ...]
     version: int
+    # REQ-AUD-017: log views and exports of personal data (off until a tenant admin turns it on).
+    personal_data_log: bool = False
+    system_log_retention_days: int = SYSTEM_LOG_RETENTION_DEFAULT
 
     def values(self) -> dict[str, object]:
         """The editable values, for history and the audit entry."""
@@ -56,6 +65,8 @@ class AuditSettingsView:
             "refusal_threshold": self.refusal_threshold,
             "refusal_window_minutes": self.refusal_window_minutes,
             "read_categories": list(self.read_categories),
+            "personal_data_log": self.personal_data_log,
+            "system_log_retention_days": self.system_log_retention_days,
         }
 
 
@@ -79,6 +90,8 @@ def _view(row: AuditSettings | None) -> AuditSettingsView:
         refusal_window_minutes=row.refusal_window_minutes,
         read_categories=tuple(sorted(row.read_categories)),
         version=row.version,
+        personal_data_log=row.personal_data_log,
+        system_log_retention_days=row.system_log_retention_days,
     )
 
 
@@ -100,6 +113,8 @@ def _validate(changes: dict[str, object]) -> list[FieldError]:
                     FieldError(field=f"body.{name}", code=code, message_key=_field_key(code))
                 )
             continue
+        if name == "personal_data_log":
+            continue  # a bool, typed by the API schema
         low, high = LIMITS[name]
         if not isinstance(value, int) or not low <= value <= high:
             code = "out_of_range"
@@ -132,6 +147,10 @@ async def update_settings(
     errors = _validate(changes)
     if errors:
         raise ValidationFailed(errors=errors)
+    if changes.get("personal_data_log") is True:
+        # REQ-AUD-017 is Professional: turning the log on needs the feature (entitlements only).
+        context_: TenantContext = session.info[SESSION_TENANT_KEY]
+        await require_feature(context_.tenant_id, Feature.PERSONAL_DATA_LOG)
     row = await session.scalar(select(AuditSettings).with_for_update())
     before = _view(row)
     if before.version != expected_version:
@@ -153,6 +172,8 @@ async def update_settings(
     row.refusal_threshold = after.refusal_threshold
     row.refusal_window_minutes = after.refusal_window_minutes
     row.read_categories = list(after.read_categories)
+    row.personal_data_log = after.personal_data_log
+    row.system_log_retention_days = after.system_log_retention_days
     row.version = after.version
     row.updated_by = context.user_id
     await session.flush()

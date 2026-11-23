@@ -107,6 +107,45 @@ describe('Admin › SLA › Policies', () => {
     expect(document.body.textContent).not.toMatch(/around_the_clock|first_response|\bp1\b/);
   });
 
+  it('REQ-CHG-107: every SLA type has its policies here; changes start with none and say so', async () => {
+    const CHANGES = '/api/v1/sla/record-types/change/policies';
+    window.history.pushState({}, '', '/admin/sla/policies');
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...ROUTES,
+        [`GET ${CHANGES}`]: {
+          body: [policy({ id: 'pol-change', record_type: 'change', targets: [] })],
+        },
+        [`POST ${CHANGES}`]: { status: 201, body: policy({ record_type: 'change' }) },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('sla-policies');
+    expect(screen.queryByTestId('sla-policies-no-targets')).toBeNull(); // incidents have targets
+    const picker = screen.getByTestId('sla-policy-type').querySelector('.ant-select-selector');
+    if (picker === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(picker);
+    for (const name of ['Service request', 'Problem']) {
+      expect(await screen.findByTitle(name)).toBeTruthy();
+    }
+    fireEvent.click(await screen.findByTitle('Change'));
+    expect((await screen.findByTestId('sla-policies-no-targets')).textContent).toContain(
+      'No Change has an SLA yet',
+    );
+    fireEvent.click(screen.getByTestId('sla-policy-add'));
+    fireEvent.change(await screen.findByTestId('sla-policy-name'), {
+      target: { value: 'Change completion' },
+    });
+    fireEvent.change(screen.getByTestId('sla-target-amount-resolution-p1'), {
+      target: { value: '8' },
+    });
+    fireEvent.click(screen.getByTestId('sla-policy-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', CHANGES)).toHaveLength(1);
+    });
+  });
+
   it('moves a policy down with the keyboard-reachable button', async () => {
     window.history.pushState({}, '', '/admin/sla/policies');
     const fake = api({

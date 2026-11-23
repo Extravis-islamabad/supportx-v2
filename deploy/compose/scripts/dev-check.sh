@@ -16,7 +16,7 @@ set -a
 source "$env_file"
 set +a
 
-compose=(docker compose --project-directory "$here" -f "$here/docker-compose.yml" --profile full)
+compose=("$here/scripts/compose.sh" --profile full)
 running="$("${compose[@]}" ps --status running --services 2>/dev/null)"
 
 results=()

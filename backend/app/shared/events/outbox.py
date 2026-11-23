@@ -33,6 +33,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import SESSION_TENANT_KEY, TenantContextMissingError
 from app.core.request_context import current_request_id
 from app.core.tenancy import TenantContext
+from app.shared.db.deferred import deferred
 from app.shared.db.models import Base, TenantScoped, Timestamps
 from app.shared.events.envelope import Actor, DomainEvent, EventEnvelope
 from app.shared.events.registry import active_registry
@@ -160,16 +161,18 @@ async def record_event(  # noqa: PLR0913 - keyword-only envelope fields, most op
         traceparent=_traceparent(),
         payload=event.model_dump(mode="json"),
     )
+    values = {
+        "id": envelope.event_id,
+        "tenant_id": envelope.tenant_id,
+        "event_type": envelope.event_type,
+        "schema_version": envelope.schema_version,
+        "aggregate_type": envelope.aggregate_type,
+        "aggregate_id": envelope.aggregate_id,
+        "envelope": envelope.model_dump(mode="json"),
+    }
+    if (buffer := deferred(session)) is not None:  # an import batch: one INSERT for all (step B)
+        buffer.add_values(OutboxEvent.__table__, values)
+        return envelope
     # Core INSERT without RETURNING: the app role has no SELECT on this table.
-    await session.execute(
-        insert(OutboxEvent).values(
-            id=envelope.event_id,
-            tenant_id=envelope.tenant_id,
-            event_type=envelope.event_type,
-            schema_version=envelope.schema_version,
-            aggregate_type=envelope.aggregate_type,
-            aggregate_id=envelope.aggregate_id,
-            envelope=envelope.model_dump(mode="json"),
-        )
-    )
+    await session.execute(insert(OutboxEvent).values(**values))
     return envelope

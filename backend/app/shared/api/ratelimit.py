@@ -16,8 +16,17 @@ Budgets come from a `RateLimitPolicyProvider`. The default reads SUPPORTX_RATE_L
 install a provider that raises them by licence tier (entitlement interface) without touching any
 endpoint. If Valkey is unreachable the request is allowed and a warning is logged: losing rate
 limiting briefly is better than losing the API.
+
+Routes with nobody signed in (the sign-in flow, public branding, e-mailed action links) have no
+user or tenant to count against: `ip_rate_limit` counts per client address instead, with its
+budget set where the route is declared. The address is the one uvicorn already resolved through
+the trusted proxies (`api.trustedProxies`, app/core/proxies.py), never a raw X-Forwarded-For, so
+a client cannot pick its own. The sign-in routes fail closed (audit row 14): with Valkey down they
+answer 503 instead of running unlimited. Everything else keeps failing open.
 """
 
+import hashlib
+import ipaddress
 import time
 import uuid
 from dataclasses import dataclass
@@ -27,7 +36,7 @@ import valkey.exceptions
 from fastapi import Depends, Request, Response
 
 from app.core.config import Settings
-from app.core.errors import RateLimited
+from app.core.errors import VALKEY_RETRY_AFTER, AppError, RateLimited, ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext, resolve_tenant
 
@@ -41,6 +50,12 @@ local function hit(key, ttl)
   return count
 end
 return {hit(KEYS[1], ARGV[1]), hit(KEYS[2], ARGV[1])}
+"""
+# One counter: a client address's (ip_rate_limit). A list, like the script above.
+_ONE_SCRIPT = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return {count}
 """
 
 
@@ -137,6 +152,127 @@ class RateLimiter:
             reset_seconds=reset,
             window_seconds=policy.window_seconds,
         )
+
+    async def hit_address(
+        self, group: str, address: str, limit: int, window_seconds: int
+    ) -> Decision:
+        """Count one request from a client address against `limit` per `window_seconds`.
+
+        Its own key space (`rlip:`), so it never shares a counter with a user's or tenant's. The
+        address is hashed: Valkey keys are listed by operators, and an IP address is personal data.
+        IPv6 addresses count per /64 (`address_bucket`).
+        """
+        now = self.clock()
+        window = int(now // window_seconds)
+        reset = max(1, int((window + 1) * window_seconds - now))
+        subject = hashlib.sha256(address_bucket(address).encode()).hexdigest()[:32]
+        (count,) = await self.client.eval(
+            _ONE_SCRIPT, 1, f"{self.prefix}rlip:{group}:{window}:{subject}", reset + 1
+        )
+        left = limit - int(count)
+        return Decision(
+            allowed=left >= 0,
+            limit=limit,
+            remaining=max(0, left),
+            reset_seconds=reset,
+            window_seconds=window_seconds,
+        )
+
+
+@dataclass(frozen=True)
+class AddressLimit:
+    """One request's count against its address budget (`ip_rate_limit`).
+
+    `refusal`: the error to answer with, or None when allowed. `headers`: the RateLimit-* headers
+    for the response. A route that returns its own Response object (a redirect) must copy them
+    on, since FastAPI only merges the injected response's headers into a returned value.
+    """
+
+    refusal: AppError | None
+    headers: dict[str, str]
+
+
+async def _address_outcome(
+    request: Request, group: str, limit: int, window_seconds: int, fail_closed_code: str | None
+) -> AddressLimit:
+    limiter: RateLimiter | None = getattr(request.app.state, RATE_LIMITER_STATE, None)
+    if limiter is None:
+        return AddressLimit(None, {})  # disabled, or no Valkey configured
+    try:
+        decision = await limiter.hit_address(group, client_address(request), limit, window_seconds)
+    except (valkey.exceptions.ValkeyError, OSError):
+        log.warning("rate_limit_unavailable", group=group, fail_closed=bool(fail_closed_code))
+        if fail_closed_code is None:
+            return AddressLimit(None, {})
+        refusal = ServiceUnavailable(
+            code=fail_closed_code, headers={"Retry-After": VALKEY_RETRY_AFTER}
+        )
+        return AddressLimit(refusal, {})
+    if decision.allowed:
+        return AddressLimit(None, decision.headers())
+    limited = RateLimited(
+        params={"retry_after_seconds": decision.reset_seconds}, headers=decision.headers()
+    )
+    return AddressLimit(limited, {})
+
+
+IPV6_BUCKET_PREFIX = 64  # one customer's network: a home or office gets a whole /64 (RFC 6177)
+
+
+def address_bucket(address: str) -> str:
+    """What an address counts as: itself for IPv4, its /64 network for IPv6.
+
+    One IPv6 client holds a whole /64 and can pick a new address for every request; counted
+    per address it would never be limited. An IPv4-mapped address (::ffff:192.0.2.1) counts as
+    the IPv4 address. Anything that is not an address ("unknown") counts as itself.
+    """
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network(f"{ip}/{IPV6_BUCKET_PREFIX}", strict=False))
+    return str(ip)
+
+
+def client_address(request: Request) -> str:
+    """The client's address as uvicorn resolved it through the trusted proxies only."""
+    return request.client.host if request.client else "unknown"
+
+
+def ip_rate_limit(
+    group: str,
+    limit: int,
+    *,
+    window_seconds: int = 60,
+    fail_closed_code: str | None = None,
+    defer: bool = False,
+) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
+    """Dependency counting per client address, for routes with nobody signed in.
+
+    `limit` requests per `window_seconds` from one address; then 429 `rate_limited` with
+    Retry-After. RateLimit-* headers as `rate_limit`, on routes that return a value; a route that
+    builds its own Response object gets them only if it copies them on (see `AddressLimit`).
+
+    `fail_closed_code`: with Valkey unreachable, refuse with 503 and this (labelled) code instead
+    of letting the request through. Only for the sign-in routes (audit row 14): they hit Valkey
+    anyway (the login state lives there), so failing open would buy nothing but a flood.
+
+    `defer`: return the refusal (in the `AddressLimit` it yields) instead of raising it, for a
+    route that answers it itself (the sign-in routes send a browser back to its app with a label
+    code, never a JSON page).
+    """
+
+    async def dependency(request: Request, response: Response) -> AddressLimit:
+        outcome = await _address_outcome(request, group, limit, window_seconds, fail_closed_code)
+        if outcome.refusal is not None and not defer:
+            raise outcome.refusal
+        response.headers.update(outcome.headers)
+        return outcome
+
+    return dependency
 
 
 def rate_limit(group: str) -> Any:  # noqa: ANN401 - returns a FastAPI dependency

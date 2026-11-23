@@ -4,3 +4,6 @@
 *.tmp
 .git/
 tests/golden/
+# In the backend image instead (templates/keycloak.yaml): a Helm release is one Secret of at most
+# 1 MiB, and this 456 KB list took more than half of it (Cluster run 43345912681).
+files/keycloak/password-blacklists/supportx-breached.txt

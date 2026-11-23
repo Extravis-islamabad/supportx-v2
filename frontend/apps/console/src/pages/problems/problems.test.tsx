@@ -5,7 +5,7 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../App';
 import { clickAction } from '../../test/actions';
-import { consoleApi, problem } from '../../test/api';
+import { consoleApi, problem, listCalls } from '../../test/api';
 
 // WP-044a s5: problems in the console: the list, creating one from an incident (prefilled, with
 // similar problems), and the record with the guided steps and investigators. WP-044b s1: the
@@ -109,24 +109,23 @@ describe('console: problems', () => {
     // QA 2026-11-10: the list asks for the view the selector shows, from its first request on
     // (no view meant every problem, a closed one under "All open (7)").
     expect(
-      fake.find('GET', '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
+      listCalls(fake, '/api/v1/problems').map((c) => c.url.searchParams.get('view')),
     ).not.toContain(null);
-    expect(fake.find('GET', '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
+    expect(listCalls(fake, '/api/v1/problems')[0]?.url.searchParams.get('view')).toBe('all_open');
     const selector = screen.getByTestId('prb-view').querySelector('.ant-select-selector');
     if (selector === null) throw new Error('not an Ant Design Select');
     fireEvent.mouseDown(selector);
     fireEvent.click(await screen.findByText('Known errors (0)'));
     await waitFor(() => {
       expect(
-        fake
-          .find('GET', '/api/v1/problems')
-          .some((c) => c.url.searchParams.get('view') === 'known_errors'),
+        listCalls(fake, '/api/v1/problems').some(
+          (c) => c.url.searchParams.get('view') === 'known_errors',
+        ),
       ).toBe(true);
     });
     fireEvent.change(screen.getByTestId('prb-search'), { target: { value: 'PRB-7' } });
     await waitFor(() => {
-      const sent = fake
-        .find('GET', '/api/v1/problems')
+      const sent = listCalls(fake, '/api/v1/problems')
         .map((c) => c.url.searchParams.get('filter'))
         .filter((f): f is string => f !== null);
       expect(sent.some((f) => f.includes('"display_number"') && f.includes('7'))).toBe(true);
@@ -307,8 +306,15 @@ describe('console: problems', () => {
       },
     });
     render(<App />);
+    // Wait on state, not time (lane B's report, merge-group run 43023204885): the prefill has
+    // filled the form, and the tick is in the form, before Create is pressed.
+    await screen.findByDisplayValue('Mail is down');
     const caused = await screen.findByTestId('prb-already-caused');
-    fireEvent.click(within(caused).getByRole('checkbox'));
+    const move = within(caused).getByRole('checkbox');
+    fireEvent.click(move);
+    await waitFor(() => {
+      expect((move as HTMLInputElement).checked).toBe(true);
+    });
     fireEvent.click(screen.getByTestId('prb-create'));
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/problems/from-incidents')).toHaveLength(1);
@@ -522,6 +528,34 @@ describe('console: problems', () => {
       expect(undo?.headers.get('If-Match')).toBe('"1"');
       expect(fake.calls.some((c) => c.method === 'DELETE' && c.path.endsWith(INC_ID))).toBe(true);
     });
+  });
+
+  it('lane C WP-058b: the release that caused the problem shows, opening the release', async () => {
+    window.history.pushState({}, '', `/problems/${PRB_ID}`);
+    const REL_ID = '01a1a2b3-0000-7000-8000-00000000e101';
+    api({
+      [`GET /api/v1/problems/${PRB_ID}/links`]: {
+        body: [
+          {
+            id: crypto.randomUUID(),
+            kind: 'caused_by_release',
+            relation: 'caused_by_release',
+            other_id: REL_ID,
+            other_type: 'release',
+            other_display_id: 'REL-12',
+            other_subject: 'Mail gateway upgrade',
+            other_known_error: false,
+            comment: null,
+            version: 1,
+            created_at: '2026-11-12T09:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<App />);
+    const section = await screen.findByTestId('prb-releases');
+    expect(section.textContent).toContain('Caused by release');
+    expect(within(section).getByRole('link').getAttribute('href')).toBe(`/releases/${REL_ID}`);
   });
 
   it('known error: the marker, one action that flips in place, and removing asks a reason', async () => {

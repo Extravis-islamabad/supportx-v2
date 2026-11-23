@@ -34,7 +34,9 @@ class CheckResponse(BaseModel):
     reason: FailureReason | None = Field(default=None, description="Why it failed, if it did.")
     critical: bool = Field(
         default=True,
-        description="False for informational checks (event workers): they never cause a 503.",
+        description=(
+            "False for informational checks (event workers, Keycloak): they never cause a 503."
+        ),
     )
 
 
@@ -86,12 +88,13 @@ async def get_ready(
     response: Response,
     service: Annotated[ReadinessService, Depends(get_readiness_service)],
 ) -> ReadinessResponse:
-    """Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
+    """Return 200 when PostgreSQL, Valkey and NATS all answer within the timeout.
 
-    Otherwise 503, naming the failing dependency with a reason code. The outbox relay, the
-    consumer worker and the realtime fan-out are reported from their heartbeats (`outbox_relay`,
-    `event_consumers`, `realtime_fanout`) but are informational: when they are down the response
-    lists them under `degraded`, still 200.
+    Otherwise 503, naming the failing dependency with a reason code. Keycloak (`keycloak`) is
+    informational (ADR-051): people already signed in keep working without it, so when it does
+    not answer the response lists it under `degraded`, still 200, and only new sign-ins wait.
+    The outbox relay, the consumer worker and the realtime fan-out are reported from their
+    heartbeats (`outbox_relay`, `event_consumers`, `realtime_fanout`) and are informational too.
     """
     report = await service.check()
     if not report.ready:

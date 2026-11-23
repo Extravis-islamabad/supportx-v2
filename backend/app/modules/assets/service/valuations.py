@@ -24,6 +24,7 @@ from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.assets.domain.financials import (
+    DEFAULT_FACTOR,
     CostSummary,
     ResolvedTerms,
     ScheduleYear,
@@ -38,11 +39,14 @@ from app.modules.assets.infra.models import (
     AssetCost,
     AssetDisposal,
     AssetProduct,
+    AssetProductType,
     AssetSettings,
     AssetValuation,
 )
+from app.modules.assets.service.memo import memo
 from app.modules.organization import regional_defaults
 from app.shared.clock import system_clock
+from app.shared.db.deferred import deferred
 
 log = get_logger(__name__)
 
@@ -77,7 +81,10 @@ async def today(session: AsyncSession) -> date:
     Accounting periods are local: a Karachi tenant's month ends at midnight in Karachi, not five
     hours later, so book values, their month proration and the daily valuation follow this day.
     """
-    zone = (await regional_defaults(session, None)).time_zone
+    known = memo(session)  # read once per transaction (S4c: an import values every asset)
+    if "time_zone" not in known:
+        known["time_zone"] = (await regional_defaults(session, None)).time_zone
+    zone: str | None = known["time_zone"]
     return system_clock.now().astimezone(_zone(zone)).date()
 
 
@@ -122,16 +129,22 @@ async def figures(
     *,
     on: date | None = None,
     lines: list[AssetCost] | None = None,
+    new: bool = False,
 ) -> Figures:
-    """The asset's totals, depreciation in effect and book value on `on` (today)."""
+    """The asset's totals, depreciation in effect and book value on `on` (today).
+
+    `new`: the asset was made in this transaction, so it has no cost lines or disposal to read.
+    """
     on = on or await today(session)
+    if new:
+        lines = []
     lines = await lines_of(session, row.id) if lines is None else lines
     purchase = await _purchase(session, row)
-    disposal = await session.scalar(
+    disposal = None if new else await session.scalar(
         select(AssetDisposal.cost).where(
             AssetDisposal.asset_id == row.id, AssetDisposal.deleted_at.is_(None)
         )
-    )
+    )  # fmt: skip
     # The disposal record's own cost (REQ-AST-017) is the only disposal cost: counted once.
     summary = summarize(purchase, [line.amount for line in lines], disposal)
     product = await session.get(AssetProduct, row.product_id)
@@ -143,12 +156,15 @@ async def figures(
         product_life=None if product is None else product.useful_life_years,
         product_salvage=None if product is None else product.salvage_value,
     )
+    kind = await session.get(AssetProductType, row.product_type_id)
     applied = Terms(
         method=terms.method,
         cost=purchase or Decimal(0),
         starts_on=row.acquired_on,
         life_years=terms.life_years,
         salvage=terms.salvage or Decimal(0),
+        # Declining balance's factor is the product type's (D-157; 2 unless it sets one).
+        factor=DEFAULT_FACTOR if kind is None else kind.depreciation_factor,
     )
     return Figures(
         summary=summary,
@@ -161,14 +177,23 @@ async def figures(
     )
 
 
-async def refresh(session: AsyncSession, row: Asset, *, on: date | None = None) -> None:
-    """Write the asset's valuation as it is now (in the caller's transaction)."""
-    found = await figures(session, row, on=on)
+async def refresh(
+    session: AsyncSession, row: Asset, *, on: date | None = None, new: bool = False
+) -> None:
+    """Write the asset's valuation as it is now (in the caller's transaction; `new`: figures)."""
+    found = await figures(session, row, on=on, new=new)
     values = {
         "book_value": found.book_value,
         "total_cost": found.summary.total,
         "valued_on": found.on,
     }
+    if new and (buffer := deferred(session)) is not None:
+        # An asset made in this transaction has no valuation to update: a plain insert, one for
+        # the whole import batch (step B). Existing assets keep the upsert below, at once.
+        buffer.add_values(
+            AssetValuation.__table__, {"tenant_id": row.tenant_id, "asset_id": row.id, **values}
+        )
+        return
     statement = insert(AssetValuation).values(tenant_id=row.tenant_id, asset_id=row.id, **values)
     await session.execute(
         statement.on_conflict_do_update(

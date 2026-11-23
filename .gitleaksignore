@@ -18,3 +18,14 @@ ca01882f3ba3c2c70783507012fa5d5474b86c01:deploy/helm/supportx/templates/_helpers
 # Ignored by the product owner's decision (2026-11-04), this exact finding only; the comment was
 # reworded in the next commit.
 c2335b8cd3c634c06a67dee7e78a59e5df488117:.gitleaksignore:generic-api-key:11
+
+# #555: a made-up test sentinel in the span test matched generic-api-key. Not a credential,
+# coordinator checked (lane B agreed), 2026-11-20; this exact finding only, renamed in the next commit.
+ecf1df020b57418a0aa946a5b493418d2a1b186b:backend/tests/test_list_by_post_spans.py:generic-api-key:20
+
+# #564: two known-answer HMAC test vectors (openssl outputs for the made-up test keys
+# "whsec_test_key_1/2") matched generic-api-key by their names. Not credentials; this exact
+# finding only, renamed in the next commit (SIGNED_WITH_1/2). Lane C, 2026-11-20, for the
+# coordinator's check.
+790467dc7a07674b21ed25bb45ee05061b584219:backend/app/shared/crypto/tests/test_signing.py:generic-api-key:22
+790467dc7a07674b21ed25bb45ee05061b584219:backend/app/shared/crypto/tests/test_signing.py:generic-api-key:23

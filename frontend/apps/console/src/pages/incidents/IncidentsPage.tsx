@@ -1,7 +1,8 @@
+import { StarFilled, StarOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Button, Flex, Select, Space, Table, Tooltip } from 'antd';
+import { Alert, App, Button, Flex, Segmented, Select, Space, Table, theme, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { useListFormat } from '@supportx/labels';
 
@@ -19,12 +20,16 @@ import {
   useRestoreIncident,
   useSavedViews,
   useSaveListSetting,
+  useStarView,
+  useIncidentListDisplay,
   useUnits,
+  type BoardGroupBy,
   type BulkAction,
   type BulkJob,
   type FilterExpression,
   type IncidentListItem,
   type ListColumn,
+  type ListLayout,
   type SavedView,
 } from '@supportx/api-client';
 import {
@@ -42,6 +47,7 @@ import {
   reportError,
   useAccess,
   useLicence,
+  contrastRatio,
   useAppearance,
   useDateTime,
   useLabel,
@@ -56,6 +62,7 @@ import {
   useMinWidth,
 } from '@supportx/ui';
 
+import { QuickCreateDialog } from './QuickCreateDialog';
 import { choiceName, fieldName } from '../customFields/values';
 import { useReportWords } from '../reports/names';
 import { useIncidentFieldName } from './conflict';
@@ -65,6 +72,10 @@ import { PersonalCounters } from './PersonalCounters';
 import { MyExportsButton } from '../reports/exports';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
 import { ColumnChooser, SelectPageBox } from './list/ColumnChooser';
+import { IncidentCalendar } from './IncidentCalendar';
+import { IncidentBoard } from './list/IncidentBoard';
+import { cardSpecs } from './list/cardModel';
+import { IncidentCards } from './list/IncidentCards';
 import {
   chosenColumns,
   columnCatalogue,
@@ -77,14 +88,18 @@ import {
   chipsFilter,
   draftOf,
   exportFilter,
+  hasWithheld,
   rangeFilter,
-  useBulkLive,
+  readableMark,
+  withoutWithheld,
+  useBulkRefresh,
   type SearchChip,
   type Selection,
   type TimeRangeValue,
   type ViewDraft,
 } from './list/model';
 import { SearchChips } from './list/SearchChips';
+import { PRIORITY_COLOURS } from './priorityColours';
 import { ActiveRange, TimeRange } from './list/TimeRange';
 import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
@@ -126,6 +141,7 @@ export function IncidentsPage() {
   const allowed = can('incidents.view');
   const [mode, setMode] = useState<'current' | 'trash'>('current');
   const [panel, setPanel] = useState<'exports' | 'bulk' | null>(null);
+  const [quick, setQuick] = useState(false);
   const wideWindow = useMinWidth(GROUP_DEFAULT_MIN_WIDTH);
   // A built-in view code, or `custom:<saved view id>`.
   const [view, setView] = useState<string>(DEFAULT_VIEW);
@@ -155,6 +171,7 @@ export function IncidentsPage() {
   const trash = mode === 'trash';
   const customFields = useCustomFields('incident', false, allowed);
   const savedViews = useSavedViews(allowed && !trash);
+  const star = useStarView();
   const saved: SavedView | undefined = view.startsWith(CUSTOM)
     ? savedViews.data?.find((v) => v.id === view.slice(CUSTOM.length))
     : undefined;
@@ -165,7 +182,8 @@ export function IncidentsPage() {
   const listFields = useIncidentListFields(allowed);
   const viewFilters = useIncidentViewFilters(allowed && !trash);
   const words = useReportWords();
-  const { locale } = useAppearance();
+  const { locale, mode: themeMode } = useAppearance();
+  const { token } = theme.useToken();
   const listFormat = useListFormat();
   const zone = dates.zone;
   const filterable = (customFields.data ?? []).filter(
@@ -194,11 +212,18 @@ export function IncidentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the condition is derived from these
     [text, chips, range, zone, priority, customField?.key, customField?.field_type, customValue],
   );
-  const viewFilter = trying ?? (saved?.filter as FilterExpression | null | undefined) ?? undefined;
+  // A saved view's condition on a field they cannot see now is left out, and said so (lane C).
+  const viewFilter = useMemo(
+    () => trying ?? withoutWithheld(saved?.filter),
+    [trying, saved?.filter],
+  );
+  const partlyWithheld = trying === undefined && hasWithheld(saved?.filter);
   const filter = useMemo(() => allOf(viewFilter, narrowing), [viewFilter, narrowing]);
 
   // Columns, sort and page size: yours for this view, else the saved view's, else the defaults.
   const catalogue = useIncidentCatalogue(allowed);
+  // REQ-INC-115: their own colouring for this view, else the tenant's default.
+  const listDisplay = useIncidentListDisplay(allowed);
   const fields = useMemo(() => listFields.data ?? [], [listFields.data]);
   const columnSpecs = useMemo(() => columnCatalogue(fields), [fields]);
   const stored = setting.data;
@@ -228,14 +253,26 @@ export function IncidentsPage() {
   const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
   const sort = stored?.sort ?? saved?.sort ?? '-updated_at';
   const pageSize = stored?.page_size ?? 50;
-  const saveSettings = (change: { columns?: ListColumn[]; sort?: string; page_size?: number }) => {
+  const saveSettings = (change: {
+    columns?: ListColumn[];
+    sort?: string;
+    page_size?: number;
+    layout?: ListLayout | null;
+    group_by?: BoardGroupBy | null;
+  }) => {
     saveSetting.mutate(
       {
         viewKey: settingKey,
+        // The whole setting is replaced: keep what this change does not touch, or a column
+        // change would drop the person's row colouring and layout.
         setting: {
           columns: change.columns ?? columns,
           sort: change.sort ?? sort,
           page_size: change.page_size ?? pageSize,
+          row_colour_by: setting.data?.row_colour_by ?? null,
+          layout: change.layout === undefined ? (setting.data?.layout ?? null) : change.layout,
+          group_by:
+            change.group_by === undefined ? (setting.data?.group_by ?? null) : change.group_by,
         },
       },
       { onError: reportError },
@@ -244,9 +281,29 @@ export function IncidentsPage() {
 
   const list = useIncidents(
     { view: builtIn ?? undefined, filter, sort, limit: pageSize, trash },
-    allowed && (builtIn !== null || saved !== undefined || trash),
+    // The calendar and the board ask for their own; the table's pages are not fetched behind.
+    allowed &&
+      (builtIn !== null || saved !== undefined || trash) &&
+      (trash || (setting.data?.layout !== 'calendar' && setting.data?.layout !== 'board')),
   );
   const views = useIncidentViews(allowed && !trash);
+  // A link to a view (`?view=open`, `?view=custom:<id>`, the D-176 notice's link): opened once
+  // it is known to be theirs; an unknown or unusable one leaves the default, without an error.
+  const [params] = useSearchParams();
+  const linkedView = params.get('view');
+  const [linkChecked, setLinkChecked] = useState(linkedView === null);
+  if (!linkChecked && linkedView !== null) {
+    const custom = linkedView.startsWith(CUSTOM);
+    const known = custom ? savedViews.data : views.data;
+    if (known !== undefined || savedViews.isError || views.isError) {
+      const usable = custom
+        ? (savedViews.data ?? []).some((v) => `${CUSTOM}${v.id}` === linkedView)
+        : (views.data ?? []).some((v) => v.view === linkedView) ||
+          (COUNTERS as readonly string[]).includes(linkedView);
+      if (usable) setView(linkedView);
+      setLinkChecked(true);
+    }
+  }
   // Counter views say what they leave out like the built-in ones (Area 15; QA BUG-06).
   const counters = useIncidentCounters(allowed && !trash);
   const groups = useUnits('groups', allowed);
@@ -264,9 +321,9 @@ export function IncidentsPage() {
       refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
     }
   });
+  // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
+  useBulkRefresh('incident', refreshLists);
   useTenantChannel((message) => {
-    // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
-    if (message.type === LISTS_CHANGED) refreshLists();
     if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
   });
   usePersonalChannel((message) => {
@@ -276,7 +333,6 @@ export function IncidentsPage() {
       refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
     }
   });
-  useBulkLive();
   const listKey = JSON.stringify([view, filter ?? null, trash]);
   const selection: Selection = picked.list === listKey ? picked : { ids: [], all: false };
   const setSelection = (next: Selection) => {
@@ -284,6 +340,28 @@ export function IncidentsPage() {
   };
 
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
+  // REQ-INC-115 AC2: rows changed by someone else since you opened them (the list refetches live).
+  const unread = useMemo(
+    () => new Set(list.data?.pages.flatMap((page) => page.unread ?? []) ?? []),
+    [list.data],
+  );
+  const colourBy = setting.data?.row_colour_by ?? listDisplay.data?.row_colour_by ?? 'none';
+  // REQ-INC-111/112 (S3b): the person's own layout for this view; the trash is always the table.
+  const layout: ListLayout = trash ? 'table' : (setting.data?.layout ?? 'table');
+  // AC1: the status's or priority's own colour as a mark at the row's start, darkened (lightened
+  // in dark mode) until it reads against the row (3:1).
+  const markOf = (row: IncidentListItem): string | undefined => {
+    const stored =
+      colourBy === 'status'
+        ? catalogue.data?.statuses.find((s) => s.code === row.status)?.colour
+        : colourBy === 'priority'
+          ? (catalogue.data?.scales.find((v) => v.scale === 'priority' && v.code === row.priority)
+              ?.colour ?? PRIORITY_COLOURS[row.priority])
+          : undefined;
+    return stored === undefined
+      ? undefined
+      : readableMark(stored, token.colorBgContainer, contrastRatio, themeMode !== 'light');
+  };
   const people = useMemo(
     () =>
       Object.assign({}, ...(list.data?.pages.map((p) => p.people) ?? [])) as Record<
@@ -310,11 +388,15 @@ export function IncidentsPage() {
     list: listFormat,
   };
   const current = sortOf(sort);
-  const mine = (savedViews.data ?? []).filter((v) => v.mine);
-  const shared = (savedViews.data ?? []).filter((v) => !v.mine);
+  // REQ-INC-107 AC1: starred views first (yours only), then yours and those shared with you.
+  const starred = (savedViews.data ?? []).filter((v) => v.favourite);
+  const mine = (savedViews.data ?? []).filter((v) => v.mine && !v.favourite);
+  const shared = (savedViews.data ?? []).filter((v) => !v.mine && !v.favourite);
   const viewName = saved?.name ?? t(`work_item_view.${view}`);
   const exported = exportFilter(builtIn, viewFilters.data, filter);
   const bulkAllowed = (action: BulkAction) =>
+    action !== 'cancel' &&
+    action !== 'delete' && // the change list's own (REQ-CHG-101)
     can(action === 'resolve' || action === 'close' ? 'incidents.edit' : `incidents.${action}`);
 
   // Rows selected: the selection bar takes the toolbar's place (Haider, 2026-11-10), so the
@@ -386,6 +468,33 @@ export function IncidentsPage() {
                 trash
                   ? []
                   : [
+                      // Quick create without leaving the list (REQ-INC-018): its own button
+                      // before New, so the main action stays last (template C, lane C).
+                      ...(can('incidents.create')
+                        ? [
+                            {
+                              key: 'quick',
+                              node: (
+                                <WriteButton
+                                  onClick={() => {
+                                    setQuick(true);
+                                  }}
+                                  data-testid="inc-quick-open"
+                                >
+                                  {t('incidents.quick.open')}
+                                </WriteButton>
+                              ),
+                              overflow: {
+                                key: 'quick',
+                                label: t('incidents.quick.open'),
+                                onClick: () => {
+                                  setQuick(true);
+                                },
+                                testId: 'inc-quick-open-menu',
+                              },
+                            },
+                          ]
+                        : []),
                       {
                         key: 'export',
                         node: (
@@ -456,6 +565,12 @@ export function IncidentsPage() {
         />
       }
     >
+      <QuickCreateDialog
+        open={quick}
+        onClose={() => {
+          setQuick(false);
+        }}
+      />
       <MyExportsButton
         button={false}
         open={panel === 'exports'}
@@ -502,6 +617,18 @@ export function IncidentsPage() {
                     setView(next);
                   }}
                   options={[
+                    ...(starred.length > 0
+                      ? [
+                          {
+                            label: t('incidents.views.starred'),
+                            title: t('incidents.views.starred'),
+                            options: starred.map((v) => ({
+                              value: `${CUSTOM}${v.id}`,
+                              label: v.name,
+                            })),
+                          },
+                        ]
+                      : []),
                     {
                       label: t('incidents.views.built_in'),
                       title: t('incidents.views.built_in'),
@@ -546,6 +673,27 @@ export function IncidentsPage() {
                   style={{ width: 'min(240px, 100%)' }}
                   data-testid="inc-view"
                 />
+                {saved !== undefined && (
+                  <Tooltip
+                    title={t(saved.favourite ? 'incidents.views.unstar' : 'incidents.views.star')}
+                  >
+                    <Button
+                      icon={saved.favourite ? <StarFilled /> : <StarOutlined />}
+                      aria-label={t(
+                        saved.favourite ? 'incidents.views.unstar' : 'incidents.views.star',
+                      )}
+                      aria-pressed={saved.favourite}
+                      loading={star.isPending}
+                      onClick={() => {
+                        star.mutate(
+                          { id: saved.id, starred: !saved.favourite },
+                          { onError: reportError },
+                        );
+                      }}
+                      data-testid="inc-view-star"
+                    />
+                  </Tooltip>
+                )}
                 {saved?.mine === true && (
                   <Button
                     onClick={() => {
@@ -615,6 +763,21 @@ export function IncidentsPage() {
           // The trash shows its fixed columns; choosing columns there would change the list's.
           trash ? undefined : (
             <>
+              {/* Template B: a labelled switch in the toolbar row, not a header action (lane C). */}
+              <Segmented<ListLayout>
+                aria-label={t('incidents.layout')}
+                value={layout}
+                // Until the person's setting is read, a save would replace what it holds.
+                disabled={setting.data === undefined}
+                onChange={(next) => {
+                  saveSettings({ layout: next === 'table' ? null : next });
+                }}
+                options={(['table', 'cards', 'board', 'calendar'] as const).map((value) => ({
+                  value,
+                  label: t(`list_layout.${value}`),
+                }))}
+                data-testid="inc-layout"
+              />
               <ColumnChooser
                 columns={columns}
                 catalogue={columnSpecs}
@@ -729,6 +892,14 @@ export function IncidentsPage() {
           data-testid="inc-page-size"
         />
       </FiltersDrawer>
+      {partlyWithheld && (
+        <Alert
+          type="info"
+          showIcon
+          data-testid="inc-view-withheld"
+          message={t('incidents.views.withheld')}
+        />
+      )}
       {trying !== undefined && (
         <Alert
           type="warning"
@@ -761,133 +932,199 @@ export function IncidentsPage() {
           }}
         />
       )}
-      <Table<IncidentListItem>
-        rowKey="id"
-        data-testid="inc-table"
-        loading={list.isPending && list.fetchStatus === 'fetching'}
-        dataSource={rows}
-        pagination={false}
-        // At least the columns' own widths: wider boxes give the room to the subject, narrower
-        // ones scroll with a visible scrollbar while the ID and subject stay put (QA 2026-11-05 V1).
-        scroll={{ x: tableWidth }}
-        components={{ header: { cell: ResizableHeader } }}
-        rowSelection={
-          trash
-            ? undefined
-            : {
-                fixed: true, // stays with the ID and subject when the table scrolls sideways
-                columnWidth: SELECT_WIDTH, // the width the table's least width counts
-                selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
-                columnTitle: (
-                  <SelectPageBox
-                    checked={
-                      rows.length > 0 && (selection.all || selection.ids.length === rows.length)
-                    }
-                    indeterminate={
-                      !selection.all &&
-                      selection.ids.length > 0 &&
-                      selection.ids.length < rows.length
-                    }
-                    onChange={(checked) => {
-                      setSelection({ ids: checked ? rows.map((r) => r.id) : [], all: false });
-                    }}
-                    label={t('incidents.bulk.select_page')}
-                  />
-                ),
-                onChange: (keys) => {
-                  setSelection({ ids: keys.map(String), all: false });
-                },
-                getCheckboxProps: (row) => ({
-                  title: t('incidents.bulk.select_row', { id: row.display_id }),
-                }),
-              }
-        }
-        locale={{
-          emptyText: loadedEmpty(
-            list.isPending,
-            t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
-          ),
-        }}
-        onChange={(_pagination, _filters, sorter) => {
-          const one = Array.isArray(sorter) ? sorter[0] : sorter;
-          const spec = columnSpecs.get(String(one?.columnKey ?? ''));
-          if (spec?.sortField === undefined) return;
-          const next =
-            one?.order === 'ascend'
-              ? spec.sortField
-              : one?.order === 'descend'
-                ? `-${spec.sortField}`
-                : '-updated_at';
-          saveSettings({ sort: next });
-        }}
-        onRow={(row) =>
-          trash
-            ? { 'data-testid': `inc-row-${row.display_id}` }
-            : {
-                onClick: () => void navigate(`/incidents/${row.id}`),
-                style: { cursor: 'pointer' },
-                'data-testid': `inc-row-${row.display_id}`,
-              }
-        }
-        columns={[
-          ...columns.flatMap((column) => {
-            const spec = columnSpecs.get(column.key);
-            if (spec === undefined) return [];
-            const own = column.width ?? spec.width;
-            const width = dragged?.key === column.key ? dragged.width : own;
-            return [
-              {
-                key: spec.key,
-                title: spec.title(context),
-                // The subject takes what is left over; the others keep their width.
-                width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
-                // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
-                ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
-                fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
-                // Server-side sort, across every page (REQ-INC-104 AC2).
-                sorter: spec.sortField !== undefined,
-                sortOrder:
-                  spec.sortField !== undefined && current.field === spec.sortField
-                    ? current.descending
-                      ? ('descend' as const)
-                      : ('ascend' as const)
-                    : null,
-                render: (_: unknown, row: IncidentListItem) => spec.render(row, context),
-                onHeaderCell: () =>
-                  ({
-                    width: own,
-                    defaultWidth: spec.width,
-                    // The subject never gets too narrow to read (Haider, 2026-11-10).
-                    minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
-                    resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
-                    onPreview: (next: number | null) => {
-                      setDragged(next === null ? null : { key: column.key, width: next });
-                    },
-                    onResize: (next: number) => {
-                      saveSettings({
-                        columns: columns.map((c) =>
-                          c.key === column.key ? { ...c, width: next } : c,
-                        ),
-                      });
-                    },
-                  }) as React.HTMLAttributes<HTMLElement>,
-              },
-            ];
-          }),
-          ...(trash
-            ? [
+      {layout === 'calendar' ? (
+        <IncidentCalendar view={builtIn ?? undefined} filter={filter} />
+      ) : layout === 'board' ? (
+        <IncidentBoard
+          view={builtIn ?? undefined}
+          filter={filter}
+          groupBy={setting.data?.group_by ?? 'status'}
+          onGroupBy={(next) => {
+            saveSettings({ group_by: next === 'status' ? null : next });
+          }}
+        />
+      ) : layout === 'cards' ? (
+        <IncidentCards
+          rows={rows}
+          specs={cardSpecs(columnSpecs, fields)}
+          context={context}
+          unread={unread}
+          markOf={markOf}
+          selected={new Set(selection.all ? rows.map((r) => r.id) : selection.ids)}
+          onSelect={(id, on) => {
+            const ids = selection.all ? rows.map((r) => r.id) : selection.ids;
+            setSelection({ ids: on ? [...ids, id] : ids.filter((x) => x !== id), all: false });
+          }}
+          empty={loadedEmpty(list.isPending, t('incidents.empty'))}
+        />
+      ) : (
+        <Table<IncidentListItem>
+          rowKey="id"
+          data-testid="inc-table"
+          loading={list.isPending && list.fetchStatus === 'fetching'}
+          dataSource={rows}
+          pagination={false}
+          // At least the columns' own widths: wider boxes give the room to the subject, narrower
+          // ones scroll with a visible scrollbar while the ID and subject stay put (QA 2026-11-05 V1).
+          scroll={{ x: tableWidth }}
+          components={{ header: { cell: ResizableHeader } }}
+          rowSelection={
+            trash
+              ? undefined
+              : {
+                  fixed: true, // stays with the ID and subject when the table scrolls sideways
+                  columnWidth: SELECT_WIDTH, // the width the table's least width counts
+                  selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
+                  columnTitle: (
+                    <SelectPageBox
+                      checked={
+                        rows.length > 0 && (selection.all || selection.ids.length === rows.length)
+                      }
+                      indeterminate={
+                        !selection.all &&
+                        selection.ids.length > 0 &&
+                        selection.ids.length < rows.length
+                      }
+                      onChange={(checked) => {
+                        setSelection({ ids: checked ? rows.map((r) => r.id) : [], all: false });
+                      }}
+                      label={t('incidents.bulk.select_page')}
+                    />
+                  ),
+                  onChange: (keys) => {
+                    setSelection({ ids: keys.map(String), all: false });
+                  },
+                  getCheckboxProps: (row) => ({
+                    title: t('incidents.bulk.select_row', { id: row.display_id }),
+                  }),
+                }
+          }
+          locale={{
+            emptyText: loadedEmpty(
+              list.isPending,
+              t(trash ? 'incidents.trash_empty' : 'incidents.empty'),
+            ),
+          }}
+          onChange={(_pagination, _filters, sorter) => {
+            const one = Array.isArray(sorter) ? sorter[0] : sorter;
+            const spec = columnSpecs.get(String(one?.columnKey ?? ''));
+            if (spec?.sortField === undefined) return;
+            const next =
+              one?.order === 'ascend'
+                ? spec.sortField
+                : one?.order === 'descend'
+                  ? `-${spec.sortField}`
+                  : '-updated_at';
+            saveSettings({ sort: next });
+          }}
+          onRow={(row) =>
+            trash
+              ? { 'data-testid': `inc-row-${row.display_id}` }
+              : {
+                  onClick: () => void navigate(`/incidents/${row.id}`),
+                  style: { cursor: 'pointer', fontWeight: unread.has(row.id) ? 600 : undefined },
+                  'data-testid': `inc-row-${row.display_id}`,
+                  'data-unread': unread.has(row.id) ? 'true' : undefined,
+                }
+          }
+          columns={[
+            ...columns.flatMap((column, index) => {
+              const spec = columnSpecs.get(column.key);
+              if (spec === undefined) return [];
+              const own = column.width ?? spec.width;
+              const width = dragged?.key === column.key ? dragged.width : own;
+              return [
                 {
-                  key: 'restore',
-                  title: t('incidents.restore'),
-                  fixed: 'right' as const, // always in view, however wide the table (QA BUG-16)
-                  width: 130,
-                  render: (_: unknown, row: IncidentListItem) => <RestoreButton row={row} />,
+                  key: spec.key,
+                  title: spec.title(context),
+                  // The subject takes what is left over; the others keep their width.
+                  width: spec.key === 'subject' && dragged?.key !== 'subject' ? undefined : width,
+                  // Text that does not fit ends in an ellipsis; the cell's own tooltip holds it all.
+                  ellipsis: ELLIPSIS.has(spec.key) ? { showTitle: spec.key !== 'subject' } : false,
+                  fixed: STICKY.has(spec.key) ? ('left' as const) : undefined,
+                  // Server-side sort, across every page (REQ-INC-104 AC2).
+                  sorter: spec.sortField !== undefined,
+                  sortOrder:
+                    spec.sortField !== undefined && current.field === spec.sortField
+                      ? current.descending
+                        ? ('descend' as const)
+                        : ('ascend' as const)
+                      : null,
+                  render: (_: unknown, row: IncidentListItem) =>
+                    // Unread is said in words too, not by bold alone (lane C): a dot for the eye,
+                    // "Unread" for a screen reader, in the row's first cell.
+                    index === 0 && unread.has(row.id) ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          data-testid="inc-unread-dot"
+                          style={{
+                            display: 'inline-block',
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: token.colorPrimary,
+                            marginInlineEnd: 6,
+                          }}
+                        />
+                        <span className="sx-visually-hidden">{t('incidents.unread')}</span>
+                        {spec.render(row, context)}
+                      </>
+                    ) : (
+                      spec.render(row, context)
+                    ),
+                  // The row's colour mark sits at the start of its first column (RTL follows).
+                  ...(index === 0 && colourBy !== 'none'
+                    ? {
+                        onCell: (row: IncidentListItem) => {
+                          const mark = markOf(row);
+                          return mark === undefined
+                            ? {}
+                            : {
+                                style: { borderInlineStart: `4px solid ${mark}` },
+                                'data-row-mark': mark,
+                              };
+                        },
+                      }
+                    : {}),
+                  onHeaderCell: () =>
+                    ({
+                      width: own,
+                      defaultWidth: spec.width,
+                      // The subject never gets too narrow to read (Haider, 2026-11-10).
+                      minWidth: spec.key === 'subject' ? SUBJECT_MIN : undefined,
+                      resizeLabel: t('incidents.columns.resize', { column: spec.title(context) }),
+                      onPreview: (next: number | null) => {
+                        setDragged(next === null ? null : { key: column.key, width: next });
+                      },
+                      onResize: (next: number) => {
+                        saveSettings({
+                          columns: columns.map((c) =>
+                            c.key === column.key ? { ...c, width: next } : c,
+                          ),
+                        });
+                      },
+                    }) as React.HTMLAttributes<HTMLElement>,
                 },
-              ]
-            : []),
-        ]}
-      />
-      {list.hasNextPage && (
+              ];
+            }),
+            ...(trash
+              ? [
+                  {
+                    key: 'restore',
+                    title: t('incidents.restore'),
+                    fixed: 'right' as const, // always in view, however wide the table (QA BUG-16)
+                    width: 130,
+                    render: (_: unknown, row: IncidentListItem) => <RestoreButton row={row} />,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
+      {/* The table's and the cards' next page only: the board's columns and the calendar load
+          their own (the table's pages stay cached behind them; matrix run 44751058148). */}
+      {list.hasNextPage && (layout === 'table' || layout === 'cards') && (
         <Flex justify="center">
           <Button
             onClick={() => void list.fetchNextPage()}

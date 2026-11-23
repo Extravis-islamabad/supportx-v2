@@ -38,3 +38,21 @@ def test_every_event_and_area_has_a_label(locale: str) -> None:
         + [f"notification_area.{a}" for a in areas if f"notification_area.{a}" not in keys]
     )
     assert missing == [], f"add these keys to packages/labels/src/resources/{locale}.ts"
+
+
+TEMPLATE_PARTS = ("subject", "body", "in_app")
+
+
+@pytest.mark.parametrize("locale", ["en", "ar", "ur"])
+def test_every_event_has_its_shipped_message(locale: str) -> None:
+    """The engine renders `notification_template.<event>.<part>`: a missing one raises, so the
+    notification is never sent (the break-glass alert shipped without one in S1b)."""
+    keys = label_keys(locale)
+    events, _areas = _codes()
+    missing = sorted(
+        f"notification_template.{event}.{part}"
+        for event in events
+        for part in TEMPLATE_PARTS
+        if f"notification_template.{event}.{part}" not in keys
+    )
+    assert missing == [], f"add these keys to packages/labels/src/resources/{locale}.ts"

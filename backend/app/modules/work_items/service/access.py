@@ -21,26 +21,40 @@ The built-in technician role holds view and the working permissions at `group` a
 """
 
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
-from sqlalchemy import ColumnElement, and_, false, or_, select
+from sqlalchemy import BigInteger, ColumnElement, and_, false, func, or_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import (
+    CHANGE_MANAGER,
     PROBLEM_MANAGER,
     RELEASE_MANAGER,
     REPORT_VIEWER,
     SERVICE_DESK_MANAGER,
     SITE_ADMIN,
+    TEAM_LEAD,
     ResourceType,
     Subject,
 )
-from app.modules.work_items.domain.changes import CHANGE_MODEL
+from app.modules.work_items.domain.change_risk import RiskLevel
+from app.modules.work_items.domain.changes import CHANGE_MODEL, OUTCOME_OF_STATUS
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
-from app.modules.work_items.domain.releases import RELEASE_MODEL
+from app.modules.work_items.domain.releases import RELEASE_MODEL, DowntimePhase, ReleaseRisk
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import Channel, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemRoleHolder
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemApproval,
+    WorkItemChangeDetails,
+    WorkItemDowntime,
+    WorkItemFollower,
+    WorkItemReleaseDetails,
+    WorkItemRoleHolder,
+    WorkItemStageSchedule,
+)
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
 NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -197,6 +211,208 @@ FIELDS = ResourceFields(
     default_sort=("-updated_at",),
 )
 
+
+# --- type-own fields (WP-044c D15, WP-045d S4c; REQ-CHG-116) ----------------------------------
+# Fields only one type has. Its report source and its list both take them, so a chart's drill-down
+# opens the list with the very filter the chart counted (AC2); other types never offer them.
+# A change's figures live on its own rows; each is a correlated subquery on the change's key
+# (tenant_id first, the primary keys' order), read only for the rows the list's scope keeps.
+
+
+def _change(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemChangeDetails.tenant_id == WorkItem.tenant_id,
+            WorkItemChangeDetails.work_item_id == WorkItem.id,
+        )
+        .scalar_subquery()
+    )
+
+
+def _implementation(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+            WorkItemStageSchedule.work_item_id == WorkItem.id,
+            WorkItemStageSchedule.stage == IMPLEMENTATION,
+        )
+        .scalar_subquery()
+    )
+
+
+def _downtime_seconds(phase: DowntimePhase) -> Any:  # noqa: ANN401 - a scalar subquery
+    seconds = func.extract("epoch", WorkItemDowntime.ends_at - WorkItemDowntime.starts_at)
+    return (
+        select(func.coalesce(func.sum(seconds), 0).cast(BigInteger))
+        .where(
+            WorkItemDowntime.tenant_id == WorkItem.tenant_id,
+            WorkItemDowntime.work_item_id == WorkItem.id,
+            WorkItemDowntime.phase == phase.value,
+            WorkItemDowntime.deleted_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+
+
+IMPLEMENTATION = "implementation"
+PROBLEM_FIELDS: Mapping[str, FilterField] = {
+    "problem_type": FilterField(WorkItem.problem_type, FieldType.STRING),
+    "root_cause_category": FilterField(WorkItem.root_cause_category, FieldType.STRING),
+    "known_error_at": FilterField(WorkItem.known_error_at, FieldType.DATETIME, simple=False),
+    "accepted_at": FilterField(WorkItem.accepted_at, FieldType.DATETIME, simple=False),
+}
+CHANGE_FIELDS: Mapping[str, FilterField] = {
+    "stage": FilterField(WorkItem.stage, FieldType.STRING),
+    "stage_path": FilterField(WorkItem.stage_path, FieldType.STRING),  # "emergency": the path
+    "change_type": FilterField(_change(WorkItemChangeDetails.change_type), FieldType.STRING),
+    "change_reason": FilterField(_change(WorkItemChangeDetails.change_reason), FieldType.STRING),
+    "risk": _enum(_change(WorkItemChangeDetails.risk), RiskLevel),
+    "retrospective": FilterField(_change(WorkItemChangeDetails.retrospective), FieldType.BOOLEAN),
+    # A blocking freeze passed: the change manager's override or the emergency CAB's (D-156).
+    "freeze_overridden": FilterField(
+        _change(
+            or_(
+                WorkItemChangeDetails.freeze_override_at.is_not(None),
+                WorkItemChangeDetails.freeze_cab_passed_at.is_not(None),
+            )
+        ),
+        FieldType.BOOLEAN,
+    ),
+    # A change's implementation outcomes (REQ-CHG-032): successful (with issues or not), failed,
+    # backed out.
+    "implementation_outcome": _enum(
+        _implementation(WorkItemStageSchedule.outcome),
+        sorted({o for allowed in OUTCOME_OF_STATUS.values() for o in allowed}),
+    ),
+    # Actual implementation time only: a change without both actual times has none.
+    "implementation_seconds": FilterField(
+        _implementation(
+            func.extract(
+                "epoch", WorkItemStageSchedule.actual_end - WorkItemStageSchedule.actual_start
+            ).cast(BigInteger)
+        ),
+        FieldType.INTEGER,
+    ),
+    "planned_downtime_seconds": FilterField(
+        _downtime_seconds(DowntimePhase.PLANNED), FieldType.INTEGER
+    ),
+    "actual_downtime_seconds": FilterField(
+        _downtime_seconds(DowntimePhase.ACTUAL), FieldType.INTEGER
+    ),
+}
+
+
+def _release(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemReleaseDetails.tenant_id == WorkItem.tenant_id,
+            WorkItemReleaseDetails.work_item_id == WorkItem.id,
+        )
+        .scalar_subquery()
+    )
+
+
+def _deployment(column: Any) -> Any:  # noqa: ANN401 - SQLAlchemy column and scalar subquery
+    return (
+        select(column)
+        .where(
+            WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+            WorkItemStageSchedule.work_item_id == WorkItem.id,
+            WorkItemStageSchedule.stage == DEPLOYMENT,
+        )
+        .scalar_subquery()
+    )
+
+
+DEPLOYMENT = "deployment"
+# Overdue: an open record whose CURRENT stage is past its planned end and not yet ended. Never a
+# stage it skipped or left behind, nor a closed or cancelled record (lane A's #443 review): those
+# would otherwise stay "overdue" for ever.
+_OVERDUE_STAGE = and_(
+    WorkItem.status_category.in_((StatusCategory.OPEN, StatusCategory.PAUSED)),
+    select(WorkItemStageSchedule.work_item_id)
+    .where(
+        WorkItemStageSchedule.tenant_id == WorkItem.tenant_id,
+        WorkItemStageSchedule.work_item_id == WorkItem.id,
+        WorkItemStageSchedule.stage == WorkItem.stage,
+        WorkItemStageSchedule.scheduled_end < func.now(),
+        WorkItemStageSchedule.actual_end.is_(None),
+    )
+    .exists(),
+)
+# The mean time from an approval being asked to its decision, over the record's decided ones
+# (REQ-REL-060: approval turnaround). Reads only granted columns (0150): never a comment.
+_TURNAROUND = (
+    select(
+        func.avg(
+            func.extract("epoch", WorkItemApproval.decided_at - WorkItemApproval.created_at)
+        ).cast(BigInteger)
+    )
+    .where(
+        WorkItemApproval.tenant_id == WorkItem.tenant_id,
+        WorkItemApproval.work_item_id == WorkItem.id,
+        WorkItemApproval.decided_at.is_not(None),
+        WorkItemApproval.deleted_at.is_(None),
+    )
+    .scalar_subquery()
+)
+# Releases' own figures (WP-058b S5b, REQ-REL-060): where it is, what kind, why, how risky, its
+# people, whether its deployment ended on time (AC2: before its stage's scheduled end), whether
+# a stage is overdue, and approval turnaround. Never the notes or anyone's words.
+RELEASE_FIELDS: Mapping[str, FilterField] = {
+    "stage": FilterField(WorkItem.stage, FieldType.STRING),
+    "stage_path": FilterField(WorkItem.stage_path, FieldType.STRING),
+    "release_type": FilterField(_release(WorkItemReleaseDetails.release_type), FieldType.STRING),
+    "release_reason": FilterField(
+        _release(WorkItemReleaseDetails.release_reason), FieldType.STRING
+    ),
+    "risk": _enum(_release(WorkItemReleaseDetails.risk), ReleaseRisk),
+    # The manager's and engineer's fields, kept equal to the role holders on every write (S5a).
+    "release_manager_id": FilterField(
+        _release(WorkItemReleaseDetails.release_manager_id), FieldType.UUID
+    ),
+    "release_engineer_id": FilterField(
+        _release(WorkItemReleaseDetails.release_engineer_id), FieldType.UUID
+    ),
+    "deployment_ended": FilterField(
+        _deployment(WorkItemStageSchedule.actual_end.is_not(None)), FieldType.BOOLEAN
+    ),
+    "deployed_on_time": FilterField(
+        _deployment(
+            and_(
+                WorkItemStageSchedule.actual_end.is_not(None),
+                WorkItemStageSchedule.scheduled_end.is_not(None),
+                WorkItemStageSchedule.actual_end <= WorkItemStageSchedule.scheduled_end,
+            )
+        ),
+        FieldType.BOOLEAN,
+    ),
+    "stage_overdue": FilterField(_OVERDUE_STAGE, FieldType.BOOLEAN),
+    "approval_turnaround_seconds": FilterField(_TURNAROUND, FieldType.INTEGER),
+}
+# WP-046b S4 (REQ-INC-141): the major marker filters lists and views; when it was declared.
+INCIDENT_FIELDS: Mapping[str, FilterField] = {
+    "major": FilterField(WorkItem.major, FieldType.BOOLEAN),
+    "major_declared_at": FilterField(
+        WorkItem.major_declared_at, FieldType.DATETIME, sortable=True, simple=False
+    ),
+}
+_TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,
+    WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
+    WorkItemTypeCode.CHANGE: CHANGE_FIELDS,
+    WorkItemTypeCode.RELEASE: RELEASE_FIELDS,
+}
+
+
+def type_fields(wtype: WorkItemType) -> Mapping[str, FilterField]:
+    """The fields only this type has (empty for most)."""
+    return _TYPE_FIELDS.get(wtype.code, {})
+
+
 RESOURCE = ResourceType(
     name="work_items",
     fields=FIELDS,
@@ -333,7 +549,79 @@ def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
         + (PROBLEM_SPECS if wtype.code is WorkItemTypeCode.PROBLEM else ())
         + (RELEASE_APPROVE_SPECS if is_release else ())
         + (CHANGE_APPROVE_SPECS if wtype.code is WorkItemTypeCode.CHANGE else ())
+        + (INCIDENT_SPECS if wtype.code is WorkItemTypeCode.INCIDENT else ())
+        + (_cost_spec(wtype) if wtype.code in COST_TYPES else ())
+        + _share_specs(wtype)
     )
+
+
+# D-176 (Haider, 2026-11-18; lane C blocks): who may share a saved view beyond themselves.
+# `share_views`: with their own groups and members of those groups (technicians and up).
+# `share_views_wide`: with everyone, other groups and roles. Team leads hold it at `group` scope,
+# meaning only the groups they lead (organization's group-manager answer, D-152), never everyone
+# or roles; service desk managers hold it everywhere; tenant admins hold every right. Requesters
+# hold neither. Views already shared stay as they are; widening an audience later needs the right.
+SHARE_VIEWS = "share_views"
+SHARE_VIEWS_WIDE = "share_views_wide"
+
+
+def _share_specs(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    # Releases are change control (WP-058): technicians and team leads keep only `view` there, so
+    # sharing release views is the release manager's and the service desk managers' by default.
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        own: tuple[tuple[str, Scope], ...] = (
+            (RELEASE_MANAGER, "all"),
+            (SERVICE_DESK_MANAGER, "all"),
+        )
+        wide: tuple[tuple[str, Scope], ...] = ((SERVICE_DESK_MANAGER, "all"),)
+    else:
+        # The check is membership (their own groups), so `group` for those who work groups; a
+        # team lead never holds `all` on the desk's records (D-152).
+        own = (("technician", "group"), (TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
+        wide = ((TEAM_LEAD, "group"), (SERVICE_DESK_MANAGER, "all"))
+    return (
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS), wtype.feature, ("all", "group"), defaults=own
+        ),
+        PermissionSpec(
+            wtype.permission(SHARE_VIEWS_WIDE), wtype.feature, ("all", "group"), defaults=wide
+        ),
+    )
+
+
+# WP-046a S3 (REQ-INC-068 AC2, D-164): who sees money on a record: worklog cost rates,
+# technician and other costs, cost totals, and a task's extra cost. One right per type with
+# worklogs; without it the API, UI and exports show none of it. Seeded for the service desk
+# manager on every type, the change manager on changes and the release manager on releases
+# (tenant admins hold every right); team leads only if an admin grants it.
+VIEW_COSTS = "view_costs"
+COST_TYPES = frozenset(
+    {
+        WorkItemTypeCode.INCIDENT,
+        WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
+        WorkItemTypeCode.RELEASE,
+        WorkItemTypeCode.SERVICE_REQUEST,  # its tasks carry an extra cost (S1)
+    }
+)
+
+
+def _cost_spec(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
+    return (
+        PermissionSpec(
+            wtype.permission(VIEW_COSTS),
+            wtype.feature,
+            ALL_SCOPES,
+            defaults=((SERVICE_DESK_MANAGER, "all"), *_COST_MANAGERS.get(wtype.code, ())),
+        ),
+    )
+
+
+# D-164: the type's own manager sees its costs too.
+_COST_MANAGERS: dict[WorkItemTypeCode, tuple[tuple[str, Scope], ...]] = {
+    WorkItemTypeCode.CHANGE: ((CHANGE_MANAGER, "all"),),
+    WorkItemTypeCode.RELEASE: ((RELEASE_MANAGER, "all"),),
+}
 
 
 # Problems only (WP-044b, REQ-PRB-070, D-140 Q7): changing the analysis, and seeing the root
@@ -386,6 +674,15 @@ RELEASE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
         ("all",),
         defaults=(*_role_defaults("approve"), (RELEASE_MANAGER, "all")),
     ),
+    # WP-058b S2 (the coordinator, 2026-11-11; as changes.override_freeze): passing a blocking
+    # freeze for a release is the release manager's, decided at its scope on that release, with
+    # a reason, audited. Administrators hold every permission; no technician or team lead does.
+    PermissionSpec(
+        "releases.override_freeze",
+        "release",
+        ("all", "site", "group"),
+        defaults=((RELEASE_MANAGER, "all"),),
+    ),
 )
 # changes.approve keeps identity's scopes (not own) and grants (WP-045a).
 CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
@@ -406,6 +703,44 @@ CHANGE_APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     # permission, so they may override too, as with the emergency override (D-144).
     PermissionSpec("changes.manage_windows", "change", ("all",)),
     PermissionSpec("changes.override_freeze", "change", ("all", "site", "group")),
+)
+# WP-046b S1. Deciding an incident's approvals when named (REQ-INC-083): technicians and the
+# service desk managers, as for problems; a requester is never an incident's approver by default.
+# Editing a closed incident's fields (REQ-INC-101): only the service desk managers by default (the
+# coordinator, 2026-11-14; administrators hold every permission), grantable, each use audited,
+# with a reason; a tenant's full lock on closed incidents outranks it (lane B).
+EDIT_CLOSED = "edit_closed"
+DECLARE_MAJOR = "declare_major"
+UNDO_MERGE = "undo_merge"
+INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
+    PermissionSpec(
+        "incidents.approve",
+        "incident",
+        ("all",),
+        defaults=(("technician", "all"), (SERVICE_DESK_MANAGER, "all")),
+    ),
+    PermissionSpec(
+        f"incidents.{EDIT_CLOSED}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-046b S4 (REQ-INC-141, D-043): declaring an incident major and ending it, the same holders
+    # (coordinator, 2026-11-14); a reason each time, audited, no recent sign-in (coordinator).
+    PermissionSpec(
+        f"incidents.{DECLARE_MAJOR}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-046b S2 (REQ-INC-150): undoing a merge, the same holders (coordinator, 2026-11-14);
+    # the route also asks for a recent sign-in, each use audited (lane B).
+    PermissionSpec(
+        f"incidents.{UNDO_MERGE}",
+        "incident",
+        ("all", "site", "group"),
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
 )
 APPROVE_ANY = "work_items.approve_any"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (

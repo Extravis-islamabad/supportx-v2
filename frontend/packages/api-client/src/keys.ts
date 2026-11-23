@@ -1,4 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { CisQuery } from './cmdb';
+import type { NeighboursQuery } from './cmdbGraph';
 import type { BookingsQuery, ConsumablesQuery } from './assetStock';
 import type {
   AssetHistoryFilters,
@@ -6,7 +8,7 @@ import type {
   AssetProductsQuery,
   AssetRecordsQuery,
 } from './assets';
-import type { AuditEntriesQuery } from './audit';
+import type { AuditEntriesQuery, SystemLogFilters } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
 import type { ReportDefinition } from './reports';
@@ -52,9 +54,16 @@ export const queryKeys = {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,
     sso: ['identity', 'sso'] as const,
+    domains: ['identity', 'domains'] as const,
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,
     mfa: ['identity', 'mfa'] as const,
+    overview: ['identity', 'security-overview'] as const,
+    networkRules: ['identity', 'network-rules'] as const,
+    siteNetworks: ['identity', 'site-networks'] as const,
+    ssoPolicy: ['identity', 'sso-policy'] as const,
+    signIns: (filters: Record<string, unknown>) => ['identity', 'sign-ins', filters] as const,
+    signInsAll: ['identity', 'sign-ins'] as const,
     accountSecurity: ['identity', 'account-security'] as const,
     mySessions: ['identity', 'sessions', 'mine'] as const,
     personSessions: (userId: string) => ['identity', 'sessions', userId] as const,
@@ -77,9 +86,14 @@ export const queryKeys = {
     productTypes: ['assets', 'product-types'] as const,
     products: (query: AssetProductsQuery) => ['assets', 'products', query] as const,
     records: (query: AssetRecordsQuery) => ['assets', 'records', query] as const,
+    // WP-049b s4a: the tree's counts per view, and an asset's linked work items.
+    typeCounts: (view: string) => ['assets', 'records', 'type-counts', view] as const,
+    linked: (id: string) => ['assets', 'record', id, 'linked'] as const,
     record: (id: string) => ['assets', 'record', id] as const,
     history: (id: string) => ['assets', 'history', id] as const,
     moves: (id: string) => ['assets', 'moves', id] as const,
+    // Under the record's key: a change to the asset refetches what the person may change (D-157).
+    access: (id: string) => ['assets', 'record', id, 'access'] as const,
     disposal: (id: string) => ['assets', 'disposal', id] as const,
     holdings: (id: string) => ['assets', 'holdings', id] as const,
     links: (id: string) => ['assets', 'links', id] as const,
@@ -107,10 +121,52 @@ export const queryKeys = {
     noteHistory: (id: string) => ['assets', 'note-history', id] as const,
     historyFiltered: (id: string, filters: AssetHistoryFilters) =>
       ['assets', 'history', id, filters] as const,
+    // WP-049b s3: audits, labels, scans and the overdue-scan rule.
+    audits: ['assets', 'audits'] as const,
+    audit: (id: string) => ['assets', 'audit', id] as const,
+    auditItemsAll: (id: string) => ['assets', 'audit-items', id] as const,
+    auditItems: (id: string, discrepancies: boolean) =>
+      ['assets', 'audit-items', id, discrepancies] as const,
+    labelJobs: ['assets', 'label-jobs'] as const,
+    labelPrintsAll: ['assets', 'label-prints'] as const,
+    labelPrints: (assetId: string) => ['assets', 'label-prints', assetId] as const,
+    scans: (id: string) => ['assets', 'scans', id] as const,
+    overdueRule: ['assets', 'overdue-rule'] as const,
+    overdueRuns: ['assets', 'overdue-runs'] as const,
+    overdueStates: (typeIds: string[]) => ['assets', 'overdue-states', typeIds] as const,
   },
   vendors: {
     all: ['vendors'] as const, // procurement.vendors_changed refetches everything here
     list: (activeOnly: boolean) => ['vendors', 'list', activeOnly] as const,
+  },
+  cmdb: {
+    all: ['cmdb'] as const,
+    types: ['cmdb', 'types'] as const,
+    states: ['cmdb', 'states'] as const,
+    settings: ['cmdb', 'settings'] as const,
+    list: (query: CisQuery) => ['cmdb', 'list', query] as const,
+    detail: (id: string) => ['cmdb', 'detail', id] as const,
+    history: (id: string) => ['cmdb', 'history', id] as const,
+    picker: (search: string, typeId: string | null) => ['cmdb', 'picker', search, typeId] as const,
+    // WP-053 S2: relationship types, maps, business views and versions.
+    relationshipTypes: (forType: string | null) => ['cmdb', 'relationship-types', forType] as const,
+    neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
+    neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
+    subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
+    impactOf: (id: string) => ['cmdb', 'impact', id] as const,
+    impact: (id: string, direction: string, depth: number) =>
+      ['cmdb', 'impact', id, direction, depth] as const,
+    versions: (id: string) => ['cmdb', 'versions', id] as const,
+    asOf: (id: string, at: string) => ['cmdb', 'versions', id, 'as-of', at] as const,
+    compare: (id: string, from: number, to: number) =>
+      ['cmdb', 'versions', id, 'compare', from, to] as const,
+    views: ['cmdb', 'business-views'] as const,
+    viewList: (baseCiId: string | null, search: string) =>
+      ['cmdb', 'business-views', 'list', baseCiId, search] as const,
+    view: (id: string) => ['cmdb', 'business-views', 'detail', id] as const,
+    // 0175 part 2: what moving a CI to a type would drop.
+    typeChangePreview: (id: string, typeId: string) =>
+      ['cmdb', 'type-change-preview', id, typeId] as const,
   },
   announcements: {
     all: ['announcements'] as const,
@@ -149,6 +205,9 @@ export const queryKeys = {
     // Under the list key: a list refresh (a record created or closed) refreshes them too.
     duplicates: (query: PossibleDuplicatesQuery) =>
       ['incidents', 'list', 'duplicates', query] as const,
+    // Under 'list' too: a change that refreshes the lists refreshes the board's counts.
+    board: (query: IncidentsQuery, groupBy: string) =>
+      ['incidents', 'list', 'board', query, groupBy] as const,
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,
@@ -168,17 +227,25 @@ export const queryKeys = {
     listFields: ['incidents', 'list-fields'] as const,
     viewFilters: ['incidents', 'views', 'filters'] as const,
     savedViews: ['incidents', 'saved-views'] as const,
+    // WP-046b S3a: the default row colouring and the shared-view audit (D-176).
+    listDisplay: ['incidents', 'settings', 'list-display'] as const,
+    viewAudit: ['incidents', 'saved-views', 'audit'] as const,
     listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
     bulkJobs: ['incidents', 'bulk-jobs'] as const,
     bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
     tasks: (id: string) => ['incidents', 'tasks', id] as const,
     myTasks: ['incidents', 'my-tasks'] as const,
     worklogs: (id: string) => ['incidents', 'worklogs', id] as const,
+    timeAnalysis: (id: string) => ['incidents', 'time-analysis', id] as const,
     links: (id: string) => ['incidents', 'links', id] as const,
   },
   customFields: {
     all: ['custom-fields'] as const,
     list: (entity: string, removed: boolean) => ['custom-fields', entity, removed] as const,
+    // One type's fields (0175): the entity's key plus the type, so the live message (which
+    // invalidates every `custom-fields` key) reaches it too.
+    forType: (entity: string, removed: boolean, typeId: string) =>
+      ['custom-fields', entity, removed, typeId] as const,
   },
   audit: {
     all: ['audit'] as const,
@@ -191,6 +258,11 @@ export const queryKeys = {
     saved: ['audit', 'saved'] as const,
     archives: ['audit', 'archives'] as const,
     restored: (id: string) => ['audit', 'restored', id] as const,
+    personalDataAccessAll: ['audit', 'personal-data-access'] as const,
+    personalDataAccess: (person: string, since?: string, until?: string) =>
+      ['audit', 'personal-data-access', person, since ?? '', until ?? ''] as const,
+    systemLogAll: ['audit', 'system-log'] as const,
+    systemLog: (filters: SystemLogFilters) => ['audit', 'system-log', filters] as const,
   },
   files: {
     all: ['files'] as const,
@@ -234,6 +306,7 @@ export const queryKeys = {
     runs: (query: object) => ['workflows', 'runs', query] as const,
     job: (id: string) => ['workflows', 'job', id] as const,
     versions: (id: string) => ['workflows', 'versions', id] as const,
+    runAs: (id: string) => ['workflows', 'run-as', id] as const,
     version: (id: string, n: number, part: string) =>
       ['workflows', 'versions', id, n, part] as const,
   },
@@ -249,6 +322,7 @@ export const queryKeys = {
   mailboxes: {
     all: ['mailboxes'] as const,
     waiting: (id: string) => ['mailboxes', 'waiting', id] as const,
+    blockRules: ['mailboxes', 'block-rules'] as const,
   },
   notifications: {
     all: ['notifications'] as const,
@@ -289,5 +363,7 @@ export const queryKeys = {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,
     detail: (id: string) => ['users', 'detail', id] as const,
+    // A person's cost per hour (money): its own key, never inside the person record's.
+    costRates: (id: string) => ['users', 'cost-rates', id] as const,
   },
 };

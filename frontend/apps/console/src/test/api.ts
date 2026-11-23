@@ -8,12 +8,28 @@ import {
   fakeSession,
   fakeUser,
   type FakeRoute,
+  type RecordedCall,
 } from '@supportx/api-client/testing';
 import type { MeResponse } from '@supportx/api-client';
 
 export { fakeEntitlements, fakeSession, fakeUser, problem } from '@supportx/api-client/testing';
 
 const ME = '/api/v1/users/01900000-0000-7000-8000-000000000101';
+
+// The work-item lists ask by POST (lane C: a filter may hold a protected value, never in a URL);
+// a test's GET list mock answers the POST form too, as the two give the same page.
+const LISTS = /^GET (\/api\/v1\/(?:incidents|service-requests|problems|changes|releases))$/;
+
+function listsByPost(routes: Record<string, FakeRoute>): Record<string, FakeRoute> {
+  const mirrored: Record<string, FakeRoute> = {};
+  for (const [key, route] of Object.entries(routes)) {
+    const path = LISTS.exec(key)?.[1];
+    if (path !== undefined && !(`POST ${path}/list` in routes)) {
+      mirrored[`POST ${path}/list`] = route;
+    }
+  }
+  return mirrored;
+}
 
 /**
  * The console's API: a signed-in technician on an active Enterprise plan unless overridden.
@@ -80,8 +96,48 @@ export function consoleApi({
     },
     // The approvals drawer in the header (WP-030 s2): nothing waits unless a test says otherwise.
     'GET /api/v1/service-requests/my-approvals': { body: { items: [], people: {} } },
+    // Your reminders in the header (WP-046a S2): none unless a test says otherwise.
+    'GET /api/v1/my-reminders': { body: [] },
     ...routes,
+    ...listsByPost(routes),
   });
 }
 
 export const ME_PATH = ME;
+
+/**
+ * The calls to a list: a work-item list's `POST <path>/list` calls, each with a URL rebuilt from its body
+ * (`view`, `tag`, `filter`, `sort`, `cursor`, `limit`), so a test reads it as it read the GET.
+ */
+export function listCalls(
+  fake: { find: (method: string, path: string) => RecordedCall[] },
+  path: string,
+): RecordedCall[] {
+  const posted = fake.find('POST', `${path}/list`);
+  // Lists without a POST form (assets ...) are read as they are.
+  if (posted.length === 0) return fake.find('GET', path);
+  return posted.map((call) => {
+    const body = (call.body ?? {}) as {
+      filter?: unknown;
+      sort?: string | null;
+      cursor?: string | null;
+      limit?: number;
+      include_total?: boolean;
+      params?: Record<string, string[]>;
+    };
+    const url = new URL(call.url.toString().replace(/\/list(\?|$)/, '$1'));
+    for (const [name, values] of Object.entries(body.params ?? {})) {
+      for (const value of values) url.searchParams.append(name, value);
+    }
+    if (body.filter !== undefined && body.filter !== null) {
+      url.searchParams.set('filter', JSON.stringify(body.filter));
+    }
+    if (body.sort !== undefined && body.sort !== null) url.searchParams.set('sort', body.sort);
+    if (body.cursor !== undefined && body.cursor !== null) {
+      url.searchParams.set('cursor', body.cursor);
+    }
+    if (body.limit !== undefined) url.searchParams.set('limit', String(body.limit));
+    if (body.include_total === true) url.searchParams.set('include_total', 'true');
+    return { ...call, url };
+  });
+}

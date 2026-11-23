@@ -60,6 +60,15 @@ export function StageRail({ rail, testId }: { rail: RailStage[]; testId?: string
               )}
               {stage.entries.length > 1 &&
                 ` · ${t('stage_rail.rounds', { count: stage.entries.length })}`}
+              {/* Its tasks, done of all (REQ-REL-048 AC2), live with the record's panel. */}
+              {stage.tasks_total > 0 && (
+                <span data-testid={`rail-${stage.stage}-tasks`} style={{ display: 'block' }}>
+                  {t('stage_rail.tasks', {
+                    done: stage.tasks_done,
+                    count: stage.tasks_total,
+                  })}
+                </span>
+              )}
             </span>
           ),
         };

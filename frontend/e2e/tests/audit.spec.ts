@@ -7,7 +7,9 @@ import { deleteE2eRoles, expectAccessible, signInAs } from './helpers';
  * log in plain words, opens the entry, and sees the integrity and archive tabs. The role is
  * deleted at the end (suite-owned data only; the audit entries stay, as they must).
  */
-test('audit log: a change shows up as an entry with its chain position', async ({ page }) => {
+test('audit log: a change shows up as an entry with its chain position @smoke', async ({
+  page,
+}) => {
   await signInAs(page, 'admin', '/admin/roles');
   await deleteE2eRoles(page);
   try {

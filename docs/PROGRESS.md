@@ -38,6 +38,35 @@
   list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
   then the list shows no checkboxes at all, rather than dead ones.
 
+### Engineering-practices audit (#444), lane B security items
+
+Branch `fix/security-audit-a` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b.md):
+- [x] Row 4, login CSRF: each browser sign-in bound to its browser (per-sign-in cookie).
+- [ ] Row 3, egress: SaaS values profile with `networkPolicies.egress.enabled` on. **Blocked:**
+  no SaaS values file exists yet (WP-014d builds the SaaS cell); turn egress on there. The
+  `fetch.py` DNS-pin part is another lane's.
+- [x] Row 14, lane B's part: per-address limits on `/auth/login` and `/auth/callback` (fail
+  closed), public branding, domain check, public action links; `organization` limits on
+  `/organization/tenant` and `/organization/settings`. Still open: automation (lane C) and custom
+  fields (lane A) routes, `/auth/me`, `/auth/sessions`, realtime tokens, `/my-tasks`,
+  `/my-reminders`; API keys sharing their owner's budget.
+- [x] Row 15, HSTS on the console and portal nginx responses. Still open from the audit's HSTS
+  row: the chart's port-80 listener with an https redirect.
+
+Branch `fix/security-audit-b1` (2026-11-12, docs/progress-log/2026-11-12-security-audit-lane-b-b1.md):
+- [x] Row 26, API-key HMAC key: `SUPPORTX_API_KEY_SECRET` required in production (32+ characters),
+  never the session secret; keys hashed under the old derived key move on their next good call
+  while `SUPPORTX_SESSION_SECRET` stays set. Chart passes `api-key-secret`, secrets.sh makes it.
+- [x] Row 26, refresh-token rotation: `revokeRefreshToken` on, `refreshTokenMaxReuse` 0 (realm
+  files and the keycloak-identity Job); the BFF never saves or re-sends a spent token.
+- [x] Idempotency-Key on `POST /api/v1/audit/saved-searches`.
+- [x] Row 14 follow-ups: IPv6 counted per /64 in `ip_rate_limit`; a rate-limited callback goes
+  back to the app its sign-in started in.
+- [x] Row 27, Semgrep in CI with the repo's own rules (`.semgrep.yml`, `make semgrep`); not a
+  required check yet.
+- [ ] Row 3, LDAP host pin: waits for `app/shared/egress/sockets.py` (`pinned_address`), not on
+  main yet.
+
 ### Must fix before the pilot
 
 1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
@@ -92,6 +121,13 @@ decisions D1-D13 (D-038).
    › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
    class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
    lane C's header branch lands; check with axe and a screenshot.
+6. **D-162 (lane B, 2026-11-12): rotatable sign-in key ring built** (ADR-048, migration 0146,
+   docs/guides/rotating-the-sign-in-key.md). Lane C's WP-057 is to reuse its blob format and
+   key-users hook. Migration 0146's `down_revision` is re-pointed at queue time.
+7. **Follow-up: a platform audit log for installation events** (coordinator, #418). Events of
+   the installation rather than a tenant (sign-in key rotations, D-162) are written into every
+   tenant's log today, by a background announcer; a platform log for the operator would hold
+   them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -263,7 +299,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Note (D-017):** Temporal is deployed without `auto-setup`; the `admin-tools` schema Job comes
   with the first workflow module (D-038 item 11).
 
-### [ ] WP-014b — Deployment part 2: HA, backups, monitoring (planned, D-038)
+### [~] WP-014b — Deployment part 2: HA, backups, monitoring (D-038; HA, backups, PITR and the restore drill built; monitoring left)
 - **Goal:** Standard HA profile and recoverable data.
 - **Scope:** `values-ha.yaml` (3 nodes; CNPG 3 instances; NATS cluster with stream replicas 3;
   Valkey with Sentinel and app support; Centrifugo on the Valkey engine; Keycloak 2 with Infinispan;
@@ -276,6 +312,58 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
   restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
 - **Depends on:** WP-014
+- [x] **Follow-up, lane B (the coordinator, 2026-11-11; after D-157 is in the queue):** a Valkey
+  master that dies within about 10 s of a fresh start, before its sentinels have seen its
+  replicas (Sentinel reads a master's INFO every 10 s), does not fail over until it returns: every
+  attempt aborts with `-failover-abort-no-good-slave`. No data is lost, since #284's guard still
+  refuses to start empty, but the set is unavailable meanwhile. #388 only made the tests wait for
+  the sentinels. Fix: a Valkey pod reports ready only once the sentinels list its replicas (the
+  readiness option), with a test that fails over a master stopped right after a fresh start.
+  In Haider's summary as an FYI. **Done (2026-11-11, branch `feat/valkey-ready-sentinels`):** the
+  valkey container's readiness probe is the chart's `ready.sh` (`templates/valkey-ha.yaml`): until
+  a pod's first readiness in its role, its own sentinel must list it (replica, once synced) or
+  every replica connected to it (master); afterwards only the server counts. Tests in
+  `backend/tests/ha/test_valkey_failover.py`; the remaining unplanned-crash gap is in
+  [deployment.md](deployment.md) (Profiles, "Valkey failover and readiness").
+  **HA cluster DNS fix (2026-11-12, lane B, branch `fix/ha-cluster-dns-valkey`):** Cluster run
+  43082299609 stopped the node with k3s's only CoreDNS copy; for about six minutes nothing
+  resolved, the sentinels kept entering TILT and every later failover aborted
+  (`-failover-abort-no-good-slave`). Now cluster DNS runs two copies on different nodes
+  (`deploy/k3s/cluster-dns-ha.sh`, run by `make cluster-up-ha` and documented for on-prem and
+  customer-managed clusters), `deploy/k3s/ha-preflight.sh` warns about a single copy, Valkey's
+  pods use short lookups of fully qualified names (`dnsConfig`), node-loss.sh waits for Sentinel
+  to settle first, and a new test stops the node with the Valkey master after a failover
+  (`make cluster-ha-valkey-node-loss`). Proven only by the next Cluster dispatch.
+  Round 2 (proving run 43148329223, node-loss red: the stopped node held the PG primary, the
+  Valkey master and a CoreDNS copy; SDOWN 77 s after the stop, every failover aborted): Sentinel
+  down-after 10 s (a 100 s replica allowance) and failover-timeout 30 s (an aborted failover
+  retries after 60 s); node-monitor grace period 20 s in `deploy/k3s/config-ha.yaml` and the k3d
+  HA cluster; a forced worst-case test, master plus CoreDNS on the stopped node
+  (`make cluster-ha-valkey-node-loss-dns`).
+  - [x] NodeLocal DNSCache (D-163, 2026-11-13) removes the dead-endpoint window, without a
+    shorter grace period: `deploy/k3s/node-local-dns.sh`, required by the preflight; the
+    node-loss budgets are back to 60 s and a sentinel TILT fails the test.
+  Round 3 (2026-11-12, the coordinator's sweep of single copies in the HA profile; the proving
+  run lost k3s's only Traefik copy with the stopped node and no request was answered for 90 s):
+  Traefik two copies with required anti-affinity (`deploy/k3s/traefik-ha.yaml`, a
+  HelmChartConfig; the k3d HA cluster uses the same file, `deploy/k3s/traefik-ha.sh` checks);
+  NATS and the CloudNativePG cluster with required anti-affinity; workflow timers 2; ClamAV 2
+  with staggered signature pulls; fast eviction (30 s) for the single-copy fan-out and index
+  workers; the preflight checks all of it (`make cluster-ha-preflight` after the install, CI
+  too) and node-loss.sh proves live updates resume after the fan-out moves. What runs how many
+  copies: [deployment.md](deployment.md) (Profiles).
+  - [x] **Bundled HA SeaweedFS (D-166, ADR-038 Addendum A):** in `values-ha.yaml` SeaweedFS's
+    own replication: 3 masters (raft), 3 volume servers with replication 001 (two copies on two
+    nodes), 2 filers with the S3 gateway behind the unchanged Service; the filers' metadata in
+    its own database and role in the release's CloudNativePG cluster (same backups, checked by
+    the restore drill). The preflight checks the spread and the replication; the HA job's
+    object-storage node-loss test (`make cluster-ha-objects-node-loss`) stops the node with the
+    raft leader and a volume server. External S3 stays supported. Moving a single-copy install
+    is a documented rclone copy ([deployment.md](deployment.md), Profiles). Still open: the
+    file-store backup (audit gap #1); the single-node pod still sends SeaweedFS's anonymous
+    usage statistics (its golden file unchanged here; fix in its own PR).
+- [ ] The monitoring bundle (VictoriaMetrics, VictoriaLogs, Jaeger, Perses on-prem; D-038).
+- [ ] The pre-upgrade licence check in the installer.
 
 ### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
 - **Goal:** Signed, verifiable releases a customer can install with no internet.
@@ -303,7 +391,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
   certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
   hostnames (WP-017).
-- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite;
+  the egress NetworkPolicy allow-list (`networkPolicies.egress`) is ON in `values-saas.yaml`, with
+  the Kubernetes API addresses set, and the egress check passes on the cell (audit #3, the
+  coordinator 2026-11-12; until then the app-level pins are the protection: IMAP hosts #446,
+  fetch.py WP-057 S1, LDAP hosts lane B's security PR B).
 - **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
@@ -353,7 +445,7 @@ local builds only. One role-based app built from the prototype (D-158). One sess
   server ended a session. A device sign-in needs an https dev host serving the `.well-known`
   files (the dev build's IDs go to lane B for the dev values). Split into three PRs: backend
   sign-in + api-client, shared packages, the app. Dev quick sign-in for the debug build
-  (D-163, 2026-11-12): `POST /auth/dev/mobile/sign-in`, the web's D-151 personas on the Sign in
+  (D-183, 2026-11-12): `POST /auth/dev/mobile/sign-in`, the web's D-151 personas on the Sign in
   screen, so the local stack works without a verified link; tried on the emulator.
 - [x] WP-M3 Technician, see the work (built 2026-11-05): Home KPIs, MonetX card, needs attention; queue filters with
   SLA chips; incident detail and conversation; live updates.
@@ -650,7 +742,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Name resolvers for report exports (group, site, department, desk; category path, template,
   incident status and level; custom choices): written by lane C in lane A's modules, reviewed by
   lane A, merged with #84 (2026-10-28).
-- [ ] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
+- [x] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
   timeout (lane B, #87). The record page's in-place edits and the reply/note composer follow in
   WP-020d/e (lane A).
 - [x] QA round on main (2026-10-28, ~/Desktop/qa-wp029/QA-REPORT.md): 14 e2e journeys pass;
@@ -1190,7 +1282,425 @@ it with no reload (rule c). Not built yet.
   - CI and service layers (with the CMDB);
   - full recurrence rules (D-156 (c)).
 
+### [~] WP-045d — Changes: the rest (lane A, 2026-11-11; 4 sessions; migrations 0133, 0137; REQ-CHG-088..117)
+- **S1 (0133, #378):** tasks per stage, the post-implementation review and its date, closure
+  codes and rules per stage, closing waits for child changes and releases, closed changes locked
+  (REQ-CHG-088, 090-097). Lane B reviewed the lock.
+- **S2:** the change list, the record and bulk work:
+  - REQ-CHG-098: type and risk columns; views for the CAB, in implementation now, emergency and
+    due for review.
+  - REQ-CHG-100: the change's conversation and attachments on its record.
+  - REQ-CHG-101: bulk assign (D-154a: the owner must be in the group), take and close, through
+    the shared bulk dialog. Each change follows its own life cycle, and skips say why.
+  - REQ-CHG-102: the CAB pack print view, with the conflict list.
+  - **D-156 (Haider, 2026-11-11; migration 0137, lane B blocks):**
+    - change replies are e-mailed to the requester; notes never are;
+    - monthly windows ("first Sunday", on the tenant's local days); repeat_weekly is kept in
+      step for one release;
+    - a tenant setting makes outside-maintenance block (off by default), on the windows page,
+      audited;
+    - an emergency change in a blocking freeze is saved and marked, never refused. Its work
+      starts only once its emergency CAB passed the freeze (an approval with a reason, which
+      stamps it, is audited and shows in history) or the change manager overrode it. Normal
+      and standard changes are unchanged.
+  - **Open under REQ-CHG-101:** bulk edit fields, add to a CAB agenda, cancel and delete.
+    - Cancel and delete need the `work_item_bulk_jobs` action_code check widened, which is a
+      migration.
+    - All four come with lane A's next migration WP (WP-045d S3/S4 or WP-046a), with DB tests;
+      no migration slot is taken for the check alone (coordinator, 2026-11-11).
+    - Until then the change list doesn't offer them at all.
+- **S3:** change notifications and reminders (REQ-CHG-103..107). No e-mail reply threading
+  unless Haider says yes.
+  - REQ-CHG-104: the ChangeNotifications source with the Appendix A defaults. It replaces the
+    change reply-only source and delegates replies to it (#359).
+  - REQ-CHG-103: a per-status rule ("entered a status", off by default) with a status picker on
+    the rules screen. Holders are resolved when it is sent.
+  - Access (lane B): an approver without `changes.view` is told through their live approval
+    (the public side and their own link); a decided approval gives nothing. Requesters see only
+    their own view.
+  - REQ-CHG-105, -091: a reminder sweep. Each kind is claimed once in `processed_events`, a
+    moved window reminds again, an old claim is never sent late, and cancelled changes are
+    never reminded.
+  - REQ-CHG-106: lane C's Workflows tab (#379).
+  - REQ-CHG-107: business rules on changes work (tested). Changes are an SLA type with no
+    default targets, since Appendix A sets none (nothing seeded). Escalations, the trash rule
+    and the safety net work as for the other types. The change header shows its due time, and
+    the SLA policies tab offers every SLA type (incidents, requests, problems, changes).
+  - **Open:**
+    - the "health check regression" default waits for health checks (REQ-CHG-086, MonetX);
+    - the testing owner is not a change role yet, so it is not a recipient;
+    - ~~the portal has no change page~~: done in S4a.
+- **S4** (three PRs; REQ-CHG-109, 110, 116, 117):
+  - **S4a, the portal and counters (REQ-CHG-109, -117; no migration; lane B blocks the portal
+    access and approvals):**
+    - `/portal/changes`: list, the forms offered to requesters, raise (Idempotency-Key, staff
+      fields refused), one change with its stage, status and planned window (the
+      implementation's schedule), the public conversation and a reply. Plans, risk, approvals
+      detail, outcome and private notes are not in these responses (AC2). Same reach rules as
+      the portal's incidents and requests.
+    - Portal pages: My changes, a change's page, Raise a change; nav entry behind `change`.
+    - Live: the requester channel hears a change's stage and status, and the implementation's
+      schedule (another stage's schedule says nothing there).
+    - Approvals: a requester-only approver decides a change in the portal's approvals, through
+      the change's own route (AC3). Bulk approve stays with service requests (D-143). The
+      console's approvals drawer lists change approvals too.
+    - Notices: change notices link to the portal change page, approval notices to the portal's
+      approvals (the change page is its requester's only).
+    - Counters (REQ-CHG-117): "waiting for my approval" and "starting today" on changes only.
+    - **Open:** a requester-only approver sees only the number and title in the portal
+      approvals (no read-only summary page); tenant-own status codes show through the label
+      fallback.
+  - **S4b:** the mobile API audit and the push payload and deep-link format (REQ-CHG-110).
+  - **S4c:** change report fields, measures, dashboard and drill-down (REQ-CHG-116; lane C
+    reviews).
+
 ### [ ] WP-030 — Service requests and the approval engine (lane A, 2026-11-04; 3 sessions; #182)
+
+### [~] WP-046a — Incidents V1 (lane A, 2026-11-11; 7 sessions, one migration each; 42 REQs)
+- **S1 PR 1 (0141; REQ-INC-040, 073..076):**
+  - Task details: type, scheduled and actual start and end (an end before its start is
+    refused), estimate, percent done, extra cost, a reminder before the scheduled start.
+  - The extra cost is shown only to those who may edit the record, never to requesters, the
+    portal or a task-only owner. **S3 decides task and worklog cost visibility together.** A new
+    right would go to Haider through the coordinator.
+  - Dependencies: same record only, at most 20, loops refused. Starting or completing a task
+    whose predecessor is open is refused with a 409 naming it; a per-type setting turns this
+    into a warning. Tasks show "waits for ..." live.
+  - Task templates per type (one task or a set of up to 20; a disabled one is not offered),
+    kept under Admin › Incidents › Task templates.
+  - A record template's tasks, each with an optional condition (a list filter), are added when
+    the record is made, recorded as the template's.
+  - `GET /my-tasks` on every type, each record through its own view rule, due first, overdue
+    marked; a console page with a nav entry.
+  - The migration also widens the link kind check (`caused_by_change`) and the bulk action
+    check (`cancel`, `delete`). Their enum values and use come in PR 2.
+- **S1 PR 2 (no migration):**
+  - Task notifications: a task given to you, its reminder before the scheduled start, and
+    overdue. A sweep claims each once; a moved time or an unseen record says nothing.
+  - Change bulk cancel (one reason) and move to trash (REQ-CHG-101), on the change list's bulk
+    bar.
+  - add_child refuses any holding loop through lane C's `release_links.holds`.
+  - **Still open:** the "caused incidents" change report field and the `caused_by_change` link
+    kind (REQ-CHG-116) come once #396's type fields are on main.
+    The link kind's CHECK is already widened (0141), so that step needs no migration.
+- **S2 (0144; REQ-INC-040, -077, -078, -080, -082; #407):**
+  - Checklists: typed or from the library, several per record. A tick records who and when.
+    Unticked items are open work, completed by the system on close.
+  - Record templates add their checklists when their condition matches.
+  - The library has a read-only CSV import (5 MB, 5,000 rows, 40 columns; bad rows listed).
+  - A list past `checklist_item_max` (Admin › Incidents › Closing) is refused whole.
+  - All files: the record's own, its replies' and notes', listed in one tab and downloadable as
+    one zip. Lane B's rules apply: each file checked again, left-out files named in
+    `manifest.txt`, two downloads per person at once, 200 files and 500 MB, audited.
+  - Personal reminders: on the record and in the header drawer, the owner's only, alerted once
+    by a sweep, live on the personal channel.
+  - `work_items.part.changed` v3 adds the `checklist`, `reminder` and `timer` parts (`timer`
+    reserved for S3).
+- **S5a (0154; REQ-INC-041, -042; reply and resolution templates):**
+  - A template is a reply (the composer) or a resolution (the resolution editor), with an
+    optional subject and its text in en, ar and ur.
+  - Personal templates are their owner's only, administrators included. Shared ones need the
+    type's settings right to write and may be limited to groups.
+  - Variables come from the one notification catalogue; an unknown one is refused on save.
+    Filling happens on the server: values go in escaped, an empty one reads "not set", and the
+    result is sanitised again.
+  - The language is the screen's choice, then the requester's, then the tenant's default, then
+    any the template has.
+  - Resolution templates of the record's category come first.
+  - Migration 0154 keeps each old text under its tenant's default language. The downgrade is
+    refused once anything new is used.
+  - The shared editor's template menu awaits an optional `fill()` (lane C's conditions). The
+    composer and move dialog fill on the record's own route prefix (incidents, requests).
+  - **Still open:** problems' and changes' move dialogs offer no resolution templates yet.
+    S5b is the form designer and rules, S5c copy, quick create and server drafts.
+- **S5b (0155; REQ-INC-036, -037; form designer and form rules):**
+  - Migration 0155 adds `work_item_templates.layout` and `form_rules` (expand only).
+  - Layouts: sections with names in en, ar and ur, one or two columns, collapsible (optionally
+    starting closed), and labels above or beside. Requesters get their own layout or the
+    technician one. A field no section names goes at the end, so a new custom field is never
+    lost.
+  - Form rules: show, hide (optionally keeping the value), require, lock or set, on a condition.
+    Conditions are a bounded part of the filter DSL: eq, ne, in, not_in, is_null and
+    is_not_null, with and/or nesting at most 3 deep and at most 20 conditions.
+  - The Python and TypeScript evaluators run the same vectors
+    (`docs/architecture/form-rule-vectors.json`, AC3).
+  - The server enforces the rules on every create and edit, from the console, portal, e-mail
+    or API:
+    - a rule's `required` is the same field error as the browser's (AC1);
+    - a hidden field is cleared, through history, unless the rule keeps it (AC2);
+    - a locked field changed by hand is `field_locked`;
+    - a rule's value fills an empty field.
+    - On an edit, a field is required only when the edit newly requires it or empties it
+      (D-086).
+  - The portal gets only the rules and sections over the requester's own fields (036 AC2).
+  - The designer in Admin › Incidents › Templates is keyboard-first: every move is a button or
+    a choice. It previews the technician and requester forms in both reading directions
+    (036 AC3) and links to making a new custom field.
+  - **Still open:**
+    - drag to reorder (keyboard moves for V1, plan answer 3);
+    - the portal form draws only subject and description today, so requester sections take
+      effect there once it shows more fields;
+    - rules over assignment fields don't run on the assign route;
+    - a rule (or a template setting) that requires a field requesters can't fill blocks portal
+      creates from that template, as base template settings already do. Follow-up (lane B): a
+      save-time check on for_requesters templates that refuses or warns when a rule requires,
+      sets or hides a field requesters can't fill;
+    - designer keyboard polish (lane C, non-blocking): keep focus after a move, a remove or at
+      a list's end, and announce moves to screen readers.
+- **S3 PR 1 (0147; REQ-INC-068, -069, -070; D-164):**
+  - Worklogs are billable or not, and take their owner's cost per hour when the time started
+    (lane B's `cost_rate`, #427; a snapshot, never rewritten). Other-cost lines are in the base
+    currency, or another currency with the rate entered (D-164: no automatic rates).
+  - Totals: billable and non-billable time, technician, other and total cost.
+  - `<type>.view_costs` (D-164) gates every cost on incidents, requests, problems, changes and
+    releases, a task's extra cost included: the service desk manager everywhere, the change
+    manager on changes, the release manager on releases. Without it the API hides them.
+  - Closure settings: no time on closed records (409), count non-working hours, timer
+    auto-start (off by default).
+  - Personal timers: one per person per record, on the server; stop prefills a worklog; resolve,
+    close or cancel turns running timers into drafts that count once their owner confirms them;
+    auto-start once for the record's technician. Live on the personal channel only.
+- **S3 PR 2 (no migration; REQ-INC-071; #432):** time analysis per status, group and
+  technician, open and paused, on the record's calendar; the incident's Time tab.
+- **S4a (0152; REQ-INC-049 AC1-AC3; ADR-049 with Amendment 1):**
+  - `work_item_lifecycle_versions`: each life cycle's versions (draft, published, retired), for
+    action-based and staged types. The data step makes every life cycle version 1, published,
+    and gives every record and staged transition version 1, once per tenant, records in
+    batches. The downgrade refuses once anything is beyond version 1.
+  - A record runs on its own version: the catalogue loads every runnable version, and a new
+    record starts on the latest published one. Publishing never changes a record made before.
+  - Versions over HTTP (`/settings/lifecycles/{lifecycle}/...`): start a draft (a copy), replace
+    its moves (saved with its problems, each naming what to fix), publish only without
+    problems, throw it away, retire a version new records no longer start on. If-Match on the
+    type's settings version, audited, live.
+  - A move gains, per version, an extra right and fields needed first; the offer lists them and
+    the move refuses (403 naming the right; 422 `required_for_move`).
+  - Who may run a move stays WP-029's transition settings, **version-wide** (Amendment 1),
+    hardened to ADR-049 §5: one function for the offer and the move, facts read after If-Match,
+    a 403 `transition_condition_not_met` with only its kind, fail closed, roles and groups
+    checked within the tenant at save, run-as identities limited like people. One test per rule.
+  - Admin › Incidents › Life cycle and Admin › Service requests (template E): versions, the
+    draft's moves as a table, problems in words, publish saying existing records stay on their
+    version. Guide: docs/guides/life-cycle-versions.md.
+  - **Not yet (S4b, no migration):** the canvas designer on packages/flow (AC4), migrating
+    records to a newer version (§7), staged types' version editing (§8; they keep version 1),
+    and problems' settings page (none exists yet; the API serves problems already).
+- **S5c part 1 (no migration; REQ-INC-018 quick create):**
+  - Incidents list › Quick create: subject, requester and an optional priority (with its
+    reason), without leaving the list.
+  - It is the same create as the full form: the default template's starting values go with it
+    and the server applies its rules. A field they need that the dialog lacks is named, with
+    "Open the full form" (template and requester carried over; AC2).
+  - The list updates live (AC1).
+  - **Next:** server drafts (REQ-INC-019) wait for WP-057 S3's field encryption, as approved;
+    today's drafts are kept in the tab (sessionStorage).
+- **S5c part 2 (0156; REQ-INC-033 copy N times):**
+  - Incident › More › Copy: how many (up to the type's limit), and whether its tasks and
+    attachments come. Each copy is a new record through the same create (the template's rules
+    apply), its subject "Copy 2 of: …", its history naming the original. Conversations,
+    worklogs, history, approvals and the assigned person never come (AC2).
+  - Attachments come as new files, each encrypted under its own ID and linked to the copy; the
+    description's images point at the copy's own files. Files that cannot be opened now
+    (scanning, infected, too large, blocked) stay behind, are listed, and their images are
+    removed. One record the actor may not use refuses the whole call (404, nothing written);
+    200 file pairs and 100 MB per call; each copy audited as `file.copied` (lane B's rules).
+    25 MB x 2 copies in about 2 s locally.
+  - Admin › Incidents › Closing › Copies at once: 1 to 100, 20 by default (AC3); a refusal says
+    the limit at the count.
+  - Migration 0156: `work_item_type_settings.copy_limit` and the `copy` file source; the
+    downgrade refuses while a tenant holds a copied file or a changed limit (rule 5h).
+- **S6 channels (0159; REQ-INC-025, -026, -066, -015; lane B blocked the mail parts):**
+  - Commands at the top of a mail (`priority = p1`, REQ-INC-025): off by default per incident
+    type, for the fields it allows; only when the mailbox's trusted server vouched for the
+    sender in its Authentication-Results (lane B's parser: topmost trusted header only, one
+    From, DMARC or SPF with aligned DKIM, any doubt not verified; Microsoft 365's unnamed result
+    only with a Graph switch). Each line goes through the API's own edit or assignment as the
+    sender, with no new right (coordinator); the rights are checked before any name is looked
+    up. Failed lines are skipped and the sender told; an unverified sender's commands are set
+    aside, and the history and the mail ledger say so.
+  - Block rules (REQ-INC-026): sender, domain, or plain text in the subject or body (never a
+    pattern). Blocked mail creates nothing and waits in the review queue, its copy kept for the
+    mailbox's quarantine days (14 by default), then removed; an admin's release lets it through.
+  - People kept informed (REQ-INC-066): up to 20 addresses on an incident get its public
+    replies, never its notes; the first mail's Cc join them (setting, on) only from a sender
+    the mailbox's server vouched for (lane B: a forged From must not copy replies to its Cc; the
+    history says when Cc were set aside), never our own addresses or the requester's. Each mail has a stop link: a page that asks first, a single-use
+    token whose hash alone is kept, expiring at min(closed + 30 d, 180 d, mail retention).
+    Replies from those addresses stay held for review as other non-requester replies
+    (coordinator, 2026-11-13; for Haider if AC needs them recorded). Editing the list from the
+    portal is a follow-up.
+  - REQ-INC-015: the requester's assets were already offered first (AC2); the asset's own
+    history for later links and unlinks is lane B's #487 (AC3). Configuration items wait for
+    CMDB (WP-053).
+  - Migration 0159: `mail_block_rules`, `work_item_notify_links`, the `blocked` outcome,
+    the mailbox's trusted servers and quarantine days, the type's mail settings and
+    `work_items.notify_emails`; the downgrade refuses while any tenant uses them (rule 5h).
+- **S5c part 3, kept drafts on the server (0160; REQ-INC-019; lane B blocked, lane C the UI):**
+  - The new-incident form is kept on the server as well as in the tab: sealed with the tenant's
+    field key (ADR-050, `field.work_items.draft`, bound to its row), one per person and form,
+    saved 3 s after typing pauses (60 saves a minute at most). Only its author ever gets it back
+    (404 for everyone else, admins too); only known forms (`incident-new`), plain values only,
+    64 KB at most; restored values go through the create's own checks.
+  - A quiet note above the first field offers it back (Restore, Discard); restoring over typing
+    asks first; one that cannot be read offers Discard only; no key on the installation shows
+    nothing and is tried again later.
+  - It goes when the incident is saved (the sender's own), when discarded, when its owner is
+    deactivated or erased, and after 30 days. No audit (personal and unsent).
+  - Migration 0160: `work_item_drafts`; the downgrade refuses while any tenant holds a draft.
+- **S7 slice a, field access per role (0162; ADR-047; REQ-WI-016, REQ-ADM-026; lane B blocks):**
+  - Rules: one per role, record type and field (read_only, masked or hidden), versioned, soft
+    removed, at most 2,000 per tenant; `/field-access` (catalogue, rules, effective view) with
+    `roles.view` / `roles.manage`; every change audited with the mode before and after.
+  - Compiled into the cached subject (`Subject.field_access`): the clearest mode of the person's
+    roles wins (own, through active groups, or their type's default); a change reaches the next
+    request (after-commit bump plus the authz consumer); holders' screens refetch (realtime).
+  - Licence: `field_access` (Professional) for adding and changing; viewing, removing and
+    applying never depend on it (lane C owns licensing, lane B reviewed).
+  - Custom fields gain `personal_data` and `sensitive` marks (no rule of their own; erasure,
+    export, view log and encryption use them: D-171, WP-057 S3b); the per-type
+    `custom_text_rebuilding_since` marker for slice b's search.
+  - Not yet enforced on reads or writes: slice b (redaction, write checks, search, live
+    renaming, built-in fields), then slice c (the editor), and lane C's analytics slice.
+- **S7 slice b1, field access enforced on reads and writes (no migration; ADR-047; lane B blocks):**
+  - A record, a list page, search and duplicates: a hidden or masked field comes back null and is
+    named in `hidden_fields` / `masked_fields`; custom values are left out (REQ-WI-016 AC1).
+  - History: hidden changes left out, masked ones keep the line without values.
+  - A withheld field cannot be filtered or sorted on (AC2; the shared list dependency gains an
+    opt-in `exclude_for`) and is not offered in list-fields; reports, dashboards and exports
+    (the work item report source) cannot name one.
+  - A person's change of a read-only field is refused (403 `field_read_only`, AC3) on edit, on
+    create and per item in bulk; a value sent back unchanged passes; a service identity's
+    writes (workflows, connectors) are system writes (`Subject.person`).
+  - Built-in fields an admin may restrict: impact details, and the problem's analysis and review
+    texts; the root cause's own gate (view_root_cause) applies after the role rules.
+  - b2 (#509) and slice c follow below.
+- **S7 slice b2, field access everywhere else (no migration; ADR-047; lane B blocks):**
+  - Search fails closed: a restricted custom field stays out of the search text; when a field's
+    rules change, its type is marked and rebuilt in the background, and meanwhile search
+    ignores custom text for everyone (a match must hold in the subject and description alone).
+  - Live signals and 409s name a restricted field only as "restricted" (shared channels cannot
+    differ per viewer; screens refetch and get what they may see).
+  - Business rules, triggers, workflows (shown on the step, publishing refused) and templates'
+    defaults cannot name a field their author does not see in clear (422 field_not_permitted).
+  - Tests: nothing restricted reaches the AI gateway; no notification or template variable
+    names a restrictable field (guard).
+  - Next: lane C's open_custom and view-log seams when their signatures exist.
+- **Analytics slice, field access in reports (no migration; ADR-047 §5; lane C; lane B blocks):**
+  - The reporting source names the fields it withheld (`ReportingSource.withheld`, filled by the
+    work item source). A report that names one (filter, groupings, columns or sort) is refused
+    as `field_not_permitted` (403), never as an unknown field, never with values. This covers
+    runs, dashboards, exports and scheduled files.
+  - A dashboard widget refused this way (or by `measure_not_permitted`) shows "Not available to
+    you", not "could not be loaded".
+  - A schedule whose owner may no longer see a field it uses pauses as `field_not_permitted`
+    before any file is made. A recipient who may not see one gets no file; the others do
+    (counted in `last_failed`).
+  - [x] Follow-up (coordinator, 2026-11-14): one notice per run to the owner. Recipients left
+    out are skipped, not failed. `analytics.report_schedule.recipients_skipped` v1 carries IDs,
+    the entity, the run time and the field codes. `report_schedule.recipients_skipped` is a
+    STATUS notification, required, owner only, in-app and e-mail, with the fields named in the
+    owner's language. Shape from lane A; no migration.
+- **S7 slice c, the field access editor and what records show (no migration; ADR-047; lane C
+  reviews the UI):**
+  - Admin › Roles: a saved role has a Field access tab beside its permissions. Per record type,
+    each rule-able field has a mode (No rule, Read only, Masked, Hidden) that saves at once (no
+    Save on that tab); a stale row reloads with a notice; a lapsed plan keeps the rules and only
+    allows removing them. "Who sees this" opens a modal with people per mode.
+  - Records and lists say when a field is withheld: "Not shown to you" or "Masked"
+    (`RestrictedValue` in packages/ui; a restricted row is never under Add details and never
+    edits). Read-only fields (`read_only_fields`, #510) have no editor.
+  - Live: an `access.changed` message refetches every active query, so an open record shows a
+    field just hidden with no refresh (e2e `field-access.spec.ts`). The Visual matrix gains the
+    tab and the modal. Admin guide: `docs/guides/field-access.md`.
+  - Also #510: a record handed out of reach (D-053) came back unredacted; fixed, with a guard
+    that a record view is built only where it is redacted.
+
+### [~] WP-046b — Incidents V1, file 01 §13-23 (lane A, 2026-11-14; 5 sessions, one migration each; 31 REQs)
+
+Plan approved by the coordinator 2026-11-14 (order S1, S2, S4, S3, S5). REQ-INC-132 goes to
+WP-056, -099 and -135 to WP-059b (lane C builds the AI; lane A adds hooks), -103 with WP-062b,
+-149 to its own mobile WP; projects relations (087) later. New rights (edit closed, undo merge,
+declare major) default to the tenant admin and service desk manager, grantable, each use audited.
+
+- [x] **S1, approvals and edit controls (0169; #523 merged 2026-11-16):**
+  - REQ-INC-083: incidents get the approval engine's routes and an ad-hoc "Ask for approval"
+    with a rule (any one, all, a majority); one rejection under "all" rejects; the approval
+    status records the outcome, the status never moves; segregation of duties is the engine's;
+    approvers are asked in the app and by e-mail with their own one-time link (D-132's path),
+    and a named approver gets the incident's public side for it; the technician hears of a
+    rejection once the rule has rejected it. `incidents.approve` (technicians, service desk
+    managers).
+  - REQ-INC-101: `incidents.edit_closed` (service desk managers) opens a closed incident's fields
+    in the service (every path), a reason required, each edit audited (field names only); the
+    tenant's full lock outranks it, administrators included, and changes only through its own
+    route (RecentAuth, audited). Notes and replies are not field edits; reopening is its own move.
+  - REQ-INC-124: a reason on any edit, kept in history; the fields the tenant names need one.
+  - REQ-INC-102: first-contact resolution suggested at the first resolution (creator, never
+    reassigned, within the tenant's minutes), confirmed or changed by the technician.
+  - Console: Approvals tab and the ask dialog, the "Why" box on closed or named fields, the
+    closure settings (reason fields, first-contact minutes, the lock), the first-contact flag.
+- [x] **S4, major incidents, announcing and printing (0177; #541 merged 2026-11-18; lane B blocked
+  under D-149, lane C after D-175; lane C owns the announcements port and read the UI):**
+  - REQ-INC-141: `incidents.declare_major` (tenant admin, service desk managers): declare and end
+    with a reason (audited, the reason in the entry's personal part, never in history values);
+    the major incident team (a group and named people) is told through the engine; the major
+    template applies when set; the marker in the record and lists, a filter field, the open
+    major incidents list; settings with If-Match and an audit entry. Similar incidents attach as
+    children through a bulk job, each checked as the person (REQ-INC-141 AC2).
+  - REQ-INC-129: announce from an incident through announcements' new public port (its own
+    rights, scope and audience); the link kept by work_items; one Idempotency-Key per dialog;
+    a draft when the actor may not publish; resolving offers to end them, nothing ends by itself.
+  - REQ-INC-126: print or save as PDF with chosen sections, read from the reader's own APIs; the
+    conversation's server-side `visibility` filter keeps private notes off a public printout.
+- [x] **S2, links, merges and conversions (0172; #525 merged 2026-11-18; lane B blocked; lane C
+  read the UI):**
+  - REQ-INC-086: parent and child incidents, one level, no loops (one parent per child, a parent
+    is no child, a child has no children); edit on both; a link never widens access (an unseen
+    side is a hidden line).
+  - REQ-INC-088, -150: merge with a preview that counts who would newly see the duplicate (staff
+    by their own access, the survivor's requesters) and asks to confirm; children move; the
+    duplicate's requester follows only within the same department; its conversation shows on the
+    survivor by reference, each entry under its own visibility (the portal: public ones, other
+    requesters nameless). Undo needs `incidents.undo_merge` (service desk managers; admins hold
+    all) and a recent sign-in, audited with both IDs; it is exact or refused.
+  - REQ-INC-089: incident to service request and back, never in place: a new record through the
+    create path, the old one `converted` (history still verifies); fields carried only with the
+    same key and type and no field-access rule, sealed ones sealed again for the new record;
+    pending approvals withdrawn; old numbers lead to the new record for readers only (404).
+  - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
+  - Seed version 6 tops up the `converted` status for older tenants.
+- [~] **S3, views, lists and bulk:** S3a done (0178; #549 merged 2026-11-18; lane C blocked
+  under D-175); S3b done (cards, board and calendar; 0182; #559 merged 2026-11-20; lane C
+  blocked); S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
+  - REQ-INC-111 (S3b): table, cards or board per person and view (0182: `layout`,
+    `group_by`). A board grouped by status, priority, technician or group; its counts are the
+    list's own query (only records you may see) and its columns keep a stable order (every
+    status in workflow order, even empty); each column loads its first 25, with "Show more". A
+    move runs the real action (the status's transition with its prompts, assign under D-154,
+    priority with its reason); a refused move stays and says why. Cards carry the unread cue
+    and the row colour, and never a field the reader's role withholds.
+  - REQ-INC-112 (S3b): a calendar of the view's incidents by due time, month or week, in your
+    zone, by the POST list (sealed filters stay out of URLs); "N more", arrow keys between
+    days, and a line counting those with no due time.
+  - REQ-INC-107 AC1: star saved views (personal, first in the picker).
+  - REQ-INC-115: unread rows (changed by someone else, or a public reply, since you opened the
+    record; one never opened only for its assignee) in bold with a dot and a spoken "Unread",
+    live; rows coloured by status or priority (a tenant default and a person's own per view),
+    the mark darkened until it reads 3:1.
+  - D-176: `<type>.share_views` and `<type>.share_views_wide` (team leads: groups they lead;
+    releases: the release manager); a shared view naming a field the reader may not see is not
+    theirs (checked on every read); sharing on a restricted or sealed field refused; the view
+    audit makes existing offending views private (history, events, the owner told, a report).
+  - A link opens a view (`?view=open`, `?view=custom:<id>`).
+- [~] **S5, requester cancel and edit rules (0184; REQ-INC-148; lane C blocks):** in review.
+  - Per type: `requester_cancel` off (as today), direct, or ask; `requester_edit_fields`, the
+    reporting fields a requester may still change (none by default: read-only apart from
+    replying). Staff-only fields can never be listed or edited (domain rule, tested).
+  - Direct: the requester's own cancel, with their words, through the life cycle. Ask: one
+    waiting ask per record; the assignee decides (with none, whoever may edit it); approving
+    runs the ordinary cancel as the decider; declining sends their note as a public reply; the
+    requester may withdraw. Events, history, labels en/ar/ur; the portal, the record's strip
+    and the admin card.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -1416,7 +1926,7 @@ it with no reload (rule c). Not built yet.
   form keeps a slot; the portal bell stays in WP-023 session 2 (lane B); the approval delegate
   (REQ-PRT-013) and on-behalf-of in the portal to WP-030.
 
-### [~] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
+### [x] WP-049a — Assets: foundations, products, the asset record, life cycle, ownership, components, loans (lane B; D-141; 5 sessions; session 1 built 2026-11-05, draft #216)
 
 - **Scope:** parity 07 §1-7, REQ-AST-001..031, plus 058 (permissions by action), 059
   (notifications) and 062 (warranty), folded in by the approved plan. Licence feature `assets`.
@@ -1500,7 +2010,7 @@ it with no reload (rule c). Not built yet.
 - **Also lane B:** the REL-024 AC2 duty-preview port `register_duties` is #223; the role-editor
   preview UI follows lane C's release lookup.
 
-### [~] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-2 built 2026-11-11)
+### [x] WP-049b — Assets: consumables, minimum stock, bookings ahead, the loan's leftovers (lane B; sessions 1-3, 4a and 4b built 2026-11-11; 4c 2026-11-12)
 
 - [x] **Session 1 (migration 0130, down revision 0129; REQ-AST-030's
   leftovers, 032, 033, 034, 035):**
@@ -1560,6 +2070,530 @@ it with no reload (rule c). Not built yet.
   - Guide: docs/guides/asset-financials.md.
   - **Open:** 048's hardware, software, contracts and scan-history tabs (discovery, S3, WP-054);
     049 AC1's `discovery` source (S3); 036 AC2 and 038 AC1 with WP-054.
+- [x] **Session 3 (migrations 0134 and 0135 after 0131, re-pointed at the lane's turn; REQ-AST-039,
+  042, 043, 054, 056; branch backup/wp-049b-s3):**
+  - Shared PDF renderer (agreed with lane C): `app/shared/pdf` holds the bundled fonts, the fetcher
+    that refuses every URL but those fonts, `available()` and `render(html)` with page and byte
+    caps; analytics keeps its report HTML and its `pdf_not_available` code. The fetcher and
+    fonts-only tests moved with `git mv` (history kept); the report-only tests stay in analytics.
+    The worker-test image runs the shared and asset PDF tests too.
+  - Labels (039): QR (segno) and Code 128 (python-barcode; D-141, CLAUDE.md §3) as inline SVG in
+    one PDF per job (up to 500, one label per page; cable and laptop layouts; Arabic right to
+    left), built by the consumers worker (`assets.label.requested` → `assets.label.printed`),
+    downloaded by the person who asked for a week. The QR holds only the console link (AC2).
+    `assets.view` on every asset printed, scoped (404 naming none). Every print and reprint
+    writes an append-only `asset_label_prints` row (SELECT, INSERT only; AC3). Vendor codes print
+    through the same generator. AC1: 100 assets make one 100-page PDF (pdf test).
+  - Audits (042, 043): plan with `assets.manage` (sites, product types with their children,
+    asset groups; dates; named auditors); start freezes the expected items (AC1: exactly the
+    site's assets); named auditors with `assets.view` mark by scan or by hand while it runs;
+    found at another site is the wrong place (043 AC1); unexpected assets added; bulk fixes (move
+    site, change state, assign) each through the asset service in a savepoint, history naming
+    the audit (043 AC2, `automation_ref` kind `asset_audit`); progress live on
+    `t:{tenant}:asset_audit:{id}` (043 AC3); closed is read-only on the server. Self-audits ask
+    each holder again through their acknowledgement (one per holding and audit; accepted =
+    found, disputed = missing with the holder's comment kept on the item and shown in the
+    discrepancy list); a requester sees and answers only their own. View-only people may select
+    assets to print labels; every other bulk action stays assets.manage (server-tested).
+  - Scans (054): `app.modules.assets.record_scan` (the discovery port; nothing calls it yet),
+    the asset's Scans tab, `last_scanned_at`; the daily `assets__scan_cleanup` deletes scans past
+    the asset settings' retention (the existing `scan_retention_months`, Appendix A: 6 months),
+    per tenant, one audit summary each run; assets and history lines stay (AC2).
+  - Overdue rule (056): off by default (`config.assets`), N days, product types, a state or the
+    trash (never a delete), preview count before saving (AC2), the hourly
+    `assets__overdue_scans` job records each run that changed something with its list and names
+    the rule in each history entry (AC1); trashed assets restore with their history (AC3).
+    It follows the life cycle: only reachable target states are accepted
+    (`asset_overdue_state_unreachable`), and an asset whose state cannot move there is skipped,
+    unchanged, and listed in the run with its reason.
+  - Migration 0135: `ix_field_changes_change` (tenant_id, change_id), built and dropped
+    CONCURRENTLY.
+  - Console: Assets › Audits (list) and an audit (record: items, scan box, discrepancies with
+    bulk fixes), Print labels on the asset list selection and the asset page, Labels and Scans
+    tabs, history lines naming the audit or the rule, the overdue rule in Admin › Assets ›
+    Settings. Portal: the self-audit question in My assets. Visual matrix: asset-audits,
+    asset-audit, asset-scans; the showcase has a running audit with marks and two scans.
+  - Guide: docs/guides/asset-labels-and-audits.md.
+  - **Open:** label PDF progress is reported at the end only (the worker renders in one step);
+    the API cannot tell beforehand whether a worker can render PDFs (a job without one fails
+    with `pdf_not_available`); the label designer (040) and mobile scanning (041) are later;
+    discovery calls `record_scan` (WP-050).
+- [x] **D-157 follow-up (lane B, 2026-11-11; migration 0136 after 0137;
+  branch backup/d157):**
+  - A technician changes an asset linked to its own ticket still being worked and held by the
+    ticket's requester or department: state, location, notes and fitted parts only
+    (`asset_field_not_allowed` otherwise); `GET /assets/{id}/access`; work_items'
+    `linked_requester_ids_select` port (additive; lane A reviews).
+  - Price, tax and total behind `assets.view_financials` in responses, history (masked) and
+    writes.
+  - Straight line by default; declining balance with the product type's factor
+    (`depreciation_factor`, default 2); double declining stays 200 %.
+  - One in-app notice per run to the people who set mail up when e-mails are given up after 7
+    days without mail (`outgoing_mail.not_sent`).
+  - Review fixes: the ticket path fits only free components and never retires or disposes;
+    the on-behalf person counts as a holder (lane A); the mail summary is claimed once per run.
+  - 2b: catalogue prices and default depreciation behind `assets.view_financials` (masked in
+    product responses, needed to write them).
+  - The Purchase manager role will need catalogue prices when procurement is built (WP-054);
+    granting it then is Haider's call, not granted now.
+  - **Open:** the e2e journey for the technician's path.
+- [x] **Session 4a (migration 0140, down revision 0136 after the second main merge; it moves
+  to 0139 at the lane's turn; REQ-AST-044, 045, 046, 047; branch backup/wp-049b-s4a):**
+  - Shared list-settings store (the coordinator's decision): `app/shared/list_settings` owns the
+    `list_settings` table (RLS forced, SELECT/INSERT/UPDATE, soft delete): per person, list and
+    view, the columns with widths, sort, page size and a favourite star; a saved view is a row
+    keyed `custom:<id>` with a name and the list's own filter (checked as the list checks it).
+    Lists register a `ListSpec` (permission, built-in views, fields, licence feature); the system
+    module mounts `/api/v1/list-settings/{list_key}` (views, saved views; If-Match, an
+    Idempotency-Key on create) and sends `system.list_settings.changed` (IDs and keys only) to the
+    person's own channel. Assets (`assets`, `asset_consumables`) use it; work-item lists keep
+    their own store until lane A chooses to move (rule 8: the lane tells lane A).
+  - Asset list (047): the product type tree beside the list (a node lists its types and every
+    type below, with counts per branch from `GET /assets/type-counts`; AC1), its own WAI-ARIA tree
+    (roving tabindex, arrows mirrored in right to left, Home/End, Enter/Space; AC2), built-in
+    views (all, mine, scan failures, loanable, in stock, warranty ending soon, recently
+    discovered: empty until discovery, said so on screen), saved views and favourites (favourites
+    first in the picker), the spec's default columns (holder, department, parent asset and
+    product named by the list page; additive fields), widths kept per person and view through
+    `useColumnWidths` with the new shared kinds (#367's local hook removed; lane C reviews).
+    AC3: `ix_assets_type_updated` (tenant_id, product_type_id, updated_at, id; live rows); the
+    EXPLAIN test over 50,000 assets shows index scans only (ix_assets_updated for the default
+    sort and a large branch, ix_assets_type_updated for a 5,000-asset node), first page well under
+    1 s through the API.
+  - Picker (046): `GET /assets/picker/search` (filters by product type with its children and by
+    site; part of a name, tag, barcode, serial or discovered serial anywhere in it; pages by
+    cursor; staff within their asset scope, others only what they hold). The classic
+    `/assets/picker` takes the same two filters. Tests: a partial serial (AC1), an asset outside
+    the scope (AC2).
+  - Linked records (044, **D-158**: the counters count only the records the viewer may see,
+    overriding AC3): the assets-side port `LinkedRecords` (`linked_counts`, `linked_page`,
+    `asset_ids_of`) with `register_linked_records`; `GET /assets/{id}/linked` ("not available"
+    while no port is registered, and the panel hides) and `/linked/{kind}`; live through the
+    asset's channel on `work_items.asset_link.changed` and `work_items.work_item.status_changed`.
+    Unit-tested with a fake port (a record the viewer may not see is neither counted nor listed).
+  - Raise from an asset (045): Raise an incident, service request or change on the asset page,
+    a template (or catalogue item) picker listing only what the person may use, then the normal
+    create form with the asset and its holder filled in (`?template=`/`?item=`, `?asset=`,
+    `?requester=`; small console-only additions to lane A's three create forms, agreed with
+    their conditions). Each ID is checked quietly first: an unknown or not-allowed template,
+    item, asset or person leaves its field empty (the form's default template), with no banner
+    or toast; a known asset shows by tag and name; the server re-checks on submit. The history
+    line "INC-1042 raised from this asset" is written by the `assets__raised_from` consumer from
+    `work_items.asset_link.changed` with `at_creation: true`, the display ID read at write time
+    through the labeler work items register with automation (their public `labels_of`); a record
+    already gone gives the generic line.
+  - Lane C's checklist: typeahead in the type tree (a printable key moves to the next matching
+    row, wrapping; keys within 500 ms form a prefix; locale lower-casing; Arabic and Urdu by the
+    first letter), the row's focus ring from the theme's focus colour and width, drawers capped
+    at the screen width (390 px); a test that work-item lists keep their own `/list-settings`
+    and that Reset widths clears the saved widths in both stores.
+  - Guide: docs/guides/asset-list-and-views.md.
+  - **Lane A's ports (#389) are on main:** work_items registers the port from its __init__
+    (`asset_link_port.py`, a thin adapter over lane A's visible-only `linked_counts`,
+    `linked_page` and `asset_ids_of`; no query of its own), so the panel shows. DB test with
+    real incidents: a linked incident of the technician's group is counted and listed, one of
+    another group neither (D-158); the counters follow a new link live; an incident raised with
+    an asset (`at_creation` on the real event) names itself in the asset's history. The display
+    ID still comes through automation's labeler until lane A's `labels_of` export (#396) lands.
+  - **Open:** a column chooser for the asset list (the store keeps chosen columns; the screen
+    shows the default set), renaming a saved view on screen (the API has it), sharing views with
+    groups (REQ-INC-107's sharing; the store is per person), the record forms' pickers adopting
+    the paged picker (lane A's screens), a change's asset on its create form (changes take no
+    asset on create yet).
+
+- [x] **Session 4b (migration 0145, down revision 0140 for now: it moves to main's head at the
+  lane's queue turn; REQ-AST-051, 052, 053; branch backup/wp-049b-s4b, from S4a at e52c46f7):**
+  - Bulk actions (051): `POST /assets/bulk-jobs` (assets.manage) queues an edit (location, site,
+    vendor, product, cost centre, GL code, dates, description; never money or identifiers),
+    a state change, an assignment (person, department or no one) or a move to the trash (soft
+    delete) of at most 1,000 assets (more: 422 `asset_bulk_too_many`, `max`). The consumers
+    worker (`assets__bulk_jobs`, work items' pattern) runs it as the requester in batches of 50,
+    each asset through the single-asset call in a savepoint: refused ones are skipped with the
+    reason code. History names the job (`batch_id`); progress on the personal channel
+    (`assets.bulk_progress`). The old 100-asset `/assets/bulk-moves` stays for API callers.
+  - Merge (052): `GET /assets/merge-preview` and `POST /assets/merges` (assets.manage on both,
+    within scope: another site's asset `asset_merge_site_not_managed`; another tenant's not
+    found). The suggested survivor is the discovered one, then the newest scan; each field's
+    side is chosen (money only with assets.view_financials). The survivor takes the chosen
+    values through the ordinary update; work-item links move through lane A's
+    `repoint_asset_links` (called through the linked-records port: `repoint_links` added to
+    the Protocol and to work items' adapter, lane B's file); cost lines, notes, fitted
+    components (through the holder change), static groups and relationships move; the merged
+    asset goes to the trash with "merged into" history; its tag, serial and barcode stay on it
+    and on the merge row as an alias that finds the survivor (list search), and its ID answers
+    404 `asset_merged` with the survivor (the asset page opens it). One `asset.merged` audit
+    entry holds the field mapping (codes only). A merged asset's restore answers 409
+    `asset_restore_merged` until `confirm_merged`; it then comes back alone, the alias ends and
+    nothing moves back. Refused: the same asset twice, an open loan, a booking, one fitted to
+    the other.
+  - Import (053): `POST /assets/imports` (raw body; assets and consumables need assets.manage,
+    vendors vendors.create and vendors.manage by mode), dry run first: every row through the
+    real service calls in a savepoint that is rolled back (nothing changes), then
+    `POST /imports/{id}/run` (If-Match). Modes add, update, add and update; matching on tag or
+    serial (assets), product (consumables), name (vendors). WP-021's reader moved to
+    `app/shared/sheets.py` (same checks; the people import uses it unchanged at 5 MB) with a
+    20,000-row cap here. Per-row problems (row, column, code), the file cleared once read.
+    **Interim limit, deliberate (coordinator, 2026-11-11):** asset imports take files up to
+    25 MB and 20,000 rows, below the spec's Appendix A (50 MB, no row cap): a 20,000-row sheet
+    fits while each import stays one bounded background job. WP-021's column, cell, zip-entry
+    and ratio checks are kept; the unpacked cap grows with the file (250 MB). The dialog shows
+    the limits and a larger file gets the labelled `asset_import_file_too_large` (with `max_mb`).
+    The people import keeps 5 MB. Raising it toward Appendix A waits for the batched path.
+    Measured: about 50 ms a row for assets on the loaded shared Mac (2,000 rows: dry run 99 s,
+    run 101 s), so 20,000 rows run as one job of about 17 minutes each pass, progress streamed.
+    The figure on CI or the stack goes in the PR.
+  - **Follow-up (WP-049b):** batched inserts for imports (rows written in batches, not one
+    savepoint per row). If a 20,000-row run takes more than about 10 minutes on the stack, this
+    is done before the polish round, not after QA (coordinator, 2026-11-11).
+  - **S4c result (#434, 2026-11-12): below target.** CI, 20,000 rows: dry run 596 → 425 s, real
+    run 936 → 589 s (29.4 ms a row), against targets of 120 s and 240 s. The coordinator shipped it
+    as it was (correct, reviewed, 35-40% faster) and asked for a profile by phase.
+  - **Profile (2026-11-12):** SQL is about 87% of the time: about 16 statements per created row
+    at about 1 ms each, none slow. The dry run costs as much as the run (it writes, then rolls
+    back).
+  - **Step A (assets only, this PR):** 27,072 → 14,862 statements for a 1,000-row dry run plus
+    run (−45%), about 7.4 per created row, all of them inserts:
+    - #435's per-transaction definitions memo (custom fields): 2 reads a row gone;
+    - the asset limit's advisory lock taken once per transaction (taken again after a rolled-back
+      savepoint, which releases it);
+    - a new asset's INSERT returns its defaults (no SELECT after it);
+    - the product kept for the (sub)transaction;
+    - no scope query for a just-saved asset when the manage grant is scope "all" without a
+      condition (`unrestricted`);
+    - the batch's taken tags and serials in one query (in-batch duplicates still refused);
+    - tag numbers in one block per batch, the unused rest handed back before the savepoint is
+      released. A dry run takes none, a batch with a refused row redoes row by row, and no gap
+      is left (the coordinator's rule; tested).
+    CI (Audit scale run 43189974597, 20,000 rows): real run 228.2 s (target 240 s, met), dry run
+    219.6 s (target 120 s, not yet: Step B).
+  - **Step B (approved by the coordinator and lanes A and C, 2026-11-12):** an import batch's
+    outbox events, field history, audit entries (with their personal rows and sealing queue) and
+    valuations are buffered (`app/shared/db/deferred.py`, `deferred_writes`, import-only) and
+    written as one multi-row INSERT per table, chunked under asyncpg's parameter limit, in
+    foreign-key order with the outbox last, before the batch savepoint is released. The dry run
+    discards the buffer instead of writing it. Rows are built exactly as before (ids, times and
+    entry hashes at the call), so the relay (ORDER BY id) and audit sealing (occurred_at,
+    entry_id) see the same order. A savepoint rolled back inside the block drops its rows. A
+    guard raises if a buffered table is read or written around the buffer while rows wait.
+    Locally: 14,862 → 2,911 statements for 1,000 rows, dry run plus run (about 1.1 per created
+    asset). The CI figure goes in the PR.
+  - **Merge and links:** the merge moves every live work-item link of the duplicate, including
+    records the merging person may not see (only a count comes back to them), inside the
+    merge's own transaction (lane A's note).
+  - Export (053): the list's Export button uses the reports export (entity `asset`) with the
+    list's filter; built-in views other than All are not exportable (said so). Price, tax, book
+    value and total cost only for those with assets.view_financials (D-157; the source gains
+    `purchase_price` and `purchase_tax` as money fields).
+  - Console: the selection bar's Change selected (bulk dialog with live progress and skipped
+    reasons) and Merge (exactly two; the field table, swap), the import wizard (upload, check,
+    import; problems table and a CSV error file in the person's language), Export, the restore
+    warning, the merged asset's redirect, history lines. Labels en/ar/ur. Vitest: 11 new
+    (incl. RTL in Arabic and Urdu), the old bulk-move test moved to the job.
+  - Tests: tests/db/test_asset_bulk_merge_import_api.py (12: RLS read and write on the three
+    tables, the cap, the per-asset skip, the rules of move/assign/delete, the merge with links
+    and one audit entry, cross-site refused, cross-tenant not found, the restore warning, the
+    dry run, modes, vendors, zip bomb, broken workbook, 20,001 rows, 5 MB, live progress),
+    tests/db/test_asset_bulk_merge_import_migration.py, app/modules/assets/tests/test_batch_domain.py.
+  - Guide: docs/guides/asset-list-and-views.md (bulk, merge, import, export).
+  - **Open:** "select all N" for bulk (picked rows only for now), the spec's other bulk actions
+    (change product as such, add to group and loanable stay synchronous, depreciation, labels,
+    scan now), field mapping in the import wizard (fixed headings for now), imports of licences,
+    CIs, contracts and POs (their modules), loans and bookings moving on merge (refused
+    instead), the e2e journey.
+- [x] **Session 4c (no migration; faster asset imports, the S4b follow-up; coordinator
+  conditions 2026-11-12):** each row still goes through `create_asset` / `update_asset` (or the
+  consumable and vendor calls) with its own permission check, history, outbox event and audit
+  entry; no bulk INSERT. What changed around them (`service/imports.py`):
+  - Product, site and vendor names resolved once per job (`Lookups`: made per job for its
+    tenant and importer, refuses any other session, answers as `find_site` / `find_vendor_id`
+    do, which apply no person's scope); the records a batch matches read in one query
+    (assets by lower(tag or serial), consumables by product, vendors by name through
+    procurement's new `find_vendors`).
+  - Rows checked first without writing, in the row path's order; the passing rows of a batch
+    go through the services in one savepoint (rolled back in a dry run); any refusal rolls it
+    back and redoes those rows one by one, each in its own savepoint and checked afresh, so the
+    problems are exactly the row path's. A key twice in a batch splits the savepoint there.
+  - A transaction ends after 100 rows or about 2 s (`BATCH_SECONDS`), so the tag counter row
+    and the asset limit's lock are held briefly; tag numbers still come from the caller's
+    transaction, so a dry run gives them all back.
+  - The asset service reads tenant configuration (defaults, the default state, settings, the
+    type tree, the time zone) once per (sub)transaction (`service/memo.py`), skips reads a new
+    asset cannot need (cost lines, disposal, custom-field definitions without custom values,
+    a second UPDATE, a second advisory lock), and in an import's batch savepoint counts the
+    asset limit once under its lock, then adds one per slot taken (a refusal redoes the rows
+    one by one with fresh counts).
+  - Measured locally (backend/tests/db/test_asset_import_scale.py, 2,000 rows, the loaded
+    shared Mac): before 70.5 s dry run, 75.1 s run (35 and 38 ms a row); after 32.8 s and 33.2 s
+    (16 and 17 ms a row). The CI figure for 20,000 rows comes from an audit-scale dispatch
+    (`asset_import_rows`), not from this Mac.
+  - Tests: tests/db/test_asset_import_batches.py (8: lookups per job, tenant and importer;
+    the out-of-scope rows of a mixed batch refused one by one; one refused row in a full batch
+    with exact problems; tag numbers untouched by a dry run and one per saved row; a manual add
+    waits about one 2 s transaction (measured 2.0 s); consumables matched as before); the S4b
+    import tests unchanged.
+  - **Open:** the remaining per-row reads are other modules' (custom-field definitions three
+    times, the licence count and lock, the audit entry) or the save itself; a further step
+    (a per-transaction cache of metadata's definitions, eager server defaults instead of the
+    refresh after insert) needs those owners. The import of a site-scoped manager may add
+    assets at any site, as `create_asset` allows today (only updates are scope-checked).
+
+### [~] WP-057 — Security and audit: sign-in policy, network rules, sign-in log, encryption, service accounts (lane C; D-149; plan approved 2026-11-12; 6 sessions; lane B blocks every PR)
+
+- [x] Session 1a (2026-11-12): IP allow-lists, the sign-in log and the SSO fetch pin. Migration 0151.
+  - **REQ-SEC-034 (IP allow-lists), AC1-AC3:**
+    - One list per app: console, portal and API (keys).
+    - Checked before the person is looked up or created, at sign-in and at a tenant switch. A
+      person in several tenants lands in one that admits them.
+    - Checked again at every refresh and at the realtime token.
+    - A save that would shut out the admin is refused (AC2). Every change is audited.
+  - **REQ-AUD-015 (sign-in log):**
+    - The BFF writes sign-ins, IP refusals and sign-outs (person only where known; a device
+      code, never the User-Agent).
+    - Live, behind its own right (`identity.view_sign_ins`, tenant admin only, grantable; each
+      read audited).
+    - Erasure clears the address and device. Entries go after 90 days.
+    - **AC2 met. AC1 (a failed SSO's reason) OPEN until S1b**, with the Keycloak events import.
+  - **Audit #3 (fetch part):** set-up checks are pinned through the guarded egress client.
+    Private ranges only where the installation lists them.
+  - **Tests:** ip_allow_lists (7), network_rules_api (4), sign_in_log_api (4), api_keys (+1),
+    auth suites unchanged (109), domain (network 9, sign_in 15), Vitest network (3) and sign-ins
+    (3). test_auth_keycloak is split in three (12 pass).
+- [x] Session 1b (2026-11-13): SSO required, break-glass, MFA with SSO, the verified sign-in
+  method, the Keycloak events import. Migration 0153.
+  - **REQ-SEC-009 (SSO required), AC1-AC3:**
+    - Off, technicians or everyone. It is judged on the verified token, before anyone is created,
+      at sign-in and at a tenant switch.
+    - Turning it on needs an emergency (break-glass) administrator (AC2). The last one cannot be
+      removed while it is on.
+    - Only another tenant admin names one, never yourself, and only an admin with MFA. The IP
+      exemption is a separate, audited setting.
+    - Every emergency sign-in is audited and alerts the other admins (a required, urgent
+      notification). Emergency sign-ins are rate-limited per address.
+  - **REQ-SEC-026 (MFA with SSO):**
+    - The identity provider's MFA is trusted by default (AC1).
+    - With "also require MFA", the tenant's own providers get the post-broker OTP flow (AC2).
+      Other tenants' providers are never touched.
+  - **The verified method:**
+    - The realm mapper `sx_idp` sits on both app clients, added if missing and restored if
+      changed.
+    - Proved in a real Keycloak: password tokens (browser code flow and direct grant, both apps)
+      and directory tokens never carry it; a brokered sign-in carries the alias.
+  - **REQ-AUD-015 AC1 (Keycloak events import):**
+    - Every 60 s, as `supportx-events` (view-events only). Only the consumers worker and the
+      identity Job hold its secret; a rendered-chart test pins this for single-node and HA.
+    - Each event goes to the one tenant its provider alias (confirmed under RLS) or address
+      names. The shared address is counted, never guessed.
+    - The cursor is a millisecond plus an offset, over settled milliseconds only (now - 5 s).
+      Writes are idempotent per event, at most 5,000 per run, and the cursor moves only after
+      the commit.
+  - **Screen:** Single sign-on required card, with the admins' emergency and IP-exemption
+    switches, live.
+  - **Tests:**
+    - Backend: sso_policy_api (5), sso_required_sign_in (4), sign_in_import (3), the
+      keycloak_identity tooling (14 + 2).
+    - Real Keycloak: idp claim (3) and LDAP federation (4).
+    - Chart: events secret, single-node and HA.
+    - Vitest: SSO policy card (2).
+- [x] Session 2a (2026-11-13): recent re-authentication and the sessions list. No migration.
+  - **REQ-SEC-027 (confirm it is you), AC1-AC2:**
+    - 28 sensitive routes carry `RecentAuth` and are listed in one constant
+      (`app/core/recent_auth.py`). A guard test checks the list both ways.
+    - The rule: a browser session that proved who it is in the last 10 minutes. API keys get
+      `api_key_not_allowed`, the mobile app `interactive_session_required`, and anyone else
+      `reauth_required` (403, so the console never reads it as signed out).
+    - `auth_time` is taken only from the verified, nonce-bound ID token, at sign-in and at a
+      confirmation, never from a refresh.
+    - **The confirmation** (`/auth/confirm`, then Keycloak with `prompt=login`, `max_age=0`,
+      and `kc_idp_hint` for SSO people):
+      - Single use, 5 minutes, from the same browser and for the same session.
+      - `azp` is our client, `sub` is the session's person, and `auth_time` is no older than
+        the start.
+      - It replaces the session's tokens and never creates a session. A new Keycloak `sid`
+        ends the old one.
+      - A refusal changes nothing and goes in the sign-in log as `reauth_failed` (AC2).
+    - **SSO:** the OIDC brokers SupportX makes pass `max_age` (`passMaxAge`). A real-Keycloak
+      test proves the brokered provider is asked again. SAML providers fail closed with
+      `reauth_unavailable`.
+    - **The pop-up:**
+      - The console and portal ask first, and the click opens the pop-up. A blocked pop-up
+        confirms in the whole page.
+      - The API's COOP cuts `window.opener`, so `/confirmed` answers on a same-origin
+        BroadcastChannel tagged with the opener's random attempt id. The answer is only
+        `{type, attempt, status}`.
+      - The opener takes only its own attempt's answer, then retries the change once with
+        the same Idempotency-Key. The way back is always a path on this site.
+    - **Routes still to join the list as they are built:** service identities (S4), webhook
+      secrets and SMTP settings (WP-055), erasure, and changing your own e-mail.
+  - **REQ-SEC-030 (sessions everywhere else):**
+    - Each session shows the device and the address it signed in from. Only its owner and
+      tenant admins see them.
+    - "Sign out everywhere else" is rate-limited and audited with the count only. Each ended
+      session's Keycloak session ends too, except this browser's console/portal twin.
+  - **Tests:**
+    - Backend: confirm_identity (5), sessions_everywhere_else (4), recent_auth_routes (2), the
+      auth BFF suite unchanged (68), domain (30).
+    - Real Keycloak: auth_keycloak (8), isolation (4), realm (1), the idp claim (4, with the
+      brokered provider asked again) and LDAP federation (4).
+    - Vitest: the api-client retry (4), the pop-up, `/confirmed` and the way back (22), the
+      sessions card (26 with the sign-in log).
+    - e2e: `confirm-identity.spec.ts` (AC1 within 5 s, real Keycloak), run by the PR's e2e job.
+- [x] Session 2b-1 (2026-11-13): the approximate place, known devices, and the first security
+  notices. Migration 0157. D-170 is recorded in this PR.
+  - **The place (D-170):** sessions and the sign-in log show where a sign-in came from, in a
+    fixed order:
+    - an admin-mapped address range shows its site (Admin › Security, the most specific range
+      wins, saved whole under the settings version, audited);
+    - an internal address shows "Internal network", never a guessed city;
+    - otherwise the DB-IP Lite city and country.
+    The sign-in log stores no place: it is read from the stored address, so erasure takes both.
+    A session keeps the place of its sign-in, worked out again at a tenant switch.
+  - **The GeoIP file:** the `maxminddb` reader on the file at `SUPPORTX_GEOIP_DB`.
+    - It comes from `geoip.existingClaim`, mounted read-only into the API pods only. The ~126 MB
+      file is never in an image.
+    - Any failure means no place, never an error.
+    - Admins see the file's build date. DB-IP is credited on About (CC BY 4.0), and
+      deployment.md says how to provide and refresh it.
+  - **Known devices (REQ-SEC-033, part 1):**
+    - keyed fingerprints only (HMAC under a known-device key from the session ring; device code
+      plus /24 or /48), checked under every ring key, so a rotation never makes devices new;
+    - at most 50 per person, deleted by erasure;
+    - a new device (never on the first sign-in) raises `NewDeviceSignedIn` and a required,
+      urgent, locked security notice to the person: the device and the place, never the
+      address, with a link to their sessions.
+  - **A changed sign-in e-mail** is mailed to the OLD address: who changed it and when, no link,
+    in the person's language and the tenant's brand. The `user.changed` entry records the send.
+  - **Tests:**
+    - place (22), GeoIP (3, plus 1 with a real file when given), known-device fingerprints (4);
+    - RLS for both tables (5), site-map API (5), known devices end to end (2), the old-address
+      mail (1), the GeoIP chart (2);
+    - the sessions and sign-in log suites unchanged;
+    - Vitest: the site-map card (3).
+- [ ] Session 2b-2: certificate and secret expiry (REQ-SEC-011), the invite link (REQ-SEC-021),
+  and REQ-SEC-033 part 2. Migration 0158.
+  - **REQ-SEC-033 part 2:** the lock-out, password-changed and MFA-changed notices, which need
+    the Keycloak events import to read those user events (only the types it needs, no other user
+    data; lane B reviews that part).
+  - **Moved here** from S2b-1 by the coordinator, 2026-11-13.
+  - **Built (2026-11-13, draft PR, lane B blocks):**
+    - Expiry (REQ-SEC-011): `security_expiry_marks`; a daily schedule alerts tenant admins 30, 7
+      and 1 days before, and when it has run out, once each, through a locked notice. It covers
+      SAML signing certificates (from Keycloak) and an OIDC `client_secret_expires_at` that admins
+      enter on the SSO card.
+    - Invite link (REQ-SEC-021), admin side:
+      - with no outgoing mail, an invitation is delivered by link;
+      - `POST /identity/invitations/{id}/link` (recent sign-in, rate-limited, audited, no-store)
+        gives a 32-byte token in the fragment, keeping only its SHA-256;
+      - each copy replaces the last, it lasts at most 7 days, and it is cleared by revoke, resend,
+        acceptance, stopping sign-in and deactivation;
+      - console: "Copy link" and a show-once dialog.
+    - REQ-SEC-033 part 2:
+      - the same import run reads USER_DISABLED_BY_TEMPORARY_LOCKOUT, UPDATE_CREDENTIAL and
+        REMOVE_CREDENTIAL;
+      - `security_notice_marks` (once per event, no address, 30-day purge, erasure);
+      - `AccountSecurityChanged` feeds four locked notices: a lock-out with the earliest time to
+        try again (at most one an hour), password changed (a first password kept quiet), MFA
+        added or removed;
+      - a hint-less event goes to the one tenant the person is in (each tenant asked under RLS), never guessed among
+        several;
+      - realm tooling stores the three types, and the lock-out policy lives once in the domain.
+  - **Still to do in S2b-2:** the public accept side of the invite link and the `/invite` page in
+    both apps. These build on lane A's `app/shared/api/public_links.py` (#485), with lane B's
+    public-side conditions.
+- [x] Session 3a (2026-11-13): field encryption on the tenant's data keys (ADR-050, D-161).
+  No migration.
+  - **`app.shared.fields`:**
+    - `field_cipher(session, keys, cache)` seals and opens values with the tenant's newest data
+      key (files' `tenant_data_keys`, reused), HKDF per declared purpose through the ADR-048
+      codec.
+    - Values are bound to tenant, table, record and field. Purposes are declared once
+      (`purpose(module, what)`).
+    - The key-provider Protocol lives in `app.shared.crypto`, which stays a leaf. Import-linter
+      enforces it, and modules use only `app.shared.fields`.
+  - **What `open` does when it can't open:**
+    - Data that doesn't open gives None: a logged, counted security event, with a bad tag
+      alerted.
+    - An installation key that can't unwrap the data key raises a 503,
+      `field_keys_unavailable`, so good data is never called unreadable.
+  - **The data-key cache:**
+    - A bounded LRU with a 5-minute TTL, in memory only.
+    - Each entry carries the tenant's generation, a random token in Valkey compared on every hit.
+    - Erasure (`destroy_tenant_keys`) moves it before and after the destroying commit, and fails
+      without Valkey. Valkey down while opening means no cache, never a stale hit (lane B's
+      conditions).
+  - **Tests:** field cipher (8, including the erasure-with-cache case and its control), the cache
+    unit tests (7), and two new import contracts.
+  - **First users** (not in this session): webhook header values (#406, D-161 item 5) with their
+    data step, and lane A's server drafts (REQ-INC-019).
+- [ ] Session 3b: masking, the personal-data access log (AUD-017), the ADR-048 users hook (a
+  removed installation key that still wraps data keys refuses start-up), webhook headers sealed.
+  Split by the coordinator (2026-11-14). One mechanism with ADR-047 for masking.
+  - [x] **S3b-1 (migration 0163; draft PR; lane B blocks):**
+    - **REQ-AUD-017 personal data access log** (`personal_data_access`, audit module):
+      - append-only for the app role; erased and purged only through `audit_erase_access` and
+        `audit_purge_access`, with the tenant from `app.tenant_id`;
+      - one view per accessor, record and 15 minutes; no values;
+      - `audit_settings.personal_data_log` (off by default; the Professional `personal_data_log`
+        feature);
+      - writes: the person profile and `record_access()`, shared with ADR-047 §9 and ai's masking
+        counts;
+      - report: `GET /audit/personal-data-access` with `audit.view_personal_data_access`, itself
+        audited, live; the Admin › Audit "Personal data access" tab.
+    - **Removed-key start check** (ADR-050 addendum): `sx_kek_wraps()`, made by the new owned
+      helper `create_definer_function` (D-168), plus `make keys-check`.
+  - [ ] **S3b-2 (after ADR-047 slice b):** `sensitive` custom fields sealed at rest, a blind
+    index for exact match, `open_custom()` at lane A's redact choke point, re-seal job.
+    - [x] **S3b-2a (migration 0171; draft PR; lane B blocks, lane A reviews the call sites):**
+      the write path (sealed while `sealing`/`sealed`, never in search text), `visible_custom*`
+      as the one reader with its guard test, the blind index (`work_item_field_index`; `eq`/`in`
+      only, no sort, withheld fields never rewritten), history sealed per cell (lane B's option
+      b), reports withhold non-plain fields, the mentions port opens/redacts/re-seals and logs
+      passages (AUD-017 `erasure_passage`). ADR-050 addendum 2.
+    - [x] **S3b-2b (no migration; PR after #520; lane B blocks, lane A reviews the
+      CustomFieldsTab call site):** the switch on its own route (on needs `field_encryption`;
+      off needs a recent sign-in, a reason and the name typed back, and says what it affects),
+      search failing closed at the switch's commit, the re-seal job
+      (`work_items__custom_field_seal`: batches, compare-and-set, resumable, no history), a key
+      outage pausing with one notice, the console switch, tag and dialog. ADR-050 addendum 3.
+      Notifications, AI sources and mail commands read no stored custom values today (checked
+      2026-11-16); the guard test keeps it so.
+- [ ] Session 4: service accounts, key policy, non-person actors, security overview (plan
+  approved 2026-11-16; S4a, S4b, S4d, then S4c; lane B blocks each PR).
+  - [x] **S4a (migration 0174; #530, merged f5671e4f8):**
+    - **Service accounts (REQ-SEC-036):** an owner (an active technician) and a description;
+      Admin > Service accounts (template C plus a drawer form); roles through the guarded path
+      (a recent sign-in to give or take one, or to change the owner or turn it off or on).
+    - **Hand-over (AC3):** a deactivated owner's accounts are flagged `needs_new_owner`, and the
+      admins are told once (`identity_access.service_account.needs_owner`, required).
+    - **Key policy (REQ-SEC-037):** maximum lifetime (the refusal names the limit), an IP range
+      required, unused after N days. Older keys that break it are flagged and listed, never
+      revoked, and the card counts them before saving (the coordinator).
+    - **Fixes:** a service identity named on a record no longer causes a 500 (`people.py`, lane
+      A's OK); `UserCreatedV5` carries the `service_account` source.
+  - [x] **S4b (no migration; #531, merged a958e7569):** `record()` names the real actor (REQ-AUD-014): a
+    person's API key is the actor with the owner `on_behalf` (the owner keeps the personal data,
+    so erasure still finds it), a service account's key is the account, an AI agent acts for a
+    person with its version and tools in the details (`AgentActor`; a fake agent in tests).
+    Probing counts refusals made on a person's behalf; the audit log names a key by its name.
+  - [x] **S4d (no migration; #537; lane B blocks):** the security overview at the top of Admin ›
+    Sign-in and security. `GET /identity/security-overview` takes each tile from its own screen's
+    service (MFA, SSO policy and expiry, passwords, sessions, network, keys via `key_state`,
+    service accounts, seal states, the data key's date, failed and locked sign-ins), counts and
+    codes only, plus the optional `SUPPORTX_DATA_REGION` (blank hides it). Weak-choice flags are
+    recommendations, never enforced; the PR lists their thresholds.
+  - [ ] S4c: vendor support access (D-173; design note in
+    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
+- [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+  - [~] **S5d (#569, migration 0189): REQ-SEC-010 verified e-mail domains, PARTLY DONE.** Built:
+    adding a domain with a TXT record shown once (only its hash kept), one tenant per verified
+    domain (a partial unique index; AC2), Keycloak-native routing (a verified domain marks the
+    organisation's domain verified through the outbox; a lapse or delete removes it on a shared
+    realm and keeps the routing on a single-tenant one; a daily reconcile; AC3, tested in a real
+    Keycloak), the 3-failures-over-72-hours lapse with a notice to admins, a manual verify on
+    single-tenant installations only, the console card. **The DNS check waits for a dependency
+    decision** (dnspython, Haider): until then a check says automatic checking isn't available
+    yet, so on multi-tenant installations no domain can be verified (AC1 is not yet met there).
+- [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
+  tenant) moved to LATER (D-165).
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 
@@ -1585,6 +2619,140 @@ it with no reload (rule c). Not built yet.
   the save-latency check.
 - [ ] S4: the console (before/after from history beside a verified mark, a filter by record,
   file events in a record's list), e2e, docs.
+- Sessions 3 and 4 moved to lane A (D-175, 2026-11-18); hand-over in lane B's notes.
+
+### [~] User cost rates — a person's cost per hour for worklog costs (lane B; for lane A's WP-046a S3, REQ-INC-068; migration 0148; built 2026-11-12)
+
+- [x] `user_cost_rates` (identity_access; migration 0148, down revision 0142, re-pointed at the
+  queue turn): rate Numeric(12, 2) ≥ 0, the tenant's base currency when set, `effective_from`;
+  RLS forced, no DELETE grant (soft delete), unique live start per person, an index for "the rate
+  in force". The downgrade refuses per tenant while any rate exists (removed ones too).
+- [x] Rights `users.view_cost_rates` and `users.manage_cost_rates`: no built-in role but the
+  tenant admin holds them (role matrix unchanged); grantable to a custom role such as Finance (D-164, Haider 2026-11-12).
+- [x] API: `GET /api/v1/users/{id}/cost-rates` (view), `POST` (view + manage,
+  Idempotency-Key), `PATCH /api/v1/users/{id}/cost-rates/{rate_id}` and `DELETE` (view + manage,
+  If-Match). The current and upcoming rates may change; a superseded one is refused
+  (`cost_rate_superseded`), a taken start too (`cost_rate_date_taken`); a service identity
+  gets `not_a_person`. Audited as `user.cost_rate_changed` (old and new rate and start), and every read of a person's rates as `user.cost_rate_viewed` (D-164: which rates were shown, never amounts; the worklog cost snapshot through the port is not a view). History
+  on the rate; the person's own history gets the rate's ID only. Event
+  `identity_access.user_cost_rate.changed` (IDs and the kind of change) on the `user_cost_rates`
+  list channel (users.view_cost_rates). Never in the person record, lists, search, exports or
+  /me (tested).
+- [x] Read port `app.modules.identity_access.cost_rate(session, user_id, at) -> Decimal | None`:
+  the rate in force at `at` (aware, else ValueError), through RLS, no permission check (for
+  snapshots; the caller gates who sees money).
+- [x] Console: the person drawer's "Cost per hour" tab (view right only), with set, change and
+  remove for the manage right; live; en/ar/ur.
+- [ ] **Follow-up when lane A's `CostRates` port is on main:** add
+  `work_items/service/cost_rate_port.py`, the adapter calling `identity_access.cost_rate`. Not
+  built here, since lane A's port (default None) is not on main yet.
+- [ ] No people admin guide exists yet: the cost rate line goes in when one is written.
+
+### [~] GDPR person erasure and export (lane B; D-171; ADR-052; audit gap #12; S1, S1b built 2026-11-14)
+
+- [x] S1 (migration 0161): `person_erasures` (RLS forced, one open erasure per person, four-eyes
+  check), legal hold and erased columns on `users`, DELETE on `user_cost_rates` and
+  `list_settings` for the erasure; rights `people.erase`, `people.export` (declared; export is
+  S3), `audit.manage_holds` (tenant admins only); legal hold routes; request, approve, reject,
+  list and get; **approval always refused with `erasure_report_unavailable` until S1b**, and the
+  job refuses an erasure without a report too; the job (steps 0-7, one transaction per step and
+  per port batch, resumable, codes only, the schedule `identity_access__person_erasures` with
+  backoff and expiry); the `PersonData` registry (`REQUIRED_PORTS`, bands, `ErasureBatch`) and
+  lane B's ports (identity_access, organization, audit, files, action links, list settings);
+  the shared D2a marker `erased_on_request`; labels en/ar/ur; tests.
+- [x] S1b (migration 0164, 2026-11-14): the mentions report (D-171 a): the `PersonMentions` port
+  and `REQUIRED_MENTION_PORTS`; `person_erasure_mentions` (RLS forced, found/redacted/left) and
+  the report review columns; the report built by the erasure schedule in batches; approval
+  refused while the report is incomplete (`erasure_report_unavailable`) or not reviewed
+  (`erasure_report_not_reviewed`); review, mentions list, passage (own rights, audited) and
+  redaction (marker, version, history without text, audited per mention) routes; lane B's ports
+  (other people's profiles, file names, asset notes); labels en/ar/ur. Approval stays refused in
+  practice until S2: the required list names S2's modules.
+- [x] S1b: the definer functions `history_redact_field` (only a redacted mention's own field;
+  fingerprinted rows kept and counted) and `audit_erase_profile_history` (after `erased_at`,
+  step 6), in 0164 on #500's helper.
+- [x] Signed history redaction (0167, ADR-046 addendum): fingerprinted history rows blanked too,
+  their digests kept in `field_change_redactions`, the verifier's `redacted_on_request` status
+  (never `verified`; needs the logged redaction), `fingerprints_redacted` per run;
+  `SIGNED_HISTORY_REDACTION` on. The refusal stays for any row still kept.
+- [x] S2: lane A's and lane C's ports (each adds its module to `REQUIRED_PORTS`) and mentions
+  ports (work_items.references, work_items.owned, integrations, knowledge, announcements); a
+  retry action for a failed erasure; the erasure screens (report, passage, redaction).
+  - [x] Lane C's ports (migration 0165, 2026-11-14): `knowledge` (votes deleted; topics and
+    articles to the successor; never-submitted drafts blanked and soft-deleted, and articles
+    left empty with them), `analytics.recipients` (band 100: out of others' schedule recipient
+    lists), `analytics` (favourites, preferences, exports with their files, private dashboards
+    deleted; shared dashboards, reports, folders moved; schedules moved and paused as
+    `owner_changed`), `announcements` (follows, dismissals deleted; owned ones moved), `ai`
+    (band 900: their AI call text cleared, rows kept as the usage and cost record, D-131;
+    then the vectors of the records they requested, via lane A's `records_requested_by`). Every moved object raises its ordinary event (rule c).
+    0165 grants DELETE on four tables; `tests/test_erasure_deletes.py` fails on any other hard
+    delete of them. Labels en/ar/ur.
+  - Summaries: the ai erasure consumer already deletes them (D-131).
+  - [x] Lane C's mentions ports (migration 0168, 2026-11-14), both in `REQUIRED_MENTION_PORTS`:
+    - `knowledge`: every article version (title, body, keywords, change, internal and reject
+      notes), others' feedback comments, withdrawal reasons, topic names and descriptions.
+    - `announcements`: title and body.
+    - Published versions are frozen (0036). 0168's `kb_redact_version` changes their title,
+      body or keywords only for a redacted mention of an open erasure, only into the old text
+      with the marker in place (checked in SQL). The freeze lets it through only as the
+      function's owner with a one-row transaction flag that it clears at once.
+    - History names the field only (`erasure_redaction`); saved events raised; search follows
+      (a computed column); too long refused; passages follow the article screen's rights.
+- [x] Erasure screens (lane B, 2026-11-17, no migration):
+  - Admin › Erasures: the list and the record (Summary, Mentions report with the passage on demand, History; Approve, Reject, Withdraw).
+  - PersonDrawer › Privacy: legal hold, and the request drawer with files to keep.
+  - Two reads: `GET /people/{id}/legal-hold` (the hold or erasure right) and `GET /people/{id}/uploads` (`people.erase`; metadata only, cursor paging, each page audited).
+  - The e2e and the Visual matrix run on a mocked API only. No real erasure runs until Haider says go.
+- [ ] Follow-up: "files to keep" shows the owner type only (`file_owner_type.*`), not the record's number (INC-12). It needs a display-ID answer on the files owner port in every owner module (the coordinator, 2026-11-17).
+- [ ] S3: the export job (`export_person`, `ExportWriter`, the ZIP).
+- [x] Mention polish (lane B, 0170): trashed rows for `people.erase` holders in lane B's ports;
+  short one-word names flagged, never stored; task mentions say they reach the record's task
+  history; task-history phone match per digit run.
+- [x] Assets erasure ports (lane B): off open audits, future bookings cancelled; open
+  assignments and loans stay open, the approver sees `holdings` and the asset team is told once;
+  a guard test requires a port or a stated exemption for every module naming people.
+- [x] Directory sync skips erased people (LDAP and Entra): never written back, revived,
+  deactivated or adopted; counted `person_erased` (lane B; approval gate lifted with it).
+- **S2, lane A's ports (0166; lane B blocked):**
+  - `work_items.references` (150): follows, record roles and board seats removed; chairs to the
+    successor; open tasks unassigned; pending approvals to the approval administrators
+    (`approver_erased`), never granted, with a required notice (the change fallback notice made
+    required too); their address off kept-informed lists and other messages' to/cc.
+  - `work_items.owned` (550): list settings, reminders, timers, drafts, private views and
+    personal reply templates deleted; shared ones to the successor; records they requested
+    lose the requester's text (subject the reserved marker, description, custom free text and
+    answers blanked); open records assigned to them back to the group's queue.
+  - `notifications` (560): deliveries, entries, rule mentions and preferences.
+    `integrations` (570): mail they sent cleared (ledger kept), block rules naming them removed.
+    `automation` (580): availability and round-robin rows; owned rules, triggers and workflows to
+    the successor. `sla` (190): nothing of theirs (IDs point at the anonymised row).
+  - 0166: DELETE on eight private tables, guarded so only the ports delete; `approver_erased`;
+    two requester indexes built concurrently. `work_items.records_requested_by` (#504) for
+    lane C's ai port.
+- **S2, lane A's mentions ports (no migration; lane B blocks; plan and six conditions agreed):**
+  - `work_items`: the record's own text (subject, impact details and free-text custom fields
+    as plain text; description, resolution and a problem's analysis and review texts as rich
+    text), its conversation, tasks and worklogs, in bounded phases (`phase|after`). On a record
+    the person requested, the fields their erasure blanks are skipped; its replies, tasks and
+    worklogs are still searched (D1a). Fields are named as the field catalogue names them.
+  - Redaction: `work_items.redact_fields` (version, history naming the field only, the search
+    text recomputed, the usual update event), and for entries and parts the new
+    `work_items.conversation.redacted` and the usual `part.changed`. The registry blanks the
+    older history itself.
+  - Passage: the record's own read (its scope, field rules and older gates); entries and parts
+    need the parent record's view.
+  - `integrations`: fetched mail's subject only (a row is named by a UUID made from its key),
+    mail they sent skipped (their erasure port clears it); the passage needs the email
+    connector right.
+  - A 100k-record timing test: each find batch p95 under 500 ms with no pre-filter.
+- **`service_catalog` erasure port (no migration; lane B blocks; their readiness check):**
+  catalog items' owner, named approvers and backup approver pass to the successor; the default
+  technician and a planned task's owner are cleared (the group takes them). Band 500 (520), a
+  bounded batch per call, history with reason `erased_on_request` and the usual item event.
+- **D-171 starter item** "Personal data request (export or erasure)": a draft in People and HR,
+  handled by an administrator in Admin › People › Personal data (internal tasks); en/ar/ur.
+- The export (S3) and the erasure follow-ups moved to lane A (D-175, 2026-11-18).
 
 ### [x] WP-048b — Visual workflows: designer and durable runtime (lane C; ADR-043; sessions 1-5 built, #233, #374, #379)
 
@@ -1733,6 +2901,39 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
 - **Follow-ups noted:** a workflow note in the recipient's language (S2 note templates); the
   `users.preview` test once that permission lands (lane B).
 
+### [~] WP-053 — CMDB (lane B; plan wp-053-cmdb-plan-lane-b.md; session 1 built 2026-11-16)
+
+- [x] **Session 1, the foundation (migration 0173, down revision 0169; REQ-CMDB-001..005, 031,
+  024's write side; D-172):**
+  - CI types in a tree (built-ins by label, a tenant's own with en/ar/ur names); a type in use
+    is never removed (409 with counts); built-ins keep their code and place.
+  - No CI attributes here (no second custom-field system, §6.6): a follow-up gives the metadata
+    module a type-subtree scope, and CIs use metadata custom fields (`cmdb_cis.custom` is kept).
+  - Erasure waits for the CMDB mentions port: `cmdb` is in `REQUIRED_MENTION_PORTS`.
+  - CI states, active or end of life; pickers leave end-of-life CIs out by default (setting).
+  - CIs (`CI-n`): create (Idempotency-Key), edit (If-Match, the ConflictDialog keeps an open
+    edit), copy, change type, trash and restore (both confirmed), history, a snapshot in
+    `cmdb_ci_versions` after every save (append-only for the app, never pruned: D-172 c).
+  - CIs from up to 100 assets through the assets module's `asset_refs` only.
+  - Rights: `cmdb.view`, `cmdb.edit`, `cmdb.delete` with scopes all, site, group (owning or
+    managing group), own (D-172); `cmdb.add`, `cmdb.configure`; `cmdb.manage` (reserved before
+    S1, keys unchanged) still covers add, edit and delete.
+  - Events `cmdb.ci.created/updated/deleted/restored`, `cmdb.config.changed`; realtime
+    `t:{tenant}:ci:{id}` and the `cmdb` list channels; audit entries for configuration changes.
+  - Public interface `can_see`, `ci_refs` (`CiRef`, hidden or gone marked) and the picker.
+  - Erasure port `cmdb` (band 500): owned CIs move to the successor; in `REQUIRED_PORTS`.
+  - Console: CMDB home (template C, type tree filter), CI record (A), new CI (B), setup page
+    for types, states and settings (E, `/admin/cmdb`).
+- [ ] Open from S1:
+  - the CMDB mentions port (snapshots keep description text: a definer redaction like 0167),
+    the next PR, before the erasure screens; until then erasure approval is refused;
+  - CI custom fields through metadata (a type-subtree scope; lane A reviews metadata);
+  - the ADR-047 field catalogue (once every CI read path withholds fields);
+  - a person picker for the CI owner in the form; list followers are not told when a CI leaves
+    their site or group.
+- [ ] Sessions 2+: relationships, impact maps, baselines, retention setting (D-172 c), MonetX on
+  a fixture (D-172 d), the custom rule builder (`fine_grained_access`, Enterprise).
+
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
 Full-build plan (docs/specs/parity/full-build-plan.md): REQ-REL-001..037 (file 06 §1-7). Order agreed
@@ -1832,6 +3033,149 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   `publish_until`.
 - **Release import (REQ-REL-010)**, from WP-058a S2.
 
+### [~] WP-058b — Releases: changes, calendar, guard, stage work, closure, lists, notices, DevOps (lane C; plan approved 2026-11-11; 7 sessions)
+- [x] Session 1 (2026-11-11): changes in a release and the shared calendar. Migration 0138.
+  - **Changes in a release (REQ-REL-033):**
+    - link kind `in_release`;
+    - GET/POST/DELETE `/releases/{id}/changes`;
+    - a change is in one open release at a time, and adding it to another names the first;
+    - history on both records;
+    - a change the viewer may not see shows only that it is there;
+    - the release page's **Changes** tab.
+  - **Calendar (REQ-REL-038, -039):**
+    - `/release-calendar` uses lane A's `calendar()`, generalised by planned stage (change
+      implementation, release deployment) and scoped by each type's own permission;
+    - the change calendar moved to `pages/staged/ScheduleCalendar` with its behaviour kept
+      (Move…, role=row, the re-approval preview and conflict path, #381's tests); the Move dialog
+      now uses the shared DateField;
+    - new: a timeline view and a quick-view drawer; `/releases/calendar`.
+    - both types on one calendar: "Show changes" / "Show releases" with a legend (REQ-REL-038
+      AC1), each moved by its own stage and rules;
+    - the release's scheduler: `/releases/calendar?focus=<id>` from its Schedule tab, opened on
+      its deployment with only its changes by default (REQ-REL-039 AC1).
+  - Tests: `tests/db/test_release_changes_api.py` (4); Vitest `release-calendar.test.tsx` (3),
+    the Changes tab in `releases.test.tsx` (2). Matrix screens: `release-calendar` (+ timeline)
+    and the release's Changes tab.
+  - **Open:** per-environment guarding (WP-053). A release move has no re-approval preview; the
+    type-neutral guard comes in S2 with the ADR-042 addendum. A change does not yet show its
+    release on its own page (S3, with the page tabs). REQ-REL-033's copy-downtime-on-add and
+    "a change behind its schedule" marker, and REQ-REL-038's service/site/type/group filters
+    and stage colours, go to S5 with the lists.
+- [x] Session 2 (2026-11-11): the schedule guard for releases, conflicts, acks, the freeze
+  override. Migration 0139. ADR-042 addendum A (lane A's OK; their blocking review in the PR).
+  - **Guard (REQ-REL-040):** one guard by planned stage (`domain/change_windows.PLANNED_STAGE`). A
+    release's deployment window and planned downtimes are refused in a blocking freeze on every
+    path, an emergency release too. Its own override (`releases.override_freeze`: the release
+    manager and admins; a reason, SECURITY audit, history; window IDs only; a closed release
+    refuses) is the only pass. Outside maintenance always warns for a release.
+  - **Conflicts (REQ-REL-041):** changes and releases meet across types on group, site or
+    downtime service/CI IDs, named by ID and type only; `role_booked` for a release manager or
+    engineer on two overlapping deployments. `GET /releases/{id}/conflicts`; acks
+    (`POST …/conflicts/acks`, If-Match, audited) keyed on both sides' versions, so they lapse when
+    either moves. The calendar's chips carry a conflict count (one batch per range).
+  - **Screens:** the release's Schedule tab lists them live, with Acknowledge and the override;
+    a release move refused on the calendar offers the override in place. Lane A's
+    ConflictsPanel names a release as a release (their ask).
+  - **Tests:** test_release_conflicts_api (6), test_release_freeze_override_api (4),
+    test_release_override_acks_migration, the role-matrix pin; Vitest releases.test.tsx (2),
+    release-calendar.test.tsx (2), schedule.test.tsx (1). EXPLAIN of `_others` at 50k schedules
+    in the PR.
+  - **Open:** per-environment guarding (WP-053); a release emergency route would be a new
+    decision; GiST range index not needed (lane A, 7 ms worst case).
+- [x] Session 3 (2026-11-11): stage work for releases. Migration 0142 (#422).
+  - **REQ-REL-048:** the stage-task refusal is shared with changes (lane A's OK) and names the
+    first open task (`task`, `task_id`, `tasks`, `more`; never its text). Releases can switch it
+    off (`open_stage_tasks_block`). The rail shows each stage's tasks done / total, live.
+  - **Worklogs:** they carry the staged record's stage, set by the server (lane A's WP-046a S3
+    builds on it).
+  - **REQ-REL-022 AC1:** trigger event `stage_entered`, with `stage` as a rule field for staged
+    types. It runs once per entry and is named in history. Notifications keep their own events
+    (lane A's `change.status_entered`); see the workflows guide.
+  - **REQ-REL-021 AC1:** a failed workflow step on the release header, with Retry.
+  - **Moved:**
+    - REQ-REL-020's default release workflows → S6. Their notices need the release-role
+      recipients that S6 brings; no stand-ins (the coordinator, 2026-11-11).
+    - REQ-REL-022 AC2 waits for custom menu actions (REQ-RUL-024, WP-048a, lane A). The release
+      scoping test is theirs to add, with my review.
+  - **REQ-REL-048 AC3** (a task from a template is created in the stage): delivered by lane A's
+    task templates (#398, WP-046a S1). Proved on a release by their
+    `test_req_rel_048_ac3_a_template_task_on_a_staged_record_takes_its_current_stage`.
+  - **Template A:** the release page's Stages, Tasks and Worklogs tabs (reusing lane A's parts).
+- [x] Session 4 (2026-11-12): closure and rollback. No migration (seed version 5). #428.
+  - **Closure codes (REQ-REL-050):** releases close with their own codes (completed, completed
+    with issues, rolled back, deferred, rejected, cancelled). Older tenants are topped up once:
+    an incident-style code is switched off only while untouched and unused by any release; one
+    audit entry (`work_item.settings_topped_up`).
+  - **Open work (REQ-REL-052):** new shared kinds `linked_changes` and `child_releases` (warn),
+    named "CHG-12 Subject"; the staged move dialog lists open work and moves on only once
+    confirmed.
+  - **Failure (REQ-REL-053):** a failed deployment shows its backout plan and Mark rolled back;
+    Create problem (caused_by_release) and Create follow-up release (follows), listed on the
+    release; `POST/GET /releases/{id}/follow-ups` (Idempotency-Key); a Failed view.
+  - **Cancel and reopen (REQ-REL-054):** a cancelled release offers to unlink its visible changes;
+    reopening keeps the closure in history and on the rail.
+  - **Closure rule "review completed" (REQ-REL-051 AC1):** a release's close rule may list it
+    (never its resolve rule, never another type's); closing before the review is completed is
+    refused with `review_required_to_close`; completing the review in the closing move passes;
+    an emergency release always needs it. Stored in `close_requires` (no migration).
+  - **Admin › Releases (template E):** closure codes, Closing (release fields and kinds; no
+    auto-close or reopen window, which follow requester replies) and Stages
+    (`open_stage_tasks_block`). Lane A's PickListEditor and ClosingTab are shared through
+    `SettingsBaseContext` and `useSettingsChange(base)`; incident behaviour unchanged.
+  - **Tests:** test_release_closure_codes (2), test_release_open_work (3), test_release_flow
+    (reopen), test_release_closure_rules (3); Vitest releases.test.tsx (REL-052..054),
+    release-settings.test.tsx (5).
+  - **Open:**
+    - REQ-REL-051 AC2 (bulk close report) goes with S5's bulk actions.
+    - REQ-REL-052's offer to close the linked changes the user may close → S5 (the coordinator,
+      2026-11-12), through lane A's public `close_change` (one savepoint per change; lane A's
+      small PR before S5). The kinds warn and list only until then.
+    - Lane A lists `caused_by_release` / `follows` on the problem, incident and request pages in
+      their next polish.
+- [~] Session 5a (2026-11-12): the release list, views and bulk actions. Migration 0149.
+  - **Views (REQ-REL-055 AC1, AC2):** my releases (any release role, both stores), unassigned
+    (no manager or engineer), scheduled, unscheduled, deployed (not closed), failed, cancelled,
+    closed. The list carries each row's type, version, scheduled end, manager, engineer (named)
+    and task progress in a few reads per page.
+  - **Bulk (REQ-REL-057):** assign, a new `assign_role` (manager or engineer, through the Roles
+    tab's own checks, per release), take, close (the type's closed category, not the change's
+    code), cancel and trash; skips with their reasons. The change list's close and cancel dialogs
+    and the bulk hooks take a base (lane A's, rule 8 notice sent).
+  - **Take (AC2):** makes you the release's Take role: the engineer, or the role the tenant marks
+    in Release settings › Roles (`work_item_role_defs.taken_by_take`, one per type).
+  - **Manager and engineer in two stores** (release_details.*_id and the role holders): every
+    write path (the Roles tab, the details panel, bulk assign_role, Take) writes both in one
+    transaction, with one test per path; the details panel now checks eligibility as the Roles
+    tab does (the coordinator, after F-02). **Later cleanup:** make them one store.
+  - **REQ-REL-052's offer:** a closing release's move dialog closes the changes you may close,
+    each through lane A's `close_change` in its own savepoint; each result closed or why not.
+  - **Tests:** test_release_bulk_api (4), test_release_people_sync (6), test_release_views_api
+    (4), test_release_close_changes_api (1), test_release_bulk_role_migration; Vitest
+    releases.test.tsx (2 more), release-close-changes.test.tsx (2), release-settings.test.tsx (1
+    more).
+- [~] Session 5b (2026-11-12): the board, reporting and the record page's rest. Migration 0150.
+  - **Board (REQ-REL-056):** `StageBoard` in packages/ui (domain-free; WP-046 can reuse it):
+    drag a card or use its "Move to" menu (keyboard, either direction); a refused move stays and
+    says why in a live region (AC1). /releases/board: a drop runs the release's own move through
+    its move dialog, or names why not; other viewers see moves live (AC2).
+  - **Reporting (REQ-REL-060):** release fields (stage, path, type, reason, risk, manager,
+    engineer, deployment ended, deployed on time, stage overdue, approval turnaround), measures
+    (open, on-time rate of the deployments that ended (AC2), overdue stages, failed or rolled
+    back, approval turnaround), 8 built-in reports, KPIs and the Releases dashboard (AC1).
+    Measures count only the releases the viewer may list (group-scope test). No cost fields:
+    D-164's `releases.view_costs` gate applies once release costs exist.
+  - **0150:** column-level SELECT for supportx_report on release details (not the notes) and on
+    approvals (times only); the comment, decider and notes are refused (test), RLS holds.
+  - **Drill-down:** a report drills to its own type's list: releases, problems, requests and
+    assets as well as changes (the item from polish #433; lane B told for assets).
+  - **REQ-REL-058:** live association counts in the side panel (AC3); AC2 holds by design (the
+    release page has no inline edit, fields change only through the edit form), so no switch.
+  - **Tests:** test_release_reports (4); Vitest board (4), releases.test.tsx board (2),
+    release-associations (1), reports drill-down (4).
+  - **Board button** on the release list (after #438).
+  S6: notices and the release-reply mail (D-156; lane B blocks).
+  S7: DevOps links (after WP-055).
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
@@ -1852,6 +3196,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
   retention 90/180 days, the portal bell (WP-028); call WP-020f's `resolution_notified` when
   `incident.resolved` really reaches the requester (e-mail sent; in-app once the portal exists).
+- Session 2 (the template editor, preview, versions, throttling, group subscriptions, the portal bell) moved to lane A with WP-056 (D-175, 2026-11-18).
 
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
@@ -1874,7 +3219,7 @@ WP-059-062; REL-020..022 move to WP-058b once lane A's WP-045c lands.
   AC2) needs WP-039 SSO.
 - **Depends on:** WP-010, WP-014, WP-016
 
-### [ ] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; session 1 of 3 done 2026-10-27)
+### [x] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; sessions 1-3 done 2026-10-27/28)
 Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
 - [x] Session 1 — foundations and SSO:
   - service account `supportx-identity` (least privilege, verified on 26.8.1) and its upgrade
@@ -1903,8 +3248,8 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     the worker as `supportx-realm` (manage-realm only), breached list shipped (46,941 entries),
     Urdu policy messages and Urdu right to left on Keycloak's pages;
   - [x] audit-integrity banner axe fix (failing test first);
-  - [ ] REQ-SEC-005 AC2's "try again at" lock-out message: session 3.
-- [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
+  - [x] REQ-SEC-005 AC2's "try again at" lock-out message: session 3. (built 2026-10-28)
+- [x] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
   warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
   Security administrator role (D7). Built on `feat/wp-039-session3` (D-104); waiting for: the
   e2e `sign-in-security.spec.ts` on the shared stack (QA lock), PR.
@@ -1925,7 +3270,7 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   end to end by hand against Keycloak as the customer's provider; CI runs the SAML journey (in
   Compose, Keycloak cannot call itself on the browser's address, which OIDC would need).
 
-### [ ] WP-040 — Connector framework and directory sync (lane B; D-118; session 1 of 2 built 2026-11-02, draft #150)
+### [x] WP-040 — Connector framework and directory sync (lane B; D-118; sessions 1-2 built 2026-11-02; AD/LDAP #175, 2026-11-04)
 - **Plan:** ~/Desktop/wp-040-plan.md (approved 2026-10-29; decision 1 by the product owner, D-118).
 - **Session 1 (built, draft #150, stacked on #134):**
   - [x] Connector registry `app.shared.connectors` and catalogue `GET /integrations/catalogue`
@@ -1978,8 +3323,12 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     never deleted; their sessions and live screens end from the worker; `UserStatusChanged`
     with `reason="directory"`, `source="entra"`; the last administrator is never deactivated by
     a sync (counted as `last_admin_kept`); enabled again → reactivated with what they held.
-  - [ ] AD/LDAP through Keycloak federation (D-118): next.
-  - [ ] Tenant-editable connector defaults (D-041) screen: with AD/LDAP.
+  - [x] AD/LDAP through Keycloak federation (D-118): merged in #175 (2026-11-04).
+  - [x] Tenant-editable connector defaults (D-041) screen: with AD/LDAP. (#175)
+  - [ ] Per-organisation LDAP sign-in routing (identity-first), so a directory only ever sees
+    its own tenant's sign-ins; needed before LDAP on a multi-tenant installation (D-177, lane B).
+    The strict xfail `test_a_name_never_imported_is_not_checked_against_a_directory`
+    (tests/federation) turns into its proof.
 
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first

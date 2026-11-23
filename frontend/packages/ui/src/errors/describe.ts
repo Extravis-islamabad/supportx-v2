@@ -59,6 +59,26 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
         reference,
       };
     }
+    case 'stage_move_refused': {
+      // The guard's first reason (ADR-041): a stage's open tasks are named (REQ-REL-048 AC1,
+      // shared with changes, WP-058b S3); other reasons by their label.
+      const reason = typeof params.reason === 'string' ? params.reason : null;
+      const named = reason === 'stage_tasks_open' && typeof params.task === 'string';
+      return {
+        title: t(error.messageKey, values),
+        detail:
+          reason === null
+            ? undefined
+            : named
+              ? // The open tasks are `tasks` (the 409's own `count` is how many refusals).
+                t('action_reason.stage_tasks_open_named', {
+                  ...values,
+                  count: Number(params.tasks),
+                })
+              : t(`action_reason.${reason}`, values),
+        reference,
+      };
+    }
     case 'cannot_publish':
     case 'permission_denied': {
       // Why exactly (WP-012): the four-eyes rule, a missing audience, an ended window …

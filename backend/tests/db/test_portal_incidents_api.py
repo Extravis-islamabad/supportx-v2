@@ -468,3 +468,26 @@ async def test_a_requester_reports_for_a_colleague_within_the_scope(world: World
         "GET", f"{PORTAL}/on-behalf-people", a, a.requester, params={"search": "a"}
     )
     assert short.status_code == 422
+
+
+async def test_audit_19_a_retried_portal_reply_with_its_key_posts_once(world: World) -> None:
+    """A phone that never got the answer retries with the same Idempotency-Key: one reply, and
+    the retry gets the first answer back (engineering-practices audit #19)."""
+    a = world.a
+    item = await world.create(a, a.admin, requester_id=str(a.requester2))
+    key = {"Idempotency-Key": str(uuid.uuid4())}
+    body = {"body": "<p>Still broken</p>"}
+    first = await world.call(
+        "POST", f"{PORTAL}/{item['id']}/replies", a, a.requester2, json=body, headers=key
+    )
+    assert first.status_code == 201, first.text
+    again = await world.call(
+        "POST", f"{PORTAL}/{item['id']}/replies", a, a.requester2, json=body, headers=key
+    )
+    assert again.status_code == 201, again.text
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    assert again.json() == first.json()
+    entries = (
+        await world.call("GET", f"{PORTAL}/{item['id']}/conversation", a, a.requester2)
+    ).json()["items"]
+    assert [e["body"] for e in entries] == ["<p>Still broken</p>"]  # posted once

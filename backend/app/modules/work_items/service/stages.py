@@ -37,7 +37,6 @@ from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemPathStage,
-    WorkItemRoleHolder,
     WorkItemStage,
     WorkItemStageEntry,
     WorkItemStagePath,
@@ -46,7 +45,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStatusTransition,
     WorkItemTemplate,
 )
-from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import catalogue, record_roles
 from app.shared.ids import new_id
 
 
@@ -226,16 +225,11 @@ async def _role_holders(
     """The people and groups holding any of `roles` on the record now."""
     if not roles:
         return frozenset(), frozenset()
-    rows = (
-        await session.execute(
-            select(WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id).where(
-                WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role.in_(roles)
-            )
-        )
-    ).all()
+    # Through the record-roles overlay: a change's requester and owner are its own fields (F-02).
+    held = await record_roles.role_holders(session, record, roles)
     return (
-        frozenset(r.user_id for r in rows if r.user_id),
-        frozenset(r.group_id for r in rows if r.group_id),
+        frozenset(u for users, _ in held.values() for u in users),
+        frozenset(g for _, groups in held.values() for g in groups),
     )
 
 

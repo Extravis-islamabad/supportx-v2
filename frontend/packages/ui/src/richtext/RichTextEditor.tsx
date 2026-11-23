@@ -33,14 +33,23 @@ import { TableKit } from '@tiptap/extension-table';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
+import type { Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 
 import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
 
 import { useAppearance, useLabel } from '../appearance';
+import { reportError } from '../errors/reporter';
 import {
   BlockFormat,
   CALLOUTS,
@@ -88,6 +97,7 @@ export default function RichTextEditor({
   autoFocus = false,
   imageOwnerId,
   callouts = false,
+  toolbar = 'full',
   extraTools,
 }: RichTextFieldProps) {
   const t = useLabel();
@@ -205,6 +215,7 @@ export default function RichTextEditor({
           editor={editor}
           templates={templates}
           callouts={callouts}
+          basic={toolbar === 'basic'}
           extraTools={extraTools}
           onManageTemplates={onManageTemplates}
           fullScreen={fullScreen}
@@ -293,9 +304,6 @@ function Tool({
 
 const Gap = () => <Divider type="vertical" style={{ marginInline: 2, height: 20 }} />;
 
-const COMPACT_BELOW = 900;
-const NARROW_BELOW = 560;
-
 interface ToolSpec {
   title: string;
   icon: ReactNode;
@@ -375,6 +383,7 @@ type HeadingChoice = 'paragraph' | '2' | '3' | '4';
 function Toolbar({
   editor,
   callouts,
+  basic,
   extraTools,
   templates,
   onManageTemplates,
@@ -383,6 +392,7 @@ function Toolbar({
 }: {
   editor: Editor;
   callouts: boolean;
+  basic: boolean;
   extraTools: RichTextFieldProps['extraTools'];
   templates: RichTextTemplate[] | undefined;
   onManageTemplates: (() => void) | undefined;
@@ -391,24 +401,80 @@ function Toolbar({
 }) {
   const t = useLabel();
   const { direction } = useAppearance();
+  // Templates the server is filling for this record (WP-046a S5a; lane C's conditions): the
+  // text goes where the click was, once, and only while the editor is still open. A failed
+  // fill inserts nothing (never the raw text with its {{ variables }}) and is reported.
+  const [filling, setFilling] = useState<ReadonlySet<string>>(new Set());
+  const pending = useRef(new Set<string>());
+  const insertFilled = (id: string, fill: () => Promise<string>): void => {
+    if (pending.current.has(id)) return;
+    pending.current.add(id);
+    setFilling(new Set(pending.current));
+    // Where the click was, kept in step with edits made while the server fills (lane C):
+    // typing before it would otherwise move the text a few characters off.
+    let range = { from: editor.state.selection.from, to: editor.state.selection.to };
+    const follow = ({ transaction }: { transaction: Transaction }): void => {
+      range = {
+        from: transaction.mapping.map(range.from, -1),
+        to: transaction.mapping.map(range.to, 1),
+      };
+    };
+    editor.on('transaction', follow);
+    const done = (): void => {
+      editor.off('transaction', follow);
+      pending.current.delete(id);
+      setFilling(new Set(pending.current));
+    };
+    fill()
+      .then((html) => {
+        if (!html || editor.isDestroyed) return;
+        const size = editor.state.doc.content.size;
+        if (range.to <= size) editor.chain().focus().insertContentAt(range, html).run();
+        else editor.chain().focus().insertContent(html).run();
+      })
+      .catch(reportError)
+      .finally(done);
+  };
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
-  // The toolbar's own width (0 before layout and in tests: the full toolbar).
+  // How much of the toolbar fits on one row, measured rather than guessed from fixed widths: a
+  // composer in a 700-900 px column wrapped the full toolbar onto two rows (every composer in the
+  // Visual matrix, lane C's polish). The toolbar never wraps; when its tools overflow the row it
+  // steps down, full → compact (groups fold into menus) → narrow (it scrolls sideways), and
+  // steps back up when the row grows past where it stepped down. Before layout, and in jsdom
+  // (no sizes), nothing overflows: the full toolbar.
   const bar = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [level, setLevel] = useState<'full' | 'compact' | 'narrow'>('full');
+  const steppedAt = useRef<number[]>([]);
+  // After every render on purpose: the tools' width changes with the language and the editor's
+  // state, not only with the row. It ends: the level only steps down, and stops at narrow.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see the two lines above
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (element === null || level === 'narrow') return;
+    if (element.scrollWidth > element.clientWidth + 1) {
+      steppedAt.current = [...steppedAt.current, element.clientWidth];
+      setLevel(level === 'full' ? 'compact' : 'narrow');
+    }
+  });
   useEffect(() => {
     const element = bar.current;
     if (element === null || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      setWidth(element.clientWidth);
+      const last = steppedAt.current.at(-1);
+      // Wider than where it last stepped down: try the fuller form again (measured above).
+      if (last !== undefined && element.clientWidth > last + 24) {
+        steppedAt.current = [];
+        setLevel('full');
+      }
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
   }, []);
-  const compact = width > 0 && width < COMPACT_BELOW;
-  const narrow = width > 0 && width < NARROW_BELOW;
+  const compact = level !== 'full';
+  const narrow = level === 'narrow';
   // Re-render the toolbar when the selection or the content changes (active states).
   const state = useEditorState({
     editor,
@@ -449,8 +515,8 @@ function Toolbar({
       .setAlignment(state.align === value ? null : value)
       .run();
   };
-  // Below about 900 px the toolbar no longer fits one row (QA10V-21): alignment and indent, and
-  // the block tools, fold into a menu each; below 560 px it also scrolls sideways in one row.
+  // When the toolbar does not fit one row (QA10V-21; measured above), alignment and indent, and
+  // the block tools, fold into a menu each; if even that does not fit, it scrolls sideways.
   const aligning: ToolSpec[] = [
     {
       title: t('richtext.align.start'),
@@ -501,7 +567,9 @@ function Toolbar({
       testId: 'rt-indent',
     },
   ];
-  const blocks: ToolSpec[] = [
+  // A requester's toolbar keeps only the quote among the blocks (F-09).
+  const BASIC_BLOCKS = new Set(['rt-quote']);
+  const allBlocks: ToolSpec[] = [
     {
       title: t('richtext.quote'),
       icon: <MessageOutlined />,
@@ -529,13 +597,16 @@ function Toolbar({
       testId: 'rt-table',
     },
   ];
+  const blocks = basic ? allBlocks.filter((b) => BASIC_BLOCKS.has(b.testId)) : allBlocks;
   return (
     <Flex
       ref={bar}
       gap={2}
-      wrap={!narrow}
+      wrap={false}
       align="center"
-      style={narrow ? { overflowX: 'auto', scrollbarWidth: 'thin' } : undefined}
+      // Hidden while measuring the full and compact forms (an overflow steps down at once);
+      // narrow scrolls sideways in one row.
+      style={narrow ? { overflowX: 'auto', scrollbarWidth: 'thin' } : { overflowX: 'hidden' }}
       className="sx-richtext-toolbar"
       role="toolbar"
       aria-label={t('richtext.toolbar')}
@@ -607,13 +678,15 @@ function Toolbar({
         onClick={() => chain().toggleStrike().run()}
         testId="rt-strike"
       />
-      <Tool
-        title={t('richtext.code')}
-        icon={<CodeOutlined />}
-        active={state.code}
-        onClick={() => chain().toggleCode().run()}
-        testId="rt-code"
-      />
+      {!basic && (
+        <Tool
+          title={t('richtext.code')}
+          icon={<CodeOutlined />}
+          active={state.code}
+          onClick={() => chain().toggleCode().run()}
+          testId="rt-code"
+        />
+      )}
       <Dropdown
         trigger={['click']}
         menu={{
@@ -773,7 +846,14 @@ function Toolbar({
                 : templates.map((template) => ({
                     key: template.id,
                     label: <bdi dir="auto">{template.name}</bdi>,
-                    onClick: () => chain().insertContent(template.body).run(),
+                    disabled: filling.has(template.id),
+                    onClick: () => {
+                      if (template.fill === undefined) {
+                        chain().insertContent(template.body).run();
+                        return;
+                      }
+                      insertFilled(template.id, template.fill);
+                    },
                   }))),
               ...(onManageTemplates === undefined
                 ? []

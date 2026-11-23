@@ -209,6 +209,7 @@ PLAN_SECTIONS = (*APPROVED_PLAN_SECTIONS, *REVIEW_SECTIONS)
 IMPLEMENTATION = "implementation"
 REVIEW, CLOSURE = "review", "closure"
 CLOSED_STATUS = "closure_closed"
+CANCELED_STATUS = "closure_canceled"  # where a change's cancel move lands (REQ-CHG-101)
 STAGE_OUTCOMES: Mapping[str, frozenset[str]] = {
     IMPLEMENTATION: frozenset({"successful", "successful_with_issues", "backed_out", "failed"}),
     "acceptance_testing": frozenset({"passed", "failed"}),

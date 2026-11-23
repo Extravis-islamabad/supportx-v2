@@ -1,16 +1,17 @@
-import { Alert, Drawer, Form, Typography } from 'antd';
+import { Alert, Form, Typography } from 'antd';
 import { useState } from 'react';
 
 import type { CatalogItemInput } from '@supportx/api-client';
 import {
+  Drawer,
   QuestionField,
-  RichTextView,
+  type QuestionValue,
   requesterQuestions,
+  RichTextView,
   startingAnswers,
   textIn,
   useAppearance,
   useLabel,
-  type QuestionValue,
 } from '@supportx/ui';
 
 /**

@@ -660,3 +660,20 @@ async def test_defaults_fill_new_records_only(world: World) -> None:
     assert standard
     updated = await patch_template(world, a, standard[0], fields={"custom.source": {"shown": True}})
     assert updated.status_code == 200, updated.text
+
+
+async def test_a_retried_create_replays_and_makes_one_field(world: World) -> None:
+    """Audit #19: the same Idempotency-Key gives the first answer back, never a second field."""
+    a = world.a
+    key = {"Idempotency-Key": str(uuid.uuid4()), **CONSOLE}
+    body = {"entity": "incident", "labels": {"en": "Retry probe"}, "field_type": "text"}
+    first = await world.call("POST", FIELDS, a, a.admin, json=body, headers=key)
+    assert first.status_code == 201, first.text
+    again = await world.call("POST", FIELDS, a, a.admin, json=body, headers=key)
+    assert again.status_code == 201, again.text
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    assert again.json()["id"] == first.json()["id"]
+    listed = (await world.call("GET", f"{FIELDS}?entity=incident", a, a.admin)).json()
+    items = listed["items"] if isinstance(listed, dict) else listed
+    probes = [f["id"] for f in items if f["labels"].get("en") == "Retry probe"]
+    assert probes == [first.json()["id"]]

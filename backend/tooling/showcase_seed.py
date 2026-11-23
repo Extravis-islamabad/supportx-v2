@@ -64,9 +64,11 @@ from sqlalchemy import text, update
 from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.modules import ModuleRegistry, discover_modules
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules import sla
+from app.modules.assets import ScanFailure, ScanResult, ScanSource, ScanType, record_scan
 from app.modules.audit import RequestFacts
 from app.modules.audit import record as record_audit
 from app.modules.audit.domain.catalogue import AuditClient
@@ -806,7 +808,14 @@ async def console_api(
 
     async def resolve(request: Request) -> TenantContext | None:
         named = request.headers.get(SEED_HEADER)
-        return None if named is None else contexts.get(uuid.UUID(named))
+        context = None if named is None else contexts.get(uuid.UUID(named))
+        if context is not None:
+            # The seed acts for the people it names in its own app, which is never served: as
+            # a browser that confirmed just now, so sensitive routes (role grants, REQ-SEC-027's
+            # RecentAuth) let it through as they let a person who has just signed in. Only for
+            # a person it knows: anything else resolves to nobody, with nothing recorded.
+            record_freshness(request, SignInFreshness(interactive=True, recent=True))
+        return context
 
     async with app.router.lifespan_context(app):
         # This app object is the seed's own and is never served: only it trusts the header.
@@ -1363,6 +1372,14 @@ async def fill_lane_a(
     report.problems = await lane_a.ensure_problems(admin, sana, incidents)
     report.rules = await lane_a.ensure_rules(admin, groups)
     report.featured = await lane_a.ensure_featured(admin)
+    report.board_incidents = await lane_a.ensure_board_technicians(
+        admin,
+        known=people,
+        # Where the signed-in technician works (the seed puts Omar at headquarters).
+        site_id=str((await admin.call("GET", f"/api/v1/users/{omar}"))["site_id"]),
+        group_id=groups["Service desk"],
+        requester_id=requesters[0],
+    )
 
 
 @dataclass
@@ -1378,6 +1395,7 @@ class Report:
     service_requests: int = 0
     problems: int = 0
     rules: int = 0
+    board_incidents: int = 0  # WP-046b S3b: more than twelve technicians holding records
     featured: int = 0  # catalog items featured on the portal's home now
     sla_policies: int = 0
     sla_from_creation: int = 0
@@ -1387,6 +1405,8 @@ class Report:
     releases: int = 0
     assets: int = 0  # products, assets, holders, a loan and a group (showcase_assets)
     stock: int = 0  # consumables, their stock, movements and minimum, a booking (WP-049b)
+    audit: int = 0  # a running audit, started, with its marks (WP-049b s3)
+    scans: int = 0  # scans of one asset through the discovery port (WP-049b s3)
     backdated: int = 0
     freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
@@ -1394,6 +1414,33 @@ class Report:
     admin_id: uuid.UUID | None = field(default=None, repr=False, compare=False)
     # Between the steps only: the records step 4 made now, which step 5 may move.
     made: list[uuid.UUID] = field(default_factory=list, repr=False, compare=False)
+
+
+async def _ensure_scans(settings: Settings, admin: Api) -> int:
+    """Scans have no API (discovery calls the assets port): written in this tenant's session."""
+    database = Database.from_settings(settings)
+    if database is None:
+        return 0
+
+    async def record(asset_id: str, days_ago: int, **scan: Any) -> None:  # noqa: ANN401 - scan
+        async with database.tenant_session(TenantContext(TENANT_ID)) as session:
+            await record_scan(
+                session,
+                asset_id=uuid.UUID(asset_id),
+                scanned_at=datetime.now(UTC) - timedelta(days=days_ago),
+                source=ScanSource.AGENT,
+                result=ScanResult(scan["result"]),
+                scan_type=None if scan.get("scan_type") is None else ScanType(scan["scan_type"]),
+                failure_reason=None
+                if scan.get("failure_reason") is None
+                else ScanFailure(scan["failure_reason"]),
+                changes=scan.get("changes", ()),
+            )
+
+    try:
+        return await assets.ensure_scans(admin, record)
+    finally:
+        await database.dispose()
 
 
 async def fill(
@@ -1433,6 +1480,9 @@ async def fill(
             admin, key, sites, signed_in[REQUESTER.email], signed_in[NEW_STARTER.email]
         )
         report.stock = await assets.ensure_stock(admin, key, sites, signed_in[REQUESTER.email])
+        # WP-049b s3: a running audit with marks, and scans through the discovery port.
+        report.audit = await assets.ensure_audit(admin, key, sites, signed_in[TECHNICIAN.email])
+        report.scans = await _ensure_scans(settings, admin)
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.
@@ -1597,8 +1647,12 @@ async def _seed_owned(conn: asyncpg.Connection) -> list[asyncpg.Record]:
 
     def defined(row: asyncpg.Record) -> bool:
         if row["type"] == "incident":
-            return len(people) == len(PEOPLE) and is_seed_incident(
-                {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+            # Lane A's board technicians' incidents (WP-046b S3b) are the seed's own too.
+            return row["subject"] in lane_a.BOARD_SUBJECTS or (
+                len(people) == len(PEOPLE)
+                and is_seed_incident(
+                    {"subject": row["subject"], "requester_id": str(row["requester_id"])}, people
+                )
             )
         if row["type"] == "service_request":
             return row["subject"] in requests

@@ -1,4 +1,5 @@
-import { App, Button, Drawer, Flex, Grid, Modal, Tooltip } from 'antd';
+import { App, Button, Flex, Grid, Modal, Tooltip } from 'antd';
+import { Drawer } from '../Drawer';
 import type { ReactNode } from 'react';
 
 import { useLabel } from '../appearance';

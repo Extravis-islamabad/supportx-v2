@@ -36,7 +36,9 @@ from app.core.errors import AppError, Conflict, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import (
+    ErasedPerson,
     LeaverOutcome,
+    SyncedPerson,
     TenantSessionEnder,
     directory_leaver,
     directory_returner,
@@ -330,6 +332,32 @@ class _Sync:
                 values[column] = found
         return values
 
+    async def _synced(
+        self,
+        session: AsyncSession,
+        link: DirectoryPersonLink | None,
+        values: dict[str, Any],
+    ) -> SyncedPerson | None:
+        """The person written, or None when skipped (erased) or refused (counted, never raised)."""
+        try:
+            async with session.begin_nested():
+                return await sync_directory_person(
+                    session, link.user_id if link else None, values, directory=self.config.source
+                )
+        except ErasedPerson:
+            # Erased on request (D-171): their link stays and keeps them from being made anew;
+            # nothing of the directory's is written back, and they are never reactivated.
+            self.run.counts["skipped"] += 1
+            self.run.skip(SkipReason.ERASED)
+        except (ValidationFailed, Conflict, NotFound) as refused:
+            self.run.counts["failed"] += 1
+            self.run.skip(SkipReason.REFUSED)
+            # Codes only: never a name, an address or a value.
+            log.info(
+                "directory_person_refused", connector_id=str(self.config.id), code=_codes(refused)
+            )
+        return None
+
     async def _person(
         self, session: AsyncSession, change: DirectoryPerson, link: DirectoryPersonLink | None
     ) -> None:
@@ -340,18 +368,8 @@ class _Sync:
         values = await self._values(session, change)
         if link is None and not values.get("first_name"):
             values["first_name"] = _first_name(values)
-        try:
-            async with session.begin_nested():
-                synced = await sync_directory_person(
-                    session, link.user_id if link else None, values, directory=self.config.source
-                )
-        except (ValidationFailed, Conflict, NotFound) as refused:
-            self.run.counts["failed"] += 1
-            self.run.skip(SkipReason.REFUSED)
-            # Codes only: never a name, an address or a value.
-            log.info(
-                "directory_person_refused", connector_id=str(self.config.id), code=_codes(refused)
-            )
+        synced = await self._synced(session, link, values)
+        if synced is None:
             return
         if link is None:
             link = DirectoryPersonLink(
@@ -445,6 +463,8 @@ class _Sync:
                             {"manager_id": manager_id},
                             directory=self.config.source,
                         )
+                except ErasedPerson:
+                    self.run.skip(SkipReason.ERASED)
                 except (ValidationFailed, Conflict, NotFound):
                     self.run.skip(SkipReason.REFUSED)  # e.g. a manager loop in the directory
 

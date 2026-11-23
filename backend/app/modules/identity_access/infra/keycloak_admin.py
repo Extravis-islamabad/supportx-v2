@@ -14,12 +14,13 @@ it may touch: callers pass the tenant, and organization lookups check the organi
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
+from app.modules.identity_access.domain.sign_in_import import KeycloakEvent
 
 _TOKEN_MARGIN_SECONDS = 30
 
@@ -117,11 +118,20 @@ class IdentityAdmin(Protocol):
 
     async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
 
-    async def create_user(  # noqa: D102
-        self, *, email: str, first_name: str, last_name: str, locale: str
+    async def create_user(  # noqa: D102, PLR0913 - Keycloak's user fields, keyword-only
+        self,
+        *,
+        email: str | None,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+        username: str | None = None,
     ) -> str: ...
 
     async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
+
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None: ...  # noqa: D102
 
     async def add_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
 
@@ -134,6 +144,12 @@ class IdentityAdmin(Protocol):
     ) -> None: ...
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def set_password(  # noqa: D102
+        self, user_id: str, password: str, *, temporary: bool = False
+    ) -> None: ...
 
     async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
 
@@ -150,6 +166,18 @@ class RealmAdmin(Protocol):
     """The realm settings SupportX changes as `supportx-realm` (manage-realm; worker only)."""
 
     async def set_password_policy(self, policy: str) -> None: ...  # noqa: D102 - see KeycloakAdmin
+
+    async def close(self) -> None: ...  # noqa: D102
+
+
+class EventsReader(Protocol):
+    """Keycloak's login events as `supportx-events` (view-events only; consumers worker only)."""
+
+    realm: str
+
+    async def realm_events(  # noqa: D102 - see KeycloakAdmin
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
+    ) -> list[KeycloakEvent]: ...
 
     async def close(self) -> None: ...  # noqa: D102
 
@@ -237,6 +265,25 @@ class KeycloakAdmin:
             base,
             realm,
             client_id=settings.keycloak_federation_client_id,
+            client_secret=secret.get_secret_value(),
+            timeout=settings.oidc_timeout_seconds,
+        )
+
+    @classmethod
+    def events_from_settings(cls, settings: Settings) -> "KeycloakAdmin | None":
+        """The login-events reader (`supportx-events`, view-events only), or None when not set up.
+
+        The consumers worker makes one per import run, so its token lives for that run only.
+        """
+        found = admin_base(settings)
+        secret = settings.keycloak_events_client_secret
+        if found is None or secret is None or not secret.get_secret_value():
+            return None
+        base, realm = found
+        return cls(
+            base,
+            realm,
+            client_id=settings.keycloak_events_client_id,
             client_secret=secret.get_secret_value(),
             timeout=settings.oidc_timeout_seconds,
         )
@@ -383,8 +430,11 @@ class KeycloakAdmin:
             raise IdentityAdminUnavailable
         if response.status_code >= httpx.codes.BAD_REQUEST:
             try:
-                message = str(response.json().get("errorMessage", ""))
-            except ValueError:
+                body = response.json()
+                # Most refusals say `errorMessage`; a password policy's says `error` (checked on
+                # 26.8.1: {"error": "invalidPasswordMinLengthMessage", "error_description": ...}).
+                message = str(body.get("errorMessage") or body.get("error") or "")
+            except (ValueError, AttributeError):
                 message = ""
             raise IdentityAdminRefused(response.status_code, message)
         return response
@@ -470,6 +520,17 @@ class KeycloakAdmin:
         """End every Keycloak session of a person (REQ-SEC-031); unknown is fine."""
         await self._call("POST", f"/users/{user_id}/logout", missing_ok=True)
 
+    async def end_session(self, session_id: str) -> bool:
+        """End one Keycloak session by its ID (ADR-051); False if it was already gone.
+
+        Keycloak's `DELETE /admin/realms/{realm}/sessions/{id}` (manage-users, which the
+        identity service account holds): a back-channel logout of that session only, the
+        person's other devices keep theirs.
+        """
+        path = f"/sessions/{quote(session_id, safe='')}"
+        found = await self._call("DELETE", path, missing_ok=True)
+        return found is not None
+
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]:
         """A person's Keycloak attributes (set by identity provider mappers); unknown: none."""
         found = await self._json("GET", f"/users/{user_id}", missing_ok=True) or {}
@@ -494,19 +555,32 @@ class KeycloakAdmin:
                 )
         return None
 
-    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
-        """A new realm user without a password (they set one from the e-mail); its ID."""
+    async def create_user(  # noqa: PLR0913 - Keycloak's user fields, keyword-only
+        self,
+        *,
+        email: str | None,
+        first_name: str,
+        last_name: str,
+        locale: str,
+        email_verified: bool = True,
+        username: str | None = None,
+    ) -> str:
+        """A new realm user without a password (they set one from the e-mail); its ID.
+
+        `email_verified` False for a copied invite link (REQ-SEC-021, lane B): nothing has
+        reached that mailbox, so the address is not proven.
+        """
         response = await self._call(
             "POST",
             "/users",
             json={
-                "username": email,
-                "email": email,
+                # A person's sign-in name is their address; a vendor support account's is a
+                # generated login and it holds no address at all (WP-057 S4c-1, D-177).
+                "username": username or email,
+                **({"email": email, "emailVerified": email_verified} if email else {}),
                 "firstName": first_name,
                 "lastName": last_name,
                 "enabled": True,
-                # Reached through an e-mail SupportX asked for: the address is the person's.
-                "emailVerified": True,
                 "attributes": {"locale": [locale]},
             },
         )
@@ -516,6 +590,14 @@ class KeycloakAdmin:
     async def delete_user(self, user_id: str) -> None:
         """Remove a realm user (an unused invitation's); already gone is fine."""
         await self._call("DELETE", f"/users/{user_id}", missing_ok=True)
+
+    async def set_enabled(self, user_id: str, *, enabled: bool) -> None:
+        """Enable or disable a realm user (a support account before its delete, lane B (5)).
+
+        Disabled first, so a failed delete still leaves an account no one can sign in with;
+        already gone is fine.
+        """
+        await self._call("PUT", f"/users/{user_id}", json={"enabled": enabled}, missing_ok=True)
 
     async def add_member(self, organization_id: str, user_id: str) -> None:
         """Make a user a member of the organization (already one is fine)."""
@@ -561,6 +643,37 @@ class KeycloakAdmin:
         wanted = sorted({*(current.get("requiredActions") or []), *actions})
         await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
 
+    async def clear_actions(self, user_id: str, actions: list[str]) -> None:
+        """Take these required actions off the user (a copied invite link set the password).
+
+        Only these: any other required action (MFA enrolment, terms) stays. Nothing else of the
+        user changes; `emailVerified` is never touched (lane B, REQ-SEC-021).
+        """
+        current = await self._json("GET", f"/users/{user_id}")
+        if current is None:
+            return
+        held = list(current.get("requiredActions") or [])
+        kept = [action for action in held if action not in actions]
+        if kept != held:
+            # Only the field changed (lane B): a full representation would put back whatever
+            # another change made to the user in between.
+            await self._call("PUT", f"/users/{user_id}", json={"requiredActions": kept})
+
+    async def set_password(self, user_id: str, password: str, *, temporary: bool = False) -> None:
+        """Set the user's password; the realm's policy applies.
+
+        `temporary`: Keycloak makes the user choose their own at the next sign-in (a vendor support
+        account's first password, D-177).
+
+        A policy refusal raises `IdentityAdminRefused` with Keycloak's message key (e.g.
+        `invalidPasswordMinLengthMessage`), never the password. Signs nobody in.
+        """
+        await self._call(
+            "PUT",
+            f"/users/{user_id}/reset-password",
+            json={"type": "password", "value": password, "temporary": temporary},
+        )
+
     async def credentials(self, user_id: str) -> list[Credential]:
         """The user's credentials (types and IDs only; never their secrets)."""
         found = await self._json("GET", f"/users/{user_id}/credentials", missing_ok=True) or []
@@ -575,7 +688,13 @@ class KeycloakAdmin:
 
     async def member_tenants(self, user_id: str) -> list[str]:
         """The tenant IDs of the organizations the user is a member of."""
-        found = await self._json("GET", f"/organizations/members/{user_id}/organizations") or []
+        # A user already deleted (an erasure resumed after its delete) is in no organization.
+        found = (
+            await self._json(
+                "GET", f"/organizations/members/{user_id}/organizations", missing_ok=True
+            )
+            or []
+        )
         tenants: list[str] = []
         for brief in found:
             item = await self._json("GET", f"/organizations/{brief['id']}", missing_ok=True) or {}
@@ -604,6 +723,37 @@ class KeycloakAdmin:
                 )
             )
         return events
+
+    async def realm_events(
+        self, types: tuple[str, ...], since_ms: int, until_ms: int, *, first: int, limit: int
+    ) -> list[KeycloakEvent]:
+        """Events of `types` from `since_ms` to `until_ms` (both inclusive), oldest first."""
+        params: dict[str, Any] = {
+            "type": list(types),
+            "dateFrom": since_ms,  # milliseconds, inclusive (Keycloak 26)
+            "dateTo": until_ms,
+            "direction": "asc",
+            "first": first,
+            "max": limit,
+        }
+        found = []
+        for item in await self._json("GET", "/events", params=params) or []:
+            details = item.get("details") or {}
+            found.append(
+                KeycloakEvent(
+                    id=str(item.get("id") or ""),
+                    type=str(item.get("type", "")),
+                    time_ms=int(item.get("time", 0)),
+                    client_id=item.get("clientId"),
+                    error=item.get("error"),
+                    user_id=item.get("userId"),
+                    ip=item.get("ipAddress"),
+                    identity_provider=details.get("identity_provider"),
+                    redirect_uri=details.get("redirect_uri"),
+                    credential_type=details.get("credential_type"),
+                )
+            )
+        return found
 
     async def set_password_policy(self, policy: str) -> None:
         """The realm's password policy (a partial representation: nothing else changes)."""

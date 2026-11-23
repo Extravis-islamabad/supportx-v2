@@ -58,6 +58,37 @@ export const INCIDENT_REPORT_FIELDS = [
   'reassignment_count',
 ] as const;
 
+/**
+ * Each record type's own fields, after the shared ones (QA 2026-11-12 F-02): the server's
+ * `TYPE_DIMENSIONS` in work_items/service/reporting.py. Without them a change report grouped by
+ * risk showed the field's code, as the picker had no such option.
+ */
+const TYPE_REPORT_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  problem: ['problem_type', 'root_cause_category', 'known_error_at', 'accepted_at'],
+  change: [
+    'stage',
+    'stage_path',
+    'change_type',
+    'change_reason',
+    'risk',
+    'retrospective',
+    'freeze_overridden',
+    'implementation_outcome',
+    'implementation_seconds',
+    'planned_downtime_seconds',
+    'actual_downtime_seconds',
+  ],
+};
+
+/** The fields a report on `entity` offers: the shared ones, the type's own, custom fields. */
+export function reportFieldOffered(entity: string | undefined, name: string): boolean {
+  return (
+    (INCIDENT_REPORT_FIELDS as readonly string[]).includes(name) ||
+    (TYPE_REPORT_FIELDS[entity ?? ''] ?? []).includes(name) ||
+    name.startsWith('custom.')
+  );
+}
+
 export interface ReportWords {
   /** A field's name: custom fields by their label, others by the shipped label. */
   field: (name: string) => string;

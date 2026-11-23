@@ -28,6 +28,13 @@ class BulkAction(StrEnum):
     CLOSE = "close"
     LINK_PROBLEM = "link_problem"  # WP-044a: incidents caused by one problem (REQ-PRB-012)
     UNLINK_PROBLEM = "unlink_problem"  # WP-044b: incidents no longer caused by their problem
+    # WP-046a S1 (0141; REQ-CHG-101): the change list's cancel (with a reason) and trash.
+    CANCEL = "cancel"
+    DELETE = "delete"
+    # WP-058b S5a (0149; REQ-REL-057): a release role's holders (manager, engineer ...).
+    ASSIGN_ROLE = "assign_role"
+    # WP-046b S4 (REQ-INC-141 AC2): similar incidents attached as children of a major incident.
+    ATTACH_CHILD = "attach_child"
 
 
 class BulkStatus(StrEnum):
@@ -44,6 +51,32 @@ class BulkOutcome(StrEnum):
 
     DONE = "done"
     SKIPPED = "skipped"  # with the reason as an error code and params, shown in words
+
+
+class ListLayout(StrEnum):
+    """How a person shows one view's list: table, cards, board (REQ-INC-111) or calendar (112)."""
+
+    TABLE = "table"
+    CARDS = "cards"
+    BOARD = "board"
+    CALENDAR = "calendar"
+
+
+class BoardGroupBy(StrEnum):
+    """What a board's columns are (REQ-INC-111)."""
+
+    STATUS = "status"
+    PRIORITY = "priority"
+    TECHNICIAN = "technician"
+    GROUP = "group"
+
+
+class RowColourBy(StrEnum):
+    """What list rows are coloured by (REQ-INC-115 AC1): the tenant's default, a person's own."""
+
+    NONE = "none"
+    STATUS = "status"
+    PRIORITY = "priority"
 
 
 class ViewVisibility(StrEnum):

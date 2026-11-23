@@ -1,9 +1,10 @@
-import { App, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd';
+import { App, Card, Flex, InputNumber, Modal, Popconfirm, Space, Table, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
   ApiError,
   type IdentitySettings,
+  useCopyInviteLink,
   useIdentitySettings,
   useInvitationAction,
   useInvitations,
@@ -149,6 +150,26 @@ export function InvitationsCard() {
   const dates = useDateTime();
   const invitations = useInvitations();
   const act = useInvitationAction();
+  const copy = useCopyInviteLink();
+  // Shown once, in this dialog only: never kept in state beyond it (REQ-SEC-021).
+  const [copied, setCopied] = useState<{ email: string; link: string; expiresAt: string }>();
+  const copyLink = (row: Invitation) => {
+    copy.mutate(
+      { id: row.id, version: row.version },
+      {
+        onSuccess: (made) => {
+          setCopied({ email: row.email, link: made.link, expiresAt: made.expires_at });
+        },
+        onError: (error) => {
+          if (conflict.take(error)) {
+            void invitations.refetch();
+            return;
+          }
+          reportError(error);
+        },
+      },
+    );
+  };
   // An invitation another admin changed first (409): the shared dialog (QA WP-029 BUG-05).
   const conflict = useConflict();
   const invitationField = useInvitationFieldName();
@@ -245,6 +266,18 @@ export function InvitationsCard() {
                     >
                       {t('security.invitations.resend')}
                     </WriteButton>
+                    {row.delivery === 'link' && row.status === 'pending' && (
+                      <WriteButton
+                        size="small"
+                        disabled={copy.isPending}
+                        onClick={() => {
+                          copyLink(row);
+                        }}
+                        data-testid="invitation-copy-link"
+                      >
+                        {t('security.invitations.copy_link')}
+                      </WriteButton>
+                    )}
                     <Popconfirm
                       title={t('security.invitations.revoke_confirm', { email: row.email })}
                       okText={t('security.invitations.revoke')}
@@ -263,6 +296,70 @@ export function InvitationsCard() {
           ]}
         />
       </Flex>
+      <Modal
+        open={copied !== undefined}
+        title={t('security.invitations.link_title', { email: copied?.email ?? '' })}
+        onCancel={() => {
+          setCopied(undefined);
+        }}
+        footer={null}
+        destroyOnHidden
+        data-testid="invitation-link-dialog"
+      >
+        {copied !== undefined && (
+          <Flex vertical gap={12}>
+            <Typography.Paragraph style={{ marginBottom: 0 }}>
+              {t('security.invitations.link_note', { date: dates.format(copied.expiresAt) })}
+            </Typography.Paragraph>
+            <Typography.Paragraph
+              code
+              copyable={{
+                text: copied.link,
+                tooltips: [
+                  t('security.invitations.copy_link'),
+                  t('security.invitations.link_copied'),
+                ],
+              }}
+              style={{ marginBottom: 0, wordBreak: 'break-all', direction: 'ltr' }}
+              data-testid="invitation-link"
+            >
+              {copied.link}
+            </Typography.Paragraph>
+          </Flex>
+        )}
+      </Modal>
+      <Modal
+        open={copied !== undefined}
+        title={t('security.invitations.link_title', { email: copied?.email ?? '' })}
+        onCancel={() => {
+          setCopied(undefined);
+        }}
+        footer={null}
+        destroyOnHidden
+        data-testid="invitation-link-dialog"
+      >
+        {copied !== undefined && (
+          <Flex vertical gap={12}>
+            <Typography.Paragraph style={{ marginBottom: 0 }}>
+              {t('security.invitations.link_note', { date: dates.format(copied.expiresAt) })}
+            </Typography.Paragraph>
+            <Typography.Paragraph
+              code
+              copyable={{
+                text: copied.link,
+                tooltips: [
+                  t('security.invitations.copy_link'),
+                  t('security.invitations.link_copied'),
+                ],
+              }}
+              style={{ marginBottom: 0, wordBreak: 'break-all', direction: 'ltr' }}
+              data-testid="invitation-link"
+            >
+              {copied.link}
+            </Typography.Paragraph>
+          </Flex>
+        )}
+      </Modal>
       <ConflictDialog
         open={conflict.open}
         error={conflict.error}

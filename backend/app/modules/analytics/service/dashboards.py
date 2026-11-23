@@ -25,7 +25,7 @@ default (an admin's choice, else the built-in role home), else "my work".
 
 import json
 import uuid
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -44,7 +44,12 @@ from app.modules.analytics.domain.dashboard import (
     with_viewer,
 )
 from app.modules.analytics.domain.definition import ReportDefinition
-from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS, FALLBACK_HOME, ROLE_HOMES
+from app.modules.analytics.domain.widgets import (
+    BUILTIN_DASHBOARDS,
+    BUILTIN_ENTITIES,
+    FALLBACK_HOME,
+    ROLE_HOMES,
+)
 from app.modules.analytics.events import DashboardDeleted, DashboardHomeChanged, DashboardSaved
 from app.modules.analytics.infra.models import Dashboard, DashboardPreference, DashboardRoleDefault
 from app.modules.analytics.service.library import VIEW, get_report
@@ -215,7 +220,18 @@ def _builtin_view(code: str) -> DashboardView:
     )
 
 
-async def list_dashboards(session: AsyncSession, subject: Subject) -> list[DashboardView]:
+def _usable(code: str, reportable: Collection[str] | None) -> bool:
+    """A built-in dashboard whose entities the viewer may all report on (None: not checked).
+
+    WP-045d S4c (lane C's review): the list, a direct link and the home all leave out a built-in
+    over an entity the viewer may not report on, so nobody opens a page of failing tiles.
+    """
+    return reportable is None or BUILTIN_ENTITIES.get(code, frozenset()) <= set(reportable)
+
+
+async def list_dashboards(
+    session: AsyncSession, subject: Subject, reportable: Collection[str] | None = None
+) -> list[DashboardView]:
     """Built-in dashboards, then shared ones and the subject's own (REQ-DSH-005)."""
     _require(subject, VIEW)
     rows = (
@@ -225,17 +241,24 @@ async def list_dashboards(session: AsyncSession, subject: Subject) -> list[Dashb
             .order_by(Dashboard.name, Dashboard.id)
         )
     ).all()
-    return [_builtin_view(code) for code in BUILTIN_DASHBOARDS] + await _row_views(
-        session, subject, rows
-    )
+    builtins = [_builtin_view(c) for c in BUILTIN_DASHBOARDS if _usable(c, reportable)]
+    return builtins + await _row_views(session, subject, rows)
 
 
-async def get_dashboard(session: AsyncSession, subject: Subject, ref: str) -> DashboardView:
-    """One dashboard by reference; 404 when unknown or someone else's private one."""
+async def get_dashboard(
+    session: AsyncSession,
+    subject: Subject,
+    ref: str,
+    reportable: Collection[str] | None = None,
+) -> DashboardView:
+    """One dashboard by reference; 404 when unknown or someone else's private one.
+
+    A built-in over an entity the viewer may not report on reads as unknown too (WP-045d S4c).
+    """
     _require(subject, VIEW)
     if ref.startswith(BUILTIN_PREFIX):
         code = ref.removeprefix(BUILTIN_PREFIX)
-        if code not in BUILTIN_DASHBOARDS:
+        if code not in BUILTIN_DASHBOARDS or not _usable(code, reportable):
             raise NotFound(code="dashboard_not_found")
         return _builtin_view(code)
     try:
@@ -536,7 +559,9 @@ class Home:
     chosen: bool
 
 
-async def home(session: AsyncSession, subject: Subject) -> Home:
+async def home(
+    session: AsyncSession, subject: Subject, reportable: Collection[str] | None = None
+) -> Home:
     """The subject's home dashboard (REQ-DSH-002): their choice, the role's, else built-in."""
     _require(subject, VIEW)
     preference = await _preference(session, subject)
@@ -547,17 +572,22 @@ async def home(session: AsyncSession, subject: Subject) -> Home:
         if ref is None:
             continue
         try:
-            await get_dashboard(session, subject, ref)
+            await get_dashboard(session, subject, ref, reportable)
         except NotFound:
-            continue  # deleted or no longer shared: fall back
+            continue  # deleted, no longer shared, or over what they may not report on
         return Home(ref, chosen=chosen)
     return Home(_builtin_role_home(subject), chosen=False)
 
 
-async def set_home(session: AsyncSession, subject: Subject, ref: str | None) -> Home:
+async def set_home(
+    session: AsyncSession,
+    subject: Subject,
+    ref: str | None,
+    reportable: Collection[str] | None = None,
+) -> Home:
     """Choose a home dashboard the subject can see, or None to go back to the role's."""
     if ref is not None:
-        await get_dashboard(session, subject, ref)
+        await get_dashboard(session, subject, ref, reportable)
     await session.execute(
         insert(DashboardPreference)
         .values(tenant_id=subject.tenant_id, user_id=subject.user_id, home_ref=ref)
@@ -566,7 +596,7 @@ async def set_home(session: AsyncSession, subject: Subject, ref: str | None) -> 
             set_={"home_ref": ref, "updated_at": func.now()},
         )
     )
-    return await home(session, subject)
+    return await home(session, subject, reportable)
 
 
 async def favourites(session: AsyncSession, subject: Subject) -> list[str]:

@@ -15,9 +15,16 @@ AC2), so it works on air-gapped installations.
     Pwdb_top-100000.txt > supportx-breached.txt
   ```
 
-- **A larger list:** an operator may replace the file with a bigger one under the same name
-  (Keycloak's `password-blacklists` folder; docs/architecture/identity.md). Keycloak reads it
-  when the policy is set or Keycloak starts.
+- **How it ships:** in the backend image (`/opt/supportx/keycloak/password-blacklists/`), not
+  in the Helm chart (`.helmignore`). Helm keeps each release in one Secret of at most 1 MiB, and
+  this list alone took more than half of it (Cluster run 43345912681). The Keycloak pod's
+  `copy-password-blacklists` init container copies it from this release's backend image into
+  Keycloak's `password-blacklists` folder. The dev Compose stack and the tests mount it from
+  here.
+- **A larger list:** put a file of the same name in a ConfigMap in the release namespace
+  (`kubectl create configmap my-lists --from-file=supportx-breached.txt`) and name it in
+  `keycloak.passwordBlacklists.configMap`; the init container is then skipped
+  (docs/architecture/identity.md). Keycloak reads it when the policy is set or Keycloak starts.
 
 ## SecLists licence
 

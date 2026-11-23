@@ -79,13 +79,8 @@ describe('console shell', () => {
     ).toBeDefined();
   });
 
-  it('shows a translated "coming soon" page per section', async () => {
-    at('/cmdb'); // problems, then changes, have screens now (WP-044a; the change screens)
-    api();
-    render(<App />);
-    expect(await screen.findByRole('heading', { name: 'CMDB' })).toBeDefined();
-    expect(screen.getByText(/being built/)).toBeDefined();
-  });
+  // No section is a placeholder any more (the CMDB has screens since WP-053 S1): the "coming
+  // soon" page stays in @supportx/ui with its own test.
 
   it('opens the command palette with Ctrl+K and navigates', async () => {
     api();
@@ -291,6 +286,19 @@ describe('console shell', () => {
     render(<App navigate={navigate} />);
     expect(
       await screen.findByText(/All technician seats in your organisation’s plan are in use/),
+    ).toBeDefined();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('says sign-in is unavailable while the sign-in service is down (ADR-051)', async () => {
+    api({ me: null });
+    const navigate = vi.fn();
+    at('/?auth_error=sign_in_unavailable');
+    render(<App navigate={navigate} />);
+    expect(
+      await screen.findByText(
+        'Sign-in is temporarily unavailable. If you’re already signed in, you can keep working.',
+      ),
     ).toBeDefined();
     expect(navigate).not.toHaveBeenCalled();
   });

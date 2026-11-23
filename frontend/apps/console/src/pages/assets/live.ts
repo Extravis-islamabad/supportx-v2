@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 
-import { ApiError, useUnits } from '@supportx/api-client';
-import { useTenantChannel } from '@supportx/realtime';
+import { ApiError, queryKeys, useUnits } from '@supportx/api-client';
+import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { useLabel } from '@supportx/ui';
 
 // Live refresh and lookups the stock and booking screens share (WP-049b s1; rule c).
@@ -45,4 +45,16 @@ export function nextFree(error: unknown): string | null {
   if (!(error instanceof ApiError) || error.code !== 'asset_booking_taken') return null;
   const value = error.params.next_free;
   return typeof value === 'string' && value !== '' ? value : null;
+}
+
+// WP-049b s3 (REQ-AST-039): the person's label jobs, on their own channel.
+export const LABELS_CHANGED = 'assets.labels_changed';
+/** Refetch label jobs and history when the person's jobs change (rule c; IDs only). */
+export function useLabelsLive() {
+  const queryClient = useQueryClient();
+  usePersonalChannel((event) => {
+    if (event.type !== LABELS_CHANGED) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.labelJobs });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.labelPrintsAll });
+  });
 }

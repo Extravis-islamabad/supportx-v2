@@ -54,6 +54,8 @@ PRODUCTION_REQUIRED: dict[str, Any] = {
     "centrifugo_api_url": "http://127.0.0.1:1",
     "centrifugo_api_key": "centrifugo-key",
     "centrifugo_token_secret": "c" * 32,
+    "api_key_secret": "k" * 32,  # its own key in production (audit row 26)
+    "mobile_redirect_uri": "https://sx.example.com/mobile/auth",  # https in production
 }
 
 
@@ -101,7 +103,11 @@ def db_config() -> db_testing.DbTestConfig:
     """Connection settings for test databases (skips/fails when unavailable)."""
     config = db_testing.load_config()
     if config is None:
-        _unavailable("no test database configured (make dev-init / SUPPORTX_TEST_ADMIN_URL)")
+        _unavailable(
+            "no test database configured: set SUPPORTX_TEST_ADMIN_URL and the role passwords to a"
+            " standalone throwaway PostgreSQL (or SUPPORTX_TEST_ALLOW_DEV_STACK=1 for the shared"
+            " dev stack)"
+        )
         msg = "unreachable: _unavailable always raises"
         raise AssertionError(msg)
     if not asyncio.run(db_testing.server_reachable(config)):

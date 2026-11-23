@@ -83,15 +83,16 @@ const received: AssetMovement = {
   recipient_kind: null,
   recipient_id: null,
   work_item_id: null,
+  work_item_hidden: false,
   unit_cost: '12.50',
   comment: 'Delivery 7',
   created_at: '2026-11-10T09:00:00Z',
   created_by: null,
 };
 
-function api(routes = {}) {
+function api(routes = {}, locale: 'en' | 'ar' | 'ur' = 'en') {
   return consoleApi({
-    me: fakeSession({ roles: ['tenant_admin'] }),
+    me: fakeSession({ roles: ['tenant_admin'], locale }),
     routes: {
       'GET /api/v1/assets/consumables': { body: [consumable] },
       [`GET /api/v1/assets/consumables/${consumable.id}`]: {
@@ -119,19 +120,73 @@ describe('quantities', () => {
 });
 
 describe('console: consumables', () => {
-  it('lists consumables with their stock per site and flags one at its minimum', async () => {
+  it('lists consumables with their stock per site and flags one below its minimum', async () => {
     window.history.pushState({}, '', '/assets/consumables');
     const fake = api();
     restore = fake.restore;
     render(<App />);
     expect(await screen.findByTestId(`consumable-${consumable.id}`)).toBeTruthy();
     expect(screen.getByTestId(`consumable-total-${consumable.id}`).textContent).toBe('6');
-    expect(screen.getByTestId('consumable-low-st-1').textContent).toBe('At minimum');
+    // 2 against a minimum of 5: below it, never "At minimum" (QA 2026-11-11 F-15).
+    expect(screen.getByTestId('consumable-low-st-1').textContent).toBe('Below minimum');
     expect(screen.getByText('Batches')).toBeTruthy();
     // The site filter reads as a filter, not as a row's "No site".
     const filter = screen.getByTestId('consumables-site');
     expect(within(filter).getByText('All sites')).toBeTruthy();
     expect(within(filter).queryByText('No site')).toBeNull();
+  });
+
+  it('stock by site reads "<site>: <amount>" in order, in Arabic too (QA 2026-11-12 V-14)', async () => {
+    for (const locale of ['en', 'ar'] as const) {
+      window.history.pushState({}, '', '/assets/consumables');
+      const fake = api({}, locale);
+      restore = fake.restore;
+      const { unmount } = render(<App />);
+      const line = await screen.findByTestId('consumable-stock-st-1');
+      await waitFor(() => {
+        expect(stripIsolates(line.textContent)).toContain('Head office: 2');
+      });
+      if (locale === 'ar') {
+        expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+        // Each value in its own isolate (FSI … PDI): the colon stays after the site in RTL.
+        expect(line.textContent).toContain('\u2068Head office\u2069: \u20682\u2069');
+      }
+      unmount();
+      fake.restore();
+    }
+  });
+
+  it('says below or at the minimum as it is, and the unit cost with its currency (F-15)', async () => {
+    window.history.pushState({}, '', `/assets/consumables/${consumable.id}`);
+    const fake = api();
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('consumable-heading')).toBeTruthy();
+    expect(screen.getByTestId('stock-low-st-1').textContent).toBe('Below minimum');
+    expect(screen.getByTestId('consumable-low').textContent).toBe('Below minimum');
+    // The base currency comes from the instance settings (USD in the test console).
+    await waitFor(() => {
+      expect(screen.getByTestId('consumable-unit-cost').textContent).toContain('$12.50');
+    });
+  });
+
+  it('a stock exactly at its minimum says "At minimum"', async () => {
+    window.history.pushState({}, '', `/assets/consumables/${consumable.id}`);
+    const atMinimum = {
+      ...consumable,
+      stocks: consumable.stocks.map((s) => (s.id === 'st-1' ? { ...s, quantity: '5.000' } : s)),
+    };
+    const fake = api({
+      [`GET /api/v1/assets/consumables/${consumable.id}`]: {
+        body: atMinimum,
+        headers: { ETag: '"2"' },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('stock-low-st-1')).toBeTruthy();
+    expect(screen.getByTestId('stock-low-st-1').textContent).toBe('At minimum');
+    expect(screen.getByTestId('consumable-low').textContent).toBe('At minimum');
   });
 
   it('shows stock, an expired batch flagged, and the ledger', async () => {

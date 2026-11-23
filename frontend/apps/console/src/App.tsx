@@ -9,14 +9,19 @@ import { RealtimeProvider } from '@supportx/realtime';
 import {
   AddressBranding,
   AppearanceProvider,
+  ConfirmedPage,
+  storedLocale,
   CrumbProvider,
   createQueryClient,
   DevSignInPage,
   ErrorBoundary,
   ErrorReporterProvider,
+  isConfirmedPage,
   isDevSignIn,
   LicenceProvider,
   PASSWORD_RESET_PATH,
+  InvitePage,
+  isInvitePage,
   PasswordResetPage,
   SessionGate,
   TenantBranding,
@@ -58,17 +63,24 @@ export function App({ navigate }: AppProps) {
   const [router] = useState(createRouter);
   return (
     <QueryClientProvider client={queryClient}>
-      <AppearanceProvider density="compact">
+      <AppearanceProvider density="compact" initialLocale={storedLocale() ?? undefined}>
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
-            {window.location.pathname === SSO_TEST_DONE_PATH ? (
+            {isConfirmedPage(window.location.pathname) ? (
+              // A confirmation's landing (REQ-SEC-027): it tells the opener and closes. Outside
+              // the session gate, so it never starts a sign-in of its own.
+              <ConfirmedPage />
+            ) : window.location.pathname === SSO_TEST_DONE_PATH ? (
               // The SSO test's landing page needs no session: the test may run in a private
               // window, signed in as nobody (WP-039).
               <SsoTestDonePage />
             ) : window.location.pathname === PASSWORD_RESET_PATH ? (
               // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
               <PasswordResetPage app="console" />
+            ) : isInvitePage(window.location.pathname) ? (
+              // A copied invite link (REQ-SEC-021): its own page, no session; nobody signs in here.
+              <InvitePage app="console" />
             ) : isDevSignIn(window.location.pathname) ? (
               // Dev-only quick sign-in (D-151): the API answers 404 anywhere but the local stack.
               <DevSignInPage />

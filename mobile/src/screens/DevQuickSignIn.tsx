@@ -7,7 +7,7 @@ import { Button } from '../components/Button';
 import { SPACE, usePalette } from '../theme';
 
 /**
- * Dev-only quick sign-in on the mobile app (D-163): the web's /dev/sign-in (D-151) for the debug
+ * Dev-only quick sign-in on the mobile app (D-183): the web's /dev/sign-in (D-151) for the debug
  * build, one button per Showcase Company persona.
  *
  * The real sign-in cannot finish on the local stack: its return link needs a verified https host

@@ -87,7 +87,12 @@ export function useKeptDraft<T extends FieldValues>(
   useEffect(() => {
     if (scoped === null) return;
     let timer: number | undefined;
-    const subscription = watch((values) => {
+    // Only the person's own typing is kept (lane A's #495 finding): a template, a rule or a
+    // restore sets values with no event type, and opening a form must keep nothing.
+    let typed = false;
+    const subscription = watch((values, { type }) => {
+      if (type === 'change') typed = true;
+      if (!typed) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         // An untouched form (just opened, or reset after a save) keeps nothing.

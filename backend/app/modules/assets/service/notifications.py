@@ -8,12 +8,15 @@
   comment (AC3). Staff only.
 - `asset.mentioned` (WP-049b s2, REQ-AST-050 after REQ-INC-063): a person mentioned in a note
   on an asset they may see; with the author's name, a link to the asset's notes. Staff only.
+- `asset.erased_holder_items` (ADR-052; the coordinator, 2026-11-16): a person being erased
+  still holds assets (open assignments and loans stay open); the asset managers are told once
+  which ones, to recover them. Required: nobody switches it off. Never the person's old name.
 """
 
 import uuid
 from collections.abc import Mapping
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
@@ -22,6 +25,7 @@ from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
     AssetNoteChanged,
+    ErasedHolderItems,
     StockLow,
     WarrantyEnding,
 )
@@ -31,13 +35,14 @@ from app.modules.assets.infra.models import (
     AssetConsumable,
     AssetConsumableStock,
     AssetLoan,
+    AssetLoanItem,
     AssetNote,
     AssetProduct,
     AssetStockRule,
 )
-from app.modules.assets.service.assets import MANAGE, RECORD_TYPE, VIEW, _visible
+from app.modules.assets.service.assets import ASSETS, MANAGE, RECORD_TYPE, VIEW, _visible
 from app.modules.assets.service.realtime import RECORD_KIND
-from app.modules.identity_access import subject_for, user_names, worker_policy
+from app.modules.identity_access import scope_filter, subject_for, user_names, worker_policy
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
@@ -88,6 +93,17 @@ EVENTS: tuple[NotificationEvent, ...] = (
         variables=(Variable("conversation.author", "notification_variable.conversation.author"),),
     ),
     NotificationEvent(
+        "asset.erased_holder_items",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("asset_managers",)),
+        required=True,
+        public=False,
+        variables=(
+            Variable("holdings.assets", "notification_variable.holdings.assets"),
+            Variable("holdings.count", "notification_variable.holdings.count"),
+        ),
+    ),
+    NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=("holder",)),
@@ -122,6 +138,11 @@ VARIABLES = (
 )
 
 
+def _neutral(asset: Asset) -> str:
+    """An asset as the erased-holder notice names it: its tag or serial, else a short ID."""
+    return asset.tag or asset.serial_number or str(asset.id)[:8]
+
+
 class AssetNotifications:
     """`RecordSource` for assets."""
 
@@ -137,6 +158,7 @@ class AssetNotifications:
         WarrantyEnding.event_type,
         StockLow.event_type,
         AssetNoteChanged.event_type,
+        ErasedHolderItems.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -144,6 +166,7 @@ class AssetNotifications:
         fixed = {
             WarrantyEnding.event_type: ("asset.warranty_expiring",),
             StockLow.event_type: ("asset.stock_low",),
+            ErasedHolderItems.event_type: ("asset.erased_holder_items",),
         }
         if envelope.event_type in fixed:
             return fixed[envelope.event_type]
@@ -166,14 +189,15 @@ class AssetNotifications:
     ) -> RecordContext | None:
         """The asset (and its acknowledgement), or the loan, as it is now."""
         payload = envelope.payload
-        if envelope.event_type == AssetLoanChanged.event_type:
-            return await self._loan_context(session, event_code, payload)
-        if envelope.event_type == WarrantyEnding.event_type:
-            return await self._warranty_context(session, event_code, payload)
-        if envelope.event_type == StockLow.event_type:
-            return await self._stock_context(session, event_code, payload)
-        if envelope.event_type == AssetNoteChanged.event_type:
-            return await self._note_context(session, event_code, payload)
+        other = {
+            AssetLoanChanged.event_type: self._loan_context,
+            WarrantyEnding.event_type: self._warranty_context,
+            StockLow.event_type: self._stock_context,
+            AssetNoteChanged.event_type: self._note_context,
+            ErasedHolderItems.event_type: self._held_context,
+        }.get(envelope.event_type)
+        if other is not None:
+            return await other(session, event_code, payload)
         ack = await session.get(AssetAcknowledgement, uuid.UUID(str(payload["acknowledgement_id"])))
         asset = await session.scalar(
             select(Asset).where(
@@ -334,6 +358,56 @@ class AssetNotifications:
             event_code=event_code,
         )
 
+    async def _held_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        """The assets an erased person still holds, by tag or name, for the asset managers."""
+        raw = payload.get("asset_ids")
+        ids = [uuid.UUID(str(a)) for a in raw] if isinstance(raw, list) else []
+        assets = list(
+            await session.scalars(
+                select(Asset)
+                .where(Asset.id.in_(ids), Asset.deleted_at.is_(None))
+                .order_by(Asset.tag)
+            )
+        )
+        if not assets:
+            return None  # all gone meanwhile: nothing to recover
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        managers = await worker_policy().holders(session, tenant, MANAGE, limit=MANAGERS_LIMIT)
+        # Per recipient (ADR-053, lane C 4): one message goes to them all, so it names only the
+        # assets every recipient may see, and only managers who see at least one get it.
+        recipients, shared = await _seen_by_all(
+            session, tenant, [user_id for user_id, _ in managers], [a.id for a in assets]
+        )
+        if not recipients:
+            return None  # no manager may see any of them: nobody is told about unseen assets
+        named = [a for a in assets if a.id in shared]
+        # By tag or serial, never the name: a tag-less asset's name may be the person's (lane C).
+        listed = ", ".join(_neutral(a) for a in named)
+        first = named[0] if named else assets[0]
+        count = int(str(payload.get("assets_held") or len(assets)))
+        link = f"/assets?owner_user_id={payload.get('person_id')}"
+        shown: dict[str, VariableValue] = {
+            "record.display_id": _neutral(first),
+            "record.title": _neutral(first),
+            "record.link": link,
+            "holdings.assets": listed,
+            "holdings.count": count,  # the true count: counts only, never what's unseen by name
+        }
+        return RecordContext(
+            # Every recipient may see it when one is named for all; else access() keeps only
+            # those who may see this one.
+            record_id=first.id,
+            display_id=_neutral(first),
+            link=link,
+            variables=shown,
+            public_variables={},
+            relatives={"asset_managers": frozenset(recipients)},
+            conditions={},
+            event_code=event_code,
+        )
+
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
@@ -343,8 +417,26 @@ class AssetNotifications:
         if await session.get(AssetConsumableStock, record_id) is not None:  # a low stock
             return RecordAccess.FULL if subject.holds(VIEW) else RecordAccess.NONE
         loan = await session.get(AssetLoan, record_id)
-        if loan is not None:  # a loan: staff see it in full, the borrower their own side
-            if subject.holds(VIEW):
+        if (
+            loan is not None
+        ):  # a loan: staff who may see all its assets in full, the borrower theirs
+            items = list(
+                (
+                    await session.scalars(
+                        select(AssetLoanItem.asset_id).where(AssetLoanItem.loan_id == loan.id)
+                    )
+                ).all()
+            )
+            seen = await session.scalar(
+                select(func.count())
+                .select_from(Asset)
+                .where(
+                    Asset.id.in_(items),
+                    Asset.deleted_at.is_(None),
+                    scope_filter(subject, VIEW, ASSETS),
+                )
+            )
+            if subject.holds(VIEW) and items and seen == len(set(items)):
                 return RecordAccess.FULL
             return RecordAccess.PUBLIC if loan.borrower_id == user_id else RecordAccess.NONE
         try:
@@ -353,6 +445,37 @@ class AssetNotifications:
             holder = await session.scalar(select(Asset.owner_user_id).where(Asset.id == record_id))
             return RecordAccess.PUBLIC if holder == user_id else RecordAccess.NONE
         return RecordAccess.FULL
+
+
+async def _seen_by_all(
+    session: AsyncSession,
+    tenant: uuid.UUID,
+    people: list[uuid.UUID],
+    asset_ids: list[uuid.UUID],
+) -> tuple[list[uuid.UUID], frozenset[uuid.UUID]]:
+    """Who of `people` may see any of the assets, and the assets all of those may see."""
+    recipients: list[uuid.UUID] = []
+    shared: set[uuid.UUID] | None = None
+    for person in people:
+        subject = await subject_for(session, tenant, person)
+        if not subject.holds(VIEW):
+            continue
+        seen = set(
+            (
+                await session.scalars(
+                    select(Asset.id).where(
+                        Asset.id.in_(asset_ids),
+                        Asset.deleted_at.is_(None),
+                        scope_filter(subject, VIEW, ASSETS),
+                    )
+                )
+            ).all()
+        )
+        if not seen:
+            continue
+        recipients.append(person)
+        shared = seen if shared is None else shared & seen
+    return recipients, frozenset(shared or ())
 
 
 SOURCE = AssetNotifications()

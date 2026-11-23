@@ -106,6 +106,10 @@ class NotificationEvent:
     category: NotificationCategory
     default: EventDefault
     required: bool = False  # people cannot switch it off (approvals, assigned to me, mentions)
+    # Admins cannot change or reset the rule either: the shipped default always applies (a
+    # security notice the person must get even when an admin, maybe the attacker, would rather
+    # they did not; WP-057 S2b, break-glass).
+    locked: bool = False
     # False: only for people who see the record in full (a private note); anyone else gets
     # nothing, not even word that it happened (REQ-NTF-010).
     public: bool = True
@@ -193,6 +197,26 @@ class RecipientLinks(Protocol):
         channel: NotificationChannel,
     ) -> Mapping[str, LinkRequest]:
         """The recipient's own links for this event's e-mail."""
+        ...
+
+
+@runtime_checkable
+class RecipientVariables(Protocol):
+    """Optional on a RecordSource: values one recipient reads differently from the rest.
+
+    Called once per recipient after their access is known; the values returned replace the
+    context's for that recipient only (e.g. a person's name shown only to people near them).
+    Never a way to show more than `access` allows: the source decides from the same access.
+    """
+
+    async def recipient_variables(
+        self,
+        session: AsyncSession,
+        context: RecordContext,
+        recipient_id: uuid.UUID,
+        access: RecordAccess,
+    ) -> Mapping[str, VariableValue]:
+        """The recipient's own values, over the context's."""
         ...
 
 

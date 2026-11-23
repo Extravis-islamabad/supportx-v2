@@ -17,6 +17,7 @@ before taking their error output (REQ-WF-024, S2). A sub-flow starts another wor
 record and waits for it to finish; recursion is refused on save by the service (REQ-WF-017).
 """
 
+import copy
 import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -134,8 +135,23 @@ MAX_WEBHOOK_FIELDS = 50
 _HEADER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,63}$")
 # Set by the platform (the payload's type, the idempotency key) or by the transport itself.
 _RESERVED_HEADERS = frozenset(
-    {"host", "content-length", "content-type", "idempotency-key", "connection", "transfer-encoding"}
+    {
+        "host",
+        "content-length",
+        "content-type",
+        "idempotency-key",
+        "connection",
+        "transfer-encoding",
+        # Hop-by-hop or proxy headers a step must not set (lane B's #406 review).
+        "proxy-authorization",
+        "te",
+        "upgrade",
+        "trailer",
+    }
 )
+# What every API read shows for a webhook header's value: it may be a token or a password, so
+# it is write-only (the coordinator, #406). A save sending this back keeps the stored value.
+SECRET_MASK = "•••"  # noqa: S105 - the mask shown instead of a secret, not a secret
 
 
 class JoinMode(StrEnum):
@@ -651,6 +667,9 @@ def _webhook_problem(config: Mapping[str, Any], facts: TypeFacts) -> Problem | N
         problem = ("", "invalid_value", {"field": "method"})
     elif not _headers_ok(headers):
         problem = ("", "webhook_headers_invalid", {"max": MAX_WEBHOOK_HEADERS})
+    elif unset := [str(k) for k, v in headers.items() if v == SECRET_MASK]:
+        # A masked value with nothing stored behind it (an imported file, a renamed header).
+        problem = ("", "webhook_header_value_missing", {"header": unset[0]})
     elif not known:
         problem = ("", "invalid_value", {"field": "fields"})
     elif unknown:
@@ -993,3 +1012,48 @@ def _join_problems(definition: Definition) -> list[Problem]:
         for n in definition.nodes
         if n.type == NodeType.JOIN and not (_closure([n.id], backward) & splits)
     ]
+
+
+def _webhooks(definition: Mapping[str, Any]) -> list[dict[str, Any]]:
+    nodes = definition.get("nodes")
+    return [
+        n
+        for n in (nodes if isinstance(nodes, list) else [])
+        if isinstance(n, dict)
+        and n.get("type") == NodeType.WEBHOOK.value
+        and isinstance(n.get("config"), dict)
+        and isinstance(n["config"].get("headers"), dict)
+    ]
+
+
+def masked(definition: Mapping[str, Any]) -> dict[str, Any]:
+    """The definition as any API read shows it: every webhook header's value masked.
+
+    Header values may be tokens or passwords; they are write-only (the coordinator, #406).
+    """
+    shown = copy.deepcopy(dict(definition))
+    for node in _webhooks(shown):
+        headers = node["config"]["headers"]
+        node["config"]["headers"] = {k: SECRET_MASK if v else v for k, v in headers.items()}
+    return shown
+
+
+def with_kept_secrets(incoming: Mapping[str, Any], stored: Mapping[str, Any]) -> dict[str, Any]:
+    """A saved definition whose masked header values are the stored ones again.
+
+    A value sent back as the mask keeps what is stored for the same step and header, and only
+    while the step still calls the same address: a stored token never follows a changed URL to
+    another host (lane B's #406 review). Otherwise it stays the mask, which validation names
+    (webhook_header_value_missing), so the workflow cannot be published until it is typed again.
+    """
+    kept = copy.deepcopy(dict(incoming))
+    before = {str(n.get("id")): n["config"] for n in _webhooks(stored)}
+    for node in _webhooks(kept):
+        old = before.get(str(node.get("id")))
+        same_address = old is not None and old.get("url") == node["config"].get("url")
+        values = old["headers"] if old is not None and same_address else {}
+        node["config"]["headers"] = {
+            k: values.get(k, v) if v == SECRET_MASK and values.get(k) != SECRET_MASK else v
+            for k, v in node["config"]["headers"].items()
+        }
+    return kept

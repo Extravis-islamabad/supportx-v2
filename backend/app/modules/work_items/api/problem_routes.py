@@ -44,7 +44,7 @@ from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.list_routes import BulkJobOut
 from app.modules.work_items.api.people import PersonOut, people_out
-from app.modules.work_items.domain.approvals import ApprovalPurpose
+from app.modules.work_items.domain.approvals import ApprovalPurpose, LevelRule
 from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
@@ -356,7 +356,7 @@ def _add_work_routes(router: APIRouter, wtype: WorkItemType, record_out: type[Ba
     _add_merge_routes(router, wtype)
     _add_unlink_route(router, wtype)
     _add_known_error_routes(router, wtype, record_out)
-    _add_approval_request_route(router, wtype, record_out)
+    add_approval_request_route(router, wtype, record_out)
     _add_message_routes(router, wtype)
     _add_follow_up_routes(router, wtype)
 
@@ -503,12 +503,19 @@ class ApprovalRequestIn(BaseModel):
 
     approver_ids: list[uuid.UUID] = Field(min_length=1, max_length=problem_approvals.MAX_APPROVERS)
     purpose: ApprovalPurpose = ApprovalPurpose.RECORD
+    rule: LevelRule | None = Field(
+        default=None,
+        description="Incidents: any one, all, or a majority decides (REQ-INC-083); none = any.",
+    )
 
 
-def _add_approval_request_route(
+def add_approval_request_route(
     router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel]
 ) -> None:
-    """Ask for approval on a problem (WP-044b s4); deciding uses the engine's routes."""
+    """Ask for approval on a problem or an incident; deciding uses the engine's routes.
+
+    WP-044b s4 (problems) and WP-046b S1 (incidents, with their rule: REQ-INC-083).
+    """
     Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
 
@@ -517,7 +524,11 @@ def _add_approval_request_route(
         summary="Ask named people to approve",
         response_model=record_out,
         dependencies=[
-            audited("problem.approval_requested", object_type="problem", object_param="record_id")
+            audited(
+                f"{wtype.code.value}.approval_requested",
+                object_type=wtype.code.value,
+                object_param="record_id",
+            )
         ],
     )
     async def request_approval(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -540,8 +551,10 @@ def _add_approval_request_route(
             expected_version=version,
             source=source_of(request),
             policy=policy,
+            wtype=wtype,
+            rule=body.rule,
         )
-        view = await items.get(session, subject, PROBLEM, record_id)
+        view = await items.get(session, subject, wtype, record_id)
         set_etag(response, view.record.version)
         out: BaseModel = record_out.of(view)  # type: ignore[attr-defined]  # WorkItemOut.of
         return out

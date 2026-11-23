@@ -32,6 +32,7 @@ export function AssetPickerField({
   testId,
   id,
   ariaLabel,
+  known = [],
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
@@ -40,6 +41,8 @@ export function AssetPickerField({
   id?: string;
   /** Its name when no form label names it (the record panel's add field). */
   ariaLabel?: string;
+  /** Assets already chosen elsewhere (raised from an asset, REQ-AST-045): named, never IDs. */
+  known?: PickedAsset[];
 }) {
   const t = useLabel();
   const [search, setSearch] = useState('');
@@ -47,15 +50,15 @@ export function AssetPickerField({
   const q = useDebounced(search.trim(), SEARCH_DELAY_MS);
   // Asked only once the list is opened: a form never loads assets nobody looks at.
   const picker = useAssetPicker(q, forUser, opened);
-  const options = useMemo(
-    () =>
-      (picker.data ?? []).map((a) => ({
-        value: a.id,
-        label: pickedLabel(t, a),
-        'aria-label': pickedLabel(t, a),
-      })),
-    [picker.data, t],
-  );
+  const options = useMemo(() => {
+    const found = picker.data ?? [];
+    const listed = new Set(found.map((a) => a.id));
+    return [...known.filter((a) => !listed.has(a.id)), ...found].map((a) => ({
+      value: a.id,
+      label: pickedLabel(t, a),
+      'aria-label': pickedLabel(t, a),
+    }));
+  }, [picker.data, known, t]);
   return (
     <Select
       id={id}

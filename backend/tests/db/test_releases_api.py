@@ -285,11 +285,14 @@ async def test_lane_a_review_closing_rules_required_fields_and_disabled_paths(
         f"{REL}/{item['id']}/moves",
         a,
         a.admin,
-        json={"to_status": "closure_closed", "closure_code": "fixed"},
+        json={"to_status": "closure_closed", "closure_code": "completed"},
         headers={"If-Match": f'"{item["version"]}"', **CONSOLE},
     )
     assert closed.status_code == 200, closed.text
-    assert (closed.json()["status_category"], closed.json()["closure_code"]) == ("closed", "fixed")
+    assert (closed.json()["status_category"], closed.json()["closure_code"]) == (
+        "closed",
+        "completed",
+    )
     assert rail(await panel(world, a, closed.json()))["closure"][0] == "current"
 
 

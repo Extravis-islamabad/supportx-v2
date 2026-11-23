@@ -9,7 +9,7 @@ import {
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi } from '../../test/api';
+import { consoleApi, listCalls } from '../../test/api';
 import { rememberTab } from './tabs';
 
 // The fake session's user (api-client testing fixtures).
@@ -239,6 +239,20 @@ describe('Conversation', () => {
     expect(within(composer).queryByTestId('conv-mail-not-set-up')).toBeNull();
   });
 
+  it('template A: with a composer open, its Send is the one primary and the header goes quiet', async () => {
+    api({ routes: COMMON });
+    await openConversation();
+    const header = screen.getByTestId('inc-operations');
+    expect(header.querySelectorAll('.ant-btn-primary').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByTestId('inc-op-reply').querySelector('button') as HTMLElement);
+    await screen.findByTestId('conv-composer');
+    await waitFor(() => {
+      expect(header.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
+    });
+    expect(screen.getByTestId('inc-op-reply')).toBeTruthy(); // Reply stays where it was
+    expect(screen.getByTestId('conv-send').className).toContain('ant-btn-primary');
+  });
+
   it('QA6-INC-01: the composer says when outgoing mail is not set up, and who can fix it', async () => {
     api({
       routes: {
@@ -369,7 +383,7 @@ describe('Personal counters', () => {
     });
     fireEvent.click(waiting);
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(last?.url.searchParams.get('view')).toBe('waiting_on_me');
     });
     expect(waiting.getAttribute('aria-pressed')).toBe('true');

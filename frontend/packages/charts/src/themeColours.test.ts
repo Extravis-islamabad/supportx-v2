@@ -26,4 +26,14 @@ describe('QA9-V-03: chart text and lines take the theme colours', () => {
   it('adds nothing a chart does not have', () => {
     expect(withTokenColours({ series: [] }, COLOURS)).toEqual({ series: [] });
   });
+
+  it('QA 2026-11-11 V-03: a donut labels its slices in the theme text, with no dark halo', () => {
+    const out = withTokenColours(
+      { series: [{ type: 'pie', label: { show: true }, labelLine: { length: 12 } }] },
+      { text: '#e6e6e6', secondary: '#aaaaaa', line: '#555555', grid: '#333333' },
+    ) as { series: { label: Record<string, unknown>; labelLine: Record<string, unknown> }[] };
+    const [pie] = out.series;
+    expect(pie?.label).toMatchObject({ show: true, color: '#e6e6e6', textBorderWidth: 0 });
+    expect(pie?.labelLine).toMatchObject({ length: 12, lineStyle: { color: '#555555' } });
+  });
 });

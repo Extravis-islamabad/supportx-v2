@@ -14,10 +14,14 @@ import httpx
 import pytest
 from sqlalchemy import text
 
+from app.core.errors import Unauthenticated
 from app.core.tenancy import TenantContext
+from app.modules.audit import WORKER
 from app.modules.identity_access.domain import api_keys as rules
+from app.modules.identity_access.service import api_keys as service
 from app.modules.identity_access.service.realtime import ROUTES
 from app.shared.events import EventEnvelope
+from conftest import make_settings
 from tests.db.test_auth_bff import CONSOLE, Bff, bff  # noqa: F401 - the fixture, reused
 
 if TYPE_CHECKING:
@@ -342,3 +346,75 @@ async def test_peo_14_only_key_managers_see_the_service_identities(bff: Bff) -> 
     await _signed_in(bff, "technician", email="tech-owners@demo.test")
     refused = await bff.client.get("/api/v1/api-keys/owners")
     assert refused.status_code == 403
+
+
+async def _stored_hash(world: Bff, key_id: uuid.UUID) -> bytes:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        return bytes(await conn.fetchval("SELECT secret_hash FROM api_keys WHERE id = $1", key_id))
+    finally:
+        await conn.close()
+
+
+async def test_audit_26_a_key_made_under_the_session_secret_moves_to_its_own_key(
+    bff: Bff,  # noqa: F811
+) -> None:
+    """Upgrading to SUPPORTX_API_KEY_SECRET ends no key: the first good call re-hashes it."""
+    csrf = await _signed_in(bff)
+    key = (await _make(bff, csrf)).json()["key"]  # made under the session-secret derived key
+    parsed = rules.parse_key(key)
+    assert parsed is not None
+    before = await _stored_hash(bff, parsed.key_id)
+    session_secret = bff.settings.session_secret.get_secret_value()  # type: ignore[union-attr]  # set by the fixture
+    upgraded = make_settings(session_secret=session_secret, api_key_secret="K" * 40)
+    now = datetime.now(UTC)
+    db = bff.app.state.db
+    # A wrong secret is refused under both keys and changes nothing.
+    wrong = key[:-1] + ("A" if key[-1] != "A" else "B")
+    with pytest.raises(Unauthenticated):
+        await service.authenticate(db, upgraded, wrong, WORKER, now)
+    assert await _stored_hash(bff, parsed.key_id) == before
+    context = await service.authenticate(db, upgraded, key, WORKER, now)
+    assert context.api_key_id == parsed.key_id
+    after = await _stored_hash(bff, parsed.key_id)
+    assert after == rules.secret_hash(b"K" * 40, parsed.key_id, parsed.secret) != before
+    # From now on the session secret plays no part: a new one (or none) changes nothing.
+    rotated = make_settings(session_secret="z" * 40, api_key_secret="K" * 40)
+    assert (await service.authenticate(db, rotated, key, WORKER, now)).api_key_id == parsed.key_id
+    own_only = make_settings(api_key_secret="K" * 40)
+    assert (await service.authenticate(db, own_only, key, WORKER, now)).api_key_id == parsed.key_id
+    # And the old derived key no longer opens it.
+    with pytest.raises(Unauthenticated):
+        await service.authenticate(
+            db, make_settings(session_secret=session_secret), key, WORKER, now
+        )
+
+
+async def test_req_sec_034_the_tenants_api_list_refuses_a_key_from_elsewhere(bff: Bff) -> None:  # noqa: F811
+    """WP-057 S1a: the key's own list admits everyone, the tenant's API list does not."""
+    csrf = await _signed_in(bff)
+    made = (await _make(bff, csrf)).json()
+    async with _as_key(bff, made["key"]) as api:
+        assert (await api.get("/api/v1/users")).status_code == 200
+    a, _b = bff.tenants
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(
+            "INSERT INTO identity_settings (tenant_id, api_ip_allow) VALUES ($1, $2::cidr[]) "
+            "ON CONFLICT (tenant_id) DO UPDATE SET api_ip_allow = EXCLUDED.api_ip_allow",
+            a,
+            ["10.20.0.0/16"],
+        )
+    finally:
+        await conn.close()
+    async with _as_key(bff, made["key"]) as api:  # the test client calls from 127.0.0.1
+        assert _code(await api.get("/api/v1/users")) == (403, "ip_not_allowed")
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        details = await conn.fetchval(
+            "SELECT details FROM audit_entries WHERE action = 'api_key.refused' AND object_id = $1",
+            made["id"],
+        )
+    finally:
+        await conn.close()
+    assert json.loads(details)["reason"] == "tenant_ip_not_allowed"

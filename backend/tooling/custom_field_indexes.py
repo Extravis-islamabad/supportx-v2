@@ -10,18 +10,21 @@ Environment: SUPPORTX_MIGRATION_DATABASE_URL (migrator).
 
 import asyncio
 import sys
+from ssl import SSLContext
 
 from app.core.config import Settings
-from app.core.database import Database, create_engine
+from app.core.database import Database, create_engine, database_ssl
 from app.core.modules import discover_modules
 from workers.custom_field_indexes.indexer import run_pass
 
 
-async def run(migrator_url: str) -> dict[str, int] | None:
+async def run(migrator_url: str, ssl: SSLContext | None = None) -> dict[str, int] | None:
     """One pass; fields made active and failed, or None when the worker holds the lock."""
     discover_modules()
     database = Database(
-        create_engine(migrator_url, application_name="custom-field-indexes", use_null_pool=True)
+        create_engine(
+            migrator_url, application_name="custom-field-indexes", use_null_pool=True, ssl=ssl
+        )
     )
     try:
         return await run_pass(database)
@@ -35,7 +38,8 @@ def main() -> int:  # pragma: no cover - thin CLI over the tested functions
     if settings.migration_database_url is None:
         sys.stderr.write("custom field indexes need SUPPORTX_MIGRATION_DATABASE_URL\n")
         return 2
-    outcome = asyncio.run(run(settings.migration_database_url.get_secret_value()))
+    url = settings.migration_database_url.get_secret_value()
+    outcome = asyncio.run(run(url, database_ssl(settings.database_ssl_root_cert)))
     if outcome is None:
         sys.stdout.write("custom field indexes: the index worker is building; skipped\n")
         return 0

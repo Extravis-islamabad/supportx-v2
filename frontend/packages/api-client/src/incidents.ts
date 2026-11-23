@@ -63,25 +63,66 @@ export function useIncidents(query: IncidentsQuery, enabled = true) {
   return useInfiniteQuery({
     queryKey: queryKeys.incidents.list(query),
     queryFn: ({ pageParam }) => {
-      const params = {
-        query: {
-          view: query.trash === true ? undefined : query.view,
-          tag: query.tag,
-          filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
-          sort: query.sort,
-          limit: query.limit ?? 50,
-          cursor: pageParam ?? undefined,
-          include_total: pageParam === null,
-        },
-      };
+      if (query.trash === true) {
+        const params = {
+          query: {
+            tag: query.tag,
+            filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+            sort: query.sort,
+            limit: query.limit ?? 50,
+            cursor: pageParam ?? undefined,
+            include_total: pageParam === null,
+          },
+        };
+        return call(api.GET('/api/v1/incidents/trash', { params }));
+      }
+      // The list asks by POST (lane C): a filter may hold a protected value, which must never
+      // be in a URL. The same options, the same answer, the same query key.
       return call(
-        query.trash === true
-          ? api.GET('/api/v1/incidents/trash', { params })
-          : api.GET('/api/v1/incidents', { params }),
+        api.POST('/api/v1/incidents/list', {
+          body: {
+            filter: query.filter,
+            sort: query.sort,
+            limit: query.limit ?? 50,
+            cursor: pageParam ?? undefined,
+            include_total: pageParam === null,
+            params: {
+              ...(query.view === undefined ? {} : { view: [query.view] }),
+              ...(query.tag === undefined ? {} : { tag: [query.tag] }),
+            },
+          },
+        }),
       );
     },
     initialPageParam: null as string | null,
     getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
+    enabled,
+  });
+}
+
+export type IncidentBoardColumn = components['schemas']['WorkItemBoardColumnOut'];
+
+/**
+ * A board's column counts (REQ-INC-111): the list's own query counted per column, by POST like
+ * the list, in a stable order. Each column's cards are `useIncidents` with its condition added.
+ */
+export function useIncidentBoard(query: IncidentsQuery, groupBy: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.board(query, groupBy),
+    queryFn: () =>
+      call(
+        api.POST('/api/v1/incidents/board', {
+          body: {
+            filter: query.filter,
+            include_total: false,
+            params: {
+              group_by: [groupBy],
+              ...(query.view === undefined ? {} : { view: [query.view] }),
+              ...(query.tag === undefined ? {} : { tag: [query.tag] }),
+            },
+          },
+        }),
+      ),
     enabled,
   });
 }
@@ -223,7 +264,7 @@ export function useIncidentAssignees(
   groupId: string | null,
   search: string,
   enabled = true,
-  base: 'incidents' | 'problems' | 'service-requests' = 'incidents',
+  base: 'incidents' | 'problems' | 'service-requests' | 'changes' | 'releases' = 'incidents',
 ) {
   return useQuery({
     queryKey: [...queryKeys.incidents.assignees(groupId, search), base],
@@ -298,6 +339,26 @@ export function useCreateIncident() {
     mutationFn: ({ body, key }: { body: IncidentInput; key: string }) =>
       call(api.POST('/api/v1/incidents', { params: { header: { 'Idempotency-Key': key } }, body })),
     onSuccess: saved,
+  });
+}
+
+export type RecordCopyPart = components['schemas']['RecordCopyPart'];
+
+/** Copy an incident one or more times (REQ-INC-033); one Idempotency-Key per request. */
+export function useCopyIncident(id: string) {
+  const saved = useSaved();
+  return useMutation({
+    meta: { silent: true }, // the dialog shows the limit at its field
+    mutationFn: ({ count, parts, key }: { count: number; parts: RecordCopyPart[]; key: string }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/copies', {
+          params: { path: { record_id: id }, header: { 'Idempotency-Key': key } },
+          body: { count, parts },
+        }),
+      ),
+    onSuccess: (made) => {
+      for (const copy of made.items) saved(copy);
+    },
   });
 }
 
@@ -530,5 +591,124 @@ export function usePossibleDuplicates(query: PossibleDuplicatesQuery, enabled = 
     enabled: enabled && title.length >= 6,
     staleTime: 30_000,
     placeholderData: (previous) => previous,
+  });
+}
+
+// --- approvals (WP-046b S1, REQ-INC-083) ---------------------------------------------------------
+
+/** How an incident's approvers decide: any one, all, or a majority. */
+export type IncidentApprovalRule = 'any' | 'all' | 'majority';
+
+const approvalsKey = (id: string) => [...queryKeys.incidents.detail(id), 'approvals'] as const;
+
+/** GET /incidents/{id}/approvals: its approvers and their decisions. */
+export function useIncidentApprovals(id: string) {
+  return useQuery({
+    queryKey: approvalsKey(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/approvals', { params: { path: { record_id: id } } }),
+      ),
+    enabled: id !== '',
+  });
+}
+
+/** Ask named people to approve, with the rule they decide by (If-Match on the incident). */
+export function useRequestIncidentApproval(id: string) {
+  const saved = useSaved();
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approverIds,
+      rule,
+      version,
+    }: {
+      approverIds: string[];
+      rule: IncidentApprovalRule;
+      version: number;
+    }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/approvals', {
+          params: { path: { record_id: id }, header: ifMatch(version) },
+          body: { approver_ids: approverIds, purpose: 'record', rule },
+        }),
+      ),
+    onSuccess: (record) => {
+      saved(record);
+      void queryClient.invalidateQueries({ queryKey: approvalsKey(id) });
+    },
+  });
+}
+
+/** Approve or reject one of the incident's approvals (If-Match on the approval). */
+export function useDecideIncidentApproval(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      approvalId,
+      version,
+      decision,
+      comment,
+      isPrivate,
+    }: {
+      approvalId: string;
+      version: number;
+      decision: 'approve' | 'reject';
+      comment: string;
+      isPrivate: boolean;
+    }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/approvals/{approval_id}/decision', {
+          params: { path: { record_id: id, approval_id: approvalId }, header: ifMatch(version) },
+          body: { decision, comment: comment.trim() === '' ? null : comment, private: isPrivate },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    },
+  });
+}
+
+// WP-046b S5 (REQ-INC-148): a requester's waiting ask to cancel, as staff see and decide it.
+export type IncidentCancellationRequest = components['schemas']['CancellationRequestOut'];
+
+/** The waiting ask on this record, or null when none (a 404 is "nothing waits"). */
+export function useIncidentCancellationRequest(id: string | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.detail(id ?? ''), 'cancellation-request'] as const,
+    queryFn: async () => {
+      try {
+        return await call(
+          api.GET('/api/v1/incidents/{record_id}/cancellation-request', {
+            params: { path: { record_id: id ?? '' } },
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: id !== undefined,
+    retry: false,
+    meta: { silent: true },
+  });
+}
+
+/** Approve (cancelled by you, with the requester's reason) or decline (your note goes to them). */
+export function useDecideCancellation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (decision: { approve: boolean; note?: string; reason_code?: string }) =>
+      call(
+        api.POST('/api/v1/incidents/{record_id}/cancellation-request/decide', {
+          params: { path: { record_id: id } },
+          body: decision,
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    },
   });
 }

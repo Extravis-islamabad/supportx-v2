@@ -10,7 +10,7 @@ import {
   Select,
   Typography,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   useAnswerTestRun,
@@ -22,8 +22,10 @@ import {
   type TestRunOut,
   type WorkflowOut,
 } from '@supportx/api-client';
+import { readDefinition } from '@supportx/flow';
 import { ToneTag, WriteButton, reportError, useLabel } from '@supportx/ui';
 
+import { useStepName } from '../../workflows/stepName';
 import { isKnownPort } from './nodes';
 
 // What a wait can hear (the server's WaitEvent): the change the admin describes.
@@ -69,15 +71,16 @@ const pendingOf = (run: TestRunOut): Pending[] =>
 export function TestPanel({
   workflow,
   dirty,
-  typeOf,
   onHighlight,
 }: {
   workflow: WorkflowOut;
   dirty: boolean;
-  typeOf: (node: string) => string;
   onHighlight: (highlight: TestHighlight | null) => void;
 }) {
   const t = useLabel();
+  // Steps by name, from the saved draft the test runs (QA F-07).
+  const draftNodes = useMemo(() => readDefinition(workflow.draft).nodes, [workflow.draft]);
+  const stepName = useStepName(draftNodes);
   const { modal } = App.useApp();
   const [runId, setRunId] = useState<string>();
   const run = useTestRun(runId);
@@ -257,10 +260,7 @@ export function TestPanel({
                 data-testid={`test-command-${p.node}`}
               >
                 <Typography.Text>
-                  {t('workflows.test.step', {
-                    type: t(`workflow_node_type.${typeOf(p.node)}`),
-                    node: p.node,
-                  })}
+                  {t('workflows.test.step', { name: stepName(p.node) })}
                 </Typography.Text>
                 <Flex gap={8} wrap>
                   <Button
@@ -386,14 +386,10 @@ export function TestPanel({
             <li key={`${String(s.node)}-${String(i)}`}>
               {isKnownPort(String(s.result))
                 ? t('workflows.test.step_result', {
-                    type: t(`workflow_node_type.${String(s.node_type)}`),
-                    node: String(s.node),
+                    name: stepName(String(s.node)),
                     result: t(`workflow_port.${String(s.result)}`),
                   })
-                : t('workflows.test.step', {
-                    type: t(`workflow_node_type.${String(s.node_type)}`),
-                    node: String(s.node),
-                  })}
+                : t('workflows.test.step', { name: stepName(String(s.node)) })}
             </li>
           ))}
         </ol>

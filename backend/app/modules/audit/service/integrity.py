@@ -373,6 +373,7 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
     stray = await session.scalar(
         select(func.count())
         .select_from(AuditEntry)
+        # nosemgrep: sx.sql-format - DEFAULT_PARTITION is a constant table name
         .where(text(f"tableoid = '{DEFAULT_PARTITION}'::regclass"))
     )
 
@@ -382,6 +383,7 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
     run.unsealed_overdue = overdue
     run.fingerprints_verified = tally.verified
     run.fingerprints_erased = tally.erased
+    run.fingerprints_redacted = tally.redacted
     run.fingerprint_mismatches = tally.mismatches
     run.first_broken_seq = finding.seq if finding else None
     run.first_broken_entry_id = finding.entry_id if finding else None

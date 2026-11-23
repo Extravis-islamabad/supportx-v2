@@ -2,6 +2,7 @@ import type { LabelResource } from '../en';
 
 // sla labels (see ../README.md).
 export const ar: LabelResource = {
+  'erasure_count.nothing_held': 'لا يحتفظ بشيء خاص بالشخص',
   'sla.calendar.field.holiday_list_ids': 'قوائم العطلات',
   'sla.calendar.field.labels': 'الاسم بلغات أخرى',
   'sla.calendar.field.name': 'الاسم',
@@ -112,7 +113,10 @@ export const ar: LabelResource = {
   'sla.policies.move_down': 'نقل لأسفل',
   'sla.policies.move_up': 'نقل لأعلى',
   'sla.policies.never_matches': 'لا تُطبَّق أبدًا: سياسة سابقة تطابق دائمًا أولًا',
+  'sla.policies.no_targets':
+    'لا توجد اتفاقية مستوى خدمة لأي {{type}} بعد: أضف أهدافًا إلى سياسة لبدء واحدة.',
   'sla.policies.off': 'معطّلة',
+  'sla.policies.record_type': 'نوع السجل',
   'sla.policies.running_records_keep':
     'تنطبق التغييرات على الحوادث الجديدة وعلى الحوادث التي تتغير حقولها. تحتفظ الحوادث الجارية بأهدافها الحالية.',
   'sla.policies.targets_explain':

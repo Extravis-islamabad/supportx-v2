@@ -1,6 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 
 import type { FlowDefinition, FlowLinkDef, FlowNodeDef } from './definition';
+import { stepNames } from './names';
 
 // The definition as React Flow draws it, and back (REQ-WF-008 AC3: a saved definition re-opens
 // to the same diagram). Positions are stored left to right; in RTL the canvas shows them
@@ -16,6 +17,8 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   problems?: number;
   /** In an execution or test view: the node a run is at, or one it has passed. */
   state?: 'current' | 'passed';
+  /** Its number among steps of its type, when the type repeats (shown "Add a note 2"). */
+  n?: number;
 }
 
 export type WorkflowNode = Node<WorkflowNodeData, 'workflow'>;
@@ -38,12 +41,13 @@ export function toGraph(
   definition: FlowDefinition,
   { ports, rtl }: GraphOptions,
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const names = stepNames(definition.nodes);
   return {
     nodes: definition.nodes.map((n) => ({
       id: n.id,
       type: 'workflow',
       position: { x: mirror(n.position.x, rtl), y: n.position.y },
-      data: { nodeType: n.type, config: n.config, ports: ports(n) },
+      data: { nodeType: n.type, config: n.config, ports: ports(n), n: names.get(n.id)?.n },
     })),
     edges: definition.links.map((l) => ({
       id: linkId(l),

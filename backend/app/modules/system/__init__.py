@@ -15,7 +15,8 @@ Platform services (architecture.md §6.8) live in `app/shared` and own their tab
 modules are registered, so this module mounts them: files (WP-022, ADR-028, `api/files.py`,
 `service/files.py`): routes, the scan consumer, schedules, events, realtime, the `files.manage`
 permission, the `storage_gb` usage counter and the quota source; action links (WP-030 s3,
-`api/action_links.py`): the peek and use routes.
+`api/action_links.py`): the peek and use routes; the shared list-settings store (WP-049b s4a,
+`api/list_settings.py`): per-person columns, saved views and favourites of registered lists.
 """
 
 from datetime import timedelta
@@ -24,11 +25,13 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.config import Settings
+from app.core.database import database_ssl
 from app.core.modules import ModuleSpec
 from app.modules.system.api.action_links import public_router as public_links_router
 from app.modules.system.api.action_links import router as action_links_router
 from app.modules.system.api.files import MANAGE as FILES_MANAGE
 from app.modules.system.api.files import router as files_router
+from app.modules.system.api.list_settings import router as list_settings_router
 from app.modules.system.api.routes import router
 from app.modules.system.domain.readiness import DependencyProbe
 from app.modules.system.infra.probes import (
@@ -36,10 +39,11 @@ from app.modules.system.infra.probes import (
     MalwareSignaturesProbe,
     NatsProbe,
     PostgresProbe,
+    SessionKeysProbe,
     ValkeyProbe,
     WorkerHeartbeatProbe,
 )
-from app.modules.system.service import files, mail
+from app.modules.system.service import files, list_settings, mail
 from app.modules.system.service.dev_event_log import DEV_EVENT_LOGGER
 from app.modules.system.service.readiness import ReadinessService
 from app.shared.events import BusNames, ConsumerSpec
@@ -47,16 +51,21 @@ from app.shared.files.events import EVENTS as FILE_EVENTS
 from app.shared.files.events import FileUploaded
 from app.shared.files.ports import register_quota
 from app.shared.files.service.core import FileServices
+from app.shared.list_settings.events import EVENTS as LIST_SETTINGS_EVENTS
 from app.shared.mail.events import EVENTS as MAIL_EVENTS
 from app.shared.mail.events import MailQueued
 from app.shared.schedules import ScheduleSpec
 
 
 def build_readiness_service(settings: Settings) -> ReadinessService:
-    """Probe every configured dependency (PostgreSQL, Valkey, NATS, Keycloak).
+    """Probe every configured dependency (PostgreSQL, Valkey, NATS critical; Keycloak reported).
 
-    Unconfigured dependencies are reported as such, not skipped. The event workers are
-    reported from their heartbeats as informational checks.
+    Unconfigured dependencies are reported as such, not skipped (an unconfigured Keycloak is a
+    configuration error and keeps the pod unready). A configured Keycloak that does not answer is
+    informational (ADR-051): signed-in people never need it per request (sessions live in Valkey,
+    the keys are cached), so a Keycloak outage must only stop new sign-ins, never take every API
+    pod out of service. The event workers are reported from their heartbeats as informational
+    checks too.
     """
     probes: list[DependencyProbe] = []
     not_configured: list[str] = []
@@ -69,20 +78,44 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
             not_configured.append(name)
         else:
             found = url.get_secret_value()
-            probes.append(
-                ValkeyProbe(found, settings) if probe_type is ValkeyProbe else probe_type(found)
-            )
+            if probe_type is ValkeyProbe:
+                probes.append(ValkeyProbe(found, settings))
+            elif probe_type is PostgresProbe:
+                probes.append(PostgresProbe(found, database_ssl(settings.database_ssl_root_cert)))
+            elif probe_type is NatsProbe:
+                probes.append(NatsProbe(found, settings.nats_tls_ca_file))
+            else:
+                probes.append(probe_type(found))
+    informational: list[DependencyProbe] = []
     if settings.oidc_issuer is None:
         not_configured.append("keycloak")
     else:
         # The realm as this process reaches it (inside a cluster: the internal URL, WP-014).
-        probes.append(KeycloakProbe(settings.oidc_internal_url or settings.oidc_issuer))
+        # Informational, not critical (ADR-051): listed under `degraded` when it fails.
+        informational.append(KeycloakProbe(settings.oidc_internal_url or settings.oidc_issuer))
     return ReadinessService(
         probes,
         not_configured=not_configured,
-        informational=[*_worker_probes(settings), *_scanner_probes(settings)],
+        informational=[
+            *informational,
+            *_worker_probes(settings),
+            *_scanner_probes(settings),
+            *_session_key_probes(settings),
+        ],
         timeout=settings.readiness_timeout_seconds,
     )
+
+
+# More listed sign-in keys than this is a warning (D-162): newest, one in its overlap, one spare.
+SESSION_KEYS_WARN_ABOVE = 3
+
+
+def _session_key_probes(settings: Settings) -> list[DependencyProbe]:
+    """The sign-in key count (informational), when a key ring is configured."""
+    listed = len(settings.session_key_entries())
+    if not listed:
+        return []
+    return [SessionKeysProbe(listed, most=SESSION_KEYS_WARN_ABOVE)]
 
 
 def _scanner_probes(settings: Settings) -> list[DependencyProbe]:
@@ -110,6 +143,7 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
             kind=kind,
             stale_after_s=settings.heartbeat_stale_seconds,
             backlog_after_s=settings.event_backlog_stalled_seconds if kind == "relay" else None,
+            tls_ca_file=settings.nats_tls_ca_file,
         )
         for name, kind in (
             ("outbox_relay", "relay"),
@@ -144,12 +178,12 @@ MAIL_SEND = ConsumerSpec(
 
 module = ModuleSpec(
     name="system",
-    routers=[router, files_router, action_links_router, public_links_router],
+    routers=[router, files_router, action_links_router, public_links_router, list_settings_router],
     on_startup=[_startup],
     consumers=[DEV_EVENT_LOGGER, FILE_SCAN, MAIL_SEND],
-    events=(*FILE_EVENTS, *MAIL_EVENTS),
+    events=(*FILE_EVENTS, *MAIL_EVENTS, *LIST_SETTINGS_EVENTS),
     permissions=[PermissionSpec(FILES_MANAGE)],
-    realtime=files.REALTIME,
+    realtime=[*files.REALTIME, *list_settings.REALTIME],
     schedules=[
         ScheduleSpec("system__files_scan_sweep", 300, files.scan_sweep),
         ScheduleSpec("system__files_purge", 3600, files.purge),

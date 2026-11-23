@@ -1,0 +1,21 @@
+# k3s server settings for a SupportX HA install (WP-014b, ADR-038). Merge into each
+# server's /etc/rancher/k3s/config.yaml, or copy it as a drop-in
+# /etc/rancher/k3s/config.yaml.d/supportx-ha.yaml (if another file already sets
+# kube-controller-manager-arg, write the key as kube-controller-manager-arg+ here so k3s appends
+# instead of replacing). Then restart k3s on each server, one at a time. The k3d HA cluster in CI
+# runs the same setting (deploy/k3d/cluster-ha.yaml).
+#
+# node-monitor-grace-period 20 s (Kubernetes' default is about 40-50 s): how long a node that
+# stopped reporting stays Ready. Until it goes NotReady, Services keep routing to its pods, so
+# a dead CoreDNS copy keeps answering nothing for a share of the cluster's DNS queries. Valkey's
+# sentinels resolve hostnames synchronously (about 4 s blocked per pass while a CoreDNS
+# endpoint is dead), enter TILT and reach SDOWN late (77 s after the stop in Cluster run
+# 43148329223). With 20 s the lost node's endpoints (CoreDNS, the PgBouncer pooler, the API)
+# drop in about 20 s instead of 40-50 s.
+# Pods are still evicted only after the default 300 s not-ready/unreachable toleration, so a
+# short network blip marks a node NotReady for a moment without moving any workload. 20 s is
+# twice the kubelet's 10 s status/lease renewal, the margin Kubernetes asks for.
+# Rule (docs/deployment.md, Profiles): this window must stay inside Sentinel's 10 x
+# down-after allowance (100 s with valkeyHa.downAfterMilliseconds 10000).
+kube-controller-manager-arg:
+  - node-monitor-grace-period=20s

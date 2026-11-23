@@ -206,12 +206,11 @@ async def create_rule(
     note: Annotated[AuditNote, audited("automation.rule_created", object_type="business_rule")],
 ) -> Response:
     """Checked against the record type when saved; last in the order."""
-    del subject
     note.skip = True
 
     async def operation() -> Created:
         rule = await business_rules.create_rule(
-            session, _dump(body) | {"record_type": body.record_type}
+            session, _dump(body) | {"record_type": body.record_type}, author=subject
         )
         note.skip = False
         note.object_id = str(rule.id)
@@ -236,8 +235,9 @@ async def update_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> RuleOut:
     """Checked again as a whole; switching a draft on is a change like any other."""
-    del subject
-    rule = await business_rules.update_rule(session, rule_id, _dump(body), expected_version=version)
+    rule = await business_rules.update_rule(
+        session, rule_id, _dump(body), expected_version=version, author=subject
+    )
     set_etag(response, rule.version)
     return _rule_out(rule)
 
@@ -775,12 +775,11 @@ async def create_trigger(
     note: Annotated[AuditNote, audited("automation.trigger_created", object_type="trigger")],
 ) -> Response:
     """Checked against the record type when saved; last in the order."""
-    del subject
     note.skip = True
 
     async def operation() -> Created:
         trigger = await triggers.create_trigger(
-            session, _dump(body) | {"record_type": body.record_type}
+            session, _dump(body) | {"record_type": body.record_type}, author=subject
         )
         note.skip = False
         note.object_id = str(trigger.id)
@@ -805,9 +804,8 @@ async def update_trigger(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> TriggerOut:
     """Checked again as a whole."""
-    del subject
     trigger = await triggers.update_trigger(
-        session, trigger_id, _dump(body), expected_version=version
+        session, trigger_id, _dump(body), expected_version=version, author=subject
     )
     set_etag(response, trigger.version)
     return _trigger_out(trigger)

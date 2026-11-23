@@ -1,5 +1,6 @@
 import { CloseOutlined, FilterOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { Badge, Button, Card, Drawer, Flex, Space, Typography, theme } from 'antd';
+import { Badge, Button, Card, Flex, Space, Typography, theme } from 'antd';
+import { Drawer } from '../Drawer';
 import { useState, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';

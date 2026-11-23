@@ -6,11 +6,36 @@ One host, paths (D3). Same routes as the Vite dev proxy:
   /auth/       Keycloak; /auth/admin only when keycloak.exposeAdmin (dev, e2e)
   /            console, /portal/ portal (web)
 Gateway API with Traefik by default (D2); a plain Ingress for clusters that bring their own.
+HTTPS by default (routing.tls, audit row 5): the routes above hang off the HTTPS listener, and the
+plain HTTP listener only redirects to https, so no session cookie or password crosses it.
 */ -}}
 {{- $c := dict "root" . "component" "routing" -}}
 {{- $gw := .Values.routing.gateway -}}
 {{- $gwName := default .Release.Name $gw.name -}}
 {{- $gwNamespace := default .Release.Namespace $gw.namespace -}}
+{{- $tls := .Values.routing.tls -}}
+{{- $tlsSecret := include "supportx.routingTlsSecret" . -}}
+{{- /* The listener the application routes attach to: HTTPS when TLS is on. */ -}}
+{{- $appListener := $gw.listenerName -}}
+{{- if $tls.enabled }}{{ $appListener = $gw.tlsListenerName }}{{ end -}}
+{{- if and $tls.enabled $tls.issuerRef.name (ne .Values.routing.mode "none") }}
+# The gateway's certificate from cert-manager (routing.tls.issuerRef), renewed by it.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-tls
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  secretName: {{ $tlsSecret }}
+  dnsNames:
+    {{- toYaml (include "supportx.publicHosts" . | fromJsonArray) | nindent 4 }}
+  issuerRef:
+    name: {{ $tls.issuerRef.name }}
+    kind: {{ default "Issuer" $tls.issuerRef.kind }}
+    group: {{ default "cert-manager.io" $tls.issuerRef.group }}
+---
+{{- end }}
 {{- $backends := list
   (dict "path" "/api" "service" "api" "port" 8000)
   (dict "path" "/connection" "service" "centrifugo" "port" 8000)
@@ -29,17 +54,50 @@ metadata:
 spec:
   gatewayClassName: {{ $gw.className }}
   listeners:
-    - name: {{ $gw.listenerName }}
-      port: {{ $gw.port }}
-      protocol: {{ $gw.protocol }}
-      {{- if eq $gw.protocol "HTTPS" }}
+    {{- if $tls.enabled }}
+    - name: {{ $gw.tlsListenerName }}
+      port: {{ $gw.tlsPort }}
+      protocol: HTTPS
       tls:
         mode: Terminate
         certificateRefs:
-          - name: {{ required "routing.gateway.tlsSecret is required for HTTPS" $gw.tlsSecret }}
-      {{- end }}
+          - name: {{ $tlsSecret }}
       allowedRoutes:
         namespaces: {from: Same}
+    {{- end }}
+    {{- if or (not $tls.enabled) $tls.redirectHttp }}
+    - name: {{ $gw.listenerName }}
+      port: {{ $gw.port }}
+      protocol: HTTP
+      allowedRoutes:
+        namespaces: {from: Same}
+    {{- end }}
+---
+{{- end }}
+{{- if and $tls.enabled $tls.redirectHttp }}
+# Plain HTTP: one rule, a permanent redirect to the same host and path on https. No scheme port
+# is given, so the redirect goes to 443 (Gateway API: the scheme's well-known port).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-https-redirect
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  {{- with .Values.routing.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
 ---
 {{- end }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -52,7 +110,7 @@ spec:
   parentRefs:
     - name: {{ $gwName }}
       namespace: {{ $gwNamespace }}
-      sectionName: {{ $gw.listenerName }}
+      sectionName: {{ $appListener }}
   {{- with .Values.routing.hostnames }}
   hostnames:
     {{- toYaml . | nindent 4 }}
@@ -77,21 +135,52 @@ spec:
     {{- end }}
 {{- else if eq .Values.routing.mode "ingress" }}
 {{- $ing := .Values.routing.ingress -}}
+{{- /* With TLS on, the app is never served in clear (audit row 5, lane C): an Ingress alone
+says nothing about plain HTTP, and a first visit could sign in over http before HSTS. Traefik
+serves the routes on websecure only (http then has no route); ingress-nginx redirects to https.
+Any other class must enforce HTTPS itself, and the chart wants that said. Your own annotations
+go on top. */ -}}
+{{- $httpsOnly := dict -}}
+{{- if $tls.enabled }}
+{{- if eq $ing.className "traefik" }}
+{{- $httpsOnly = dict "traefik.ingress.kubernetes.io/router.entrypoints" "websecure" "traefik.ingress.kubernetes.io/router.tls" "true" }}
+{{- else if eq $ing.className "nginx" }}
+{{- $httpsOnly = dict "nginx.ingress.kubernetes.io/ssl-redirect" "true" "nginx.ingress.kubernetes.io/force-ssl-redirect" "true" }}
+{{- else if not $ing.enforcesHttps }}
+{{- fail (printf "routing.mode=ingress with class %q: the chart can only make Traefik and ingress-nginx refuse plain HTTP. Make %q redirect or refuse http yourself, then set routing.ingress.enforcesHttps=true" $ing.className $ing.className) }}
+{{- end }}
+{{- end }}
+{{- $annotations := merge (deepCopy ($ing.annotations | default dict)) $httpsOnly }}
+{{- /* Your annotations win the merge, so one carried over from an http setup must not
+re-open plain HTTP while TLS is on (lane C). */ -}}
+{{- if $tls.enabled }}
+{{- $eps := index $annotations "traefik.ingress.kubernetes.io/router.entrypoints" | default "" }}
+{{- range $ep := splitList "," $eps }}
+{{- if eq (trim $ep) "web" }}
+{{- fail "routing.ingress.annotations: router.entrypoints names \"web\" with routing.tls on, which serves the app over plain HTTP. Leave it out (the chart sets websecure) or turn routing.tls off" }}
+{{- end }}
+{{- end }}
+{{- range $key := list "nginx.ingress.kubernetes.io/ssl-redirect" "nginx.ingress.kubernetes.io/force-ssl-redirect" }}
+{{- if eq (toString (index $annotations $key)) "false" }}
+{{- fail (printf "routing.ingress.annotations: %s is \"false\" with routing.tls on, which serves the app over plain HTTP. Leave it out (the chart sets it) or turn routing.tls off" $key) }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}
   labels:
     {{- include "supportx.labels" $c | nindent 4 }}
-  {{- with $ing.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   ingressClassName: {{ $ing.className }}
-  {{- if $ing.tlsSecret }}
+  {{- if $tls.enabled }}
   tls:
-    - secretName: {{ $ing.tlsSecret }}
+    - secretName: {{ $tlsSecret }}
       {{- with $.Values.routing.hostnames }}
       hosts:
         {{- toYaml . | nindent 8 }}

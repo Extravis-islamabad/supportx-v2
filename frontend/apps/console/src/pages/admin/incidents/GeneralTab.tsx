@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Segmented,
   Select,
   Switch,
   Typography,
@@ -22,14 +23,17 @@ import {
 } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
-import { useDraft, useSettingsSave } from './helpers';
+import { useDraft, useSettingsBase, useSettingsSave } from './helpers';
 import { numberProblem } from '../../../numbers';
 import { Problems } from './shared';
+import { RowColourCard, ViewAuditCard } from './ListDisplayCards';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
 const FIRST_RESPONSE = ['reply', 'public_note', 'private_note'] as const;
+// What a mail may set (WP-046a S6; REQ-INC-025), in the server's order.
+const MAIL_FIELDS = ['category', 'priority', 'group', 'technician', 'template'] as const;
 const NONE = '';
 
 function StaleNotice({ onReload }: { onReload: () => void }) {
@@ -62,6 +66,12 @@ interface General {
   follow: boolean;
   dueTime: boolean;
   first: string[];
+  mailCommands: boolean;
+  mailFields: string[];
+  ccFromMail: boolean;
+  // WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
+  cancelMode: 'off' | 'direct' | 'ask';
+  editFields: string[];
 }
 
 function savedOf(catalogue: IncidentCatalogue): General {
@@ -75,8 +85,16 @@ function savedOf(catalogue: IncidentCatalogue): General {
     follow: catalogue.keep_following_on_handover,
     dueTime: catalogue.portal_show_due_time,
     first: [...catalogue.first_response_on],
+    mailCommands: catalogue.mail_commands,
+    mailFields: [...(catalogue.mail_command_fields ?? [])],
+    ccFromMail: catalogue.cc_from_first_mail,
+    cancelMode: catalogue.requester_cancel,
+    editFields: [...(catalogue.requester_edit_fields ?? [])],
   };
 }
+
+// What a requester may be allowed to edit (the backend's REQUESTER_EDITABLE; staff-only never).
+const REQUESTER_FIELDS = ['subject', 'description', 'impact', 'urgency', 'impact_details'] as const;
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -89,6 +107,8 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, byField, clear } = useSettingsSave();
+  // Mailboxes make incidents: the mail settings are theirs only.
+  const incidents = useSettingsBase() === 'incidents';
   const saved = savedOf(catalogue);
   const state = useDraft(saved, catalogue.version);
   const { draft, stale, base } = state;
@@ -122,6 +142,17 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     if (draft.follow !== saved.follow) body.keep_following_on_handover = draft.follow;
     if (draft.dueTime !== saved.dueTime) body.portal_show_due_time = draft.dueTime;
     if (!same(draft.first, saved.first)) body.first_response_on = draft.first;
+    if (incidents) {
+      if (draft.mailCommands !== saved.mailCommands) body.mail_commands = draft.mailCommands;
+      if (!same(draft.mailFields, saved.mailFields)) {
+        body.mail_command_fields = MAIL_FIELDS.filter((f) => draft.mailFields.includes(f));
+      }
+      if (draft.ccFromMail !== saved.ccFromMail) body.cc_from_first_mail = draft.ccFromMail;
+      if (draft.cancelMode !== saved.cancelMode) body.requester_cancel = draft.cancelMode;
+      if (!same(draft.editFields, saved.editFields)) {
+        body.requester_edit_fields = REQUESTER_FIELDS.filter((f) => draft.editFields.includes(f));
+      }
+    }
     save({ kind: 'settings', body }, discard, base);
   };
   const problemAt = (field: string) =>
@@ -298,6 +329,100 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           </fieldset>
         </Flex>
       </SettingsCard>
+      {incidents && (
+        // WP-046b S5 (REQ-INC-148): off and none by default, as requesters can do today.
+        <SettingsCard title={t('settings.requester_rules')} testId="settings-requester-rules">
+          <Flex vertical gap={12}>
+            <Typography.Paragraph type="secondary">
+              {t('settings.requester_rules_help')}
+            </Typography.Paragraph>
+            <Flex vertical gap={4}>
+              <Typography.Text strong id="settings-requester-cancel-label">
+                {t('settings.requester_cancel')}
+              </Typography.Text>
+              <Segmented<'off' | 'direct' | 'ask'>
+                aria-labelledby="settings-requester-cancel-label"
+                value={draft.cancelMode}
+                onChange={(cancelMode) => {
+                  set({ cancelMode });
+                }}
+                options={(['off', 'direct', 'ask'] as const).map((value) => ({
+                  value,
+                  label: t(`requester_cancel.${value}`),
+                }))}
+                data-testid="settings-requester-cancel"
+              />
+            </Flex>
+            <Flex vertical gap={4}>
+              <Typography.Text strong id="settings-requester-edit-label">
+                {t('settings.requester_edit_fields')}
+              </Typography.Text>
+              <Typography.Text type="secondary">
+                {t('settings.requester_edit_fields_help')}
+              </Typography.Text>
+              <Select
+                mode="multiple"
+                aria-labelledby="settings-requester-edit-label"
+                value={draft.editFields}
+                onChange={(editFields: string[]) => {
+                  set({ editFields });
+                }}
+                options={REQUESTER_FIELDS.map((value) => ({
+                  value,
+                  label: t(`work_item.field.${value}`),
+                }))}
+                placeholder={t('settings.requester_edit_none')}
+                data-testid="settings-requester-edit"
+              />
+            </Flex>
+          </Flex>
+        </SettingsCard>
+      )}
+      {incidents && (
+        <SettingsCard title={t('settings.mail')} testId="settings-mail">
+          <Flex vertical gap={16}>
+            <Toggle
+              id="settings-mail-commands"
+              checked={draft.mailCommands}
+              onChange={(mailCommands) => {
+                set({ mailCommands });
+              }}
+              title={t('settings.mail_commands')}
+              help={t('settings.mail_commands_help')}
+            />
+            {draft.mailCommands && (
+              <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend>
+                  <Typography.Text strong>{t('settings.mail_command_fields')}</Typography.Text>
+                </legend>
+                <Checkbox.Group
+                  value={draft.mailFields}
+                  onChange={(values) => {
+                    set({ mailFields: values });
+                  }}
+                  options={MAIL_FIELDS.map((code) => ({
+                    value: code,
+                    label: t(`mail_command_field.${code}`),
+                  }))}
+                  data-testid="settings-mail-command-fields"
+                />
+              </fieldset>
+            )}
+            <Toggle
+              id="settings-cc-from-mail"
+              checked={draft.ccFromMail}
+              onChange={(ccFromMail) => {
+                set({ ccFromMail });
+              }}
+              title={t('settings.cc_from_first_mail')}
+              help={t('settings.cc_from_first_mail_help')}
+            />
+          </Flex>
+        </SettingsCard>
+      )}
+      {/* WP-046b S3a: saved on their own (each its own route), outside the save bar. */}
+      <RowColourCard />
+      <ViewAuditCard />
       <StickySaveBar
         changes={changedKeys.length}
         saving={pending}

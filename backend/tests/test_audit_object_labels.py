@@ -15,7 +15,7 @@ from app.main import create_app
 from conftest import make_settings
 from tests.test_audit_routes import _audit_spec
 from tests.test_error_labels import label_keys
-from tests.test_route_permissions import api_routes
+from tooling.route_permissions import api_routes
 
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
 _LITERAL = re.compile(r"object_type=\"([a-z_]+)\"")

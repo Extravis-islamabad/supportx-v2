@@ -6,7 +6,10 @@ fixed `SX-` tags and filled properties (one named in Arabic, one in Urdu, for ri
 records); a laptop held by a person, a desktop held by a department with its monitor fitted to
 it (a component), a laptop out on a loan, and a static group. Then (WP-049b s1) three
 consumables with stock at both sites, a lot with an expiry date, receipts and issues, a minimum
-the toner is at or below (the "low" state), and a booking ahead of the loanable laptop.
+the toner is at or below (the "low" state), and a booking ahead of the loanable laptop. Then
+(WP-049b s3) one running audit of the headquarters with a few items marked by its auditor, and
+two scans of the finance laptop (one that found a new disk, one that failed), through the scan
+port discovery will use (scans have no API of their own).
 
 The seed rules (lanes A and C):
 
@@ -509,3 +512,81 @@ async def ensure_stock(
         if spec.product.name in kept:
             made += await _movements(run, spec, kept[spec.product.name], sites)
     return made + await _booking(run)
+
+
+# --- an audit and scans (WP-049b s3: the visual matrix's audit and scan screens) ---------------
+
+AUDIT = "Headquarters asset count"
+AUDIT_SITE = HQ
+# What the auditor finds: the laptop where it should be, the printer damaged, the desktop
+# seen in Dubai (the wrong place). The rest stay unmarked, so the progress is part way.
+AUDIT_MARKS = (
+    ("SX-LAP-001", HQ, "found"),
+    ("SX-PRN-001", HQ, "damaged"),
+    ("SX-DSK-001", DUBAI, "found"),
+)
+SCANNED = "SX-LAP-001"
+SCAN_DISK = {
+    "kind": "hardware_added",
+    "category": "disk",
+    "name": "Samsung 990 PRO",
+    "model": "MZ-V9P1T0",
+    "capacity": "1 TB",
+}
+
+
+async def ensure_audit(
+    api: Api, seed_key: Callable[..., str], sites: Mapping[str, str], auditor: uuid.UUID
+) -> int:
+    """One running audit of the headquarters, with a few items marked, once.
+
+    Made, started and marked in one run: an audit of that name found (someone else's, or the
+    seed's from an earlier run) is left exactly as it is.
+    """
+    if AUDIT_SITE not in sites:
+        return 0
+    if any(a["name"] == AUDIT for a in await api.call("GET", f"{BASE}/audits")):
+        return 0
+    audit = await api.call(
+        "POST",
+        f"{BASE}/audits",
+        json={
+            "name": AUDIT,
+            "kind": "technician",
+            "description": "The yearly count of what the headquarters holds.",
+            "site_ids": [sites[AUDIT_SITE]],
+            "auditor_ids": [str(auditor)],
+        },
+        idempotency=seed_key("asset", "audit", AUDIT),
+    )
+    audit = await api.call("POST", f"{BASE}/audits/{audit['id']}/start", version=audit["version"])
+    made = 2
+    as_auditor = api.as_user(auditor)
+    for tag, site, result in AUDIT_MARKS:
+        if site not in sites:
+            continue
+        await as_auditor.call(
+            "POST",
+            f"{BASE}/audits/{audit['id']}/scans",
+            json={"code": tag, "seen_site_id": sites[site], "result": result},
+            idempotency=seed_key("asset", "audit-scan", AUDIT, tag),
+        )
+        made += 1
+    return made
+
+
+async def ensure_scans(api: Api, record: Callable[..., Any]) -> int:
+    """Two scans of the finance laptop, once: while it has none (the port, as discovery will).
+
+    `record(asset_id, days_ago, **scan)` writes one through `app.modules.assets.record_scan` in
+    the tenant's own session (RLS applies).
+    """
+    rows = {r["tag"]: r for r in await api.all_pages(BASE) if r.get("tag")}
+    row = rows.get(SCANNED)
+    if row is None:
+        return 0
+    if (await api.call("GET", f"{BASE}/{row['id']}/scans"))["items"]:
+        return 0  # the seed's scans, or real ones: left alone
+    await record(row["id"], 9, result="ok", scan_type="hardware", changes=[SCAN_DISK])
+    await record(row["id"], 2, result="failed", failure_reason="unreachable")
+    return 2

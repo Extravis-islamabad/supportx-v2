@@ -9,6 +9,15 @@
   "assets.view_financials": [
    "all"
   ],
+  "cmdb.add": [
+   "all"
+  ],
+  "cmdb.delete": [
+   "all"
+  ],
+  "cmdb.edit": [
+   "all"
+  ],
   "cmdb.manage": [
    "all"
   ],
@@ -36,6 +45,15 @@
    "all"
   ],
   "assets.view_financials": [
+   "all"
+  ],
+  "cmdb.add": [
+   "all"
+  ],
+  "cmdb.delete": [
+   "all"
+  ],
+  "cmdb.edit": [
    "all"
   ],
   "cmdb.manage": [
@@ -131,6 +149,9 @@
   "changes.view": [
    "all"
   ],
+  "changes.view_costs": [
+   "all"
+  ],
   "cmdb.view": [
    "all"
   ],
@@ -167,6 +188,9 @@
    "all"
   ],
   "changes.view": [
+   "all"
+  ],
+  "changes.view_costs": [
    "all"
   ],
   "cmdb.view": [
@@ -499,6 +523,9 @@
   "releases.manage_followers": [
    "all"
   ],
+  "releases.override_freeze": [
+   "all"
+  ],
   "releases.reopen": [
    "all"
   ],
@@ -508,10 +535,16 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "users.view": [
@@ -558,6 +591,9 @@
   "releases.manage_followers": [
    "all"
   ],
+  "releases.override_freeze": [
+   "all"
+  ],
   "releases.reopen": [
    "all"
   ],
@@ -567,10 +603,16 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "users.view": [
@@ -761,10 +803,19 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
+  "changes.share_views_wide": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
   "changes.view": [
+   "all"
+  ],
+  "changes.view_costs": [
    "all"
   ],
   "config.announcements": [
@@ -788,6 +839,9 @@
   "incidents.add_note": [
    "all"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "all"
   ],
@@ -803,10 +857,16 @@
   "incidents.create": [
    "all"
   ],
+  "incidents.declare_major": [
+   "all"
+  ],
   "incidents.delete": [
    "all"
   ],
   "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_closed": [
    "all"
   ],
   "incidents.edit_due_dates": [
@@ -824,10 +884,22 @@
   "incidents.resolve": [
    "all"
   ],
+  "incidents.share_views": [
+   "all"
+  ],
+  "incidents.share_views_wide": [
+   "all"
+  ],
   "incidents.take": [
    "all"
   ],
+  "incidents.undo_merge": [
+   "all"
+  ],
   "incidents.view": [
+   "all"
+  ],
+  "incidents.view_costs": [
    "all"
   ],
   "integrations.view": [
@@ -887,10 +959,19 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
+  "problems.share_views_wide": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
   "problems.view": [
+   "all"
+  ],
+  "problems.view_costs": [
    "all"
   ],
   "problems.view_root_cause": [
@@ -941,10 +1022,19 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
+  "releases.share_views_wide": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "reports.create": [
@@ -998,10 +1088,19 @@
   "requests.resolve": [
    "all"
   ],
+  "requests.share_views": [
+   "all"
+  ],
+  "requests.share_views_wide": [
+   "all"
+  ],
   "requests.take": [
    "all"
   ],
   "requests.view": [
+   "all"
+  ],
+  "requests.view_costs": [
    "all"
   ],
   "sites.view": [
@@ -1081,10 +1180,19 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
+  "changes.share_views_wide": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
   "changes.view": [
+   "all"
+  ],
+  "changes.view_costs": [
    "all"
   ],
   "config.announcements": [
@@ -1108,6 +1216,9 @@
   "incidents.add_note": [
    "all"
   ],
+  "incidents.approve": [
+   "all"
+  ],
   "incidents.assign": [
    "all"
   ],
@@ -1123,10 +1234,16 @@
   "incidents.create": [
    "all"
   ],
+  "incidents.declare_major": [
+   "all"
+  ],
   "incidents.delete": [
    "all"
   ],
   "incidents.edit": [
+   "all"
+  ],
+  "incidents.edit_closed": [
    "all"
   ],
   "incidents.edit_due_dates": [
@@ -1144,10 +1261,22 @@
   "incidents.resolve": [
    "all"
   ],
+  "incidents.share_views": [
+   "all"
+  ],
+  "incidents.share_views_wide": [
+   "all"
+  ],
   "incidents.take": [
    "all"
   ],
+  "incidents.undo_merge": [
+   "all"
+  ],
   "incidents.view": [
+   "all"
+  ],
+  "incidents.view_costs": [
    "all"
   ],
   "integrations.view": [
@@ -1207,10 +1336,19 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
+  "problems.share_views_wide": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
   "problems.view": [
+   "all"
+  ],
+  "problems.view_costs": [
    "all"
   ],
   "problems.view_root_cause": [
@@ -1261,10 +1399,19 @@
   "releases.resolve": [
    "all"
   ],
+  "releases.share_views": [
+   "all"
+  ],
+  "releases.share_views_wide": [
+   "all"
+  ],
   "releases.take": [
    "all"
   ],
   "releases.view": [
+   "all"
+  ],
+  "releases.view_costs": [
    "all"
   ],
   "reports.create": [
@@ -1318,10 +1465,19 @@
   "requests.resolve": [
    "all"
   ],
+  "requests.share_views": [
+   "all"
+  ],
+  "requests.share_views_wide": [
+   "all"
+  ],
   "requests.take": [
    "all"
   ],
   "requests.view": [
+   "all"
+  ],
+  "requests.view_costs": [
    "all"
   ],
   "sites.view": [
@@ -1804,6 +1960,12 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
+  "changes.share_views_wide": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -1828,6 +1990,9 @@
   "incidents.add_note": [
    "group",
    "own"
+  ],
+  "incidents.approve": [
+   "all"
   ],
   "incidents.assign": [
    "group",
@@ -1867,6 +2032,12 @@
   "incidents.resolve": [
    "group",
    "own"
+  ],
+  "incidents.share_views": [
+   "group"
+  ],
+  "incidents.share_views_wide": [
+   "group"
   ],
   "incidents.take": [
    "group"
@@ -1935,6 +2106,12 @@
   "problems.resolve": [
    "group"
   ],
+  "problems.share_views": [
+   "group"
+  ],
+  "problems.share_views_wide": [
+   "group"
+  ],
   "problems.take": [
    "group"
   ],
@@ -2001,6 +2178,12 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
+  ],
+  "requests.share_views_wide": [
+   "group"
   ],
   "requests.take": [
    "group"
@@ -2067,6 +2250,12 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
+  "changes.share_views_wide": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -2091,6 +2280,9 @@
   "incidents.add_note": [
    "group",
    "own"
+  ],
+  "incidents.approve": [
+   "all"
   ],
   "incidents.assign": [
    "group",
@@ -2130,6 +2322,12 @@
   "incidents.resolve": [
    "group",
    "own"
+  ],
+  "incidents.share_views": [
+   "group"
+  ],
+  "incidents.share_views_wide": [
+   "group"
   ],
   "incidents.take": [
    "group"
@@ -2198,6 +2396,12 @@
   "problems.resolve": [
    "group"
   ],
+  "problems.share_views": [
+   "group"
+  ],
+  "problems.share_views_wide": [
+   "group"
+  ],
   "problems.take": [
    "group"
   ],
@@ -2264,6 +2468,12 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
+  ],
+  "requests.share_views_wide": [
+   "group"
   ],
   "requests.take": [
    "group"
@@ -2330,6 +2540,9 @@
   "changes.resolve": [
    "all"
   ],
+  "changes.share_views": [
+   "all"
+  ],
   "changes.take": [
    "all"
   ],
@@ -2351,6 +2564,9 @@
   "incidents.add_note": [
    "all",
    "own"
+  ],
+  "incidents.approve": [
+   "all"
   ],
   "incidents.assign": [
    "all",
@@ -2390,6 +2606,9 @@
   "incidents.resolve": [
    "all",
    "own"
+  ],
+  "incidents.share_views": [
+   "all"
   ],
   "incidents.take": [
    "all"
@@ -2458,6 +2677,9 @@
   "problems.resolve": [
    "all"
   ],
+  "problems.share_views": [
+   "all"
+  ],
   "problems.take": [
    "all"
   ],
@@ -2524,6 +2746,9 @@
   "requests.resolve": [
    "all",
    "own"
+  ],
+  "requests.share_views": [
+   "all"
   ],
   "requests.take": [
    "all"
@@ -2590,6 +2815,9 @@
   "changes.resolve": [
    "group"
   ],
+  "changes.share_views": [
+   "group"
+  ],
   "changes.take": [
    "group"
   ],
@@ -2611,6 +2839,9 @@
   "incidents.add_note": [
    "group",
    "own"
+  ],
+  "incidents.approve": [
+   "all"
   ],
   "incidents.assign": [
    "group",
@@ -2650,6 +2881,9 @@
   "incidents.resolve": [
    "group",
    "own"
+  ],
+  "incidents.share_views": [
+   "group"
   ],
   "incidents.take": [
    "group"
@@ -2718,6 +2952,9 @@
   "problems.resolve": [
    "group"
   ],
+  "problems.share_views": [
+   "group"
+  ],
   "problems.take": [
    "group"
   ],
@@ -2784,6 +3021,9 @@
   "requests.resolve": [
    "group",
    "own"
+  ],
+  "requests.share_views": [
+   "group"
   ],
   "requests.take": [
    "group"

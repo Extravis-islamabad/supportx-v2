@@ -6,6 +6,7 @@ export const ur: LabelResource = {
   'custom_field_display.radio': 'بٹن',
   'custom_field_entity.asset': 'اثاثے',
   'custom_field_entity.change': 'تبدیلیاں',
+  'custom_field_entity.ci': 'کنفیگریشن آئٹمز',
   'custom_field_entity.incident': 'واقعات',
   'custom_field_entity.problem': 'مسائل',
   'custom_field_entity.release': 'ریلیزز',
@@ -22,6 +23,10 @@ export const ur: LabelResource = {
   'custom_field_index_state.failed': 'انڈیکس نہیں بن سکا',
   'custom_field_index_state.none': 'انڈیکس نہیں',
   'custom_field_index_state.pending': 'انڈیکس زیرِ انتظار',
+  'custom_field_seal_state.opening': 'قدریں کھولی جا رہی ہیں…',
+  'custom_field_seal_state.plain': 'پڑھنے کے قابل',
+  'custom_field_seal_state.sealed': 'مہر بند',
+  'custom_field_seal_state.sealing': 'قدریں مہر بند ہو رہی ہیں…',
   'custom_field_type.choice': 'ایک منتخب کریں',
   'custom_field_type.currency': 'رقم (کرنسی)',
   'custom_field_type.date': 'تاریخ',
@@ -102,6 +107,23 @@ export const ur: LabelResource = {
   'custom_fields.retired': 'ریٹائرڈ',
   'custom_fields.retired_fields': 'ریٹائرڈ خانے',
   'custom_fields.retired_value': '{{name}} (ریٹائرڈ)',
+  'custom_fields.sensitive': 'حساس: قدریں مہر بند محفوظ کریں',
+  'custom_fields.sensitive_help':
+    'اس کی قدریں خفیہ کاری کے ساتھ محفوظ ہوتی ہیں اور صرف بالکل مطابق قدر سے ملتی ہیں: انہیں تلاش، ترتیب یا رپورٹ میں استعمال نہیں کیا جا سکتا، اور کون انہیں پڑھ سکتا ہے یہ خانے کے رسائی کے اصول طے کرتے ہیں۔',
+  'custom_fields.sensitive_off_confirm': 'تصدیق کے لیے {{name}} لکھیں',
+  'custom_fields.sensitive_off_impact_one':
+    '{{count}} ریکارڈ کی قدر دوبارہ قابلِ مطالعہ محفوظ ہو گی۔',
+  'custom_fields.sensitive_off_impact_other':
+    '{{count}} ریکارڈز کی قدریں دوبارہ قابلِ مطالعہ محفوظ ہوں گی۔',
+  'custom_fields.sensitive_off_kept':
+    'حساس رہنے کے دوران لکھی گئی تاریخ مہر بند رہے گی۔ موجودہ ایکسپورٹس اور بیک اپس تبدیل نہیں ہوتے۔',
+  'custom_fields.sensitive_off_ok': 'قابلِ مطالعہ محفوظ کریں',
+  'custom_fields.sensitive_off_reason': 'وجہ (آڈٹ لاگ میں محفوظ رہے گی)',
+  'custom_fields.sensitive_off_title': 'کیا {{name}} کو دوبارہ قابلِ مطالعہ محفوظ کرنا ہے؟',
+  'custom_fields.sensitive_opening_help':
+    'محفوظ قدریں ابھی قابلِ مطالعہ متن میں کھولی جا رہی ہیں۔ یہ مکمل ہونے تک فہرستوں کو اس خانے سے فلٹر نہیں کیا جا سکتا۔',
+  'custom_fields.sensitive_sealing_help':
+    'محفوظ قدریں ابھی مہر بند ہو رہی ہیں۔ یہ مکمل ہونے تک فہرستوں کو اس خانے سے فلٹر نہیں کیا جا سکتا۔',
   'custom_fields.someone': 'کوئی',
   'custom_fields.title': 'اپنی مرضی کے خانے',
   'custom_fields.type': 'قسم',

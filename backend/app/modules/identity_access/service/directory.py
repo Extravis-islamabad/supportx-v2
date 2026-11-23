@@ -18,13 +18,14 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import available_timezones
 
-from sqlalchemy import false, func, select
+from sqlalchemy import ColumnElement, and_, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
 from app.modules.identity_access.domain.identity import (
     DATE_FORMATS,
     DIGITS,
+    NOT_PEOPLE,
     PERSON_TYPES,
     TEXT_SCALES,
     TIME_FORMATS,
@@ -33,13 +34,16 @@ from app.modules.identity_access.domain.identity import (
     FormDensity,
     NavLayout,
     ThemeMode,
-    UserType,
 )
 from app.modules.identity_access.domain.people import clean_text, person_problems
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
-from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
+from app.modules.identity_access.service.masking import (
+    contacts_masked,
+    refuse_masked_person_search,
+)
 from app.modules.identity_access.service.policy import (
     PEOPLE,
     FieldRule,
@@ -49,7 +53,7 @@ from app.modules.identity_access.service.policy import (
     require,
     scope_filter,
 )
-from app.modules.organization import users_in_groups, users_in_sites
+from app.modules.organization import Audience, AudienceResolver, users_in_groups, users_in_sites
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
@@ -171,7 +175,7 @@ async def list_users(
     """
     visible_rows = select(User).where(
         User.deleted_at.is_(None),
-        User.user_type != UserType.SERVICE.value,  # connectors' own identities: not people
+        User.user_type.not_in(NOT_PEOPLE),  # service and vendor support accounts: not people
         scope_filter(subject, "users.view", USERS),
     )
     if text:
@@ -185,14 +189,16 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
     """IDs of the tenant's people whose name or email matches `text`, best first.
 
     For other modules' searches by person ("incidents requested by Ahmed"): they filter their own
-    records by these IDs and their own scope, so this reveals nothing on its own.
+    records by these IDs and their own scope, so this reveals nothing on its own. Refused (403
+    person_search_masked) for a request whose contacts are masked.
     """
+    refuse_masked_person_search(session)
     found = await ENGINE.match(session, PEOPLE, text)
     if found is None:
         return []
     rows = await session.scalars(
         select(User.id)
-        .where(User.deleted_at.is_(None), User.user_type != UserType.SERVICE.value, found.predicate)
+        .where(User.deleted_at.is_(None), User.user_type.not_in(NOT_PEOPLE), found.predicate)
         .order_by(found.rank.desc(), User.id)
         .limit(limit)
     )
@@ -421,7 +427,25 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
     if not wanted:
         return {}
     rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
-    return {str(row.id): row.display_name for row in rows}
+    masked = contacts_masked(session)  # the UI labels an empty name (D-173)
+    return {str(row.id): "" if masked else row.display_name for row in rows}
+
+
+async def api_key_names(session: AsyncSession, key_ids: Sequence[str]) -> dict[str, str]:
+    """{key id: key name} for the session's tenant (WP-057 S4b: the audit names a key actor).
+
+    Names only, never the key's text or scopes; a deleted key keeps its name in the log.
+    """
+    wanted: list[uuid.UUID] = []
+    for raw in key_ids:
+        try:
+            wanted.append(uuid.UUID(str(raw)))
+        except ValueError:
+            continue
+    if not wanted:
+        return {}
+    rows = await session.execute(select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(wanted)))
+    return {str(row.id): row.name for row in rows}
 
 
 async def user_contacts(
@@ -443,6 +467,8 @@ async def user_contacts(
     rows = await session.execute(
         select(User.id, User.display_name, User.email).where(User.id.in_(wanted))
     )
+    if contacts_masked(session):  # removed, never hashed or partial (lane B (c))
+        return {str(row.id): ("", "") for row in rows}
     return {str(row.id): (row.display_name, row.email) for row in rows}
 
 
@@ -486,6 +512,9 @@ async def mail_recipients(
             User.id.in_(list(user_ids)),
             User.status == "active",
             User.deleted_at.is_(None),
+            # Connectors' identities and vendor support accounts are never sent anything (a
+            # worker builds mail unmasked: WP-057 S4c-2, lane B; REQ-INT-012).
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     found: dict[uuid.UUID, MailRecipient] = {}
@@ -523,6 +552,8 @@ async def notifiable_people(
             User.id.in_(list(user_ids)),
             User.status == "active",
             User.deleted_at.is_(None),
+            # Never a recipient: a notice is rendered unmasked by a worker (S4c-2, lane B (a)).
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     return {
@@ -546,12 +577,53 @@ async def people_by_site(session: AsyncSession) -> dict[uuid.UUID, int]:
         select(User.site_id, func.count())
         .where(
             User.deleted_at.is_(None),
-            User.user_type != UserType.SERVICE.value,
+            User.user_type.not_in(NOT_PEOPLE),
             User.site_id.is_not(None),
         )
         .group_by(User.site_id)
     )
     return {site_id: int(count) for site_id, count in rows.all() if site_id is not None}
+
+
+def _in_audience(audience: Audience) -> ColumnElement[bool]:
+    """Active people at the audience's sites or departments, or in its groups (each once)."""
+    reach: list[ColumnElement[bool]] = []
+    if audience.site_ids:
+        reach.append(User.site_id.in_(list(audience.site_ids)))
+    if audience.department_ids:
+        reach.append(User.department_id.in_(list(audience.department_ids)))
+    if audience.group_ids:
+        reach.append(User.id.in_(users_in_groups(audience.group_ids)))
+    return and_(
+        User.deleted_at.is_(None),
+        User.status == "active",
+        User.user_type.not_in(NOT_PEOPLE),
+        or_(*reach) if reach else false(),
+    )
+
+
+async def audience_count(session: AsyncSession, audience: Audience) -> int:
+    """How many active people an audience reaches, each once (organization's resolver, 0185)."""
+    return int(await session.scalar(select(func.count(User.id)).where(_in_audience(audience))) or 0)
+
+
+async def audience_people(
+    session: AsyncSession, audience: Audience, limit: int
+) -> list[tuple[uuid.UUID, str]]:
+    """Up to `limit` of them, by name, in name order.
+
+    The caller checked `users.view`, which a vendor support account never holds (D-173).
+    """
+    rows = await session.execute(
+        select(User.id, User.display_name)
+        .where(_in_audience(audience))
+        .order_by(User.display_name, User.id)
+        .limit(limit)
+    )
+    return [(row.id, row.display_name) for row in rows]
+
+
+AUDIENCE_RESOLVER = AudienceResolver(count=audience_count, people=audience_people)
 
 
 async def active_user_ids(
@@ -569,7 +641,7 @@ async def active_user_ids(
             User.id.in_(list(user_ids)),
             User.deleted_at.is_(None),  # a removed user may still say "active" (lane B)
             User.status == "active",
-            User.user_type != UserType.SERVICE.value,
+            User.user_type.not_in(NOT_PEOPLE),
         )
     )
     return frozenset(rows)

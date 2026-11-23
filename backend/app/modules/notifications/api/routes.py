@@ -269,6 +269,9 @@ class NotificationRuleOut(BaseModel):
     record_type: str
     category: NotificationCategory
     required: bool = Field(description="People cannot switch it off in their preferences.")
+    locked: bool = Field(
+        default=False, description="Admins cannot change or reset it: the default always applies."
+    )
     is_default: bool = Field(description="True while the shipped default applies.")
     enabled: bool
     recipients: list[str]
@@ -293,6 +296,7 @@ def _rule_out(view: admin.RuleView) -> NotificationRuleOut:
         record_type=source.record_type,
         category=event.category,
         required=event.required,
+        locked=event.locked,
         is_default=view.version == 0,
         enabled=rule.enabled,
         recipients=list(rule.recipients),

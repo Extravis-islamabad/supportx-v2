@@ -6,7 +6,6 @@ import {
   Card,
   Checkbox,
   Collapse,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -19,6 +18,7 @@ import {
   Typography,
 } from 'antd';
 import { Fragment, useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   ApiError,
@@ -27,27 +27,30 @@ import {
   type CustomField,
   type CustomFieldChange,
   type CustomFieldChoice,
+  type CustomFieldEntity,
   type CustomFieldType,
   type Labels,
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  Drawer,
   EmptyText,
   lengthLimit,
   markHandled,
   reportError,
+  type Tone,
   ToneTag,
   useAppearance,
   useConflict,
   useDateTime,
   useLabel,
   WriteButton,
-  type Tone,
 } from '@supportx/ui';
 
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName, filled, localized } from '../../customFields/values';
 import { cleanLabels, refusalMessages } from './helpers';
+import { SealStateTag, SensitiveSetting } from './SensitiveSetting';
 import { LabelsFields, Problems } from './shared';
 
 const TYPES: CustomFieldType[] = [
@@ -72,23 +75,51 @@ const TEXT_TYPES = new Set<CustomFieldType>(['text', 'long_text']);
 const LANGUAGES = ['en', 'ar', 'ur'] as const;
 
 /**
+ * One type's fields (0175 part 2): a CI type's Fields tab shows the fields its CIs have. Its own
+ * fields are edited here; the entity's and its parents' show read-only, saying where they come
+ * from (lane A's §11 conditions).
+ */
+export interface CustomFieldsScope {
+  entity: Extract<CustomFieldEntity, 'ci'>;
+  typeId: string;
+  /** The type's name in the person's language (a parent's, for "From <type>"). */
+  typeName: (typeId: string) => string | undefined;
+  /** Where a type's own Fields tab is. */
+  typeHref: (typeId: string) => string;
+}
+
+/**
  * Custom fields on incidents (WP-026, REQ-INC-014): add a field of any type with its name and
  * help in each language, then place it on templates. A field records hold values in can be
  * retired (kept on old records, not offered) or removed after a confirmation (AC4); a field
  * filtered often can be indexed without a code change (AC2). Changes reach every open form,
  * record and list live.
+ *
+ * With `scope` (0175 part 2): one CI type's fields instead. Nothing about incidents shows
+ * (templates, indexes, sealing); without it, the tab is exactly as before.
  */
-export function CustomFieldsTab() {
+export function CustomFieldsTab({ scope }: { scope?: CustomFieldsScope } = {}) {
   const t = useLabel();
   const { locale } = useAppearance();
   const { message, modal } = App.useApp();
-  const fields = useCustomFields('incident');
+  const entity: CustomFieldEntity = scope?.entity ?? 'incident';
+  const fields = useCustomFields(
+    entity,
+    false,
+    true,
+    scope === undefined ? undefined : { typeId: scope.typeId },
+  );
+  // Under a scope, reordering still lists every field of the entity (the order is one list),
+  // moving only this type's own ones; the whole list comes from here.
+  const everything = useCustomFields(entity, false, scope !== undefined);
   const change = useCustomFieldChange();
   const [editing, setEditing] = useState<CustomField | 'new' | null>(null);
   const [removing, setRemoving] = useState<CustomField | null>(null);
   // Problems of the last save, each with the field it belongs to (shown there: QA BUG-08).
   const [errors, setErrors] = useState<FieldProblem[]>([]);
-  const all = fields.data ?? [];
+  // Under a scope, a retired field shows only when it is this type's own (condition 5).
+  const all = (fields.data ?? []).filter((f) => scope === undefined || !f.inherited || !f.retired);
+  const own = all.filter((f) => scope === undefined || !f.inherited);
   // A list action (remove, index) on a field someone changed first (409): the shared dialog
   // (QA WP-029 BUG-05); "Keep my changes" runs it again on the saved version.
   const conflict = useConflict();
@@ -137,6 +168,20 @@ export function CustomFieldsTab() {
     });
   };
   const move = (index: number, by: -1 | 1) => {
+    if (scope !== undefined) {
+      // Swap this type's field with its own neighbour inside the entity's one order: every
+      // other field keeps its place.
+      const ids = (everything.data ?? []).map((f) => f.id);
+      const here = own[index]?.id;
+      const there = own[index + by]?.id;
+      const from = here === undefined ? -1 : ids.indexOf(here);
+      const to = there === undefined ? -1 : ids.indexOf(there);
+      if (from < 0 || to < 0 || here === undefined || there === undefined) return;
+      ids[from] = there;
+      ids[to] = here;
+      run({ kind: 'order', entity, ids });
+      return;
+    }
     const ids = all.map((f) => f.id);
     const [moved] = ids.splice(index, 1);
     if (moved === undefined) return;
@@ -163,6 +208,66 @@ export function CustomFieldsTab() {
       },
     });
   };
+  // A row's actions: `index` is its place among the fields this tab may move (all of them
+  // without a scope, this type's own under one).
+  const actions = (f: CustomField, index: number) => (
+    <Space wrap size={4}>
+      <Button
+        size="small"
+        onClick={() => {
+          setErrors([]);
+          setEditing(f);
+        }}
+        data-testid={`cf-edit-${f.key}`}
+      >
+        {t('actions.edit')}
+      </Button>
+      <Button
+        size="small"
+        icon={<ArrowUpOutlined />}
+        disabled={index === 0 || change.isPending}
+        aria-label={t('settings.move_up', { name: fieldName(f, locale) })}
+        onClick={() => {
+          move(index, -1);
+        }}
+        data-testid={`cf-up-${f.key}`}
+      />
+      <Button
+        size="small"
+        icon={<ArrowDownOutlined />}
+        disabled={index === own.length - 1 || change.isPending}
+        aria-label={t('settings.move_down', { name: fieldName(f, locale) })}
+        onClick={() => {
+          move(index, 1);
+        }}
+        data-testid={`cf-down-${f.key}`}
+      />
+      <Button
+        size="small"
+        onClick={() => {
+          run({
+            kind: 'update',
+            id: f.id,
+            version: f.version,
+            body: { retired: !f.retired },
+          });
+        }}
+        data-testid={`cf-retire-${f.key}`}
+      >
+        {f.retired ? t('custom_fields.restore') : t('custom_fields.retire')}
+      </Button>
+      <Button
+        size="small"
+        danger
+        onClick={() => {
+          remove(f);
+        }}
+        data-testid={`cf-remove-${f.key}`}
+      >
+        {t('custom_fields.remove')}
+      </Button>
+    </Space>
+  );
   return (
     <Card
       title={t('custom_fields.title')}
@@ -180,7 +285,9 @@ export function CustomFieldsTab() {
       }
       data-testid="settings-custom-fields"
     >
-      <Typography.Paragraph type="secondary">{t('custom_fields.help')}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">
+        {scope === undefined ? t('custom_fields.help') : t('cmdb.fields.help')}
+      </Typography.Paragraph>
       {editing === null && <Problems problems={errors.map((e) => e.text)} testId="cf-problems" />}
       <Table
         size="small"
@@ -188,7 +295,13 @@ export function CustomFieldsTab() {
         loading={fields.isPending}
         pagination={false}
         dataSource={all}
-        locale={{ emptyText: <EmptyText>{t('custom_fields.none')}</EmptyText> }}
+        locale={{
+          emptyText: (
+            <EmptyText>
+              {scope === undefined ? t('custom_fields.none') : t('cmdb.fields.none')}
+            </EmptyText>
+          ),
+        }}
         columns={[
           {
             key: 'name',
@@ -198,6 +311,7 @@ export function CustomFieldsTab() {
                 <bdi dir="auto" data-testid={`cf-name-${f.key}`}>
                   {fieldName(f, locale)}
                 </bdi>
+                {scope !== undefined && f.inherited && <InheritedFrom field={f} scope={scope} />}
                 {f.retired && (
                   <ToneTag tone="default" testId={`cf-retired-${f.key}`}>
                     {t('custom_fields.retired')}
@@ -220,74 +334,32 @@ export function CustomFieldsTab() {
             render: (_: unknown, f: CustomField) =>
               f.in_use ? t('custom_fields.yes') : t('custom_fields.no'),
           },
-          {
-            key: 'index',
-            title: t('custom_fields.index'),
-            render: (_: unknown, f: CustomField) => (
-              <IndexTag field={f} testId={`cf-index-${f.key}`} />
-            ),
-          },
+          // Indexes and sealing are about incident lists and values: not under a scope.
+          ...(scope === undefined
+            ? [
+                {
+                  key: 'index',
+                  title: t('custom_fields.index'),
+                  render: (_: unknown, f: CustomField) => (
+                    <Space size={4} wrap>
+                      <IndexTag field={f} testId={`cf-index-${f.key}`} />
+                      <SealStateTag field={f} testId={`cf-seal-${f.key}`} />
+                    </Space>
+                  ),
+                },
+              ]
+            : []),
           {
             key: 'actions',
             title: t('settings.actions'),
-            render: (_: unknown, f: CustomField, index: number) => (
-              <Space wrap size={4}>
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setErrors([]);
-                    setEditing(f);
-                  }}
-                  data-testid={`cf-edit-${f.key}`}
-                >
-                  {t('actions.edit')}
-                </Button>
-                <Button
-                  size="small"
-                  icon={<ArrowUpOutlined />}
-                  disabled={index === 0 || change.isPending}
-                  aria-label={t('settings.move_up', { name: fieldName(f, locale) })}
-                  onClick={() => {
-                    move(index, -1);
-                  }}
-                  data-testid={`cf-up-${f.key}`}
-                />
-                <Button
-                  size="small"
-                  icon={<ArrowDownOutlined />}
-                  disabled={index === all.length - 1 || change.isPending}
-                  aria-label={t('settings.move_down', { name: fieldName(f, locale) })}
-                  onClick={() => {
-                    move(index, 1);
-                  }}
-                  data-testid={`cf-down-${f.key}`}
-                />
-                <Button
-                  size="small"
-                  onClick={() => {
-                    run({
-                      kind: 'update',
-                      id: f.id,
-                      version: f.version,
-                      body: { retired: !f.retired },
-                    });
-                  }}
-                  data-testid={`cf-retire-${f.key}`}
-                >
-                  {f.retired ? t('custom_fields.restore') : t('custom_fields.retire')}
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => {
-                    remove(f);
-                  }}
-                  data-testid={`cf-remove-${f.key}`}
-                >
-                  {t('custom_fields.remove')}
-                </Button>
-              </Space>
-            ),
+            render: (_: unknown, f: CustomField) =>
+              scope !== undefined && f.inherited ? (
+                <Typography.Text type="secondary" data-testid={`cf-read-only-${f.key}`}>
+                  {t('cmdb.fields.read_only')}
+                </Typography.Text>
+              ) : (
+                actions(f, own.indexOf(f))
+              ),
           },
         ]}
         scroll={{ x: 'max-content' }}
@@ -297,6 +369,8 @@ export function CustomFieldsTab() {
           key={editing === 'new' ? 'new' : editing.id}
           // The saved field as it is now (index progress arrives live); the draft keeps edits.
           field={editing === 'new' ? null : (all.find((f) => f.id === editing.id) ?? editing)}
+          entity={entity}
+          scopeTypeId={scope?.typeId ?? null}
           pending={change.isPending}
           errors={errors}
           onEdit={() => {
@@ -387,7 +461,9 @@ export function CustomFieldsTab() {
               ]
         }
       >
-        <Typography.Paragraph>{t('custom_fields.remove_in_use')}</Typography.Paragraph>
+        <Typography.Paragraph>
+          {scope === undefined ? t('custom_fields.remove_in_use') : t('cmdb.fields.remove_in_use')}
+        </Typography.Paragraph>
       </Modal>
       <ConflictDialog
         open={conflict.open}
@@ -517,6 +593,8 @@ const EDITOR_PATHS = [
 
 function CustomFieldEditor({
   field,
+  entity,
+  scopeTypeId,
   pending,
   errors,
   onEdit,
@@ -525,6 +603,10 @@ function CustomFieldEditor({
   onIndex,
 }: {
   field: CustomField | null;
+  /** The records the field is for ('incident' unless a scope says otherwise). */
+  entity: CustomFieldEntity;
+  /** Under a scope: a new field belongs to this type (and the types below it). */
+  scopeTypeId: string | null;
   pending: boolean;
   errors: FieldProblem[];
   onEdit: () => void;
@@ -554,7 +636,7 @@ function CustomFieldEditor({
   const preview: CustomField = {
     ...(field ?? {
       id: 'new',
-      entity: 'incident',
+      entity,
       key: '',
       sort_order: 0,
       retired: false,
@@ -562,6 +644,10 @@ function CustomFieldEditor({
       in_use: false,
       index_state: 'none',
       index_error: null,
+      sensitive: false,
+      seal_state: 'plain',
+      scope_type_id: scopeTypeId, // 0175: entity-wide, or the scope's type; its own either way
+      inherited: false,
       version: 0,
     }),
     ...bodyOf(draft),
@@ -575,7 +661,13 @@ function CustomFieldEditor({
     const body = bodyOf(draft);
     if (field === null) {
       onSave(
-        { kind: 'create', body: { entity: 'incident', field_type: kind, ...body } },
+        {
+          kind: 'create',
+          body:
+            scopeTypeId === null
+              ? { entity, field_type: kind, ...body }
+              : { entity, field_type: kind, ...body, scope_type_id: scopeTypeId },
+        },
         setConflict,
       );
     } else {
@@ -882,40 +974,45 @@ function CustomFieldEditor({
                         {`custom.${field.key}`}
                       </Typography.Text>
                     </div>
-                    <div>
-                      <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>
-                        {t('custom_fields.index_help')}
-                      </Typography.Paragraph>
-                      <Space wrap>
-                        <IndexTag field={field} testId="cf-editor-index-state" />
-                        {(field.index_state === 'none' || field.index_state === 'failed') && (
-                          <WriteButton
-                            size="small"
-                            onClick={() => {
-                              onIndex(field);
-                            }}
-                            data-testid="cf-request-index"
-                          >
-                            {field.index_state === 'failed'
-                              ? t('custom_fields.request_again')
-                              : t('custom_fields.request_index')}
-                          </WriteButton>
-                        )}
-                      </Space>
-                      {field.index_state === 'failed' && (
-                        <Typography.Paragraph
-                          type="danger"
-                          style={{ marginTop: 4 }}
-                          data-testid="cf-index-failure"
-                        >
-                          {t('custom_fields.index_failed', {
-                            reason: t(
-                              `custom_field_index_error.${field.index_error ?? 'unexpected'}`,
-                            ),
-                          })}
+                    {/* Indexes speed up incident lists; CI fields are never sealed (0175 a). */}
+                    {scopeTypeId === null && (
+                      <div>
+                        <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>
+                          {t('custom_fields.index_help')}
                         </Typography.Paragraph>
-                      )}
-                    </div>
+                        <Space wrap>
+                          <IndexTag field={field} testId="cf-editor-index-state" />
+                          {(field.index_state === 'none' || field.index_state === 'failed') && (
+                            <WriteButton
+                              size="small"
+                              onClick={() => {
+                                onIndex(field);
+                              }}
+                              data-testid="cf-request-index"
+                            >
+                              {field.index_state === 'failed'
+                                ? t('custom_fields.request_again')
+                                : t('custom_fields.request_index')}
+                            </WriteButton>
+                          )}
+                        </Space>
+                        {field.index_state === 'failed' && (
+                          <Typography.Paragraph
+                            type="danger"
+                            style={{ marginTop: 4 }}
+                            data-testid="cf-index-failure"
+                          >
+                            {t('custom_fields.index_failed', {
+                              reason: t(
+                                `custom_field_index_error.${field.index_error ?? 'unexpected'}`,
+                              ),
+                            })}
+                          </Typography.Paragraph>
+                        )}
+                      </div>
+                    )}
+                    {/* WP-057 S3b-2b: its own route, outside this editor's draft (lane A). */}
+                    {scopeTypeId === null && <SensitiveSetting field={field} />}
                   </Flex>
                 ),
               },
@@ -1148,6 +1245,28 @@ const INDEX_TONES: Record<CustomField['index_state'], Tone> = {
   active: 'success',
   failed: 'error',
 };
+
+/** Where an inherited field comes from: a parent type (a link to its Fields tab), or every type. */
+function InheritedFrom({ field, scope }: { field: CustomField; scope: CustomFieldsScope }) {
+  const t = useLabel();
+  // Optional in the API type: an older payload has no scope (every type).
+  const parent = field.scope_type_id ?? null;
+  const name = parent === null ? undefined : scope.typeName(parent);
+  return (
+    <ToneTag tone="default" testId={`cf-inherited-${field.key}`}>
+      {parent === null || name === undefined ? (
+        t('cmdb.fields.from_every_type')
+      ) : (
+        <>
+          {t('cmdb.fields.from_type')}{' '}
+          <Link to={scope.typeHref(parent)} data-testid={`cf-inherited-link-${field.key}`}>
+            <bdi dir="auto">{name}</bdi>
+          </Link>
+        </>
+      )}
+    </ToneTag>
+  );
+}
 
 /** Where a field's index is (D-088), live; a failure says why on hover. */
 function IndexTag({ field, testId }: { field: CustomField; testId: string }) {

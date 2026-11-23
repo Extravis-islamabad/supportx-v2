@@ -4,6 +4,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { passwordOf, USERS, type E2eUser } from '../stack';
 
 /**
+ * How long the first console or portal screen may take to show after the OIDC callback. The
+ * callback lands on a cold app: the session is set up, then the shell loads its code, `/auth/me`
+ * and the first screen's data before the user menu shows. On a busy CI runner that first load
+ * takes well over Playwright's 5 s default (run 43423076862 missed it), so this one wait gets a
+ * realistic bound; every later wait keeps the default.
+ */
+export const FIRST_LOAD_AFTER_SIGN_IN_MS = 30_000;
+
+/**
  * Sign in through the real BFF and Keycloak (identity-first: username page, password page).
  * Keycloak's element IDs, not its labels: it shows the password page in the user's language.
  */
@@ -19,7 +28,7 @@ export async function signIn(
   await page.locator('#kc-login').click();
   await page.locator('#password').fill(password);
   await page.locator('#kc-login').click();
-  await expect(page.getByTestId('user-menu')).toBeVisible();
+  await expect(page.getByTestId('user-menu')).toBeVisible({ timeout: FIRST_LOAD_AFTER_SIGN_IN_MS });
 }
 
 export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<void> {
@@ -35,7 +44,10 @@ export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<v
       window.localStorage.removeItem('supportx.theme_mode');
     });
     await page.reload();
-    await expect(page.getByTestId('user-menu')).toBeVisible();
+    // A full app load again, as right after sign-in (lane A, #484).
+    await expect(page.getByTestId('user-menu')).toBeVisible({
+      timeout: FIRST_LOAD_AFTER_SIGN_IN_MS,
+    });
   }
 }
 

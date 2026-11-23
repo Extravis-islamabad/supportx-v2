@@ -1,0 +1,409 @@
+{
+  "about": "Form rule test vectors (WP-046a S5b; REQ-INC-037 AC3). The server evaluator (backend/app/modules/work_items/domain/form_rules.py) and the browser one (frontend/packages/forms/src/rules/) both run every case and must give these exact results. Add a case here, never in only one of them.",
+  "base": {
+    "subject": [true, true],
+    "requester_id": [true, true],
+    "category_id": [true, false],
+    "site_id": [true, false],
+    "impact": [true, false],
+    "tags": [true, false],
+    "description": [true, false],
+    "custom.asset_tag": [false, false]
+  },
+  "cases": [
+    {
+      "name": "no rules: the template's own settings",
+      "rules": [],
+      "values": {},
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false },
+          "custom.asset_tag": {
+            "shown": false,
+            "required": false,
+            "locked": false,
+            "keep_value": false
+          }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "AC1: network category requires the site",
+      "rules": [
+        {
+          "id": "net",
+          "when": {
+            "field": "category_id",
+            "op": "eq",
+            "value": "0190AAAA-0000-7000-8000-000000000001"
+          },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "category_id": "0190aaaa-0000-7000-8000-000000000001" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["net"]
+      }
+    },
+    {
+      "name": "AC1: another category leaves the site optional",
+      "rules": [
+        {
+          "id": "net",
+          "when": {
+            "field": "category_id",
+            "op": "eq",
+            "value": "0190aaaa-0000-7000-8000-000000000001"
+          },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "category_id": "0190aaaa-0000-7000-8000-000000000002" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "a missing value matches ne and not_in only",
+      "rules": [
+        {
+          "id": "eq",
+          "when": { "field": "impact", "op": "eq", "value": "team" },
+          "then": [{ "do": "lock", "field": "description" }]
+        },
+        {
+          "id": "ne",
+          "when": { "field": "impact", "op": "ne", "value": "team" },
+          "then": [{ "do": "require", "field": "description" }]
+        },
+        {
+          "id": "in",
+          "when": { "field": "impact", "op": "in", "value": ["team"] },
+          "then": [{ "do": "lock", "field": "tags" }]
+        },
+        {
+          "id": "not_in",
+          "when": { "field": "impact", "op": "not_in", "value": ["team"] },
+          "then": [{ "do": "require", "field": "tags" }]
+        }
+      ],
+      "values": {},
+      "expect": {
+        "fields": {
+          "description": { "shown": true, "required": true, "locked": false, "keep_value": false },
+          "tags": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["ne", "not_in"]
+      }
+    },
+    {
+      "name": "lists: eq means includes, ne excludes, is_null missing or empty",
+      "rules": [
+        {
+          "id": "has_vpn",
+          "when": { "field": "tags", "op": "eq", "value": "vpn" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        },
+        {
+          "id": "no_wifi",
+          "when": { "field": "tags", "op": "ne", "value": "wifi" },
+          "then": [{ "do": "lock", "field": "impact" }]
+        },
+        {
+          "id": "none",
+          "when": { "field": "description", "op": "is_null" },
+          "then": [{ "do": "show", "field": "custom.asset_tag" }]
+        }
+      ],
+      "values": { "tags": ["vpn", "mail"], "description": "" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false },
+          "impact": { "shown": true, "required": false, "locked": true, "keep_value": false },
+          "custom.asset_tag": {
+            "shown": true,
+            "required": false,
+            "locked": false,
+            "keep_value": false
+          }
+        },
+        "set_values": {},
+        "matched": ["has_vpn", "no_wifi", "none"]
+      }
+    },
+    {
+      "name": "an empty list is null",
+      "rules": [
+        {
+          "id": "empty",
+          "when": { "field": "tags", "op": "is_null" },
+          "then": [{ "do": "require", "field": "description" }]
+        },
+        {
+          "id": "any",
+          "when": { "field": "tags", "op": "is_not_null" },
+          "then": [{ "do": "lock", "field": "description" }]
+        }
+      ],
+      "values": { "tags": [] },
+      "expect": {
+        "fields": {
+          "description": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["empty"]
+      }
+    },
+    {
+      "name": "AC2: hide clears unless keep_value; a hidden field is never required",
+      "rules": [
+        {
+          "id": "hide",
+          "when": { "field": "impact", "op": "eq", "value": "person" },
+          "then": [
+            { "do": "require", "field": "site_id" },
+            { "do": "hide", "field": "site_id" },
+            { "do": "hide", "field": "description", "keep_value": true }
+          ]
+        }
+      ],
+      "values": { "impact": "person" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": false, "required": false, "locked": false, "keep_value": false },
+          "description": { "shown": false, "required": false, "locked": false, "keep_value": true }
+        },
+        "set_values": {},
+        "matched": ["hide"]
+      }
+    },
+    {
+      "name": "a later rule wins for the same field",
+      "rules": [
+        {
+          "id": "first",
+          "when": { "field": "impact", "op": "is_not_null" },
+          "then": [{ "do": "hide", "field": "custom.asset_tag", "keep_value": true }]
+        },
+        {
+          "id": "second",
+          "when": { "field": "impact", "op": "in", "value": ["team", "site"] },
+          "then": [{ "do": "show", "field": "custom.asset_tag" }]
+        }
+      ],
+      "values": { "impact": "site" },
+      "expect": {
+        "fields": {
+          "custom.asset_tag": {
+            "shown": true,
+            "required": false,
+            "locked": false,
+            "keep_value": false
+          }
+        },
+        "set_values": {},
+        "matched": ["first", "second"]
+      }
+    },
+    {
+      "name": "set fills an empty field only, and does not trigger other rules",
+      "rules": [
+        {
+          "id": "set",
+          "when": { "field": "impact", "op": "eq", "value": "organisation" },
+          "then": [
+            { "do": "set", "field": "site_id", "value": "hq" },
+            { "do": "set", "field": "description", "value": "x" },
+            { "do": "lock", "field": "site_id" }
+          ]
+        },
+        {
+          "id": "chain",
+          "when": { "field": "site_id", "op": "eq", "value": "hq" },
+          "then": [{ "do": "require", "field": "tags" }]
+        }
+      ],
+      "values": { "impact": "organisation", "description": "Typed" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": true, "keep_value": false },
+          "tags": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": { "site_id": "hq" },
+        "matched": ["set"]
+      }
+    },
+    {
+      "name": "and / or nest; ids compare without case",
+      "rules": [
+        {
+          "id": "nested",
+          "when": {
+            "and": [
+              { "field": "impact", "op": "in", "value": ["team", "site"] },
+              {
+                "or": [
+                  {
+                    "field": "category_id",
+                    "op": "eq",
+                    "value": "0190AAAA-0000-7000-8000-00000000000A"
+                  },
+                  { "field": "tags", "op": "eq", "value": "urgent" }
+                ]
+              }
+            ]
+          },
+          "then": [{ "do": "require", "field": "description" }]
+        }
+      ],
+      "values": { "impact": "team", "category_id": "0190aaaa-0000-7000-8000-00000000000a" },
+      "expect": {
+        "fields": {
+          "description": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["nested"]
+      }
+    },
+    {
+      "name": "custom fields: true and false compare as text",
+      "rules": [
+        {
+          "id": "flag",
+          "when": { "field": "custom.asset_tag", "op": "eq", "value": true },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "custom.asset_tag": true },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["flag"]
+      }
+    }
+  ],
+  "invalid": [
+    { "name": "not a list", "rules": {}, "problems": [["form_rules", "invalid_value"]] },
+    {
+      "name": "unknown field in a condition",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "nope", "op": "eq", "value": "x" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.field", "not_a_form_field"]]
+    },
+    {
+      "name": "an operator outside the subset",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "contains", "value": "x" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.op", "invalid_choice"]]
+    },
+    {
+      "name": "in needs a list",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "in", "value": "team" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.value", "invalid_value"]]
+    },
+    {
+      "name": "is_null takes no value",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "is_null", "value": "x" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.value", "invalid_value"]]
+    },
+    {
+      "name": "subject cannot be hidden or locked",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "is_null" },
+          "then": [
+            { "do": "hide", "field": "subject" },
+            { "do": "lock", "field": "requester_id" }
+          ]
+        }
+      ],
+      "problems": [
+        ["form_rules.0.then.0.field", "field_always_required"],
+        ["form_rules.0.then.1.field", "field_always_required"]
+      ]
+    },
+    {
+      "name": "keep_value only on hide; value only on set",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "is_null" },
+          "then": [
+            { "do": "show", "field": "site_id", "keep_value": true },
+            { "do": "require", "field": "site_id", "value": "x" },
+            { "do": "set", "field": "site_id" }
+          ]
+        }
+      ],
+      "problems": [
+        ["form_rules.0.then.0.keep_value", "invalid_value"],
+        ["form_rules.0.then.1.value", "invalid_value"],
+        ["form_rules.0.then.2.value", "invalid_value"]
+      ]
+    },
+    {
+      "name": "duplicate ids and no actions",
+      "rules": [
+        {
+          "id": "a",
+          "when": { "field": "impact", "op": "is_null" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        },
+        { "id": "a", "when": { "field": "impact", "op": "is_null" }, "then": [] }
+      ],
+      "problems": [
+        ["form_rules.1.id", "duplicate_value"],
+        ["form_rules.1.then", "required"]
+      ]
+    },
+    {
+      "name": "too deep",
+      "rules": [
+        {
+          "id": "a",
+          "when": {
+            "and": [{ "or": [{ "and": [{ "or": [{ "field": "impact", "op": "is_null" }] }] }] }]
+          },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.and.0.or.0.and.0", "rule_too_deep"]]
+    }
+  ]
+}

@@ -193,4 +193,40 @@ describe('console: a change’s tasks, children and closing (WP-045d S1)', () =>
       resolution: 'Moved, checked and signed off.',
     });
   });
+
+  it('REQ-CHG-100: the conversation and files come from the change’s own routes', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}?tab=conversation`);
+    const fake = api({
+      [`GET /api/v1/changes/${CHG_ID}/conversation`]: {
+        body: { items: [], people: {}, next_cursor: null },
+      },
+      [`GET /api/v1/files/records/change/${CHG_ID}`]: { body: [] },
+    });
+    render(<App />);
+    await screen.findByTestId('chg-tab-conversation');
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/changes/${CHG_ID}/conversation`)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/files/records/change/${CHG_ID}`)).toHaveLength(1);
+    });
+    const strays = fake.calls.filter(
+      (c) =>
+        c.path.includes(CHG_ID) &&
+        (c.path.startsWith('/api/v1/incidents/') || c.path.includes('/records/incident/')),
+    );
+    expect(strays.map((c) => c.path)).toEqual([]);
+  });
+
+  it('REQ-CHG-100: the details tab lists the change’s own files', async () => {
+    window.history.pushState({}, '', `/changes/${CHG_ID}`);
+    const fake = api({
+      [`GET /api/v1/files/records/change/${CHG_ID}`]: { body: [] },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('inc-files')).toBeTruthy();
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/files/records/change/${CHG_ID}`)).toHaveLength(1);
+    });
+  });
 });

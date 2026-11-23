@@ -13,9 +13,15 @@ from app.modules.organization.domain.tenant import TenantStatus
 from app.modules.organization.service import instance
 from app.modules.organization.service.tenants import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
-router = APIRouter(prefix="/organization", tags=["organization"])
+router = APIRouter(
+    prefix="/organization",
+    tags=["organization"],
+    # The same group as the rest of the organization settings (audit row 14).
+    dependencies=[Depends(rate_limit("organization"))],
+)
 
 
 class TenantResponse(BaseModel):

@@ -10,6 +10,8 @@ Public interface for other modules:
 - `mark_used(session, entity, keys)`: fields that now hold values (only retirable from then);
 - `filter_fields(session, entity, table)`: `custom.<key>` fields for the shared filter DSL;
 - `text_for_search(session, entity, values)`: free text for the search port (WP-027).
+- `fields_scoped_to(session, entity, type_ids)`: fields a type owns (before it is deleted);
+- `forget_lineage(session, entity)`: after moving a type, this transaction sees the new tree.
 """
 
 from app.core.modules import ModuleSpec
@@ -20,17 +22,41 @@ from app.modules.metadata.domain.fields import (
     FieldType,
 )
 from app.modules.metadata.events import EVENTS
-from app.modules.metadata.service import report_names
+from app.modules.metadata.service import report_names, seal_notifications
 from app.modules.metadata.service.custom_fields import (
+    FieldMarks,
     clean,
     definitions,
+    field_marks,
+    fields_scoped_to,
     filter_fields,
+    forget_lineage,
     mark_used,
     problem_params,
     register_field_usage,
     text_for_search,
 )
 from app.modules.metadata.service.realtime import ROUTES
+from app.modules.metadata.service.sensitivity import (
+    OPENING,
+    PLAIN,
+    SEALED,
+    SEALING,
+    Moving,
+    SealPort,
+    register_seal_port,
+    seal_counts,
+)
+from app.modules.metadata.service.sensitivity import advance as advance_seal
+from app.modules.metadata.service.sensitivity import finish as finish_seal
+from app.modules.metadata.service.sensitivity import hold as hold_seal
+from app.modules.metadata.service.sensitivity import moving as fields_being_sealed
+from app.modules.metadata.service.sensitivity import paused as seal_paused
+from app.modules.metadata.service.type_trees import (
+    TypeTree,
+    register_type_tree,
+    unregister_type_tree,
+)
 
 FEATURE = "incident"
 
@@ -47,15 +73,47 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "OPENING",
+    "PLAIN",
+    "SEALED",
+    "SEALING",
     "CustomFieldEntity",
     "Definition",
+    "FieldMarks",
     "FieldType",
+    "Moving",
+    "SealPort",
+    "TypeTree",
+    "advance_seal",
     "clean",
     "definitions",
+    "field_marks",
+    "fields_being_sealed",
+    "fields_scoped_to",
     "filter_fields",
+    "finish_seal",
+    "forget_lineage",
+    "hold_seal",
     "mark_used",
     "module",
     "problem_params",
     "register_field_usage",
+    "register_seal_port",
+    "register_type_tree",
+    "seal_counts",
+    "seal_paused",
     "text_for_search",
+    "unregister_type_tree",
 ]
+
+seal_notifications.register()
+
+
+def _register_seal_counter() -> None:
+    """The security overview's encryption tile (WP-057 S4d): counts only, by seal state."""
+    from app.modules.identity_access import register_seal_counter  # noqa: PLC0415 - at load
+
+    register_seal_counter(seal_counts)
+
+
+_register_seal_counter()

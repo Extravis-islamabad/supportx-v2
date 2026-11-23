@@ -165,7 +165,7 @@ class MobileQuickSignInOut(BaseModel):
 async def mobile_sign_in(
     body: QuickSignInIn, request: Request, auth: Auth, showcase: Showcase
 ) -> MobileQuickSignInOut:
-    """Sign a persona in on the mobile app (dev only, D-163): the session ID, never a cookie.
+    """Sign a persona in on the mobile app (dev only, D-183): the session ID, never a cookie.
 
     The app's debug build cannot finish the real sign-in on the local stack: its return link
     needs a verified https host (ADR-044 item 3). This is the web's quick sign-in for it, with the

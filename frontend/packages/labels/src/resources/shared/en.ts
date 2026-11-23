@@ -1,6 +1,8 @@
 // shared labels (see ../README.md). English is the reference.
 export const en = {
   'about.close': 'Close',
+  'about.geoip_attribution': 'Approximate sign-in places use IP to City Lite data (CC BY 4.0) by',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'Made by Extravis',
   'about.open': 'About SupportX',
   'about.version': 'Version {{version}}',
@@ -58,6 +60,8 @@ export const en = {
   'appearance.theme.light': 'Light',
   'appearance.theme.system': 'Follow the system',
   'appearance.title': 'Appearance',
+  'board.count_of': '{{shown}} of {{total}}',
+  'board.move_to': 'Move to…',
   'check_status.failed': 'Failed',
   'check_status.not_configured': 'Not configured',
   'check_status.ok': 'OK',
@@ -135,6 +139,13 @@ export const en = {
   'home.subtitle': 'Your workspace in {{tenant}}',
   'home.technician_seats': 'Technician seats',
   'home.title': 'Welcome, {{name}}',
+  'kept_draft.discard': 'Discard',
+  'kept_draft.found': 'A draft of this form was kept {{when}}',
+  'kept_draft.replace_body':
+    'The draft takes the place of everything in the form. This cannot be undone.',
+  'kept_draft.replace_title': "Replace what you've typed with the draft?",
+  'kept_draft.restore': 'Restore',
+  'kept_draft.unreadable': 'A kept draft of this form could not be read.',
   'layout.add_value': 'Add',
   'layout.alerts_count_one': '{{count}} alert',
   'layout.alerts_count_other': '{{count}} alerts',
@@ -161,7 +172,11 @@ export const en = {
   'layout.properties_fewer': 'Hide empty fields',
   'layout.reset_widths': 'Reset widths',
   'layout.resize_column': 'Width of {{column}}: use the arrow keys',
+  'layout.restricted_hidden': 'Not shown to you',
+  'layout.restricted_masked': 'Masked',
   'layout.star': 'Add to favourites',
+  'layout.tabs_earlier': 'Earlier tabs',
+  'layout.tabs_later': 'Later tabs',
   'layout.unstar': 'Remove from favourites',
   'layout.view': 'View',
   'live.changed_by':
@@ -172,6 +187,11 @@ export const en = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'Category',
+  'mail_command_field.group': 'Group',
+  'mail_command_field.priority': 'Priority',
+  'mail_command_field.technician': 'Technician',
+  'mail_command_field.template': 'Template',
   'mobile.about.app_version': 'App version',
   'mobile.about.server': 'Server',
   'mobile.about.server_status': 'Server status',
@@ -307,6 +327,7 @@ export const en = {
   'nav.admin_catalog': 'Service catalog',
   'nav.admin_change_boards': 'Change advisory boards',
   'nav.admin_change_windows': 'Freeze and maintenance windows',
+  'nav.admin_erasures': 'Erasures',
   'nav.admin_files': 'Files',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'Incidents',
@@ -319,10 +340,12 @@ export const en = {
   'nav.admin_notifications': 'Notifications',
   'nav.admin_organization': 'Organisation',
   'nav.admin_portal': 'Portal',
+  'nav.admin_releases': 'Release settings',
   'nav.admin_requests': 'Service requests',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'Roles',
   'nav.admin_security': 'Sign-in and security',
+  'nav.admin_service_accounts': 'Service accounts',
   'nav.admin_sla': 'SLA',
   'nav.admin_users': 'People',
   // Announcements, field history, action reasons (WP-012)
@@ -343,6 +366,7 @@ export const en = {
   'nav.main': 'Main navigation',
   'nav.more': 'More',
   'nav.my_requests': 'My requests',
+  'nav.my_tasks': 'My tasks',
   'nav.open_menu': 'Open the menu',
   'nav.problems': 'Problems',
   'nav.profile': 'My profile',
@@ -431,7 +455,7 @@ export const en = {
   'richtext.table': 'Insert table',
   'richtext.templates': 'Templates',
   'richtext.templates_manage': 'Manage templates…',
-  'richtext.templates_none': 'No reply templates yet',
+  'richtext.templates_none': 'No templates yet',
   'richtext.text_colour': 'Text colour',
   'richtext.text_style': 'Text style',
   'richtext.toolbar': 'Formatting',
@@ -446,6 +470,11 @@ export const en = {
   'search.same_requester': 'Also from {{name}}',
   'search.status_filter': 'Status',
   'search.type_to_search': 'Type an ID, words or a name',
+  'service_roles.add': 'Give a role',
+  'service_roles.inactive': 'Inactive: it does nothing until switched on again.',
+  'service_roles.no_roles': "No role yet: it can't act on any record.",
+  'service_roles.none_offered': 'No role you can give fits this identity.',
+  'service_roles.remove': 'Take the role {{name}}',
   'settings.actions': 'Actions',
   'settings.add_category': 'Add a category',
   'settings.add_item': 'Add an item',
@@ -460,8 +489,27 @@ export const en = {
   'settings.categories': 'Categories',
   'settings.categories_help':
     'Category, subcategory and item. Retired entries are not offered on new incidents but still show on the incidents that use them.',
+  'settings.cc_from_first_mail': "Keep the first e-mail's Cc informed",
+  'settings.cc_from_first_mail_help':
+    'Addresses in Cc on the mail that opens an incident get its public replies (20 at most). Each mail has a link to stop them.',
   'settings.changed_elsewhere':
     'Someone else changed these settings just now. The latest version is shown; please make your change again.',
+  'settings.checklists.add': 'New library checklist',
+  'settings.checklists.enabled_named': 'Offer {{name}}',
+  'settings.checklists.help':
+    'Ready-made checklists a technician can add to an incident. The incident gets its own copy: changing one here never changes incidents that already have it.',
+  'settings.checklists.import': 'Add items from a CSV file',
+  'settings.checklists.imported':
+    '{{items}} items read, {{rejected}} rows left out. Review them, then save.',
+  'settings.checklists.items': 'Items',
+  'settings.checklists.items_count_one': '{{count}} item',
+  'settings.checklists.items_count_other': '{{count}} items',
+  'settings.checklists.items_help': 'One item per line. Empty lines are left out.',
+  'settings.checklists.name': 'Name',
+  'settings.checklists.none': 'No library checklists yet.',
+  'settings.checklists.rejected_row': 'Row {{row}}: {{reason}}',
+  'settings.checklists.title': 'Checklist library',
+  'settings.checklists.why.name': 'Give the checklist a name first.',
   'settings.closing.auto_close': 'Close resolved incidents automatically',
   'settings.closing.auto_close_days': 'Business days before auto-close',
   'settings.closing.auto_close_help':
@@ -469,28 +517,81 @@ export const en = {
   'settings.closing.auto_close_needs_notifications':
     'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'Checklist items per record',
+  'settings.closing.checklist_item_max_help':
+    "All of a record's checklists together, {{min}} to {{max}}. A longer list is refused, never cut.",
   'settings.closing.close_requires': 'Needed before closing',
   'settings.closing.close_requires_help':
     'Fields that must be filled before an incident can be closed.',
+  'settings.closing.closed_edit_lock': 'Lock closed incidents',
+  'settings.closing.closed_edit_lock_help':
+    'While on, no one changes a closed incident\'s fields, holders of "Edit closed incidents" and administrators included. Notes and replies go on. It saves at once and may ask you to confirm your sign-in.',
+  'settings.closing.closed_edit_lock_switch': 'Lock closed incidents fully',
   'settings.closing.complete_open_work': 'Complete open work on close',
   'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
+  'settings.closing.condition.review_completed': 'Review completed',
+  'settings.closing.copy_limit': 'Copies at once',
+  'settings.closing.copy_limit_help':
+    'How many copies of an incident one request may make, {{min}} to {{max}}.',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
+  'settings.closing.edit_reason_fields': 'Fields that need a reason to change',
+  'settings.closing.edit_reason_fields_help':
+    "Whoever changes one of these says why; the reason is kept in the record's history.",
+  'settings.closing.first_contact_minutes': 'First-contact window (minutes)',
+  'settings.closing.first_contact_minutes_help':
+    'An incident its creator resolves within this time, never reassigned, is suggested as resolved at first contact ({{min}} to {{max}}).',
   'settings.closing.help':
     'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
   'settings.closing.open_work': 'Open work',
   'settings.closing.open_work_help':
     'What happens when an incident is resolved or closed while work on it is still open. These checks start working when tasks, checklists, linked incidents and approvals arrive.',
+  'settings.closing.release.close_requires_help':
+    'Fields that must be filled before a release can be closed.',
+  'settings.closing.release.complete_open_work_help':
+    'Closing a release marks its open tasks as done; linked changes and sub-releases are never closed with it.',
+  'settings.closing.release.help':
+    'What resolving and closing a release need, and what happens to its open work: tasks, approvals, linked changes and sub-releases.',
+  'settings.closing.release.open_work_help':
+    'What happens when a release is resolved or closed while work on it is still open.',
+  'settings.closing.release.resolve_requires_help':
+    'Fields that must be filled before a release can be resolved.',
+  'settings.closing.release.task_owner_access':
+    'Task owners work on their tasks without access to the release',
+  'settings.closing.release.task_owner_access_help':
+    'They see their task and the release’s ID and subject, and can change the task’s status; never the notes or plans.',
+  'settings.closing.release.timer_auto_start':
+    'Start the timer when someone opens a release they own',
+  'settings.closing.release.timer_auto_start_help':
+    'Once per release, for its owner. Off by default: a timer nobody notices logs wrong time.',
+  'settings.closing.release.worklog_block_closed': 'No time on closed releases',
+  'settings.closing.release.worklog_block_closed_help':
+    'Once a release is closed, nobody can log, change or remove its time.',
+  'settings.closing.release.worklog_count_nonworking': 'Count time outside working hours',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'Time logged on a release outside working hours counts in totals and reports. Off: only working hours count.',
   'settings.closing.reopen_window_days': 'Reopen window (days)',
   'settings.closing.reopen_window_help':
     'A requester reply within this many days of resolving reopens the incident; a later reply starts a new one. From 1 to 30.',
   'settings.closing.resolve_requires': 'Needed before resolving',
   'settings.closing.resolve_requires_help':
     'Fields that must be filled before an incident can be resolved.',
+  'settings.closing.task_dependency_mode': 'Waiting tasks are blocked',
+  'settings.closing.task_dependency_mode_help':
+    'A task cannot start or be done while a task it waits for is open. Off: it only shows as waiting.',
   'settings.closing.task_owner_access':
     'Task owners work on their tasks without access to the incident',
   'settings.closing.task_owner_access_help':
     'They see their task and the incident’s ID and subject, and can change the task’s status; never the conversation or notes.',
+  'settings.closing.timer_auto_start': 'Start the timer when a technician opens their incident',
+  'settings.closing.timer_auto_start_help':
+    'Once per incident, for the person it is assigned to. Off by default: a timer nobody notices logs wrong time.',
   'settings.closing.title': 'Resolving and closing',
+  'settings.closing.worklog_block_closed': 'No time on closed incidents',
+  'settings.closing.worklog_block_closed_help':
+    'Once an incident is closed, nobody can log, change or remove its time.',
+  'settings.closing.worklog_count_nonworking': 'Count time outside working hours',
+  'settings.closing.worklog_count_nonworking_help':
+    'Time logged outside working hours counts in totals and reports. Off: only working hours count.',
   'settings.closure_codes_help':
     'How an incident ended. Picked when an incident is closed; reports group by it.',
   'settings.colour': 'Colour',
@@ -521,7 +622,42 @@ export const en = {
   'settings.leave_title': 'Leave without saving?',
   'settings.levels_help':
     'The support level an incident is handled at. Used in views, rules and reports.',
+  'settings.lifecycle.add_move': 'Add a move',
+  'settings.lifecycle.discard': 'Throw away the draft',
+  'settings.lifecycle.discard_body': 'The draft and its moves are removed. No record uses it.',
+  'settings.lifecycle.discard_title': 'Throw away the draft of version {{number}}?',
+  'settings.lifecycle.draft_help':
+    'Change the moves, save the draft, and publish it once nothing needs fixing.',
+  'settings.lifecycle.draft_title': 'Draft of version {{number}}',
+  'settings.lifecycle.extra_right': 'Extra right needed',
+  'settings.lifecycle.moves': 'Moves',
+  'settings.lifecycle.new_records_start_here': 'New records start here',
+  'settings.lifecycle.no_extra_right': 'None',
+  'settings.lifecycle.problems_title_one': '{{count}} problem to fix before publishing',
+  'settings.lifecycle.problems_title_other': '{{count}} problems to fix before publishing',
+  'settings.lifecycle.publish': 'Publish',
+  'settings.lifecycle.publish_body':
+    'New records will start on this version. Existing records stay on the version they started on and keep its moves.',
+  'settings.lifecycle.publish_title': 'Publish version {{number}}?',
+  'settings.lifecycle.published_at': 'Published',
+  'settings.lifecycle.remove_move': 'Remove {{action}} from {{status}}',
+  'settings.lifecycle.required_fields': 'Fields needed first',
+  'settings.lifecycle.retire': 'Retire',
+  'settings.lifecycle.save_draft': 'Save draft',
+  'settings.lifecycle.start_draft': 'Start a new version',
+  'settings.lifecycle.state': 'State',
+  'settings.lifecycle.unsaved': 'You have unsaved changes to the draft.',
+  'settings.lifecycle.version': 'Version',
+  'settings.lifecycle.version_number': 'Version {{number}}',
+  'settings.lifecycle.versions': 'Life cycle versions',
+  'settings.lifecycle.versions_help':
+    'Each version is a set of status moves. New records start on the version marked below and keep it; a published version never changes. Who may run a move and when it is offered are set in Automation and apply to every version at once.',
   'settings.load_failed': "The incident settings couldn't be loaded. Reload the page to try again.",
+  'settings.mail': 'E-mail',
+  'settings.mail_command_fields': 'Fields a mail may set',
+  'settings.mail_commands': 'Apply commands written in an e-mail',
+  'settings.mail_commands_help':
+    "A mail may start with lines such as priority = p1. They are applied as the sender, only when the mailbox's trusted server confirmed who sent it, and only for changes the sender could make in SupportX.",
   'settings.matrix': 'Priority matrix',
   'settings.matrix_cell': 'Priority for impact "{{impact}}" and urgency "{{urgency}}"',
   'settings.matrix_help':
@@ -561,8 +697,21 @@ export const en = {
   'settings.reason_prompts': 'Reasons when the status changes',
   'settings.reason_prompts_help':
     'Choose whether each change asks for a reason. Pausing, cancelling and reopening pick from the reason lists.',
+  'settings.release_closure_codes_help':
+    'How a release ended. Picked when a release is closed; reports group by it.',
+  'settings.release_roles.take_help':
+    'Taking a release makes you this role on it, when nobody holds it yet. Who may hold each role follows the role’s own rules.',
+  'settings.release_roles.take_title': 'What Take makes you',
   'settings.rename': 'Rename',
   'settings.rename_value': 'Rename "{{name}}"',
+  'settings.requester_cancel': 'Requesters can cancel',
+  'settings.requester_edit_fields': 'Fields requesters can edit',
+  'settings.requester_edit_fields_help':
+    'None: the incident is read-only for them, apart from replying.',
+  'settings.requester_edit_none': 'None (read-only)',
+  'settings.requester_rules': 'Requesters cancel and edit',
+  'settings.requester_rules_help':
+    'What requesters may still do on their own incidents after reporting them. Off and none: as before.',
   'settings.resume_on_requester_reply': 'A requester reply resumes it',
   'settings.resume_on_requester_reply_for': 'A requester reply resumes “{{status}}”',
   'settings.retire': 'Retire',
@@ -584,21 +733,31 @@ export const en = {
     'How fast it must be fixed. The four values are fixed; you can rename them.',
   'settings.section.business-rules': 'Business rules',
   'settings.section.categories': 'Categories',
+  'settings.section.checklists': 'Checklists',
   'settings.section.closing': 'Closing',
   'settings.section.closure-codes': 'Closure codes',
   'settings.section.custom-fields': 'Custom fields',
   'settings.section.general': 'General',
   'settings.section.levels': 'Levels',
+  'settings.section.lifecycle': 'Life cycle',
   'settings.section.priority': 'Priority',
   'settings.section.reasons': 'Reasons',
   'settings.section.reply-templates': 'Reply templates',
+  'settings.section.resolution-templates': 'Resolution templates',
+  'settings.section.roles': 'Roles',
   'settings.section.routing': 'Routing and assignment',
+  'settings.section.stages': 'Stages',
   'settings.section.statuses': 'Statuses',
+  'settings.section.task-templates': 'Task templates',
   'settings.section.templates': 'Templates',
   'settings.section.transitions': 'Transitions',
   'settings.section.triggers': 'Triggers',
   'settings.shipped_name': 'Built-in name: {{name}}',
   'settings.shipped_name_hint': 'Built-in name: {{name}}. Leave the names empty to keep it.',
+  'settings.stages.open_tasks_block': 'Open stage tasks hold the stage',
+  'settings.stages.open_tasks_block_help':
+    'A release cannot leave a stage while one of its tasks is open; the move names the task. Off: the move only warns.',
+  'settings.stages.title': 'Stage tasks',
   'settings.stale':
     'These settings were changed elsewhere while you were editing. Reload to see them (your unsaved edits here will be lost).',
   'settings.status_action': 'Action',
@@ -657,6 +816,10 @@ export const en = {
     'When changes must not happen, and when they should: freezes and maintenance windows, for everyone or for some sites and groups.',
   'setup.page.change-windows.keywords':
     'freeze, change freeze, maintenance window, blackout, change calendar',
+  'setup.page.erasures.description':
+    "Ask for, approve and follow a person's erasure (GDPR), with the report of where they are named.",
+  'setup.page.erasures.keywords':
+    'erasure, GDPR, privacy, right to be forgotten, personal data, legal hold',
   'setup.page.files.description': 'Upload limits, allowed file types and malware scanning.',
   'setup.page.files.keywords':
     'files, attachments, uploads, size, storage, malware, virus, scanning',
@@ -692,6 +855,10 @@ export const en = {
     'Everything the self-service portal does for requesters, on one page.',
   'setup.page.portal.keywords':
     'portal, self-service, search, search sources, hide incident form, due time, delivery date, on behalf, approvals, sign in, profile editing, reminders, cost, guest, self-registration',
+  'setup.page.releases.description':
+    'How releases close: their closure codes, what closing needs, which open work warns or blocks, and whether open stage tasks hold a stage.',
+  'setup.page.releases.keywords':
+    'release, release settings, closure codes, closing, rollback, stage tasks, deployment',
   'setup.page.requests.description':
     'Service requests: on whose behalf requesters may raise them, and the request views.',
   'setup.page.requests.keywords':
@@ -702,6 +869,10 @@ export const en = {
     'Sign-in, passwords, two-step sign-in, single sign-on, sessions and API keys.',
   'setup.page.security.keywords':
     'security, password, mfa, two-step, 2fa, sso, saml, oidc, sessions, timeout, invitations, api keys',
+  'setup.page.service-accounts.description':
+    'Accounts other systems act as through API keys, each with an owner who answers for it, and its roles.',
+  'setup.page.service-accounts.keywords':
+    'service accounts, integrations, owner, hand-over, robots, automation, api',
   'setup.page.sla.description': 'Service targets, working hours, holidays and escalations.',
   'setup.page.sla.keywords':
     'sla, targets, response time, resolution, business hours, calendar, holidays, escalation',

@@ -7,6 +7,7 @@ from a viewer's audience as well as add it where it arrived.
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
@@ -205,6 +206,16 @@ class WorkItemConversationVisibilityChanged(_ConversationEvent):
     from_visibility: str
 
 
+class WorkItemConversationRedacted(_ConversationEvent):
+    """An entry's text had a person's name taken out by their erasure (ADR-052 S2).
+
+    The timeline refetches the entry; IDs only, never the text.
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.redacted"
+    schema_version: ClassVar[int] = 1
+
+
 class WorkItemConversationDeliveryChanged(_ConversationEvent):
     """A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).
 
@@ -240,6 +251,21 @@ class WorkItemFollowerRemoved(_FollowerEvent):
 
     event_type: ClassVar[str] = "work_items.follower.removed"
     schema_version: ClassVar[int] = 1
+
+
+class WorkItemMajorChanged(DomainEvent):
+    """An incident was declared major, or its major status ended (WP-046b S4, REQ-INC-141).
+
+    IDs and the flag only: never the reason (lane B). The notification engine tells the major
+    incident team; lists and the record show the marker live.
+    """
+
+    event_type: ClassVar[str] = "work_items.major.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    major: bool
 
 
 class WorkItemWorkflowNotice(DomainEvent):
@@ -286,6 +312,24 @@ class WorkItemViewChanged(DomainEvent):
     visibility: str
 
 
+class WorkItemViewUnshared(DomainEvent):
+    """A shared view went back to private (D-176).
+
+    Its filter names a field some recipient may not see. IDs and codes only; the owner is told
+    through the notification source of saved views.
+    """
+
+    event_type: ClassVar[str] = "work_items.view.unshared"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_view"
+
+    view_id: uuid.UUID
+    type: str
+    owner_id: uuid.UUID
+    field_key: str
+    reason: str  # "restricted_field" or "sealed_field"
+
+
 class WorkItemListSettingsChanged(DomainEvent):
     """A user's columns, sort or page size of one view changed (their other windows follow)."""
 
@@ -296,6 +340,36 @@ class WorkItemListSettingsChanged(DomainEvent):
     user_id: uuid.UUID
     type: str
     view_key: str
+
+
+class WorkItemCancellationRequested(DomainEvent):
+    """A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).
+
+    IDs only: the reason is the ask's own row, read by those who may decide.
+    """
+
+    event_type: ClassVar[str] = "work_items.cancellation_request.created"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_cancellation_request"
+
+    work_item_id: uuid.UUID
+    type: str
+    requested_by: uuid.UUID
+    request_id: uuid.UUID
+    deciders: str  # a `CancellationDeciders` code: who decides it
+
+
+class WorkItemCancellationDecided(DomainEvent):
+    """A requester's ask to cancel was approved, declined or withdrawn (its state code)."""
+
+    event_type: ClassVar[str] = "work_items.cancellation_request.decided"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_cancellation_request"
+
+    work_item_id: uuid.UUID
+    type: str
+    state: str  # approved | declined | withdrawn
+    requested_by: uuid.UUID
 
 
 class WorkItemBulkJobProgressed(DomainEvent):
@@ -346,6 +420,9 @@ class WorkItemAssetLinkChanged(DomainEvent):
     work_item_id: uuid.UUID
     asset_id: uuid.UUID
     change: Literal["added", "removed"]
+    # Linked as the record was made, from a form prefilled on the asset page (WP-049b S4):
+    # the asset's history says "INC-n raised from this asset". Additive; false for older events.
+    at_creation: bool = False
 
 
 class WorkItemPartChangedV2(DomainEvent):
@@ -367,6 +444,35 @@ class WorkItemPartChangedV2(DomainEvent):
 
 
 ApprovalChange = Literal["opened", "decided", "closed"]
+
+
+class WorkItemPartChangedV3(DomainEvent):
+    """As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).
+
+    New allowed values retype `part`, so a new schema version (docs/architecture/events.md
+    "Versioning"); v1 and v2 stay registered and keep publishing their parts. A reminder or a
+    running timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal
+    channel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 3
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal[
+        "task",
+        "worklog",
+        "link",
+        "plan_section",
+        "stage_schedule",
+        "downtime",
+        "checklist",
+        "reminder",
+        "timer",
+    ]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
 
 
 class WorkItemApprovalChanged(DomainEvent):
@@ -433,6 +539,78 @@ class ChangeApprovalNotice(DomainEvent):
     board_id: uuid.UUID | None
 
 
+class ChangeReminderDue(DomainEvent):
+    """A change's reminder is due (WP-045d S3; REQ-CHG-091, -105), claimed once by the sweep.
+
+    `kind`: `window_start` (an hour before the implementation window), `implementation_overdue`
+    (the window ended with implementation not complete), `cab_waiting` (it starts within a day
+    and `member_id` has not decided) or `review_due`. `window_start` is the window it was
+    claimed for: the source re-reads the change at send time and says nothing if the window
+    moved meanwhile (lane B). IDs and times only.
+    """
+
+    event_type: ClassVar[str] = "work_items.change.reminder_due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    kind: str
+    window_start: datetime | None = None
+    member_id: uuid.UUID | None = None
+
+
+class WorkItemTaskAssigned(DomainEvent):
+    """A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.
+
+    Raised when a task is made with an owner or its owner changes to another person. IDs only;
+    the notification source reads the task and its record at send time.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.assigned"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    owner_id: uuid.UUID
+
+
+class WorkItemTaskReminderDue(DomainEvent):
+    """A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.
+
+    `kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open
+    past its due time). `at` is the time it was claimed for: the source re-reads the task at
+    send time and says nothing if that time moved meanwhile. IDs and times only.
+    """
+
+    event_type: ClassVar[str] = "work_items.task.reminder_due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    task_id: uuid.UUID
+    kind: str
+    at: datetime
+
+
+class WorkItemReminderDue(DomainEvent):
+    """A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).
+
+    Raised once by the sweep at its time minus its lead. IDs only; the source re-reads the
+    reminder at send time and says nothing if it moved, was completed, or its owner can no
+    longer see the record (the coordinator).
+    """
+
+    event_type: ClassVar[str] = "work_items.reminder.due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    reminder_id: uuid.UUID
+    user_id: uuid.UUID
+    remind_at: datetime
+
+
 class ProblemRepeatDetected(DomainEvent):
     """A repeat incident rule found a new set (WP-044c D16, REQ-PRB-068): the group is told.
 
@@ -476,12 +654,29 @@ class WorkItemAssigneeUnavailable(_WorkItemEvent):
     owner_id: uuid.UUID | None = None
 
 
+class WorkItemDraftChanged(DomainEvent):
+    """A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.
+
+    The person and the form only, never what the draft holds (lane B's condition 7).
+    """
+
+    event_type: ClassVar[str] = "work_items.draft.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    owner_id: uuid.UUID
+    form_key: str
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
+    WorkItemDraftChanged,
     ServiceRequestReadyToFulfil,
     WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemWorkflowNotice,
+    WorkItemMajorChanged,
     WorkItemUpdated,
     WorkItemStatusChanged,
     WorkItemStageChanged,
@@ -493,20 +688,29 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPortalSettingsChanged,
     WorkItemApprovalSettingsChanged,
     WorkItemConversationAdded,
+    WorkItemConversationRedacted,
     WorkItemConversationVisibilityChanged,
     WorkItemConversationDeliveryChanged,
     WorkItemFollowerAdded,
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
     WorkItemViewChanged,
+    WorkItemViewUnshared,
     WorkItemListSettingsChanged,
+    WorkItemCancellationRequested,
+    WorkItemCancellationDecided,
     WorkItemBulkJobProgressed,
     WorkItemPartChanged,
     WorkItemPartChangedV2,
+    WorkItemPartChangedV3,
+    WorkItemReminderDue,
     WorkItemApprovalChanged,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,
+    ChangeReminderDue,
+    WorkItemTaskAssigned,
+    WorkItemTaskReminderDue,
     ProblemRepeatDetected,
     ProblemRepeatChanged,
 )

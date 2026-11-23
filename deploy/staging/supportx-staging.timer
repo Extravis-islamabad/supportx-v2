@@ -1,0 +1,13 @@
+# Nightly at 03:00 local time, plus up to 15 minutes at random (D-169; runbook step 7).
+# Persistent: a run missed while the laptop was off starts soon after it comes back.
+[Unit]
+Description=SupportX staging: nightly pull, build, upgrade and test
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=15min
+Unit=supportx-staging.service
+
+[Install]
+WantedBy=timers.target

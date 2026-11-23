@@ -5,6 +5,7 @@ import {
   Flex,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -56,6 +57,8 @@ interface Draft {
   tagPattern: string;
   ackRequired: boolean;
   description: string;
+  // D-157: declining balance's factor on the straight-line rate (2 unless changed).
+  factor: string;
 }
 
 /**
@@ -97,6 +100,7 @@ export function TypesTab({
             tagPattern: '',
             ackRequired: false,
             description: '',
+            factor: '2',
           }
         : {
             names: type.names,
@@ -107,6 +111,7 @@ export function TypesTab({
             tagPattern: type.tag_pattern ?? '',
             ackRequired: type.ack_required,
             description: type.description ?? '',
+            factor: type.depreciation_factor,
           },
     );
   };
@@ -133,6 +138,7 @@ export function TypesTab({
             tag_pattern: tagPattern,
             ack_required: draft.ackRequired,
             description,
+            depreciation_factor: draft.factor,
           },
         },
         close,
@@ -148,6 +154,9 @@ export function TypesTab({
     if (tagPattern !== editing.tag_pattern) body.tag_pattern = tagPattern;
     if (draft.ackRequired !== editing.ack_required) body.ack_required = draft.ackRequired;
     if (description !== editing.description) body.description = description;
+    if (Number(draft.factor) !== Number(editing.depreciation_factor)) {
+      body.depreciation_factor = draft.factor;
+    }
     run({ kind: 'product_type', id: editing.id, version: editing.version, body }, close, close);
   };
   const excluded = editing !== null && editing !== 'new' ? below(editing.id, types) : new Set();
@@ -385,6 +394,30 @@ export function TypesTab({
                 onChange={(event) => {
                   setDraft({ ...draft, description: event.target.value });
                 }}
+              />
+            </Form.Item>
+            <Form.Item
+              label={t('assets.admin.depreciation_factor')}
+              htmlFor="asset-type-factor"
+              extra={
+                <Typography.Text type="secondary">
+                  {t('assets.admin.depreciation_factor_help')}
+                </Typography.Text>
+              }
+            >
+              <InputNumber<string>
+                id="asset-type-factor"
+                stringMode
+                min="0.01"
+                max="10"
+                step="0.5"
+                precision={2}
+                value={draft.factor}
+                onChange={(value) => {
+                  setDraft({ ...draft, factor: value ?? '2' });
+                }}
+                style={{ width: 120 }}
+                data-testid="asset-type-factor"
               />
             </Form.Item>
             <Checkbox

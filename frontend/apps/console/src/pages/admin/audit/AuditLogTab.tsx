@@ -21,6 +21,7 @@ import { FormProblem, useDateTime, useFormProblem, useLabel, lengthLimit } from 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
 import { actionLabel, actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
 import { StateTag } from './StateTag';
+import { TableRegion } from '../../../TableRegion';
 
 /** Every action code that has a label (the catalogue lives in the backend; labels mirror it). */
 const ACTIONS = Object.keys(en)
@@ -75,6 +76,24 @@ function rangeFilter(range: string | undefined): FilterExpression | undefined {
 }
 
 /**
+ * A person's entries: what they did, and what their API keys and AI agents did for them
+ * (`on_behalf_id`, WP-057 S4b).
+ */
+function withPerson(
+  base: FilterExpression | undefined,
+  person: string | undefined,
+): FilterExpression | undefined {
+  if (person === undefined) return base;
+  const either: FilterExpression = {
+    or: [
+      { field: 'actor_id', op: 'eq', value: person },
+      { field: 'on_behalf_id', op: 'eq', value: person },
+    ],
+  };
+  return base === undefined ? either : { and: [base, either] };
+}
+
+/**
  * The audit log (REQ-AUD-003, 007): filters by actor, actor type, action, category, outcome,
  * client and time range; saved searches; paging without a limit. New entries never move the rows
  * under the pointer: they are announced in a pill and shown when the reader asks (REQ-WI-012).
@@ -90,10 +109,10 @@ export function AuditLogTab() {
       return value === null || value === '' ? [] : [[key, value]];
     }),
   ) as Record<string, string>;
-  const { range, ...simple } = filters;
+  const { range, actor_id: person, ...simple } = filters;
   const searchKey = params.toString();
   const query: AuditEntriesQuery = useMemo(
-    () => ({ params: simple, filter: rangeFilter(range ?? '30d') }),
+    () => ({ params: simple, filter: withPerson(rangeFilter(range ?? '30d'), person) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the URL (searchKey) is the source of truth
     [searchKey],
   );
@@ -249,65 +268,67 @@ export function AuditLogTab() {
           </Button>
         )}
       </div>
-      <Table<AuditEntry>
-        rowKey="id"
-        data-testid="audit-table"
-        size="small"
-        loading={entries.isPending}
-        dataSource={rows}
-        pagination={false}
-        onRow={(entry) => ({
-          onClick: () => {
-            open(entry.id);
-          },
-          style: { cursor: 'pointer' },
-          'data-testid': `audit-row-${entry.id}`,
-        })}
-        columns={[
-          {
-            key: 'time',
-            title: t('audit.ui.col.time'),
-            render: (_, entry) => (
-              <time dateTime={entry.occurred_at}>{dates.formatExact(entry.occurred_at)}</time>
-            ),
-          },
-          { key: 'actor', title: t('audit.ui.col.actor'), render: (_, e) => actorLabel(t, e) },
-          {
-            key: 'action',
-            title: t('audit.ui.col.action'),
-            render: (_, entry) => actionLabel(t, entry),
-          },
-          { key: 'object', title: t('audit.ui.col.object'), render: (_, e) => objectLabel(t, e) },
-          {
-            key: 'outcome',
-            title: t('audit.ui.col.outcome'),
-            render: (_, entry) => (
-              <StateTag tone={OUTCOME_COLOURS[entry.outcome]}>
-                {t(`audit_outcome.${entry.outcome}`)}
-              </StateTag>
-            ),
-          },
-          {
-            key: 'client',
-            title: t('audit.ui.col.client'),
-            render: (_, entry) => t(`audit_client.${entry.client}`),
-          },
-          {
-            key: 'seal',
-            title: t('audit.ui.col.seal'),
-            render: (_, entry) =>
-              entry.seq === null ? (
-                <Tooltip title={t('audit.ui.pending_seal_help')}>
-                  <Tag data-testid="audit-pending-seal">{t('audit.pending_seal')}</Tag>
-                </Tooltip>
-              ) : (
-                <Typography.Text type="secondary">
-                  {t('audit.ui.sealed_at_position', { seq: entry.seq })}
-                </Typography.Text>
+      <TableRegion label={t('audit.ui.tab.log')}>
+        <Table<AuditEntry>
+          rowKey="id"
+          data-testid="audit-table"
+          size="small"
+          loading={entries.isPending}
+          dataSource={rows}
+          pagination={false}
+          onRow={(entry) => ({
+            onClick: () => {
+              open(entry.id);
+            },
+            style: { cursor: 'pointer' },
+            'data-testid': `audit-row-${entry.id}`,
+          })}
+          columns={[
+            {
+              key: 'time',
+              title: t('audit.ui.col.time'),
+              render: (_, entry) => (
+                <time dateTime={entry.occurred_at}>{dates.formatExact(entry.occurred_at)}</time>
               ),
-          },
-        ]}
-      />
+            },
+            { key: 'actor', title: t('audit.ui.col.actor'), render: (_, e) => actorLabel(t, e) },
+            {
+              key: 'action',
+              title: t('audit.ui.col.action'),
+              render: (_, entry) => actionLabel(t, entry),
+            },
+            { key: 'object', title: t('audit.ui.col.object'), render: (_, e) => objectLabel(t, e) },
+            {
+              key: 'outcome',
+              title: t('audit.ui.col.outcome'),
+              render: (_, entry) => (
+                <StateTag tone={OUTCOME_COLOURS[entry.outcome]}>
+                  {t(`audit_outcome.${entry.outcome}`)}
+                </StateTag>
+              ),
+            },
+            {
+              key: 'client',
+              title: t('audit.ui.col.client'),
+              render: (_, entry) => t(`audit_client.${entry.client}`),
+            },
+            {
+              key: 'seal',
+              title: t('audit.ui.col.seal'),
+              render: (_, entry) =>
+                entry.seq === null ? (
+                  <Tooltip title={t('audit.ui.pending_seal_help')}>
+                    <Tag data-testid="audit-pending-seal">{t('audit.pending_seal')}</Tag>
+                  </Tooltip>
+                ) : (
+                  <Typography.Text type="secondary">
+                    {t('audit.ui.sealed_at_position', { seq: entry.seq })}
+                  </Typography.Text>
+                ),
+            },
+          ]}
+        />
+      </TableRegion>
       <Flex justify="center">
         {entries.hasNextPage ? (
           <Button

@@ -12,6 +12,7 @@ export type AuditEntryPage = components['schemas']['AuditEntryPage'];
 export type AuditStatus = components['schemas']['AuditStatusOut'];
 export type AuditRun = components['schemas']['AuditRunOut'];
 export type AuditSettings = components['schemas']['AuditSettingsOut'];
+export type PersonalDataAccessEntry = components['schemas']['PersonalDataAccessOut'];
 export type AuditSettingsInput = components['schemas']['AuditSettingsIn'];
 export type AuditExport = components['schemas']['AuditExportOut'];
 export type AuditExportInput = components['schemas']['AuditExportIn'];
@@ -242,4 +243,67 @@ export function useRestoredAuditEntries(id: string | undefined) {
     getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
     enabled: id !== undefined,
   });
+}
+
+/**
+ * Who accessed one person's personal data (REQ-AUD-017; WP-057 S3b-1), newest first, a page at a
+ * time (`before`). Needs audit.view_personal_data_access; the query is itself audited.
+ */
+export function usePersonalDataAccess(person: string | undefined, since?: string, until?: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.audit.personalDataAccess(person ?? '', since, until),
+    enabled: person !== undefined && person !== '',
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/audit/personal-data-access', {
+          params: { query: { person: person ?? '', since, until, before: pageParam } },
+        }),
+      ),
+    getNextPageParam: (page) => page.next_before ?? undefined,
+  });
+}
+
+// --- the system log (WP-057 S5b, REQ-AUD-016) ---------------------------------------------------
+
+export type SystemLogEntry = components['schemas']['SystemLogEntryOut'];
+export type SystemLogSeverity = components['schemas']['SystemLogSeverity'];
+
+/** The screen's filters; the export takes the same ones (AC3: the same rows). */
+export interface SystemLogFilters {
+  severity?: SystemLogSeverity[];
+  module?: string[];
+  since?: string;
+  until?: string;
+  object_type?: string;
+  object_id?: string;
+}
+
+/** The system log, newest first, a page at a time (audit.view; the read is logged). */
+export function useSystemLog(filters: SystemLogFilters, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.audit.systemLog(filters),
+    enabled,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/audit/system-log', {
+          params: { query: { ...filters, after: pageParam } },
+        }),
+      ),
+    getNextPageParam: (page) => page.next_after ?? undefined,
+  });
+}
+
+/** The filtered rows as CSV in `language` (audit.export; the export is audited). */
+export async function downloadSystemLog(
+  filters: SystemLogFilters,
+  language: 'en' | 'ar' | 'ur',
+): Promise<Blob> {
+  return call(
+    api.GET('/api/v1/audit/system-log/export', {
+      params: { query: { ...filters, language } },
+      parseAs: 'blob',
+    }),
+  );
 }

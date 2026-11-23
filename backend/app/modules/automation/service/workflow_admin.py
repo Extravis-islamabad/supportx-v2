@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound, ValidationFailed
+from app.modules.automation.domain import field_refs
 from app.modules.automation.domain.rules import FieldKind
 from app.modules.automation.domain.workflows import (
     FORMAT,
@@ -34,17 +35,26 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     TypeFacts,
+    masked,
     offered,
     parse,
     sub_flows,
     validate,
+    with_kept_secrets,
 )
-from app.modules.automation.events import WorkflowChanged, WorkflowDeleted
+from app.modules.automation.events import WorkflowChanged, WorkflowDeleted, WorkflowRunAsChanged
 from app.modules.automation.infra.models import Workflow, WorkflowInstance, WorkflowVersion
 from app.modules.automation.service import functions
 from app.modules.automation.service.business_rules import person_group_problems
 from app.modules.automation.service.registry import record_type as registered
-from app.modules.identity_access import create_service_identity, set_service_identity_active
+from app.modules.identity_access import (
+    PolicyService,
+    Subject,
+    assign_service_identity_role,
+    create_service_identity,
+    remove_service_identity_role,
+    set_service_identity_active,
+)
 from app.shared.events import record_event
 
 NAME_MAX = 200
@@ -98,6 +108,8 @@ class NodeTypeOffer:
     why_not: str | None
     outputs: tuple[str, ...]
     optional: frozenset[str]
+    # An approval's choice of the record's roles, for its settings form (QA F-05: no JSON).
+    roles: tuple[str, ...] = ()
 
 
 async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOffer]:
@@ -116,6 +128,7 @@ async def node_types(session: AsyncSession, record_type: str) -> list[NodeTypeOf
                 why_not=None if available or need is None else need[1],
                 outputs=spec.outputs({}),
                 optional=spec.optional({}),
+                roles=tuple(sorted(facts.roles)) if node_type == NodeType.APPROVAL else (),
             )
         )
     return found
@@ -134,6 +147,35 @@ async def problems_of(
     found = parsed.problems + validate(parsed.definition, await type_facts(session, record_type))
     found += await _sub_flow_problems(session, record_type, parsed.definition, workflow_id)
     return found + await _person_problems(session, parsed.definition)
+
+
+def _access_problems(
+    author: Subject | None, record_type: str, definition: Mapping[str, Any]
+) -> list[Problem]:
+    """Fields a step names that the workflow's author does not see in clear (ADR-047 §8).
+
+    A field update names its fields as the keys of `values`; conditions and copies name them
+    under `field` / `from_field`. Shown on the step like any problem; publishing waits for none.
+    """
+    if author is None:
+        return []
+    hidden = field_refs.withheld(author.field_access, record_type)
+    if not hidden:
+        return []
+    problems: list[Problem] = []
+    for node in definition.get("nodes") or []:
+        if not isinstance(node, Mapping):
+            continue
+        config = node.get("config") or {}
+        values = config.get("values") if isinstance(config, Mapping) else None
+        named = field_refs.named_fields(config) | (
+            set(values) if isinstance(values, Mapping) else set()
+        )
+        problems += [
+            (f"node:{node.get('id', '')}", "field_not_permitted", {"field": f})
+            for f in sorted(named & hidden)
+        ]
+    return problems
 
 
 async def _person_problems(session: AsyncSession, definition: Definition) -> list[Problem]:
@@ -271,11 +313,15 @@ async def save_draft(
     *,
     expected_version: int,
     definition: Mapping[str, Any],
+    author: Subject | None,
 ) -> tuple[Workflow, list[Problem]]:
     """The draft saves whatever its problems; they come back to be shown on the canvas."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
+    # The designer only ever saw header values masked: the ones sent back masked stay as stored.
+    definition = with_kept_secrets(definition, workflow.draft)
     problems = await problems_of(session, workflow.record_type, definition, workflow.id)
+    problems += _access_problems(author, workflow.record_type, definition)
     workflow.draft = dict(definition)
     workflow.draft_problems = len(problems)
     workflow.version += 1
@@ -290,11 +336,13 @@ async def publish(
     *,
     expected_version: int,
     by: uuid.UUID | None = None,
+    author: Subject | None,
 ) -> WorkflowVersion:
     """A clean draft becomes the next version; running instances keep theirs (REQ-WF-021)."""
     workflow = await _get(session, workflow_id)
     _stale(workflow, expected_version)
     problems = await problems_of(session, workflow.record_type, workflow.draft, workflow.id)
+    problems += _access_problems(author, workflow.record_type, workflow.draft)
     if problems:
         raise ValidationFailed(code="workflow_has_problems", params={"count": len(problems)})
     if workflow.service_identity_id is None:
@@ -431,7 +479,8 @@ async def export_workflow(session: AsyncSession, workflow_id: uuid.UUID) -> dict
         "record_type": workflow.record_type,
         "name": workflow.name,
         "description": workflow.description,
-        "definition": copy.deepcopy(workflow.draft),
+        # Header values never leave in a file: an import asks for them again (#406).
+        "definition": masked(workflow.draft),
         "start_templates": [str(t) for t in workflow.start_templates],
     }
 
@@ -508,3 +557,51 @@ async def delete_workflow(
         aggregate_version=workflow.version,
     )
     return workflow
+
+
+# --- the run-as identity's roles (ADR-043 §6; the coordinator's plan, 2026-11-11) -------------
+
+
+async def run_as_identity(session: AsyncSession, workflow_id: uuid.UUID) -> uuid.UUID | None:
+    """The workflow's run-as identity, or None before its first publish makes it."""
+    return (await _get(session, workflow_id)).service_identity_id
+
+
+async def set_run_as_role(  # noqa: PLR0913 - the workflow, the role and who asks, explicit
+    session: AsyncSession,
+    policy: PolicyService,
+    subject: Subject,
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    *,
+    held: bool,
+) -> None:
+    """Give or take one role, only through identity_access's guarded path (lane B's rules).
+
+    The admin hands out nothing beyond their own rights, and never tenant administration or a
+    role that manages identities, roles or API keys. No role is ever given without an admin
+    choosing it: publishing makes the identity with none.
+    """
+    workflow = await _get(session, workflow_id)
+    if workflow.service_identity_id is None:
+        raise Conflict(code="workflow_not_published")
+    if held:
+        changed = await assign_service_identity_role(
+            session, policy, subject, workflow.service_identity_id, role_id
+        )
+    else:
+        changed = await remove_service_identity_role(
+            session, policy, subject, workflow.service_identity_id, role_id
+        )
+    if changed:
+        await record_event(
+            session,
+            WorkflowRunAsChanged(
+                workflow_id=workflow.id,
+                record_type=workflow.record_type,
+                change="role_added" if held else "role_removed",
+                version=workflow.version,
+            ),
+            aggregate_id=workflow.id,
+            aggregate_version=workflow.version,
+        )

@@ -134,12 +134,13 @@ async def test_bug_05_changed_at_is_the_last_save_not_the_first(world: World) ->
     """Lane B review: every save moves updated_at, so "saved it at" is the save the user missed."""
     org = world.a
     path = "/automation/transitions/close?record_type=incident"
+    # The stale save names a real role: roles are checked within the tenant at save (ADR-049
+    # §5), and a body that is itself invalid is refused before the version is compared.
+    stale = {"roles": ["tenant_admin", "technician"]}
     first = await saved_twice(
-        world, org, "PUT", path, {"roles": ["tenant_admin"]}, {"roles": ["x"]}, version=0
+        world, org, "PUT", path, {"roles": ["tenant_admin"]}, stale, version=0
     )
-    second = await saved_twice(
-        world, org, "PUT", path, {"roles": ["technician"]}, {"roles": ["x"]}, version=1
-    )
+    second = await saved_twice(world, org, "PUT", path, {"roles": ["technician"]}, stale, version=1)
     assert datetime.fromisoformat(second["changed_at"]) > datetime.fromisoformat(
         first["changed_at"]
     )

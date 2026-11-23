@@ -25,6 +25,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { BlockRulesCard } from './BlockRulesCard';
 import { MailboxEditor } from './MailboxEditor';
 import { WaitingMailDrawer } from './WaitingMailDrawer';
 import { mailboxView, useMailboxFieldName } from './conflict';
@@ -290,6 +291,7 @@ export function MailPage() {
           </List.Item>
         )}
       />
+      <BlockRulesCard />
       {editing !== null && (
         <MailboxEditor
           mailbox={editing === 'new' ? null : editing}

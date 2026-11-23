@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import PermissionDenied, ProblemDetail
 from app.modules.ai.domain.features import FEATURES, AiArea
 from app.modules.ai.infra.models import AiSettings, AiSummary
 from app.modules.ai.service import calls, summaries, writing
@@ -32,10 +32,23 @@ from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 Responses = dict[int | str, dict[str, Any]]
+NO_AI_FOR_SUPPORT = "vendor_support_no_ai"
+
+
+def _no_vendor_support(subject: Annotated[Subject, Depends(require_signed_in())]) -> None:
+    """A vendor support account uses no AI feature (WP-057 S4c-2, lane B (3), D-173).
+
+    No record's text goes to a model on its behalf, so nothing sealed or masked can leak through
+    a prompt or an answer; the tenant's own people keep every AI feature.
+    """
+    if subject.is_vendor_support:
+        raise PermissionDenied(code=NO_AI_FOR_SUPPORT)
+
+
 router = APIRouter(
     prefix="/ai",
     tags=["ai"],
-    dependencies=[Depends(rate_limit("ai"))],
+    dependencies=[Depends(_no_vendor_support), Depends(rate_limit("ai"))],
     responses={
         401: {"model": ProblemDetail, "description": "Not signed in."},
         403: {"model": ProblemDetail, "description": "Missing permission or licence feature."},

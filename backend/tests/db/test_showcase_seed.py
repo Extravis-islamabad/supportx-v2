@@ -26,7 +26,10 @@ from tooling import showcase_assets as assets
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
-pytestmark = pytest.mark.db
+# The whole showcase is seeded through the API: about 210 s in CI on a quiet runner (setup
+# included), more under load. The shards' 300 s per-test limit (ci.yml) would cut it off, so these
+# files get their own, still finite: a real hang here fails and names itself too.
+pytestmark = [pytest.mark.db, pytest.mark.timeout(900)]
 
 
 class FakeKeycloak:
@@ -307,7 +310,7 @@ class SeedStock:
     lots: dict[str, tuple[str, int]]  # product -> (lot number, days from today to expiry)
     movements: dict[tuple[str, str], int]  # (product, kind) -> how many
     rules: dict[str, tuple[str, str]]  # product -> (site, minimum)
-    bookings: dict[str, tuple[str, str, int]]  # asset tag -> (borrower, status, days ahead)
+    bookings: dict[str, tuple[str, str, datetime]]  # asset tag -> (borrower, status, starts at)
 
 
 def _qty(value: Any) -> str:  # noqa: ANN401 - asyncpg's Decimal
@@ -357,7 +360,10 @@ async def _seed_stock(url: str) -> SeedStock:
             )
             bookings = await conn.fetch(
                 "SELECT a.tag, u.email, b.status,"
-                " extract(day FROM b.starts_at - now())::int AS days FROM asset_bookings b"
+                # The stored start itself, not "days from now": the seed books 09:00 UTC on a
+                # day ahead, so a count from now() changed as the clock passed 09:00 between
+                # the reads before and after a re-run (flake, 2026-11-12, lane A's review).
+                " b.starts_at FROM asset_bookings b"
                 " JOIN assets a ON a.id = b.asset_id JOIN users u ON u.id = b.borrower_id"
                 " WHERE b.tenant_id = $1 AND b.deleted_at IS NULL",
                 seed.TENANT_ID,
@@ -370,8 +376,40 @@ async def _seed_stock(url: str) -> SeedStock:
         lots={r["name"]: (r["lot_number"], r["days"]) for r in lots},
         movements={(r["name"], r["kind"]): r["n"] for r in movements},
         rules={r["name"]: (r["site"], _qty(r["min_quantity"])) for r in rules},
-        bookings={r["tag"]: (r["email"], r["status"], r["days"]) for r in bookings},
+        bookings={r["tag"]: (r["email"], r["status"], r["starts_at"]) for r in bookings},
     )
+
+
+async def _seed_audit(url: str) -> tuple[str, int, list[str], int]:
+    """The seed's audit (state, marked items, their results) and the laptop's scans."""
+    conn = await asyncpg.connect(url)
+    try:
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(seed.TENANT_ID))
+            state = await conn.fetchval(
+                "SELECT state FROM asset_audits WHERE name = $1", assets.AUDIT
+            )
+            results = await conn.fetch(
+                "SELECT i.result FROM asset_audit_items i JOIN asset_audits a ON a.id = i.audit_id"
+                " WHERE a.name = $1 AND i.result IS NOT NULL ORDER BY i.result",
+                assets.AUDIT,
+            )
+            scans = await conn.fetchval(
+                "SELECT count(*) FROM asset_scans s JOIN assets a ON a.id = s.asset_id"
+                " WHERE a.tag = $1",
+                assets.SCANNED,
+            )
+    finally:
+        await conn.close()
+    return str(state), len(results), [r["result"] for r in results], int(scans)
+
+
+def _first_audit(first: seed.Report, database: db_testing.ThrowawayDatabase) -> Any:  # noqa: ANN401 - the row
+    """WP-049b s3: a running audit (made, started, three marks) and two scans to show."""
+    assert (first.audit, first.scans) == (2 + len(assets.AUDIT_MARKS), 2)
+    audit = asyncio.run(_seed_audit(database.migrator_url))
+    assert audit == ("running", 3, ["damaged", "found", "wrong_place"], 2)
+    return audit
 
 
 async def _consumables_listed(database: db_testing.ThrowawayDatabase) -> list[dict[str, Any]]:
@@ -417,9 +455,10 @@ async def _first_stock(first: seed.Report, database: db_testing.ThrowawayDatabas
         (keys, "receive"): 1, (keys, "allocate"): 1,
     }  # fmt: skip
     assert found.rules == {toner: (hq, "5")}
-    borrower, status, days = found.bookings[assets.BOOKED]
+    borrower, status, starts = found.bookings[assets.BOOKED]
     assert (borrower, status) == (seed.REQUESTER.email, "booked")
-    assert assets.LOAN_DAYS < days <= assets.BOOKING_IN_DAYS  # after the loan, from now
+    days = (starts.date() - datetime.now(UTC).date()).days  # calendar days, whatever the hour
+    assert assets.LOAN_DAYS < days <= assets.BOOKING_IN_DAYS  # after the loan, from today
     assert len(found.bookings) == 1
     # The visual matrix's `consumable` lookup: the first of this list, with the "low" state.
     listed = await _consumables_listed(database)
@@ -626,7 +665,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     database, keycloak = seeded_copy
     first, bystander, before, imported = seeded.first, seeded.bystander, seeded.before, IMPORTED
     assert first.tenant == ["tenant", "subscription", "starter_catalog"]
-    assert first.catalog_published == 14  # the starter catalog (D-138), with its group
+    assert first.catalog_published == 15  # the starter catalog (D-138; D-171 added one)
     assert first.incidents == len(seed.STATES) == 60
     # QA6-DATA-01: service requests in every state, problems with known errors.
     # And three in Arabic and Urdu, with two problems (right-to-left records to show).
@@ -641,7 +680,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     assert first.releases == len(seed.RELEASES) == 2
     found = asyncio.run(_first_assets(first, database.migrator_url))
     stock = asyncio.run(_first_stock(first, database))
-    assert first.backdated == 75  # spread over the past 30 days (choice (b)); not releases
+    audit = _first_audit(first, database)
+    # Spread over the past 30 days (choice (b)); not releases. 75, plus the six incidents of
+    # lane A's board technicians (WP-046b S3b).
+    assert first.backdated == 81
     assert asyncio.run(_backdating_is_consistent(database.migrator_url)) == []
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"  # never shifted
     # The password is the environment's, set only on the users made here.
@@ -650,8 +692,11 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     keycloak.passwords[imported] = "Changed-By-Hand-1!"  # never overwritten
     assert {u["email"] for u in keycloak.users.values()} == {s.email for s in seed.SIGN_INS}
     counts = asyncio.run(_counts(database.migrator_url, seed.TENANT_ID))
-    assert counts["users"] == len(seed.PEOPLE) + len(seed.SIGN_INS)
-    assert counts["work_items"] == 75 + len(seed.RELEASES)
+    # Plus lane A's board technicians (WP-046b S3b).
+    assert counts["users"] == (
+        len(seed.PEOPLE) + len(seed.SIGN_INS) + len(lane_a.BOARD_TECHNICIANS)
+    )
+    assert counts["work_items"] == 81 + len(seed.RELEASES)
     assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
     # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
     # has targets, the urgent ones and the network ones on the showcase's own policies.
@@ -671,7 +716,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         "problem assigned known error": 3,  # the creator owns a new problem (#267)
         "problem assigned": 2,
         "new unassigned": 10,
-        "assigned": 14,
+        "assigned": 20,  # 14, plus the six of lane A's board technicians (WP-046b S3b)
         "in_progress": 12,
         "awaiting_requester": 6,
         "resolved": 10,
@@ -702,7 +747,10 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.featured,
         second.sla_policies,
         second.sla_from_creation,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        second.audit,
+        second.scans,
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    assert asyncio.run(_seed_audit(database.migrator_url)) == audit
     assert second.backdated == 0  # nothing made now, so nothing moved
     assert asyncio.run(_seed_assets(database.migrator_url)) == found
     assert asyncio.run(_seed_stock(database.migrator_url)) == stock

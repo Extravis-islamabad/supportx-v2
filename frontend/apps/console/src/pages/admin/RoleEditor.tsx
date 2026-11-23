@@ -3,7 +3,6 @@ import {
   Alert,
   App,
   Collapse,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -34,15 +33,19 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  Drawer,
   FormProblem,
+  lengthLimit,
+  Tabs,
   useAccess,
   useConflict,
   useFormProblem,
   useLabel,
   WriteButton,
-  lengthLimit,
 } from '@supportx/ui';
 
+import { FieldAccessTab } from './FieldAccessTab';
+import { RecordsTab } from './RecordsTab';
 import { groupByModule, roleName } from './roleName';
 
 type Matrix = Record<string, RoleGrant | undefined>;
@@ -99,15 +102,42 @@ export function RoleEditor({ role, copyFrom, onClose, onCopy }: RoleEditorProps)
       }
     >
       {role !== undefined && ready ? (
-        <RoleForm
-          key={role?.id ?? `new-${copyFrom?.id ?? ''}`}
-          role={role}
-          initial={initial}
-          seed={seed}
-          catalogue={catalogue.data}
-          onClose={onClose}
-          onCopy={onCopy}
-        />
+        (() => {
+          const form = (
+            <RoleForm
+              key={role?.id ?? `new-${copyFrom?.id ?? ''}`}
+              role={role}
+              initial={initial}
+              seed={seed}
+              catalogue={catalogue.data}
+              onClose={onClose}
+              onCopy={onCopy}
+            />
+          );
+          // A saved role also has its field access (ADR-047 slice c), which saves per row: the
+          // permissions tab keeps its own Save, so the two save models never mix on one tab.
+          return role === null ? (
+            form
+          ) : (
+            <Tabs
+              items={[
+                { key: 'permissions', label: t('roles.permissions'), children: form },
+                {
+                  key: 'field_access',
+                  label: t('roles.field_access'),
+                  children: <FieldAccessTab roleId={role.id} />,
+                },
+                {
+                  // ADR-053: which assets and CIs the role shows (narrow-only), saved per rule.
+                  key: 'records',
+                  label: t('roles.records'),
+                  children: <RecordsTab roleId={role.id} />,
+                },
+              ]}
+              data-testid="role-tabs"
+            />
+          );
+        })()
       ) : (
         <Spin />
       )}

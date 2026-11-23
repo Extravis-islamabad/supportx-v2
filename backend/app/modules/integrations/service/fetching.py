@@ -22,6 +22,13 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import (
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogObject,
+    SystemLogSeverity,
+    record_system_alone,
+)
 from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.domain.mailboxes import (
     AUTH_FAILURES,
@@ -43,7 +50,7 @@ from app.modules.integrations.service.connections import (
     key_ring,
     open_reader,
 )
-from app.modules.integrations.service.inbound import flood_over, process
+from app.modules.integrations.service.inbound import expire_quarantine, flood_over, process
 from app.modules.integrations.service.secrets import SecretRole
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
@@ -67,10 +74,12 @@ async def _set_state(  # noqa: PLR0913 - one fetch's outcome, explicit
     *,
     handled: int,
     started_at: datetime | None = None,
-) -> None:
+) -> str | None:
+    """Record one fetch's outcome; the state the mailbox was in before (None: it's gone)."""
     mailbox = await session.get(Mailbox, mailbox_id)
     if mailbox is None:
-        return
+        return None
+    before = mailbox.state
     now = datetime.now(UTC)
     moved = (mailbox.state, mailbox.state_reason) != (state.value, reason)
     # Every fetch is a connector run: its admins are told once when it turns failing (at once
@@ -99,6 +108,39 @@ async def _set_state(  # noqa: PLR0913 - one fetch's outcome, explicit
             aggregate_id=mailbox.id,
             aggregate_version=mailbox.version,
         )
+    return before
+
+
+async def _system_log(
+    database: Database,
+    tenant: uuid.UUID,
+    mailbox_id: uuid.UUID,
+    before: str | None,
+    reason: str | None,
+) -> None:
+    """The system log hears of a change of state only (lane A (1)): turning failing, recovering.
+
+    Never per poll, and the reason code alone (lane A (2)). Written apart and never raising, so
+    it can't change what the poll does next (lane A (3)).
+    """
+    failing = MailboxState.FAILING.value
+    if reason is not None and before is not None and before != failing:
+        code, severity = SystemLogCode.MAILBOX_CHECK_FAILED, SystemLogSeverity.ERROR
+    elif reason is None and before == failing:
+        code, severity = SystemLogCode.MAILBOX_RECOVERED, SystemLogSeverity.INFO
+    else:
+        return
+    await record_system_alone(
+        database,
+        tenant,
+        SystemLogEntryIn(
+            module="integrations",
+            code=code,
+            severity=severity,
+            params={"reason": reason} if reason is not None else {},
+            about=SystemLogObject("mailbox", mailbox_id),
+        ),
+    )
 
 
 async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, explicit
@@ -158,7 +200,7 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
     except MailboxUnavailableError as exc:
         log.warning("mailbox_fetch_failed", mailbox_id=str(mailbox_id), reason=exc.reason)
         async with database.tenant_session(TenantContext(tenant)) as session:
-            await _set_state(
+            before = await _set_state(
                 session,
                 mailbox_id,
                 MailboxState.FAILING,
@@ -166,11 +208,13 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
                 handled=handled,
                 started_at=started,
             )
+        await _system_log(database, tenant, mailbox_id, before, exc.reason)
         return handled
     async with database.tenant_session(TenantContext(tenant)) as session:
-        await _set_state(
+        before = await _set_state(
             session, mailbox_id, MailboxState.WORKING, None, handled=handled, started_at=started
         )
+    await _system_log(database, tenant, mailbox_id, before, None)
     return handled
 
 
@@ -197,6 +241,9 @@ async def fetch_schedule(database: Database, settings: Settings) -> None:
             await fetch_mailbox(database, settings, tenant, mailbox_id, ring=ring)
         async with database.tenant_session(TenantContext(tenant)) as session:
             await warn_expiring(session)
+            # Blocked mail past its quarantine loses its copy (REQ-INC-026), every mailbox.
+            for box in await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))):
+                await expire_quarantine(session, box, now)
 
 
 async def warn_expiring(session: AsyncSession, now: datetime | None = None) -> int:

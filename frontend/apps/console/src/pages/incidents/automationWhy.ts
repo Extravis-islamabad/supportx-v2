@@ -75,6 +75,7 @@ export const REQUESTER_ACTIONS = new Set([
   'requester_reply_reopened',
   'requester_confirmed',
   'requester_rejected',
+  'requester_canceled', // WP-046b S5: cancelled from the portal
 ]);
 
 /**

@@ -1,6 +1,8 @@
 """One Valkey client factory: a single server, or the master Sentinel names (WP-014b)."""
 
 import asyncio
+import ssl
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -10,6 +12,7 @@ from valkey.asyncio.sentinel import SentinelConnectionPool
 
 from app.core import valkey as core_valkey
 from app.core.config import Settings
+from tests.tls_certs import make_certs
 
 
 def _settings(**values: object) -> Settings:
@@ -116,3 +119,111 @@ async def test_a_pooled_connection_the_server_dropped_is_retried_not_an_error() 
         await found.aclose()
         server.close()
         await server.wait_closed()
+
+
+# TLS (audit row 5): the CA reaches every connection, servers and sentinels alike.
+@pytest.fixture
+def ca(tmp_path: Path) -> str:
+    return str(make_certs(tmp_path, ["cache"]).ca)
+
+
+def test_a_ca_with_a_plaintext_url_is_refused_at_start(ca: str) -> None:
+    with pytest.raises(ValueError, match="valkeys://"):
+        Settings.load(
+            env_file=None,
+            profile="test",
+            valkey_url=SecretStr("valkey://:pw@cache:6379/0"),
+            valkey_tls_ca_file=ca,
+        )
+    found = Settings.load(
+        env_file=None,
+        profile="test",
+        valkey_url=SecretStr("valkeys://:pw@cache:6379/0"),
+        valkey_tls_ca_file=ca,
+    )
+    assert str(found.valkey_tls_ca_file) == ca
+
+
+def _verified(kwargs: dict[str, Any], ca: str) -> bool:  # Any: valkey kwargs
+    return (
+        kwargs.get("ssl_ca_certs") == ca
+        and kwargs.get("ssl_cert_reqs") == "required"
+        and kwargs.get("ssl_check_hostname") is True
+    )
+
+
+async def test_tls_to_a_single_server_checks_the_ca_and_host_name(ca: str) -> None:
+    found = core_valkey.client(
+        _settings(valkey_url=SecretStr("valkeys://:pw@cache:6379/0"), valkey_tls_ca_file=Path(ca))
+    )
+    pool = found.connection_pool
+    assert pool.connection_class.__name__ == "SSLConnection"
+    assert _verified(pool.connection_kwargs, ca)
+    connection = pool.make_connection()  # type: ignore[no-untyped-call]  # valkey-py ships no annotation
+    context = connection.ssl_context.get()
+    assert context.check_hostname is True
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    await found.aclose()
+
+
+async def test_tls_through_sentinels_checks_both_the_sentinels_and_the_master(ca: str) -> None:
+    found = core_valkey.client(
+        _settings(
+            valkey_url=SecretStr("valkeys://:pw@ignored:6379/0"),
+            valkey_sentinels="s1:26379,s2:26379",
+            valkey_tls_ca_file=Path(ca),
+        )
+    )
+    pool = found.connection_pool
+    assert isinstance(pool, SentinelConnectionPool)
+    assert pool.connection_class.__name__ == "SentinelManagedSSLConnection"
+    assert _verified(pool.connection_kwargs, ca)
+    for sentinel in pool.sentinel_manager.sentinels:
+        assert sentinel.connection_pool.connection_class.__name__ == "SSLConnection"
+        assert _verified(sentinel.connection_pool.connection_kwargs, ca)
+    await found.aclose()
+
+
+async def test_a_server_whose_certificate_names_another_host_is_refused(tmp_path: Path) -> None:
+    """A real handshake on loopback: the right CA but the wrong name fails, the right one works."""
+    certs = make_certs(tmp_path, ["localhost"])
+    server_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    server_context.load_cert_chain(certs.cert, certs.key)
+
+    async def serve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        while data := await reader.read(4096):
+            writer.write(b"+OK\r\n" * data.upper().count(b"SETINFO"))
+            if b"PING" in data.upper():
+                writer.write(b"+PONG\r\n")
+            await writer.drain()
+        writer.close()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0, ssl=server_context)
+    port = server.sockets[0].getsockname()[1]
+    try:
+        for host, works in (("localhost", True), ("127.0.0.1", False)):
+            found = core_valkey.client(
+                _settings(
+                    valkey_url=SecretStr(f"valkeys://{host}:{port}/0"),
+                    valkey_tls_ca_file=certs.ca,
+                ),
+                retry=None,
+                retry_on_error=[],
+            )
+            try:
+                if works:
+                    assert await found.ping() is True
+                else:
+                    with pytest.raises(valkey.exceptions.ConnectionError):
+                        await found.ping()
+            finally:
+                await found.aclose()
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+async def test_without_a_ca_nothing_changes() -> None:
+    found = core_valkey.client(_settings(valkey_url=SecretStr("valkey://cache:6379/0")))
+    assert "ssl_ca_certs" not in found.connection_pool.connection_kwargs
+    await found.aclose()

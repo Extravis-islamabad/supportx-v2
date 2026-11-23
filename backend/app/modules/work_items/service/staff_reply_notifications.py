@@ -1,11 +1,9 @@
 """Replies on changes and releases (the coordinator, 2026-11-11; lane B's #359).
 
-Changes and releases are staff records: their replies are not e-mailed to the requester by
-default. Each type has a reply notice in the notification rules, OFF by default, so a reply
-never hangs in "queued": no requester e-mail is made for it, and the engine marks it not
-e-mailed at once (#359's settle step). Turning it on is configuration, not code (Haider is
-asked; the coordinator parked the question). WP-056 may give these types richer sources; this
-one only carries their replies.
+Each staff type has a reply notice in the notification rules. Changes: ON by default (D-156,
+Haider 2026-11-11), so a public reply is e-mailed to the record's requester when it has one;
+notes never are. Releases: OFF until lane C's decision, so a reply never hangs in "queued": no
+requester e-mail is made and the engine marks it not e-mailed at once (#359's settle step).
 """
 
 import uuid
@@ -37,6 +35,8 @@ from app.shared.notifications.ports import (
 )
 
 REQUESTER = "requester"  # the requester and the person it is for
+# The staff types whose public replies are e-mailed by default (D-156: changes).
+REPLIES_ON = frozenset({WorkItemTypeCode.CHANGE})
 _LINKS = {WorkItemTypeCode.CHANGE: "/changes/", WorkItemTypeCode.RELEASE: "/releases/"}
 VARIABLES = (
     Variable("record.display_id", "notification_variable.record.display_id"),
@@ -59,14 +59,15 @@ class StaffReplyNotifications:
 
     def __init__(self, wtype: WorkItemType) -> None:
         self._wtype = wtype
+        on = wtype.code in REPLIES_ON
         self.record_type = wtype.code.value
         self.reply = f"{wtype.code.value}.public_reply"
         self.events = (
             NotificationEvent(
                 self.reply,
                 NotificationCategory.CONVERSATION,
-                # Off: a staff record's reply is not e-mailed unless the tenant turns it on.
-                EventDefault(enabled=False, recipients=(REQUESTER,)),
+                # D-156: a change's reply goes to its requester; a release's waits for lane C.
+                EventDefault(enabled=on, recipients=(REQUESTER,)),
             ),
         )
 

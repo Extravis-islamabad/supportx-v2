@@ -21,6 +21,8 @@ from types import MappingProxyType
 from typing import Any
 
 from app.core.authorization import Scope
+from app.modules.identity_access.domain import field_access as field_rules
+from app.modules.identity_access.domain import resource_access as resource_rules
 from app.modules.identity_access.domain.permissions import Catalogue, broadest, covers
 
 # JSON filter DSL tree (shared/api/filters.py), as stored in role_permissions.condition.
@@ -93,6 +95,22 @@ class Subject:
     site_ids: frozenset[uuid.UUID] = frozenset()
     group_ids: frozenset[uuid.UUID] = frozenset()
     not_entitled: frozenset[str] = frozenset()
+    # Restricted fields, {record type: {field: mode}} (ADR-047). Cached with the subject, unlike
+    # `extra`, so a rule change reaches the person's next request through the generation bump.
+    field_access: field_rules.Compiled = field_rules.EMPTY
+    # Fine-grained access (ADR-053): per resource (asset, ci) the rules that narrow what the
+    # person's scope shows; a resource not named is not narrowed. Cached with the subject.
+    resource_access: resource_rules.Compiled = resource_rules.EMPTY
+    # A person (not a service identity: a workflow's or a connector's own identity). Field rules
+    # refuse a person's change of a read-only field; a service identity's writes are system
+    # writes (ADR-047 §8). Reads are restricted for both. A subject cached before this: a person.
+    person: bool = True
+    # A vendor support account (WP-057 S4c-2): the grant it acts under, which every write's audit
+    # names (lane B (7)). None for everyone else.
+    support_grant_id: uuid.UUID | None = None
+    # People's e-mail addresses and phones withheld wherever a contact comes out (D-173): set by
+    # the compile (a support grant without unmask_personal), never decided by who the actor is.
+    mask_contacts: bool = False
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def holds(self, permission: str) -> bool:
@@ -128,6 +146,13 @@ class Subject:
             "site_ids": sorted(str(i) for i in self.site_ids),
             "group_ids": sorted(str(i) for i in self.group_ids),
             "not_entitled": sorted(self.not_entitled),
+            "field_access": field_rules.to_json(self.field_access),
+            "resource_access": resource_rules.to_json(self.resource_access),
+            "person": self.person,
+            "support_grant_id": None
+            if self.support_grant_id is None
+            else str(self.support_grant_id),
+            "mask_contacts": self.mask_contacts,
         }
 
     @classmethod
@@ -147,7 +172,21 @@ class Subject:
             site_ids=frozenset(uuid.UUID(i) for i in data["site_ids"]),
             group_ids=frozenset(uuid.UUID(i) for i in data["group_ids"]),
             not_entitled=frozenset(data["not_entitled"]),
+            field_access=field_rules.from_json(data.get("field_access")),
+            resource_access=resource_rules.from_json(data.get("resource_access")),
+            person=bool(data.get("person", True)),
+            support_grant_id=(
+                None
+                if data.get("support_grant_id") is None
+                else uuid.UUID(data["support_grant_id"])
+            ),
+            mask_contacts=bool(data.get("mask_contacts", False)),
         )
+
+    @property
+    def is_vendor_support(self) -> bool:
+        """A vendor support account's subject (D-173): never staff, never the tenant's voice."""
+        return self.support_grant_id is not None
 
 
 def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
@@ -161,6 +200,9 @@ def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
     site_ids: frozenset[uuid.UUID] = frozenset(),
     group_ids: frozenset[uuid.UUID] = frozenset(),
     is_tenant_admin: bool = False,
+    fields: field_rules.Compiled = field_rules.EMPTY,
+    resources: resource_rules.Compiled = resource_rules.EMPTY,
+    person: bool = True,
 ) -> Subject:
     """Merge the grants of all roles into one subject.
 
@@ -188,6 +230,10 @@ def compile_subject(  # noqa: PLR0913 - keyword-only inputs of the compilation
         site_ids=site_ids,
         group_ids=group_ids,
         not_entitled=frozenset(not_entitled - set(simplified)),
+        field_access=fields,
+        # Tenant admins are never narrowed (ADR-053 §2: setup and break-glass).
+        resource_access=resource_rules.EMPTY if is_tenant_admin else resources,
+        person=person,
     )
 
 

@@ -93,6 +93,10 @@ A few tables are not owned by a single tenant. They are listed, with a reason, i
    rows (copy `backend/tests/db/test_tenant_isolation.py`).
 6. `make db-migrate db-guard` locally; CI runs the same guard on every pull request.
 
+Policies and grants go through these helpers only: raw `CREATE POLICY`, `GRANT` or `REVOKE` in a
+migration fails `backend/tests/test_migration_policy_sql.py` (D-168, docs/dev-setup.md
+"Security code owners").
+
 ## What the guard checks (`make db-guard`, and in CI on every PR)
 
 `backend/tooling/rls_guard.py` inspects the real, migrated database and fails if any table in the

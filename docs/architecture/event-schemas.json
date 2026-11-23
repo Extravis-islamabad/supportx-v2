@@ -573,6 +573,57 @@
         "type": "object"
       }
     },
+    "analytics.report_schedule.recipients_skipped": {
+      "1": {
+        "description": "A run left out recipients who may not see a field the report uses (ADR-047 §5).\n\nRaised only when someone was skipped, so the owner's notice never fires on an ordinary run.\nIDs and field codes only (rule c): the notice names people and labels fields for the owner,\nnever a value. One per run: `ran_at` is the run's time (schedules keep no run table).",
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "ran_at": {
+            "format": "date-time",
+            "title": "Ran At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "ran_at",
+          "entity",
+          "skipped",
+          "fields"
+        ],
+        "title": "ReportScheduleRecipientsSkipped",
+        "type": "object"
+      }
+    },
     "analytics.report_schedule.saved": {
       "1": {
         "description": "A schedule was created, changed, paused, resumed or deleted.",
@@ -896,6 +947,89 @@
         "type": "object"
       }
     },
+    "assets.audit.changed": {
+      "1": {
+        "description": "An asset audit was planned, changed, started, closed or had fixes applied (042, 043).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "started",
+              "closed",
+              "fixed"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "audit_id": {
+            "format": "uuid",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "auditors": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Auditors",
+            "type": "array"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "audit_id",
+          "action"
+        ],
+        "title": "AuditChanged",
+        "type": "object"
+      }
+    },
+    "assets.audit.item_changed": {
+      "1": {
+        "description": "An audit item was marked, an unexpected asset added, or a fix applied (REQ-AST-043).",
+        "properties": {
+          "action": {
+            "enum": [
+              "marked",
+              "added",
+              "fixed"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "audit_id": {
+            "format": "uuid",
+            "title": "Audit Id",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audit_id",
+          "item_id",
+          "asset_id",
+          "action"
+        ],
+        "title": "AuditItemChanged",
+        "type": "object"
+      }
+    },
     "assets.booking.changed": {
       "1": {
         "description": "A booking ahead was made, cancelled or handed over as a loan (REQ-AST-032).",
@@ -945,6 +1079,50 @@
           "change"
         ],
         "title": "AssetBookingChanged",
+        "type": "object"
+      }
+    },
+    "assets.bulk_job.progressed": {
+      "1": {
+        "description": "A bulk job on assets moved on (REQ-AST-051): its requester's progress, one list refresh.\n\nSent when it is queued, after each batch and when it ends. Counts only.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "AssetBulkJobProgressed",
         "type": "object"
       }
     },
@@ -1069,6 +1247,42 @@
         "type": "object"
       }
     },
+    "assets.erased_holder.items": {
+      "1": {
+        "description": "A person being erased still holds assets (ADR-052; the coordinator, 2026-11-16).\n\nTheir open assignments and loans stay open (ending them would invent a fact); the asset team\nhears once which assets to recover. IDs and counts only: never the person's old name.",
+        "properties": {
+          "asset_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Asset Ids",
+            "type": "array"
+          },
+          "assets_held": {
+            "title": "Assets Held",
+            "type": "integer"
+          },
+          "loans_open": {
+            "title": "Loans Open",
+            "type": "integer"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "asset_ids",
+          "assets_held",
+          "loans_open"
+        ],
+        "title": "ErasedHolderItems",
+        "type": "object"
+      }
+    },
     "assets.group.changed": {
       "1": {
         "description": "A group was added, changed, removed, or gained or lost members (REQ-AST-028).",
@@ -1120,6 +1334,118 @@
           "people"
         ],
         "title": "AssetHolderChanged",
+        "type": "object"
+      }
+    },
+    "assets.import.progressed": {
+      "1": {
+        "description": "An asset, consumable or vendor import moved on (REQ-AST-053): its requester's progress.\n\nSent when it is queued, after each batch and when it ends (a dry run ends `checked`).",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "checked",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "import_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "AssetImportProgressed",
+        "type": "object"
+      }
+    },
+    "assets.label.printed": {
+      "1": {
+        "description": "A label PDF is ready, or failed with a problem code; its requester hears of it live.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Problem"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "requested_by",
+          "status"
+        ],
+        "title": "LabelPrinted",
+        "type": "object"
+      }
+    },
+    "assets.label.requested": {
+      "1": {
+        "description": "Labels were asked for (REQ-AST-039): the consumers worker builds the PDF.",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "requested_by"
+        ],
+        "title": "LabelRequested",
         "type": "object"
       }
     },
@@ -1238,6 +1564,44 @@
         "type": "object"
       }
     },
+    "assets.overdue_rule.changed": {
+      "1": {
+        "description": "The overdue-scan rule was saved, or ran and changed assets (REQ-AST-056).",
+        "properties": {
+          "action": {
+            "enum": [
+              "updated",
+              "ran"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_count": {
+            "default": 0,
+            "title": "Changed Count",
+            "type": "integer"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "OverdueRuleChanged",
+        "type": "object"
+      }
+    },
     "assets.product.changed": {
       "1": {
         "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
@@ -1276,6 +1640,43 @@
           "changed_fields"
         ],
         "title": "ProductChanged",
+        "type": "object"
+      }
+    },
+    "assets.scan.recorded": {
+      "1": {
+        "description": "A scan of an asset was recorded (REQ-AST-054). No hardware or software names (§8.2).",
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "changes": {
+            "default": 0,
+            "title": "Changes",
+            "type": "integer"
+          },
+          "result": {
+            "enum": [
+              "ok",
+              "failed"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "scan_id": {
+            "format": "uuid",
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "scan_id",
+          "result"
+        ],
+        "title": "ScanRecorded",
         "type": "object"
       }
     },
@@ -1625,6 +2026,27 @@
         "type": "object"
       }
     },
+    "audit.personal_data_access.recorded": {
+      "1": {
+        "description": "A personal data access entry was written (REQ-AUD-017; WP-057 S3b-1).\n\nThe kind only: never whose data, who looked or which fields. Open access logs refetch.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "view",
+              "export",
+              "ai_masking"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PersonalDataAccessRecorded",
+        "type": "object"
+      }
+    },
     "audit.settings.changed": {
       "1": {
         "description": "The tenant's audit settings changed (field names only).",
@@ -1641,6 +2063,27 @@
           "changed_fields"
         ],
         "title": "AuditSettingsChanged",
+        "type": "object"
+      }
+    },
+    "audit.system_log.recorded": {
+      "1": {
+        "description": "A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.\n\nThe severity only: never the code's params or the object.",
+        "properties": {
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity"
+        ],
+        "title": "SystemLogRecorded",
         "type": "object"
       }
     },
@@ -2038,6 +2481,42 @@
         "type": "object"
       }
     },
+    "automation.workflow.run_as_changed": {
+      "1": {
+        "description": "A role was given to, or taken from, a workflow's run-as identity (ADR-043 §6).\n\nIts own event, so `automation.workflow.changed` v1 keeps its contract. The designer's\n\"Runs as\" section refreshes; IDs and codes only, never the role's name.",
+        "properties": {
+          "change": {
+            "enum": [
+              "role_added",
+              "role_removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "record_type",
+          "change",
+          "version"
+        ],
+        "title": "WorkflowRunAsChanged",
+        "type": "object"
+      }
+    },
     "automation.workflow.webhook_requested": {
       "1": {
         "description": "A webhook node asks the worker to make one guarded call (WP-048b S2; ADR-043 §8).\n\nNever sent from a request: the worker's consumer sends it through the shared egress client\nand reports back as `WorkflowCommandFinished`. The record's fields are read by the worker,\nso the outbox holds only their names.",
@@ -2219,6 +2698,240 @@
         "type": "object"
       }
     },
+    "cmdb.business_view.changed": {
+      "1": {
+        "description": "A business view was created, changed or removed (WP-053 S2; field names only).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "base_ci_id": {
+            "format": "uuid",
+            "title": "Base Ci Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "view_id": {
+            "format": "uuid",
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "base_ci_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "BusinessViewChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.created": {
+      "1": {
+        "description": "A CI was saved for the first time (by hand, copied, or from an asset).",
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Asset Id"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id",
+          "source"
+        ],
+        "title": "CiCreated",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.deleted": {
+      "1": {
+        "description": "A CI moved to the trash (soft delete).",
+        "properties": {
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id"
+        ],
+        "title": "CiDeleted",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.restored": {
+      "1": {
+        "description": "A CI came back from the trash.",
+        "properties": {
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id"
+        ],
+        "title": "CiRestored",
+        "type": "object"
+      }
+    },
+    "cmdb.ci.updated": {
+      "1": {
+        "description": "Fields of a CI changed (names only; a type change lists `type_id`).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "type_id",
+          "changed_fields"
+        ],
+        "title": "CiUpdated",
+        "type": "object"
+      }
+    },
+    "cmdb.config.changed": {
+      "1": {
+        "description": "A CI type, a CI state or the CMDB settings changed (`what`: type, state or settings).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "what": {
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "what",
+          "action"
+        ],
+        "title": "CmdbConfigChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.relationship.changed": {
+      "1": {
+        "description": "Relationships of one type were added to or removed from a CI (WP-053 S2).\n\nOne event per add or remove call: the source CI and every other CI it touched, all of which\ngot a new version. IDs only (rule c); open maps patch both ends or refetch (§8.3).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "other_ci_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Other Ci Ids",
+            "type": "array"
+          },
+          "relationship_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Relationship Ids",
+            "type": "array"
+          },
+          "type_id": {
+            "format": "uuid",
+            "title": "Type Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "action",
+          "type_id",
+          "relationship_ids",
+          "other_ci_ids"
+        ],
+        "title": "RelationshipsChanged",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",
@@ -2235,6 +2948,68 @@
           "changed_fields"
         ],
         "title": "AccessSettingsChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.account_security.changed": {
+      "1": {
+        "description": "The person's account was locked out, or its password or MFA changed (REQ-SEC-033 part 2).\n\nWP-057 S2b-2: read from Keycloak's user events by the events import, once per Keycloak event\n(security_notice_marks), and told to the person (a locked security notice). `opens_at` is a\nlock-out's earliest end, a lower bound (lane B). No address: the place only, as the new-device\nnotice. Internal (the outbox and the notification consumer), never sent to a browser.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "locked_out",
+              "password_changed",
+              "mfa_added",
+              "mfa_removed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "kind",
+          "occurred_at",
+          "opens_at",
+          "place"
+        ],
+        "title": "AccountSecurityChanged",
         "type": "object"
       }
     },
@@ -2261,6 +3036,67 @@
           "owner_id"
         ],
         "title": "ApiKeyChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.break_glass.signed_in": {
+      "1": {
+        "description": "A break-glass admin signed in with a password while single sign-on is required.\n\nREQ-SEC-009 AC3 (WP-057 S1b): every other tenant admin is told. IDs only.",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "BreakGlassSignedIn",
+        "type": "object"
+      }
+    },
+    "identity_access.field_access.changed": {
+      "1": {
+        "description": "A role's field access rule was set, changed or removed (ADR-047, REQ-ADM-026).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only; `mode` is None once removed.",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "read_only",
+                  "masked",
+                  "hidden"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "record_type",
+          "field",
+          "mode"
+        ],
+        "title": "FieldAccessChanged",
         "type": "object"
       }
     },
@@ -2347,6 +3183,38 @@
         "type": "object"
       }
     },
+    "identity_access.invitation.link_copied": {
+      "1": {
+        "description": "An admin copied a single-use invite link for a pending invitation (REQ-SEC-021).\n\nWP-057 S2b-2. Its own event (not a new `change` of the v1 InvitationChanged contract). IDs\nonly; never the link or its token.",
+        "properties": {},
+        "title": "InvitationLinkCopied",
+        "type": "object"
+      }
+    },
+    "identity_access.keycloak_session.end_pending": {
+      "1": {
+        "description": "A sign-out ended the SupportX session while Keycloak was unreachable (ADR-051).\n\nThe person is signed out of SupportX already; this asks the consumers worker to end their\nKeycloak session too, through the admin API, once Keycloak answers again. No token: the\nsession ID is enough for the admin API and authorises nothing on its own.",
+        "properties": {
+          "keycloak_session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Keycloak Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "keycloak_session_id"
+        ],
+        "title": "KeycloakSessionEndPending",
+        "type": "object"
+      }
+    },
     "identity_access.mfa.changed": {
       "1": {
         "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
@@ -2391,6 +3259,56 @@
           "change"
         ],
         "title": "MfaChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.new_device.signed_in": {
+      "1": {
+        "description": "A person signed in from a browser or device they have not used before (REQ-SEC-033).\n\nWP-057 S2b-1: they are told (a locked security notice), never on their first sign-in ever.\nCarries the device code (domain/sign_in.device, never the User-Agent) and the approximate\nplace (domain/place.py's stored form), never the address: the known_devices table keeps only\na keyed fingerprint, so the notice can only say this from the event. Internal (the outbox and\nthe notification consumer), never sent to a browser.",
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "signed_in_at": {
+            "format": "date-time",
+            "title": "Signed In At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "device",
+          "place",
+          "signed_in_at"
+        ],
+        "title": "NewDeviceSignedIn",
         "type": "object"
       }
     },
@@ -2440,6 +3358,104 @@
         "type": "object"
       }
     },
+    "identity_access.person_erasure.changed": {
+      "1": {
+        "description": "A GDPR erasure was requested, approved, rejected, expired, or its job moved on (ADR-052).\n\nIDs, the state code and the next step only (never a name or a reason): the erasure screens\nof people who may erase refetch, and the person's own record follows the step's changes\nthrough its ordinary events.",
+        "properties": {
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "requested",
+              "approved",
+              "running",
+              "done",
+              "rejected",
+              "expired",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "maximum": 8,
+            "minimum": 0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "person_id",
+          "state",
+          "step"
+        ],
+        "title": "PersonErasureChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.person_erasure.completed": {
+      "1": {
+        "description": "A person was erased (ADR-052 step 7), after `user.status_changed` with reason `erasure`.\n\nFor consumers that act once the whole erasure is done (exports, caches). The person's ID only.",
+        "properties": {
+          "erasure_id": {
+            "format": "uuid",
+            "title": "Erasure Id",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "erasure_id"
+        ],
+        "title": "PersonErasureCompleted",
+        "type": "object"
+      }
+    },
+    "identity_access.resource_access.changed": {
+      "1": {
+        "description": "A role's rule narrowing assets or CIs was added, changed or removed (ADR-053, 0183).\n\nCompiled subjects go stale (authz consumer), so the person's next request has it. Names the\nrule only, never its criteria; `removed` once it is taken away.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "resource": {
+            "enum": [
+              "asset",
+              "ci"
+            ],
+            "title": "Resource",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "rule_id",
+          "resource",
+          "removed"
+        ],
+        "title": "ResourceAccessChanged",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",
@@ -2475,6 +3491,29 @@
         "type": "object"
       }
     },
+    "identity_access.service_account.needs_owner": {
+      "1": {
+        "description": "A service account's owner was deactivated: it needs a new one (WP-057 S4a, REQ-ADM-011).\n\nIDs only. The account keeps working (its keys are its own) until an admin acts.",
+        "properties": {
+          "previous_owner_id": {
+            "format": "uuid",
+            "title": "Previous Owner Id",
+            "type": "string"
+          },
+          "service_account_id": {
+            "format": "uuid",
+            "title": "Service Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_account_id",
+          "previous_owner_id"
+        ],
+        "title": "ServiceAccountNeedsOwner",
+        "type": "object"
+      }
+    },
     "identity_access.session.tenant_switched": {
       "1": {
         "description": "A signed-in user moved their session into this tenant.\n\nPublished in the tenant switched TO only; the previous tenant is deliberately not named, so\none tenant's subscribers never learn which other tenants a user belongs to.",
@@ -2498,6 +3537,66 @@
           "client"
         ],
         "title": "SessionTenantSwitched",
+        "type": "object"
+      }
+    },
+    "identity_access.sign_in.recorded": {
+      "1": {
+        "description": "A sign-in event was written to the tenant's log (REQ-AUD-015; WP-057 S1a).\n\nThe outcome only, never the person, address or device: open sign-in logs refetch.",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "success",
+              "failed",
+              "signed_out",
+              "locked",
+              "mfa_failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "SignInRecorded",
+        "type": "object"
+      }
+    },
+    "identity_access.sign_in_secret.expiring": {
+      "1": {
+        "description": "A sign-in certificate or client secret is about to run out, or has (REQ-SEC-011).\n\nWP-057 S2b-2: the tenant's admins are told, once per threshold (30, 7, 1 days; 0 = run out).\nIDs and codes only: the provider, which kind of item, the threshold and the date.",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "item": {
+            "enum": [
+              "certificate",
+              "client_secret"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "provider_id": {
+            "format": "uuid",
+            "title": "Provider Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_id",
+          "item",
+          "days_left",
+          "expires_at"
+        ],
+        "title": "SignInSecretExpiring",
         "type": "object"
       }
     },
@@ -2533,6 +3632,70 @@
           "state"
         ],
         "title": "SsoProviderChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.support_grant.changed": {
+      "1": {
+        "description": "A vendor support grant was made, extended, verified, first used or ended (WP-057 S4c-1).\n\nIDs and codes only (rule c): never the engineer's name or e-mail, nor the reason. Every tenant\nadmin is told, through the one notification engine, required and locked (D-173 (8)).",
+        "properties": {
+          "access": {
+            "enum": [
+              "view",
+              "view_and_change"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "created",
+              "extended",
+              "verified",
+              "first_used",
+              "ended",
+              "revoked",
+              "account_removed",
+              "account_removal_failed",
+              "account_removal_stuck",
+              "link_sent",
+              "link_opened",
+              "link_resent",
+              "link_expired"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "error_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Class"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "change",
+          "access",
+          "ends_at"
+        ],
+        "title": "SupportGrantChanged",
         "type": "object"
       }
     },
@@ -2675,6 +3838,44 @@
           "source"
         ],
         "title": "UserCreatedV4",
+        "type": "object"
+      },
+      "5": {
+        "description": "As UserCreatedV4, with `service_account` as a source: one an admin made (WP-057 S4a).\n\nA new allowed value, so a new schema version; v1 to v4 stay registered.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration",
+              "workflow",
+              "service_account"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV5",
         "type": "object"
       }
     },
@@ -2846,6 +4047,33 @@
         "type": "object"
       }
     },
+    "identity_access.user_cost_rate.changed": {
+      "1": {
+        "description": "A person's cost per hour was set, changed or removed (REQ-INC-068).\n\nIDs and the kind of change only, never the amount: screens with `users.view_cost_rates`\nrefetch the person's rates.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "change"
+        ],
+        "title": "UserCostRateChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user_role.changed": {
       "1": {
         "description": "A role was assigned to or removed from a user (WP-016).",
@@ -2875,6 +4103,53 @@
           "change"
         ],
         "title": "UserRoleChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.vendor_support_setting.changed": {
+      "1": {
+        "description": "The tenant's \"Never allow vendor support\" setting changed (D-173 (9)); admins are told.",
+        "properties": {
+          "never_allow": {
+            "title": "Never Allow",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "never_allow"
+        ],
+        "title": "VendorSupportSettingChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.verified_domain.changed": {
+      "1": {
+        "description": "A verified e-mail domain changed (WP-057 S5d, REQ-SEC-010). IDs and codes only.\n\n`verified`, `lapsed` and `unverified` (deleted while verified) also drive the Keycloak\norganisation's routing, through the outbox (lane B (1)); `lapsed` tells the tenant's admins;\nthe screen refetches on any change.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "checked",
+              "verified",
+              "unverified",
+              "lapsed",
+              "deleted",
+              "refused"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "domain_id": {
+            "format": "uuid",
+            "title": "Domain Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_id",
+          "change"
+        ],
+        "title": "VerifiedDomainChanged",
         "type": "object"
       }
     },
@@ -2971,6 +4246,33 @@
           "change"
         ],
         "title": "DirectoryChanged",
+        "type": "object"
+      }
+    },
+    "integrations.mail_block_rule.changed": {
+      "1": {
+        "description": "A block rule for unwanted mail was added, changed or removed (WP-046a S6; REQ-INC-026).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "change"
+        ],
+        "title": "MailBlockRuleChanged",
         "type": "object"
       }
     },
@@ -3469,6 +4771,141 @@
         ],
         "title": "CustomFieldChanged",
         "type": "object"
+      },
+      "2": {
+        "description": "As CustomFieldChanged, with the field's type scope (0175): None for the whole entity.\n\nA new field, so a new schema version; v1 stays registered for events already stored.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "scope_type_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Type Id"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "change",
+          "changed_fields",
+          "scope_type_id"
+        ],
+        "title": "CustomFieldChangedV2",
+        "type": "object"
+      }
+    },
+    "metadata.custom_field.seal_changed": {
+      "1": {
+        "description": "A field's values started or finished being sealed or opened (WP-057 S3b-2b).\n\nThe state and counts only, never a value (the coordinator, S3b-2b).",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "records": {
+            "title": "Records",
+            "type": "integer"
+          },
+          "seal_state": {
+            "enum": [
+              "plain",
+              "sealing",
+              "sealed",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          },
+          "unreadable": {
+            "default": 0,
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state",
+          "records"
+        ],
+        "title": "CustomFieldSealChanged",
+        "type": "object"
+      }
+    },
+    "metadata.custom_field.seal_paused": {
+      "1": {
+        "description": "Sealing or opening a field's values paused: the keys are unavailable (WP-057 S3b-2b).\n\nOnce per outage (lane B): the admins are told, and the job tries again by itself.",
+        "properties": {
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "seal_state": {
+            "enum": [
+              "sealing",
+              "opening"
+            ],
+            "title": "Seal State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "seal_state"
+        ],
+        "title": "CustomFieldSealPaused",
+        "type": "object"
       }
     },
     "notifications.delivery.recorded": {
@@ -3506,6 +4943,34 @@
           "state"
         ],
         "title": "DeliveryRecorded",
+        "type": "object"
+      }
+    },
+    "notifications.mail.not_sent_summary": {
+      "1": {
+        "description": "One run gave up on e-mails that waited 7 days for outgoing mail to be set up (D-157).\n\nOne per run and tenant, whatever the count: the people who set mail up hear it once, in the\napp (the summary is no e-mail: there is no mail to send it with). Counts and a time only.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "oldest_at": {
+            "format": "date-time",
+            "title": "Oldest At",
+            "type": "string"
+          },
+          "summary_id": {
+            "format": "uuid",
+            "title": "Summary Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary_id",
+          "count",
+          "oldest_at"
+        ],
+        "title": "MailNotSentSummary",
         "type": "object"
       }
     },
@@ -4630,6 +6095,38 @@
         "type": "object"
       }
     },
+    "system.list_settings.changed": {
+      "1": {
+        "description": "A person's settings or saved view of one list changed: their other windows follow.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "list_key": {
+            "title": "List Key",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "list_key",
+          "view_key",
+          "change"
+        ],
+        "title": "ListSettingsChanged",
+        "type": "object"
+      }
+    },
     "system.mail.queued": {
       "1": {
         "description": "A message was queued; the mail worker sends it.",
@@ -4786,6 +6283,11 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "at_creation": {
+            "default": false,
+            "title": "At Creation",
+            "type": "boolean"
+          },
           "change": {
             "enum": [
               "added",
@@ -4859,6 +6361,78 @@
         "type": "object"
       }
     },
+    "work_items.cancellation_request.created": {
+      "1": {
+        "description": "A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).\n\nIDs only: the reason is the ask's own row, read by those who may decide.",
+        "properties": {
+          "deciders": {
+            "title": "Deciders",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "requested_by",
+          "request_id",
+          "deciders"
+        ],
+        "title": "WorkItemCancellationRequested",
+        "type": "object"
+      }
+    },
+    "work_items.cancellation_request.decided": {
+      "1": {
+        "description": "A requester's ask to cancel was approved, declined or withdrawn (its state code).",
+        "properties": {
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "state",
+          "requested_by"
+        ],
+        "title": "WorkItemCancellationDecided",
+        "type": "object"
+      }
+    },
     "work_items.change.approval_notice": {
       "1": {
         "description": "Someone must hear about a change's approval (WP-045b; REQ-CHG-040, -053; D-144).\n\n`notice`: `sent_back` (an approved change needs approval again: the implementer, the owner\nand the board are told), `overridden` (the emergency override was used) or\n`board_has_no_members` (the change manager is told). Recorded now; the change\nnotifications (WP-056) send it. IDs only: recipients are worked out when it is sent.",
@@ -4911,6 +6485,54 @@
           "board_id"
         ],
         "title": "ChangeApprovalNotice",
+        "type": "object"
+      }
+    },
+    "work_items.change.reminder_due": {
+      "1": {
+        "description": "A change's reminder is due (WP-045d S3; REQ-CHG-091, -105), claimed once by the sweep.\n\n`kind`: `window_start` (an hour before the implementation window), `implementation_overdue`\n(the window ended with implementation not complete), `cab_waiting` (it starts within a day\nand `member_id` has not decided) or `review_due`. `window_start` is the window it was\nclaimed for: the source re-reads the change at send time and says nothing if the window\nmoved meanwhile (lane B). IDs and times only.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Member Id"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Window Start"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "kind"
+        ],
+        "title": "ChangeReminderDue",
         "type": "object"
       }
     },
@@ -5071,6 +6693,39 @@
         "type": "object"
       }
     },
+    "work_items.conversation.redacted": {
+      "1": {
+        "description": "An entry's text had a person's name taken out by their erasure (ADR-052 S2).\n\nThe timeline refetches the entry; IDs only, never the text.",
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility"
+        ],
+        "title": "WorkItemConversationRedacted",
+        "type": "object"
+      }
+    },
     "work_items.conversation.visibility_changed": {
       "1": {
         "description": "A note was made public or private (REQ-INC-061 AC3). `visibility` is the new one.",
@@ -5106,6 +6761,33 @@
           "from_visibility"
         ],
         "title": "WorkItemConversationVisibilityChanged",
+        "type": "object"
+      }
+    },
+    "work_items.draft.changed": {
+      "1": {
+        "description": "A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.\n\nThe person and the form only, never what the draft holds (lane B's condition 7).",
+        "properties": {
+          "form_key": {
+            "title": "Form Key",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_id",
+          "form_key",
+          "version"
+        ],
+        "title": "WorkItemDraftChanged",
         "type": "object"
       }
     },
@@ -5199,6 +6881,28 @@
           "view_key"
         ],
         "title": "WorkItemListSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.major.changed": {
+      "1": {
+        "description": "An incident was declared major, or its major status ended (WP-046b S4, REQ-INC-141).\n\nIDs and the flag only: never the reason (lane B). The notification engine tells the major\nincident team; lists and the record show the marker live.",
+        "properties": {
+          "major": {
+            "title": "Major",
+            "type": "boolean"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "major"
+        ],
+        "title": "WorkItemMajorChanged",
         "type": "object"
       }
     },
@@ -5299,6 +7003,53 @@
         ],
         "title": "WorkItemPartChangedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As V2, with a record's checklists, personal reminders and timers (WP-046a S2/S3).\n\nNew allowed values retype `part`, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 and v2 stay registered and keep publishing their parts. A reminder or a\nrunning timer (REQ-INC-082, -069) is its owner's only: realtime tells their personal\nchannel, never the record's. `timer` is reserved here for S3, so S3 needs no V4.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link",
+              "plan_section",
+              "stage_schedule",
+              "downtime",
+              "checklist",
+              "reminder",
+              "timer"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChangedV3",
+        "type": "object"
       }
     },
     "work_items.portal_settings.changed": {
@@ -5384,6 +7135,41 @@
           "incident_count"
         ],
         "title": "ProblemRepeatDetected",
+        "type": "object"
+      }
+    },
+    "work_items.reminder.due": {
+      "1": {
+        "description": "A person's own reminder on a record alerts them (WP-046a S2; REQ-INC-082 AC1).\n\nRaised once by the sweep at its time minus its lead. IDs only; the source re-reads the\nreminder at send time and says nothing if it moved, was completed, or its owner can no\nlonger see the record (the coordinator).",
+        "properties": {
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "reminder_id",
+          "user_id",
+          "remind_at"
+        ],
+        "title": "WorkItemReminderDue",
         "type": "object"
       }
     },
@@ -5483,6 +7269,69 @@
         "type": "object"
       }
     },
+    "work_items.task.assigned": {
+      "1": {
+        "description": "A task was given to someone (WP-046a S1; REQ-INC-076 AC1): its owner is told.\n\nRaised when a task is made with an owner or its owner changes to another person. IDs only;\nthe notification source reads the task and its record at send time.",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "owner_id"
+        ],
+        "title": "WorkItemTaskAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.task.reminder_due": {
+      "1": {
+        "description": "A task's reminder is due (WP-046a S1; REQ-INC-073 AC2, -076), claimed once by the sweep.\n\n`kind`: `starts_soon` (its owner's reminder before the scheduled start) or `overdue` (open\npast its due time). `at` is the time it was claimed for: the source re-reads the task at\nsend time and says nothing if that time moved meanwhile. IDs and times only.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "task_id",
+          "kind",
+          "at"
+        ],
+        "title": "WorkItemTaskReminderDue",
+        "type": "object"
+      }
+    },
     "work_items.view.changed": {
       "1": {
         "description": "A saved view was added, changed or removed (WP-020d; the view menus reload).",
@@ -5513,6 +7362,44 @@
           "visibility"
         ],
         "title": "WorkItemViewChanged",
+        "type": "object"
+      }
+    },
+    "work_items.view.unshared": {
+      "1": {
+        "description": "A shared view went back to private (D-176).\n\nIts filter names a field some recipient may not see. IDs and codes only; the owner is told\nthrough the notification source of saved views.",
+        "properties": {
+          "field_key": {
+            "title": "Field Key",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "view_id": {
+            "format": "uuid",
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "type",
+          "owner_id",
+          "field_key",
+          "reason"
+        ],
+        "title": "WorkItemViewUnshared",
         "type": "object"
       }
     },

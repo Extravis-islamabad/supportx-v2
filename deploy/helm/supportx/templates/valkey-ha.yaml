@@ -3,14 +3,20 @@ HA Valkey (WP-014b, ADR-038): a StatefulSet of Valkey servers, each with a Senti
 the official image. At start each pod asks the sentinels for the current master and replicates
 from it unless it is that master. A pod starts as master only when every peer answered and
 none holds data (a fresh set); otherwise it waits and says why, never starting empty. So a restarted former master always rejoins as a replica. The app and
-Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). Passwords come
+Centrifugo find the master through the sentinels (SUPPORTX_VALKEY_SENTINELS). A pod is first
+Ready only once its own sentinel knows it in its role (ready.sh), so a rolling update or a drain
+never stops a master its sentinels cannot yet fail over. Passwords come
 from the installation secret only, written to files in memory, never on a command line.
+With valkeyHa.tls.enabled (values-ha.yaml; audit row 5) servers and sentinels speak only TLS, on
+the same ports, with a certificate from the chart's internal CA (internal-tls.yaml); every
+valkey-cli call here goes through `vcli`, which adds the CA when TLS is on.
 */ -}}
 {{- if .Values.valkeyHa.enabled }}
 {{- $c := dict "root" . "component" "valkey" }}
 {{- $name := include "supportx.name" $c }}
 {{- $headless := printf "%s-headless" $name }}
 {{- $ha := .Values.valkeyHa }}
+{{- $tls := $ha.tls.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,13 +25,28 @@ metadata:
     {{- include "supportx.labels" $c | nindent 4 }}
 data:
   common.sh: |
+    # Every peer by its fully qualified name, cluster domain included, taken from the first
+    # search entry the kubelet writes (<namespace>.svc.<cluster domain>), so no value has to
+    # repeat it. With the pod's ndots 1 (dnsConfig below) such a name resolves in one query:
+    # never a walk through the search list, never a query forwarded outside the cluster. No
+    # trailing dot is needed (the name has more dots than ndots, so it is tried as it is first).
+    DOMAIN=$(sed -n 's/^search \([^ ]*\).*/\1/p' /etc/resolv.conf | head -n 1)
+    case "$DOMAIN" in
+      {{ .Release.Namespace }}.svc.*) ;;
+      *) DOMAIN="{{ .Release.Namespace }}.svc" ;;  # no kubelet search line: the short form
+    esac
+    # valkey-cli with the password from the environment (never on a command line) and, with TLS
+    # on, the internal CA: every server and sentinel then refuses plaintext.
+    vcli() {
+      REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli {{- if $tls }} --tls --cacert /tls-ca/ca.crt{{ end }} --no-auth-warning "$@"
+    }
     # The current master's host, asked of the sentinels; empty when none answers.
-    SELF="${HOSTNAME}.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    SELF="${HOSTNAME}.{{ $headless }}.$DOMAIN"
     ask_sentinels() {
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
-        found=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 \
-          --no-auth-warning SENTINEL get-master-addr-by-name supportx 2>/dev/null | head -n 1)
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
+        found=$(vcli -h "$peer" -p 26379 \
+          SENTINEL get-master-addr-by-name supportx 2>/dev/null | head -n 1)
         if [ -n "$found" ]; then echo "$found"; return 0; fi
       done
       return 0
@@ -45,6 +66,9 @@ data:
     # servers then answer pod 0 (offset 0 on a fresh install), so a first start never deadlocks.
     # Why it waits is also in $WAITING, which the readiness probe prints (kubectl describe).
     WAITING=/run/valkey/waiting
+    # /run/valkey outlives a container restart in the same pod: a restarted server must pass
+    # ready.sh's first-readiness gate again, so its mark goes first.
+    rm -f /run/valkey/ready-role
     waiting() {
       echo "valkey: waiting: $1" >&2
       echo "$1" > "$WAITING"
@@ -57,12 +81,10 @@ data:
     set_state() {
       silent=""
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
         [ "$peer" = "$SELF" ] && continue
-        info=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
-          info all 2>/dev/null | tr -d '\r')
-        keys=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 6379 --no-auth-warning \
-          dbsize 2>/dev/null | tr -d '\r')
+        info=$(vcli -h "$peer" -p 6379 info all 2>/dev/null | tr -d '\r')
+        keys=$(vcli -h "$peer" -p 6379 dbsize 2>/dev/null | tr -d '\r')
         offset=$(echo "$info" | sed -n 's/^master_repl_offset://p')
         syncing=$(echo "$info" | sed -n 's/^master_sync_in_progress://p')
         loading=$(echo "$info" | sed -n 's/^loading://p')
@@ -78,14 +100,13 @@ data:
     }
     hand_over() {
       for i in $(seq 0 $(({{ $ha.replicas }} - 1))); do
-        peer="{{ $name }}-$i.{{ $headless }}.{{ .Release.Namespace }}.svc"
+        peer="{{ $name }}-$i.{{ $headless }}.$DOMAIN"
         [ "$peer" = "$SELF" ] && continue
-        REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -h "$peer" -p 26379 --no-auth-warning \
-          SENTINEL FAILOVER supportx >/dev/null 2>&1 && return 0
+        vcli -h "$peer" -p 26379 SENTINEL FAILOVER supportx >/dev/null 2>&1 && return 0
       done
       return 0
     }
-    pod0="{{ $name }}-0.{{ $headless }}.{{ .Release.Namespace }}.svc"
+    pod0="{{ $name }}-0.{{ $headless }}.$DOMAIN"
     tries=0
     while :; do
       master=$(ask_sentinels)
@@ -123,7 +144,21 @@ data:
     done
     rm -f "$WAITING"
     {
+      {{- if $tls }}
+      # TLS only, on the usual port: no plaintext listener at all. Clients prove themselves with
+      # the password, so no client certificate is asked for; replication to the master is TLS too.
+      echo "port 0"
+      echo "tls-port 6379"
+      echo "tls-cert-file /tls/tls.crt"
+      echo "tls-key-file /tls/tls.key"
+      echo "tls-ca-cert-file /tls-ca/ca.crt"
+      echo "tls-auth-clients no"
+      echo "tls-replication yes"
+      # cert-manager renews the certificate in place: reread the files when they change.
+      echo "tls-auto-reload-interval {{ $ha.tls.reloadIntervalSeconds }}"
+      {{- else }}
       echo "port 6379"
+      {{- end }}
       echo "requirepass $VALKEY_PASSWORD"
       echo "masterauth $VALKEY_PASSWORD"
       echo "replica-announce-ip $SELF"
@@ -134,6 +169,77 @@ data:
     } > /run/valkey/valkey.conf
     echo "valkey: starting as $([ "$master" = "$SELF" ] && echo master || echo "replica of $master")"
     exec valkey-server /run/valkey/valkey.conf
+  ready.sh: |
+    # The valkey container's readiness probe. Read-only and cheap: a few local valkey-cli calls.
+    # Sentinel learns a master's replicas only from the master's INFO, every 10 s (fixed in
+    # Valkey). A pod Ready before its sentinel knows it would let a rolling update or a drain stop
+    # the master while the surviving sentinels had no replica to promote
+    # (-failover-abort-no-good-slave until the master returns). So until a pod has passed once in
+    # its current role, it is ready only when this pod's own sentinel knows it in that role:
+    #   - a replica: it is synced (master_link_status up) and the sentinel lists this pod among
+    #     the replicas, healthy;
+    #   - a master: the sentinel lists, healthy, every replica the master reports connected. A
+    #     master with no connected replica (a lone pod, or replicas not connected yet) passes at
+    #     once: a replica connecting later passes its own gate (its sentinel lists it, learned
+    #     from this master's INFO) before a rolling update or drain moves on, and a ready master
+    #     must never turn not-ready over its sentinel.
+    # Passing writes $MARK (the role). From then on only the server counts ($WAITING, PING): a
+    # sentinel blip must never become a Valkey outage. A promotion or demotion clears the mark and
+    # gates again; valkey.sh clears it at every (re)start.
+    set -u
+    . /scripts/common.sh
+    WAITING=/run/valkey/waiting
+    MARK=/run/valkey/ready-role
+    cli() {
+      vcli "$@" 2>/dev/null | tr -d '\r'
+    }
+    if [ -f "$WAITING" ]; then cat "$WAITING"; exit 1; fi
+    [ "$(cli -p 6379 ping)" = PONG ] || { echo "valkey: the server does not answer PING"; exit 1; }
+    info=$(cli -p 6379 info replication)
+    role=$(echo "$info" | sed -n 's/^role://p')
+    case "$role" in
+      master|slave) ;;
+      *) echo "valkey: the server reports no role"; exit 1 ;;
+    esac
+    if [ -f "$MARK" ]; then
+      [ "$(cat "$MARK")" = "$role" ] && exit 0
+      rm -f "$MARK"  # promoted or demoted since it passed: gate again in the new role
+    fi
+    if [ "$role" = slave ]; then
+      # A replica still syncing holds no data yet: Ready then, a rolling update could next stop
+      # the replica that does hold it, leaving only this one to promote.
+      if [ "$(echo "$info" | sed -n 's/^master_link_status://p')" != up ]; then
+        echo "valkey: not synced with its master yet"
+        exit 1
+      fi
+      wanted="$SELF:6379"  # valkey.sh's replica-announce-ip
+    else
+      # connected_slaves lines: slave0:ip=<announced host>,port=6379,state=online,...
+      wanted=$(echo "$info" | sed -n 's/^slave[0-9]*:ip=\([^,]*\),port=\([0-9]*\),.*/\1:\2/p')
+      if [ -z "$wanted" ]; then  # no replica connected: passed (see above)
+        echo master > "$MARK"
+        exit 0
+      fi
+    fi
+    # SENTINEL replicas prints each replica as flat key/value lines (name, ip, port, ..., flags,
+    # ...); "name" starts the next one. A replica counts when it is neither down nor disconnected.
+    known=$(cli -p 26379 SENTINEL replicas supportx | awk '
+      function emit() { if (ip != "" && flags !~ /s_down|o_down|disconnected/) print ip ":" port }
+      prev == "name" { emit(); ip = ""; port = ""; flags = "" }
+      prev == "ip" { ip = $0 }
+      prev == "port" { port = $0 }
+      prev == "flags" { flags = $0 }
+      { prev = $0 }
+      END { emit() }')
+    missing=""
+    for replica in $wanted; do
+      echo "$known" | grep -qxF "$replica" || missing="$missing ${replica%%.*}"
+    done
+    if [ -n "$missing" ]; then
+      echo "valkey: this pod's sentinel does not list these replicas yet:$missing (it reads the master's INFO every 10 s)"
+      exit 1
+    fi
+    echo "$role" > "$MARK"
   sentinel.sh: |
     set -eu
     . /scripts/common.sh
@@ -141,19 +247,32 @@ data:
     # As long as it takes: a server that waits to start (valkey.sh) must not leave its sentinel
     # monitoring this pod as master. The server's decision never asks this pod's own sentinel.
     waited=0
-    until REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning ping >/dev/null 2>&1; do
+    until vcli -p 6379 ping >/dev/null 2>&1; do
       sleep 1
       waited=$((waited + 1))
       [ $((waited % 30)) -eq 0 ] && echo "sentinel: waiting for this pod's server (${waited}s)" >&2
     done
     master=$(ask_sentinels)
     if [ -z "$master" ]; then
-      role=$(REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 6379 --no-auth-warning \
-        info replication | tr -d '\r' | sed -n 's/^master_host://p')
+      role=$(vcli -p 6379 info replication | tr -d '\r' | sed -n 's/^master_host://p')
       master="${role:-$SELF}"
     fi
     {
+      {{- if $tls }}
+      # TLS only, like the server; tls-replication makes the sentinel's own connections to the
+      # servers and to the other sentinels TLS as well.
+      echo "port 0"
+      echo "tls-port 26379"
+      echo "tls-cert-file /tls/tls.crt"
+      echo "tls-key-file /tls/tls.key"
+      echo "tls-ca-cert-file /tls-ca/ca.crt"
+      echo "tls-auth-clients no"
+      echo "tls-replication yes"
+      # cert-manager renews the certificate in place: reread the files when they change.
+      echo "tls-auto-reload-interval {{ $ha.tls.reloadIntervalSeconds }}"
+      {{- else }}
       echo "port 26379"
+      {{- end }}
       echo "sentinel resolve-hostnames yes"
       echo "sentinel announce-hostnames yes"
       echo "sentinel announce-ip $SELF"
@@ -204,6 +323,17 @@ spec:
         checksum/scripts: {{ printf "%s-%s" (toJson $ha) .Chart.Version | sha256sum }}
     spec:
       automountServiceAccountToken: false
+      # Sentinel (resolve-hostnames) looks names up in its main loop: with the defaults (5 s
+      # timeout, 2 attempts, ndots 5 walking the search list) a CoreDNS outage stalls that loop
+      # for tens of seconds, the sentinel enters TILT and no quorum forms; a replica's link stays
+      # down so long that no replica is good enough to promote (Cluster run 43082299609: the only
+      # CoreDNS copy was on the stopped node). Short lookups that fail fast, and one query per
+      # name (the scripts use fully qualified names, common.sh).
+      dnsConfig:
+        options:
+          - {name: ndots, value: "1"}
+          - {name: timeout, value: "1"}
+          - {name: attempts, value: "2"}
       {{- include "supportx.pullSecrets" . | nindent 6 }}
       {{- include "supportx.podSecurityContext" . | nindent 6 }}
       {{- with include "supportx.scheduling" $c }}{{ . | nindent 6 }}{{- end }}
@@ -219,8 +349,13 @@ spec:
             - {name: {{ $role }}, containerPort: {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }}}
           readinessProbe:
             exec:
-              # While the server waits to start, the probe prints why (valkey.sh's $WAITING).
-              command: ["/bin/sh", "-c", "{{ if eq $role "valkey" }}if [ -f /run/valkey/waiting ]; then cat /run/valkey/waiting; exit 1; fi; {{ end }}REDISCLI_AUTH=\"$VALKEY_PASSWORD\" valkey-cli -p {{ if eq $role "valkey" }}6379{{ else }}26379{{ end }} --no-auth-warning ping | grep -q PONG"]
+              {{- if eq $role "valkey" }}
+              # Prints why it waits (valkey.sh's $WAITING) and, until the pod's first readiness
+              # in its role, which replicas its sentinel does not know yet (ready.sh).
+              command: ["/bin/sh", "/scripts/ready.sh"]
+              {{- else }}
+              command: ["/bin/sh", "-c", ". /scripts/common.sh; vcli -p 26379 ping | grep -q PONG"]
+              {{- end }}
             periodSeconds: 5
           resources:
             {{- toYaml $.Values.valkeyHa.resources | nindent 12 }}
@@ -229,10 +364,21 @@ spec:
             - {name: scripts, mountPath: /scripts, readOnly: true}
             - {name: run, mountPath: /run/{{ $role }}}
             - {name: data, mountPath: /data}
+            {{- if $tls }}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: tls-ca, mountPath: /tls-ca, readOnly: true}
+            {{- end }}
         {{- end }}
       volumes:
         - name: scripts
           configMap: {name: {{ $name }}-scripts}
+        {{- if $tls }}
+        # This pod's certificate (cert-manager), and the CA alone: never the CA's private key.
+        - name: tls
+          secret: {secretName: {{ $name }}-tls, items: [{key: tls.crt, path: tls.crt}, {key: tls.key, path: tls.key}]}
+        - name: tls-ca
+          secret: {secretName: {{ include "supportx.internalCaSecret" . }}, items: [{key: ca.crt, path: ca.crt}]}
+        {{- end }}
         - name: run
           emptyDir: {medium: Memory, sizeLimit: 1Mi}
         - name: data

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
-import { consoleApi } from '../../../test/api';
+import { consoleApi, listCalls } from '../../../test/api';
 import type { ReportWords } from '../../reports/names';
 import {
   builderFields,
@@ -472,7 +472,7 @@ describe('Incident list (WP-020d)', () => {
     fireEvent.mouseDown(preset.querySelector('.ant-select-selector') ?? preset);
     fireEvent.click(await screen.findByTitle('This week'));
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
         field: 'created_at',
         op: 'this_week',
@@ -519,7 +519,7 @@ describe('WP-020f QA', () => {
     fireEvent.change(screen.getByTestId('inc-search'), { target: { value: 'confirmed' } });
     fireEvent.click(await screen.findByText('Closure code is Confirmed by requester'));
     await waitFor(() => {
-      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      const last = listCalls(fake, '/api/v1/incidents').at(-1);
       expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toMatchObject({
         field: 'closure_code',
         op: 'eq',
@@ -569,4 +569,50 @@ it('BUG-05: in the view builder a coded field is a pick list, never free text', 
     choices: [{ value: 'fixed', label: 'named fixed' }],
   });
   expect(subject?.type).toBe('string');
+});
+
+// Lane C (#549): a link opens a view (the D-176 notice links to the view made private).
+describe('a link to a view', () => {
+  const MINE = {
+    id: '01900000-0000-7000-8000-00000000a1a1',
+    name: 'My queue',
+    visibility: 'private',
+    group_ids: [],
+    owner_id: ITEM.requester_id,
+    mine: true,
+    favourite: false,
+    filter: null,
+    columns: [],
+    sort: null,
+    version: 1,
+    updated_at: '2026-11-19T00:00:00Z',
+  };
+  const custom = `custom:${MINE.id}`;
+  afterEach(() => {
+    restore();
+  });
+
+  it('opens a saved view of theirs from ?view=custom:<id>', async () => {
+    window.history.pushState({}, '', `/incidents?view=${custom}`);
+    api({
+      routes: routes({
+        'GET /api/v1/incidents/saved-views': { body: [MINE] },
+        [`GET /api/v1/incidents/list-settings/${custom}`]: {
+          body: { view_key: custom, columns: [], sort: null, page_size: 50, version: null },
+        },
+      }),
+    });
+    render(<App />);
+    // The star shows only while a saved view is the one open.
+    expect(await screen.findByTestId('inc-view-star')).toBeTruthy();
+  });
+
+  it('keeps the default view, with no error, for a view that is not theirs', async () => {
+    window.history.pushState({}, '', '/incidents?view=custom:01900000-0000-7000-8000-00000000ffff');
+    api({ routes: routes() });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    expect(screen.queryByTestId('inc-view-star')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

@@ -17,7 +17,7 @@ import hmac
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import select, update
@@ -36,29 +36,59 @@ from app.core.errors import (
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.domain import api_keys as rules
+from app.modules.identity_access.domain.network import NetworkApp, address_of
 from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import ApiKeyChanged
 from app.modules.identity_access.infra.models import ApiKey, User
 from app.modules.identity_access.service.identity_settings import (
     IdentitySettingsView,
     get_identity_settings,
 )
+from app.modules.identity_access.service.network_rules import admitted, get_network_rules
 from app.shared.events import record_event
 from app.shared.ids import new_id
 
+VENDOR_SUPPORT_NO_KEYS = "api_key_vendor_support"
 MANAGE = "api_keys.manage"
 SERVICE = "service"
 OWNERS_MAX = 500  # one per connector instance: far more than any tenant runs
 
 
+# The context of the key derived from SUPPORTX_SESSION_SECRET: every hash made before the API-key
+# key became its own production setting (audit row 26) is under it.
+_LEGACY_CONTEXT = b"supportx-api-keys-v1"
+
+
+def _derived_from_session_secret(settings: Settings) -> bytes | None:
+    if settings.session_secret is None:
+        return None
+    secret = settings.session_secret.get_secret_value().encode()
+    return hmac.new(secret, _LEGACY_CONTEXT, hashlib.sha256).digest()
+
+
 def server_key(settings: Settings) -> bytes | None:
-    """The key secrets are hashed under: its own setting, else derived from the session secret."""
+    """The key new secrets are hashed under: SUPPORTX_API_KEY_SECRET.
+
+    Production refuses to start without it (audit row 26), so the session secret never guards API
+    keys there. Dev and test without it derive one from SUPPORTX_SESSION_SECRET (the legacy
+    secret, never the session key ring, D-162), so a dev stack needs no extra setting.
+    """
     if settings.api_key_secret is not None:
         return settings.api_key_secret.get_secret_value().encode()
-    if settings.session_secret is not None:
-        secret = settings.session_secret.get_secret_value().encode()
-        return hmac.new(secret, b"supportx-api-keys-v1", hashlib.sha256).digest()
-    return None
+    return _derived_from_session_secret(settings)
+
+
+def legacy_server_key(settings: Settings) -> bytes | None:
+    """The key hashes made before SUPPORTX_API_KEY_SECRET was set are under, or None.
+
+    Only while SUPPORTX_SESSION_SECRET is still set: such a key is re-hashed under the new key on
+    its first good call (`authenticate`), so existing integrations keep working through the
+    upgrade and the session secret stops mattering to them after it.
+    """
+    if settings.api_key_secret is None:
+        return None  # the derived key is already the current one
+    return _derived_from_session_secret(settings)
 
 
 def _require_server_key(settings: Settings) -> bytes:
@@ -73,9 +103,28 @@ async def key_rules(session: AsyncSession) -> IdentitySettingsView:
     return await get_identity_settings(session)
 
 
-def _problem(*, field: str, code: str) -> ValidationFailed:
+def _problem(
+    *, field: str, code: str, params: dict[str, str | int | float | bool | None] | None = None
+) -> ValidationFailed:
     return ValidationFailed(
-        errors=[FieldError(field=f"body.{field}", code=code, message_key=f"errors.field.{code}")]
+        errors=[
+            FieldError(
+                field=f"body.{field}",
+                code=code,
+                message_key=f"errors.field.{code}",
+                params=params or {},
+            )
+        ]
+    )
+
+
+def policy_of(allowed: IdentitySettingsView) -> rules.KeyPolicy:
+    """The tenant's key policy (REQ-SEC-037)."""
+    return rules.KeyPolicy(
+        max_lifetime=timedelta(days=allowed.key_max_lifetime_days),
+        allow_non_expiring=allowed.allow_non_expiring_keys,
+        require_ip_range=allowed.keys_require_ip_range,
+        unused_after=timedelta(days=allowed.key_unused_days),
     )
 
 
@@ -104,6 +153,32 @@ async def service_owners(session: AsyncSession, subject: Subject) -> list[User]:
     return list(rows)
 
 
+async def _check_owner(
+    session: AsyncSession,
+    subject: Subject,
+    owner: uuid.UUID,
+    *,
+    manager: bool,
+    people_may: bool,
+) -> None:
+    """Who may hold the new key: the person themself, or a service identity a manager names."""
+    if owner == subject.user_id:
+        me = await session.get(User, owner)
+        # A vendor support account never holds a key (WP-057 S4c-1, lane B (5)), whatever the
+        # tenant allows people: its access is its grant's, ended with it; a key would outlive both.
+        if me is not None and me.user_type == SUPPORT_USER_TYPE:
+            raise PermissionDenied(code=VENDOR_SUPPORT_NO_KEYS)
+        if not (manager or people_may):
+            raise PermissionDenied(code="api_keys_people_off")
+        return
+    if not manager:
+        raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
+    person = await session.get(User, owner)
+    # Keys for others: service identities only, never another person (they act as their owner).
+    if person is None or person.deleted_at is not None or person.user_type != SERVICE:
+        raise _problem(field="owner_id", code="api_key_owner_not_service")
+
+
 async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     session: AsyncSession,
     subject: Subject,
@@ -124,29 +199,37 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     owner = owner_id or subject.user_id
     manager = subject.holds(MANAGE)
     allowed = await key_rules(session)
-    if owner == subject.user_id:
-        if not (manager or allowed.people_may_create_keys):
-            raise PermissionDenied(code="api_keys_people_off")
-    else:
-        if not manager:
-            raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
-        person = await session.get(User, owner)
-        # Keys for others: service identities only, never another person (they act as their owner).
-        if person is None or person.deleted_at is not None or person.user_type != SERVICE:
-            raise _problem(field="owner_id", code="api_key_owner_not_service")
+    await _check_owner(
+        session, subject, owner, manager=manager, people_may=allowed.people_may_create_keys
+    )
     title = name.strip()
     if not title or len(title) > rules.NAME_MAX:
         raise _problem(field="name", code="api_key_name_invalid")
     chosen = sorted(set(scopes))
     if not chosen or any(s not in known_scopes for s in chosen):
         raise _problem(field="scopes", code="api_key_scope_unknown")
-    expiry = None if never_expires else (expires_at or now + rules.DEFAULT_LIFETIME)
-    wrong = rules.expiry_problem(expiry, now, allow_non_expiring=allowed.allow_non_expiring_keys)
+    policy = policy_of(allowed)
+    # No expiry chosen: the default, cut to the policy so the key is never refused (lane B).
+    expiry = (
+        None if never_expires else (expires_at or now + rules.default_lifetime(policy.max_lifetime))
+    )
+    wrong = rules.expiry_problem(
+        expiry,
+        now,
+        allow_non_expiring=allowed.allow_non_expiring_keys,
+        max_lifetime=policy.max_lifetime,
+    )
     if wrong is not None:
-        raise _problem(field="expires_at", code=wrong)
+        # The limit is shown with the refusal (REQ-SEC-037 AC1).
+        raise _problem(
+            field="expires_at", code=wrong, params={"max_days": allowed.key_max_lifetime_days}
+        )
     networks = rules.parse_allowlist(ip_allowlist)
     if networks is None or len(networks) > rules.ALLOWLIST_MAX:
         raise _problem(field="ip_allowlist", code="api_key_allowlist_invalid")
+    missing = rules.ip_range_problem(networks, required=policy.require_ip_range)
+    if missing is not None:
+        raise _problem(field="ip_allowlist", code=missing)
     key_id = new_id()
     made = rules.make_key(subject.tenant_id, key_id)
     parsed = rules.parse_key(made.text)
@@ -174,6 +257,37 @@ async def create_key(  # noqa: PLR0913 - the key's parts, explicit
     )
     await _changed(session, row, "created")
     return MadeKey(row=row, text=made.text)
+
+
+async def policy_impact(
+    session: AsyncSession, subject: Subject, policy: rules.KeyPolicy, now: datetime
+) -> dict[str, int]:
+    """How many active keys a proposed policy would flag, by reason (shown before saving).
+
+    The coordinator (2026-11-16): keys made before a stricter policy are flagged and listed,
+    never revoked; the admin sees how many first.
+    """
+    if not subject.holds(MANAGE):
+        raise PermissionDenied(params={"permission": MANAGE, "reason": "no_permission"})
+    rows = await session.scalars(
+        select(ApiKey).where(
+            ApiKey.deleted_at.is_(None),
+            ApiKey.revoked_at.is_(None),
+            (ApiKey.expires_at.is_(None)) | (ApiKey.expires_at > now),
+        )
+    )
+    counts = {"lifetime_over_policy": 0, "no_ip_range": 0, "keys": 0}
+    for row in rows:
+        gaps = rules.out_of_policy(
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            ip_allowlist=row.ip_allowlist,
+            policy=policy,
+        )
+        for gap in gaps:
+            counts[gap] += 1
+        counts["keys"] += bool(gaps)
+    return counts
 
 
 async def list_keys(session: AsyncSession, subject: Subject) -> list[ApiKey]:
@@ -222,6 +336,29 @@ async def _changed(
     )
 
 
+async def _check_secret(
+    session: AsyncSession,
+    row: ApiKey,
+    parsed: rules.ParsedKey,
+    server: bytes,
+    legacy: bytes | None,
+) -> None:
+    """The secret against the stored hash; a hash under the legacy key moves to the current one."""
+    if rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash):
+        return
+    if legacy is None or not rules.secret_matches(
+        legacy, parsed.key_id, parsed.secret, row.secret_hash
+    ):
+        raise Unauthenticated(code="api_key_invalid")
+    # Made under the session-secret key: move it to the API-key key now (audit row 26). Guarded
+    # by the old hash, so two replicas re-hashing at once write the same value once.
+    await session.execute(
+        update(ApiKey)
+        .where(ApiKey.id == row.id, ApiKey.secret_hash == row.secret_hash)
+        .values(secret_hash=rules.secret_hash(server, parsed.key_id, parsed.secret))
+    )
+
+
 async def authenticate(
     database: Database, settings: Settings, text: str, facts: RequestFacts, now: datetime
 ) -> TenantContext:
@@ -232,15 +369,13 @@ async def authenticate(
     server = server_key(settings)
     if server is None:
         raise ServiceUnavailable(code="api_keys_unavailable")
+    legacy = legacy_server_key(settings)
     tenant_only = TenantContext(parsed.tenant_id)
     async with database.tenant_session(tenant_only) as session:
         row = await session.get(ApiKey, parsed.key_id)
-        if (
-            row is None
-            or row.deleted_at is not None
-            or not rules.secret_matches(server, parsed.key_id, parsed.secret, row.secret_hash)
-        ):
+        if row is None or row.deleted_at is not None:
             raise Unauthenticated(code="api_key_invalid")
+        await _check_secret(session, row, parsed, server, legacy)
         if row.revoked_at is not None:
             raise Unauthenticated(code="api_key_revoked")
         if row.expires_at is not None and row.expires_at <= now:
@@ -248,7 +383,14 @@ async def authenticate(
         owner = await session.get(User, row.owner_id)
         if owner is None or owner.deleted_at is not None or owner.status != "active":
             raise Unauthenticated(code="api_key_owner_inactive")
-        allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        if owner.user_type == SUPPORT_USER_TYPE:  # never made; refused anyway (lane B (5))
+            raise Unauthenticated(code=VENDOR_SUPPORT_NO_KEYS)
+        # The key's own list, then the tenant's API list (REQ-SEC-034): both must admit it.
+        key_allowed = rules.address_allowed(facts.ip, row.ip_allowlist)
+        tenant_allowed = admitted(
+            await get_network_rules(session), NetworkApp.API, address_of(facts.ip)
+        )
+        allowed = key_allowed and tenant_allowed
         if allowed and (
             row.last_used_at is None or now - row.last_used_at >= rules.LAST_USED_EVERY
         ):
@@ -258,6 +400,7 @@ async def authenticate(
                 .values(last_used_at=now, last_used_ip=facts.ip)
             )
         key_id, owner_id, scopes, name = row.id, row.owner_id, frozenset(row.scopes), row.name
+        service_identity = owner.user_type == "service"
     if not allowed:
         # Refused and written down: which key, from where (REQ-INT-019 AC3).
         await record_alone(
@@ -267,10 +410,19 @@ async def authenticate(
             facts=facts,
             object_type="api_key",
             object_id=key_id,
-            details={"name": name, "reason": "address_not_allowed"},
+            details={
+                "name": name,
+                "reason": "address_not_allowed" if not key_allowed else "tenant_ip_not_allowed",
+            },
         )
-        raise PermissionDenied(code="api_key_ip_refused")
-    return TenantContext(parsed.tenant_id, owner_id, api_key_id=key_id, api_scopes=scopes)
+        raise PermissionDenied(code="api_key_ip_refused" if not key_allowed else "ip_not_allowed")
+    return TenantContext(
+        parsed.tenant_id,
+        owner_id,
+        api_key_id=key_id,
+        api_scopes=scopes,
+        service_identity=service_identity,
+    )
 
 
 def bearer(authorization: str | None) -> str | None:

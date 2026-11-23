@@ -315,7 +315,7 @@ async def test_no_audit_entry_means_no_session(
     assert quick.idp.ended_sessions  # Keycloak's session too
 
 
-# --- The mobile app's quick sign-in (D-163): the session ID in the body, never a cookie. -------
+# --- The mobile app's quick sign-in (D-183): the session ID in the body, never a cookie. -------
 
 MOBILE_SIGN_IN = "/api/v1/auth/dev/mobile/sign-in"
 MOBILE = {"X-SupportX-Client": "mobile"}

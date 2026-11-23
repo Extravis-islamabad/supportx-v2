@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import Depends, Request
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_REQUEST_KEY, SESSION_TENANT_KEY, Database, TenantSession
@@ -47,6 +47,7 @@ from app.modules.audit.infra.models import AuditEntry, AuditPersonal, AuditQueue
 from app.modules.audit.service.fingerprints import EntryFingerprint, for_saves
 from app.modules.audit.service.settings import load_settings
 from app.shared.clock import Clock, system_clock
+from app.shared.db.deferred import deferred
 from app.shared.events import record_event
 from app.shared.history import CLIENT_HEADER, SavedRecord, recorded_change_ids
 from app.shared.ids import new_id
@@ -107,11 +108,66 @@ class RequestFacts:
 WORKER = RequestFacts(AuditClient.WORKER, None, None, None)
 
 
+@dataclass(frozen=True)
+class _Acting:
+    """Who acted, for whom, and what the entry says about the actor (WP-057 S4b, REQ-AUD-014)."""
+
+    type: AuditActorType
+    id: uuid.UUID | None
+    on_behalf: uuid.UUID | None = None
+    details: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def subject(self) -> uuid.UUID | None:
+        """Whose personal data (IP, device) the entry holds: a person, never a key or an agent."""
+        if self.type in {AuditActorType.API_KEY, AuditActorType.AI_AGENT}:
+            return self.on_behalf
+        return self.id
+
+
+_NEEDS_BEHALF = frozenset({AuditActorType.API_KEY, AuditActorType.AI_AGENT})
+
+
+def _acting(context: object) -> _Acting:
+    """The real actor of the session's work (REQ-AUD-014).
+
+    An AI agent acts for a person; an API key acts for its owner, and a service account's key is
+    the account itself (the key is named in the details); a signed-in person acts as themselves.
+    """
+    if not isinstance(context, TenantContext) or context.user_id is None:
+        return _Acting(AuditActorType.SYSTEM, None)
+    if context.agent is not None:
+        agent = context.agent
+        return _Acting(
+            AuditActorType.AI_AGENT,
+            agent.id,
+            on_behalf=context.user_id,
+            details={
+                "agent": {"key": agent.key, "version": agent.version, "tools": list(agent.tools)}
+            },
+        )
+    if context.api_key_id is not None and context.service_identity:
+        return _Acting(
+            AuditActorType.SERVICE_ACCOUNT,
+            context.user_id,
+            details={"api_key_id": str(context.api_key_id)},
+        )
+    if context.api_key_id is not None:
+        return _Acting(AuditActorType.API_KEY, context.api_key_id, on_behalf=context.user_id)
+    if context.support_grant_id is not None:
+        # An Extravis engineer under a tenant admin's grant (D-173, D-178): the grant is named, so
+        # its end-of-grant summary lists every write (lane B (7)).
+        return _Acting(
+            AuditActorType.VENDOR_SUPPORT,
+            context.user_id,
+            details={"grant_id": str(context.support_grant_id)},
+        )
+    return _Acting(AuditActorType.PERSON, context.user_id)
+
+
 def _actor(session: AsyncSession) -> tuple[AuditActorType, uuid.UUID | None]:
-    context = session.info.get(SESSION_TENANT_KEY)
-    if isinstance(context, TenantContext) and context.user_id is not None:
-        return AuditActorType.PERSON, context.user_id
-    return AuditActorType.SYSTEM, None
+    acting = _acting(session.info.get(SESSION_TENANT_KEY))
+    return acting.type, acting.id
 
 
 async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
@@ -144,7 +200,14 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
             msg = "a save's events start with its action"
             raise ValueError(msg)
     context: TenantContext = session.info[SESSION_TENANT_KEY]
-    actor_type, actor_id = actor or _actor(session)
+    # An explicit actor (a worker, a link's recipient) is taken as given; otherwise the session's.
+    if actor is not None and actor[0] in _NEEDS_BEHALF:
+        # A key or an agent always acts for someone: only the session's context can say whom.
+        msg = f"an explicit {actor[0].value} actor would lose whom it acted for"
+        raise ValueError(msg)
+    acting = _acting(context) if actor is None else _Acting(*actor)
+    actor_type, actor_id = acting.type, acting.id
+    subject = acting.subject
     entry_id = new_id()
     occurred_at = clock.now()
     personal_data = {
@@ -158,14 +221,14 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
     }
     personal: list[AuditPersonal] = []
     commitments: dict[str, str] = {}
-    if personal_data and actor_id is not None:
+    if personal_data and subject is not None:
         salt = os.urandom(SALT_SIZE)
-        commitments[str(actor_id)] = commitment(salt, personal_data)
+        commitments[str(subject)] = commitment(salt, personal_data)
         personal.append(
             AuditPersonal(
                 tenant_id=context.tenant_id,
                 entry_id=entry_id,
-                subject_id=actor_id,
+                subject_id=subject,
                 salt=salt,
                 data=personal_data,
                 occurred_at=occurred_at,
@@ -182,10 +245,10 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "reason_code": reason_code,
         "actor_type": actor_type.value,
         "actor_id": actor_id,
-        "on_behalf_id": None,
+        "on_behalf_id": acting.on_behalf,
         "object_type": object_type,
         "object_id": str(object_id) if object_id is not None else None,
-        "details": plain(dict(details or {})),
+        "details": plain({**acting.details, **(details or {})}),
         "client": facts.client.value,
         "request_id": facts.request_id,
         "change_id": change_id,
@@ -196,12 +259,17 @@ async def record(  # noqa: PLR0913 - every part of an entry, keyword-only
         "fingerprint_saves": list(fingerprint.saves) if fingerprint is not None else None,
         "personal_subjects": list(fingerprint.subjects) if fingerprint is not None else None,
     }
-    session.add(AuditEntry(**row, entry_hash=entry_hash(row)))
-    session.add_all(personal)
-    session.add(
-        AuditQueueItem(tenant_id=context.tenant_id, entry_id=entry_id, occurred_at=occurred_at)
-    )
-    await session.flush()
+    entry = AuditEntry(**row, entry_hash=entry_hash(row))
+    queued = AuditQueueItem(tenant_id=context.tenant_id, entry_id=entry_id, occurred_at=occurred_at)
+    if (buffer := deferred(session)) is not None:
+        # An import batch (step B): the entry first, then its personal data and queue place, one
+        # INSERT per table for the whole batch; the event below is buffered too.
+        buffer.add(entry, *personal, queued)
+    else:
+        session.add(entry)
+        session.add_all(personal)
+        session.add(queued)
+        await session.flush()
     await record_event(session, AuditEntryRecorded(entry_id=entry_id), aggregate_id=entry_id)
     return entry_id
 
@@ -400,7 +468,7 @@ def audit_read(
         settings = await load_settings(session)
         if category not in ALWAYS_LOGGED_READS and category.value not in settings.read_categories:
             return
-        actor_type, actor_id = _actor(session)
+        _, actor_id = _actor(session)
         object_id = request.path_params.get(object_param) if object_param else None
         since = system_clock.now() - timedelta(minutes=settings.read_window_minutes)
         if await _read_logged_since(session, spec.code, actor_id, object_id, since):
@@ -411,7 +479,6 @@ def audit_read(
             facts=RequestFacts.of(request),
             object_type=object_type,
             object_id=object_id,
-            actor=(actor_type, actor_id),
         )
 
     setattr(dependency, READ_ATTR, category)
@@ -491,7 +558,8 @@ async def _check_probing(session: AsyncSession, actor_id: uuid.UUID, facts: Requ
         select(func.count())
         .select_from(AuditEntry)
         .where(
-            AuditEntry.actor_id == actor_id,
+            # A person refused through their own key or an agent acting for them counts too (S4b).
+            or_(AuditEntry.actor_id == actor_id, AuditEntry.on_behalf_id == actor_id),
             AuditEntry.outcome == AuditOutcome.REFUSED.value,
             AuditEntry.occurred_at >= now - timedelta(minutes=settings.refusal_window_minutes),
         )

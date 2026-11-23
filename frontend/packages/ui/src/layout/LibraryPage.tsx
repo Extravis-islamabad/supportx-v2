@@ -1,9 +1,10 @@
 import { StarFilled, StarOutlined } from '@ant-design/icons';
-import { Button, Empty, Flex, Input, Tabs, Typography, theme } from 'antd';
+import { Button, Empty, Flex, Input, Typography, theme } from 'antd';
 import type { ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
 import { SPACE, TYPE } from '../density';
+import { Tabs } from './Tabs';
 
 /** One entry of a library: a report, an article, a dashboard. */
 export interface LibraryItem {

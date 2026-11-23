@@ -39,7 +39,7 @@ from urllib.parse import urlsplit
 import httpcore
 import structlog
 
-from app.shared.egress.addresses import Allowance, IPAddress, allowed
+from app.shared.egress.addresses import Allowance, IPAddress
 
 log = structlog.get_logger("app.egress")
 
@@ -163,6 +163,14 @@ class PinnedBackend(httpcore.AsyncNetworkBackend):
         await self.inner.sleep(seconds)
 
 
+def tls_context(destination: Destination | None) -> ssl.SSLContext:
+    """The TLS rules every outbound connection follows: TLS 1.2+, the host name checked.
+
+    For a caller that opens its own socket to a pinned address (syslog over TLS, WP-057 S5a).
+    """
+    return _ssl_context(destination)
+
+
 def _ssl_context(destination: Destination | None) -> ssl.SSLContext:
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -223,7 +231,7 @@ def _target(request: OutboundRequest, allowance: Allowance) -> tuple[str, int]:
         port = parts.port or (443 if parts.scheme == "https" else 80)
     except ValueError:
         raise EgressError(INVALID) from None
-    if port not in allowance.ports:
+    if allowance.ports is not None and port not in allowance.ports:
         raise EgressError(BLOCKED)
     return parts.hostname, port
 
@@ -238,12 +246,24 @@ async def send(  # noqa: PLR0913 - the call and everything that bounds it, expli
     max_bytes: int = MAX_RESPONSE_BYTES,
     resolver: Resolver = system_resolver,
     backend: httpcore.AsyncNetworkBackend | None = None,
+    accept_statuses: frozenset[int] = frozenset(),
 ) -> OutboundResponse:
-    """Make one guarded call; any 2xx is the response, anything else an `EgressError`."""
+    """Make one guarded call; any 2xx is the response, anything else an `EgressError`.
+
+    `accept_statuses` are other statuses the caller reads the body of (a token endpoint's 401
+    says whether a client was refused); a redirect is never one of them.
+    """
     started = time.monotonic()
     where = urlsplit(request.url)
     host = where.hostname or ""
-    call = _Call(request, allowance, destination, min(max_bytes, MAX_RESPONSE_BYTES), backend)
+    call = _Call(
+        request,
+        allowance,
+        destination,
+        min(max_bytes, MAX_RESPONSE_BYTES),
+        backend,
+        accept_statuses - frozenset(range(300, 400)),
+    )
     try:
         response = await asyncio.wait_for(call.run(resolver), timeout=TOTAL_SECONDS)
     except EgressError as error:
@@ -273,6 +293,7 @@ class _Call:
     destination: Destination | None
     cap: int
     backend: httpcore.AsyncNetworkBackend | None
+    accept_statuses: frozenset[int] = frozenset()
     port: int = 0
 
     async def run(self, resolver: Resolver) -> OutboundResponse:
@@ -282,7 +303,8 @@ class _Call:
         headers = _headers(self.request)
         ip = await _checked_address(host, self.port, self.allowance, resolver)
         response = await _call(self, ip, headers)
-        _status(response.status)
+        if response.status not in self.accept_statuses:
+            _status(response.status)
         return response
 
 
@@ -296,18 +318,21 @@ def _status(status: int) -> None:
 async def _checked_address(
     host: str, port: int, allowance: Allowance, resolver: Resolver
 ) -> IPAddress:
-    """Resolve once; every answer must be allowed (one bad answer blocks the call)."""
-    import ipaddress  # noqa: PLC0415 - a literal address needs no resolver
+    """Resolve once; every answer must be allowed (one bad answer blocks the call).
+
+    The one implementation is `sockets.pinned_address` (lane A's, for IMAP and SMTP; my #446
+    review): HTTP and the other protocols judge an address the same way. `send` keeps its own
+    public code, `blocked`.
+    """
+    # sockets imports this module (EgressError, the resolver): imported here to avoid a cycle.
+    from app.shared.egress.sockets import NOT_ALLOWED, pinned_address  # noqa: PLC0415
 
     try:
-        answers: list[IPAddress] = [ipaddress.ip_address(host.strip("[]"))]
-    except ValueError:
-        answers = await resolver(host, port)
-    if not answers:
-        raise EgressError(UNREACHABLE)
-    if not all(allowed(ip, host, allowance) for ip in answers):
-        raise EgressError(BLOCKED)
-    return answers[0]
+        return await pinned_address(host, port, allowance, resolver)
+    except EgressError as error:
+        if error.code == NOT_ALLOWED:
+            raise EgressError(BLOCKED) from None
+        raise
 
 
 async def _call(call: _Call, ip: IPAddress, headers: list[tuple[bytes, bytes]]) -> OutboundResponse:

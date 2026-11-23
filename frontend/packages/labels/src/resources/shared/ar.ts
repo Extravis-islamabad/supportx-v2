@@ -3,6 +3,9 @@ import type { LabelResource } from '../en';
 // shared labels (see ../README.md).
 export const ar: LabelResource = {
   'about.close': 'إغلاق',
+  'about.geoip_attribution':
+    'تستخدم الأماكن التقريبية لتسجيل الدخول بيانات IP to City Lite (بترخيص CC BY 4.0) من',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'من إنتاج Extravis',
   'about.open': 'حول SupportX',
   'about.version': 'الإصدار {{version}}',
@@ -60,6 +63,8 @@ export const ar: LabelResource = {
   'appearance.theme.light': 'فاتح',
   'appearance.theme.system': 'اتباع النظام',
   'appearance.title': 'المظهر',
+  'board.count_of': '{{shown}} من {{total}}',
+  'board.move_to': 'نقل إلى…',
   'check_status.failed': 'فشل',
   'check_status.not_configured': 'غير مُهيّأ',
   'check_status.ok': 'سليم',
@@ -79,7 +84,7 @@ export const ar: LabelResource = {
     'توقفت الصفحة عن العمل. غالبًا ما تحل إعادة التحميل المشكلة. إذا تكرر ذلك، أرسل إلينا المرجع.',
   'crash.reload': 'إعادة تحميل الصفحة',
   'crash.title': 'حدث خطأ في هذه الصفحة',
-  'datetime.time_zone_note': 'الأوقات بتوقيت {{zone}}.',
+  'datetime.time_zone_note': 'الأوقات حسب {{zone}}.',
   'dev.chart_aria': 'مخطط أعمدة لأعداد تذاكر تجريبية لكل يوم عمل.',
   'dev.chart_title': 'عرض توضيحي: التذاكر حسب اليوم',
   'dev.errors': 'رسائل الأخطاء',
@@ -135,6 +140,12 @@ export const ar: LabelResource = {
   'home.subtitle': 'مساحة عملك في {{tenant}}',
   'home.technician_seats': 'مقاعد الفنيين',
   'home.title': 'مرحبًا، {{name}}',
+  'kept_draft.discard': 'تجاهل',
+  'kept_draft.found': 'حُفظت مسودة من هذا النموذج {{when}}',
+  'kept_draft.replace_body': 'تحل المسودة محل كل ما في النموذج. لا يمكن التراجع عن ذلك.',
+  'kept_draft.replace_title': 'استبدال ما كتبته بالمسودة؟',
+  'kept_draft.restore': 'استعادة',
+  'kept_draft.unreadable': 'تعذّرت قراءة مسودة محفوظة من هذا النموذج.',
   'layout.add_value': 'إضافة',
   'layout.alerts_count_few': '{{count}} تنبيهات',
   'layout.alerts_count_many': '{{count}} تنبيهًا',
@@ -173,7 +184,11 @@ export const ar: LabelResource = {
   'layout.properties_fewer': 'إخفاء الحقول الفارغة',
   'layout.reset_widths': 'إعادة ضبط العرض',
   'layout.resize_column': 'عرض {{column}}: استخدم مفاتيح الأسهم',
+  'layout.restricted_hidden': 'غير معروض لك',
+  'layout.restricted_masked': 'مُخفى جزئيًا',
   'layout.star': 'إضافة إلى المفضلة',
+  'layout.tabs_earlier': 'علامات التبويب السابقة',
+  'layout.tabs_later': 'علامات التبويب التالية',
   'layout.unstar': 'إزالة من المفضلة',
   'layout.view': 'عرض',
   'live.changed_by': 'غيّر {{name}} هذا السجل للتو. أعد التحميل لرؤية التغييرات قبل الحفظ.',
@@ -183,6 +198,11 @@ export const ar: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'الفئة',
+  'mail_command_field.group': 'المجموعة',
+  'mail_command_field.priority': 'الأولوية',
+  'mail_command_field.technician': 'الفني',
+  'mail_command_field.template': 'القالب',
   'mobile.about.app_version': 'إصدار التطبيق',
   'mobile.about.server': 'الخادم',
   'mobile.about.server_status': 'حالة الخادم',
@@ -314,6 +334,7 @@ export const ar: LabelResource = {
   'nav.admin_catalog': 'كتالوج الخدمات',
   'nav.admin_change_boards': 'مجالس استشارات التغيير',
   'nav.admin_change_windows': 'نوافذ التجميد والصيانة',
+  'nav.admin_erasures': 'عمليات المحو',
   'nav.admin_files': 'الملفات',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'الحوادث',
@@ -326,10 +347,12 @@ export const ar: LabelResource = {
   'nav.admin_notifications': 'الإشعارات',
   'nav.admin_organization': 'المؤسسة',
   'nav.admin_portal': 'البوابة',
+  'nav.admin_releases': 'إعدادات الإصدارات',
   'nav.admin_requests': 'طلبات الخدمة',
   // Admin › Roles and access (WP-016)
   'nav.admin_roles': 'الأدوار',
   'nav.admin_security': 'تسجيل الدخول والأمان',
+  'nav.admin_service_accounts': 'حسابات الخدمة',
   'nav.admin_sla': 'اتفاقيات مستوى الخدمة',
   'nav.admin_users': 'الأشخاص',
   // Announcements, field history, action reasons (WP-012)
@@ -350,6 +373,7 @@ export const ar: LabelResource = {
   'nav.main': 'التنقل الرئيسي',
   'nav.more': 'المزيد',
   'nav.my_requests': 'طلباتي',
+  'nav.my_tasks': 'مهامي',
   'nav.open_menu': 'افتح القائمة',
   'nav.problems': 'المشكلات',
   'nav.profile': 'ملفي الشخصي',
@@ -438,7 +462,7 @@ export const ar: LabelResource = {
   'richtext.table': 'إدراج جدول',
   'richtext.templates': 'القوالب',
   'richtext.templates_manage': 'إدارة القوالب…',
-  'richtext.templates_none': 'لا توجد قوالب رد بعد',
+  'richtext.templates_none': 'لا توجد قوالب بعد',
   'richtext.text_colour': 'لون النص',
   'richtext.text_style': 'نمط النص',
   'richtext.toolbar': 'التنسيق',
@@ -453,6 +477,11 @@ export const ar: LabelResource = {
   'search.same_requester': 'من {{name}} أيضًا',
   'search.status_filter': 'الحالة',
   'search.type_to_search': 'اكتب رقمًا أو كلمات أو اسمًا',
+  'service_roles.add': 'امنح دوراً',
+  'service_roles.inactive': 'غير نشطة: لا تفعل شيئاً حتى تُشغَّل من جديد.',
+  'service_roles.no_roles': 'لا دور بعد: لا تستطيع العمل على أي سجل.',
+  'service_roles.none_offered': 'لا يوجد دور يمكنك منحه يناسب هذه الهوية.',
+  'service_roles.remove': 'اسحب الدور {{name}}',
   'settings.actions': 'الإجراءات',
   'settings.add_category': 'إضافة فئة',
   'settings.add_item': 'إضافة عنصر',
@@ -467,8 +496,31 @@ export const ar: LabelResource = {
   'settings.categories': 'الفئات',
   'settings.categories_help':
     'فئة وفئة فرعية وعنصر. لا تُعرض الإدخالات المتوقفة في الحوادث الجديدة لكنها تبقى ظاهرة في الحوادث التي تستخدمها.',
+  'settings.cc_from_first_mail': 'إبقاء نسخة أول رسالة على اطلاع',
+  'settings.cc_from_first_mail_help':
+    'تتلقى العناوين الموجودة في النسخة على الرسالة التي تفتح البلاغ ردوده العامة (20 على الأكثر). في كل رسالة رابط لإيقافها.',
   'settings.changed_elsewhere':
     'غيّر شخص آخر هذه الإعدادات للتو. يُعرض أحدث إصدار؛ يرجى إجراء تغييرك مرة أخرى.',
+  'settings.checklists.add': 'قائمة تحقق جديدة في المكتبة',
+  'settings.checklists.enabled_named': 'عرض {{name}}',
+  'settings.checklists.help':
+    'قوائم تحقق جاهزة يمكن للفني إضافتها إلى الحادث. يحصل الحادث على نسخته الخاصة: تغيير القائمة هنا لا يغيّر الحوادث التي أُضيفت إليها.',
+  'settings.checklists.import': 'إضافة عناصر من ملف CSV',
+  'settings.checklists.imported':
+    'تمت قراءة {{items}} عنصر، واستُبعد {{rejected}} صف. راجعها ثم احفظ.',
+  'settings.checklists.items': 'العناصر',
+  'settings.checklists.items_count_few': '{{count}} عناصر',
+  'settings.checklists.items_count_many': '{{count}} عنصرًا',
+  'settings.checklists.items_count_one': 'عنصر واحد',
+  'settings.checklists.items_count_other': '{{count}} عنصر',
+  'settings.checklists.items_count_two': 'عنصران',
+  'settings.checklists.items_count_zero': 'لا عناصر',
+  'settings.checklists.items_help': 'عنصر واحد في كل سطر. تُحذف الأسطر الفارغة.',
+  'settings.checklists.name': 'الاسم',
+  'settings.checklists.none': 'لا توجد قوائم تحقق في المكتبة بعد.',
+  'settings.checklists.rejected_row': 'الصف {{row}}: {{reason}}',
+  'settings.checklists.title': 'مكتبة قوائم التحقق',
+  'settings.checklists.why.name': 'أعطِ قائمة التحقق اسمًا أولًا.',
   'settings.closing.auto_close': 'إغلاق الحوادث المحلولة تلقائيًا',
   'settings.closing.auto_close_days': 'أيام العمل قبل الإغلاق التلقائي',
   'settings.closing.auto_close_help':
@@ -476,25 +528,75 @@ export const ar: LabelResource = {
   'settings.closing.auto_close_needs_notifications':
     'يتطلب إشعارات مقدّمي الطلبات: يبقى الإغلاق التلقائي متوقفًا حتى تتوفر قناة (البريد الإلكتروني أو البوابة) تُبلغ مقدّمي الطلبات بالحل. لا تُغلق أي حادثة لمقدّم طلب لم يُبلَّغ.',
   'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'settings.closing.checklist_item_max': 'عناصر قوائم التحقق لكل سجل',
+  'settings.closing.checklist_item_max_help':
+    'كل قوائم التحقق في السجل معًا، من {{min}} إلى {{max}}. تُرفض القائمة الأطول ولا تُقتطع.',
   'settings.closing.close_requires': 'مطلوب قبل الإغلاق',
   'settings.closing.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الحادثة.',
+  'settings.closing.closed_edit_lock': 'قفل الحوادث المغلقة',
+  'settings.closing.closed_edit_lock_help':
+    'أثناء التشغيل لا يغيّر أحد حقول حادث مغلق، بمن فيهم حاملو صلاحية «تعديل الحوادث المغلقة» والمسؤولون. تستمر الملاحظات والردود. يُحفظ فورًا وقد يطلب تأكيد تسجيل دخولك.',
+  'settings.closing.closed_edit_lock_switch': 'قفل الحوادث المغلقة كليًا',
   'settings.closing.complete_open_work': 'إكمال العمل المفتوح عند الإغلاق',
   'settings.closing.complete_open_work_help': 'يؤدي إغلاق الحادثة إلى تعليم عملها المفتوح كمكتمل.',
+  'settings.closing.condition.review_completed': 'اكتمال المراجعة',
+  'settings.closing.copy_limit': 'النسخ في المرة الواحدة',
+  'settings.closing.copy_limit_help':
+    'عدد نسخ الحادثة التي يمكن إنشاؤها في طلب واحد، من {{min}} إلى {{max}}.',
   'settings.closing.days_range': 'من {{min}} إلى {{max}} يوم عمل.',
+  'settings.closing.edit_reason_fields': 'حقول يتطلب تغييرها سببًا',
+  'settings.closing.edit_reason_fields_help':
+    'من يغيّر أحد هذه الحقول يذكر السبب، ويُحفظ السبب في سجل السجل.',
+  'settings.closing.first_contact_minutes': 'نافذة الحل من أول تواصل (بالدقائق)',
+  'settings.closing.first_contact_minutes_help':
+    'الحادث الذي يحلّه منشئه خلال هذا الوقت دون إعادة إسناد يُقترح أنه حُلّ من أول تواصل ({{min}} إلى {{max}}).',
   'settings.closing.help':
     'ما يلزم لحل الحادثة وإغلاقها، وما يحدث للعمل المفتوح، والمدة التي يمكن خلالها لمقدّم الطلب إعادة فتحها بالرد.',
   'settings.closing.open_work': 'العمل المفتوح',
   'settings.closing.open_work_help':
     'ما يحدث عند حل الحادثة أو إغلاقها بينما لا يزال العمل عليها مفتوحًا. تبدأ هذه الفحوص بالعمل عند توفر المهام وقوائم التحقق والحوادث المرتبطة والموافقات.',
+  'settings.closing.release.close_requires_help': 'الحقول التي يجب ملؤها قبل إغلاق الإصدار.',
+  'settings.closing.release.complete_open_work_help':
+    'يؤدي إغلاق الإصدار إلى تعليم مهامه المفتوحة كمكتملة؛ ولا تُغلق معه التغييرات المرتبطة والإصدارات الفرعية أبدًا.',
+  'settings.closing.release.help':
+    'ما يلزم لحل الإصدار وإغلاقه، وما يحدث لعمله المفتوح: المهام والموافقات والتغييرات المرتبطة والإصدارات الفرعية.',
+  'settings.closing.release.open_work_help':
+    'ما يحدث عند حل الإصدار أو إغلاقه بينما لا يزال العمل عليه مفتوحًا.',
+  'settings.closing.release.resolve_requires_help': 'الحقول التي يجب ملؤها قبل حل الإصدار.',
+  'settings.closing.release.task_owner_access':
+    'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الإصدار',
+  'settings.closing.release.task_owner_access_help':
+    'يرون مهمتهم ومعرّف الإصدار وموضوعه ويمكنهم تغيير حالة المهمة؛ ولا يرون الملاحظات أو الخطط أبدًا.',
+  'settings.closing.release.timer_auto_start': 'بدء المؤقت عندما يفتح شخص إصدارًا يملكه',
+  'settings.closing.release.timer_auto_start_help':
+    'مرة واحدة لكل إصدار، لمالكه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
+  'settings.closing.release.worklog_block_closed': 'لا وقت على الإصدارات المغلقة',
+  'settings.closing.release.worklog_block_closed_help':
+    'بعد إغلاق الإصدار لا يمكن لأحد تسجيل وقته أو تغييره أو إزالته.',
+  'settings.closing.release.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل على الإصدار خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closing.reopen_window_days': 'مدة إعادة الفتح (بالأيام)',
   'settings.closing.reopen_window_help':
     'ردّ مقدّم الطلب خلال هذه الأيام بعد الحل يعيد فتح الحادثة؛ والرد اللاحق ينشئ حادثة جديدة. من 1 إلى 30.',
   'settings.closing.resolve_requires': 'مطلوب قبل الحل',
   'settings.closing.resolve_requires_help': 'الحقول التي يجب ملؤها قبل حل الحادثة.',
+  'settings.closing.task_dependency_mode': 'منع المهام المنتظرة',
+  'settings.closing.task_dependency_mode_help':
+    'لا يمكن بدء مهمة أو إنجازها ما دامت مهمة تنتظرها مفتوحة. عند الإيقاف: تظهر فقط كمنتظرة.',
   'settings.closing.task_owner_access': 'يعمل مسؤولو المهام على مهامهم دون الوصول إلى الحادثة',
   'settings.closing.task_owner_access_help':
     'يرون مهمتهم ومعرّف الحادثة وموضوعها ويمكنهم تغيير حالة المهمة؛ ولا يرون المحادثة أو الملاحظات أبدًا.',
+  'settings.closing.timer_auto_start': 'بدء المؤقت عندما يفتح الفني حادثته',
+  'settings.closing.timer_auto_start_help':
+    'مرة واحدة لكل حادثة، للشخص المسندة إليه. موقوف افتراضيًا: المؤقت الذي لا يلاحظه أحد يسجل وقتًا خاطئًا.',
   'settings.closing.title': 'الحل والإغلاق',
+  'settings.closing.worklog_block_closed': 'لا وقت على الحوادث المغلقة',
+  'settings.closing.worklog_block_closed_help':
+    'بعد إغلاق الحادثة لا يمكن لأحد تسجيل وقتها أو تغييره أو إزالته.',
+  'settings.closing.worklog_count_nonworking': 'احتساب الوقت خارج ساعات العمل',
+  'settings.closing.worklog_count_nonworking_help':
+    'يُحتسب الوقت المسجل خارج ساعات العمل في الإجماليات والتقارير. عند الإيقاف تُحتسب ساعات العمل فقط.',
   'settings.closure_codes_help':
     'كيف انتهى الحادث. يُختار عند إغلاق الحادث؛ وتُجمّع التقارير حسبه.',
   'settings.colour': 'اللون',
@@ -528,7 +630,46 @@ export const ar: LabelResource = {
   'settings.leave_title': 'المغادرة دون حفظ؟',
   'settings.levels_help':
     'مستوى الدعم الذي يُعالَج عنده الحادث. يُستخدم في طرق العرض والقواعد والتقارير.',
+  'settings.lifecycle.add_move': 'إضافة انتقال',
+  'settings.lifecycle.discard': 'التخلص من المسودة',
+  'settings.lifecycle.discard_body': 'ستُزال المسودة وانتقالاتها. لا يستخدمها أي سجل.',
+  'settings.lifecycle.discard_title': 'التخلص من مسودة الإصدار {{number}}؟',
+  'settings.lifecycle.draft_help':
+    'غيّر الانتقالات واحفظ المسودة، ثم انشرها عندما لا يبقى ما يحتاج إلى إصلاح.',
+  'settings.lifecycle.draft_title': 'مسودة الإصدار {{number}}',
+  'settings.lifecycle.extra_right': 'صلاحية إضافية مطلوبة',
+  'settings.lifecycle.moves': 'الانتقالات',
+  'settings.lifecycle.new_records_start_here': 'تبدأ السجلات الجديدة هنا',
+  'settings.lifecycle.no_extra_right': 'لا شيء',
+  'settings.lifecycle.problems_title_few': '{{count}} مشكلات يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_many': '{{count}} مشكلة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_one': 'مشكلة واحدة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_other': '{{count}} مشكلة يجب إصلاحها قبل النشر',
+  'settings.lifecycle.problems_title_two': 'مشكلتان يجب إصلاحهما قبل النشر',
+  'settings.lifecycle.problems_title_zero': 'لا توجد مشكلات',
+  'settings.lifecycle.publish': 'نشر',
+  'settings.lifecycle.publish_body':
+    'ستبدأ السجلات الجديدة بهذا الإصدار. تبقى السجلات الحالية على الإصدار الذي بدأت به وتحتفظ بانتقالاته.',
+  'settings.lifecycle.publish_title': 'نشر الإصدار {{number}}؟',
+  'settings.lifecycle.published_at': 'تاريخ النشر',
+  'settings.lifecycle.remove_move': 'إزالة {{action}} من {{status}}',
+  'settings.lifecycle.required_fields': 'حقول مطلوبة أولًا',
+  'settings.lifecycle.retire': 'إيقاف',
+  'settings.lifecycle.save_draft': 'حفظ المسودة',
+  'settings.lifecycle.start_draft': 'بدء إصدار جديد',
+  'settings.lifecycle.state': 'الحالة',
+  'settings.lifecycle.unsaved': 'لديك تغييرات غير محفوظة في المسودة.',
+  'settings.lifecycle.version': 'الإصدار',
+  'settings.lifecycle.version_number': 'الإصدار {{number}}',
+  'settings.lifecycle.versions': 'إصدارات دورة الحياة',
+  'settings.lifecycle.versions_help':
+    'كل إصدار مجموعة من انتقالات الحالة. تبدأ السجلات الجديدة بالإصدار المحدد أدناه وتحتفظ به، ولا يتغير الإصدار المنشور أبدًا. من يمكنه تنفيذ الانتقال ومتى يُعرض يُضبطان في الأتمتة ويسريان على كل الإصدارات معًا.',
   'settings.load_failed': 'تعذّر تحميل إعدادات الحوادث. أعد تحميل الصفحة للمحاولة مرة أخرى.',
+  'settings.mail': 'البريد الإلكتروني',
+  'settings.mail_command_fields': 'الحقول التي يمكن للبريد تعيينها',
+  'settings.mail_commands': 'تطبيق الأوامر المكتوبة في البريد',
+  'settings.mail_commands_help':
+    'قد تبدأ الرسالة بأسطر مثل priority = p1. تُطبَّق باسم المُرسل فقط عندما يؤكد الخادم الموثوق لصندوق البريد هويته، وفقط للتغييرات التي يمكن للمُرسل إجراؤها في SupportX.',
   'settings.matrix': 'مصفوفة الأولوية',
   'settings.matrix_cell': 'الأولوية للتأثير "{{impact}}" والإلحاح "{{urgency}}"',
   'settings.matrix_help':
@@ -568,8 +709,20 @@ export const ar: LabelResource = {
   'settings.reason_prompts': 'الأسباب عند تغيير الحالة',
   'settings.reason_prompts_help':
     'اختر ما إذا كان كل تغيير يطلب سببًا. الإيقاف المؤقت والإلغاء وإعادة الفتح تختار من قوائم الأسباب.',
+  'settings.release_closure_codes_help':
+    'كيف انتهى الإصدار. يُختار عند إغلاق الإصدار؛ وتُجمِّع التقارير حسبه.',
+  'settings.release_roles.take_help':
+    'يجعلك تولّي الإصدار في هذا الدور عليه، إن لم يشغله أحد بعد. ومن يحق له شغل كل دور يتبع قواعد الدور نفسه.',
+  'settings.release_roles.take_title': 'ما يجعلك إياه التولّي',
   'settings.rename': 'إعادة تسمية',
   'settings.rename_value': 'إعادة تسمية "{{name}}"',
+  'settings.requester_cancel': 'يمكن للطالبين الإلغاء',
+  'settings.requester_edit_fields': 'الحقول التي يمكن للطالبين تعديلها',
+  'settings.requester_edit_fields_help': 'لا شيء: الحادثة للقراءة فقط لهم، باستثناء الرد.',
+  'settings.requester_edit_none': 'لا شيء (للقراءة فقط)',
+  'settings.requester_rules': 'إلغاء الطالبين وتعديلهم',
+  'settings.requester_rules_help':
+    'ما يمكن للطالبين فعله بحوادثهم بعد الإبلاغ عنها. إيقاف ولا شيء: كما كان سابقًا.',
   'settings.resume_on_requester_reply': 'ردّ مقدّم الطلب يستأنفها',
   'settings.resume_on_requester_reply_for': 'ردّ مقدّم الطلب يستأنف «{{status}}»',
   'settings.retire': 'إيقاف',
@@ -594,21 +747,31 @@ export const ar: LabelResource = {
     'مدى سرعة الإصلاح المطلوبة. القيم الأربع ثابتة؛ ويمكنك إعادة تسميتها.',
   'settings.section.business-rules': 'قواعد العمل',
   'settings.section.categories': 'الفئات',
+  'settings.section.checklists': 'قوائم التحقق',
   'settings.section.closing': 'الإغلاق',
   'settings.section.closure-codes': 'رموز الإغلاق',
   'settings.section.custom-fields': 'الحقول المخصصة',
   'settings.section.general': 'عام',
   'settings.section.levels': 'المستويات',
+  'settings.section.lifecycle': 'دورة الحياة',
   'settings.section.priority': 'الأولوية',
   'settings.section.reasons': 'الأسباب',
   'settings.section.reply-templates': 'قوالب الردود',
+  'settings.section.resolution-templates': 'قوالب الحل',
+  'settings.section.roles': 'الأدوار',
   'settings.section.routing': 'التوجيه والإسناد',
+  'settings.section.stages': 'المراحل',
   'settings.section.statuses': 'الحالات',
+  'settings.section.task-templates': 'قوالب المهام',
   'settings.section.templates': 'القوالب',
   'settings.section.transitions': 'انتقالات الحالة',
   'settings.section.triggers': 'المشغلات',
   'settings.shipped_name': 'الاسم المدمج: {{name}}',
   'settings.shipped_name_hint': 'الاسم المدمج: {{name}}. اترك الأسماء فارغة للإبقاء عليه.',
+  'settings.stages.open_tasks_block': 'مهام المرحلة المفتوحة تمنع مغادرتها',
+  'settings.stages.open_tasks_block_help':
+    'لا يمكن للإصدار مغادرة مرحلة ما دامت إحدى مهامها مفتوحة؛ ويذكر النقل المهمة. عند الإيقاف: يكتفي النقل بالتنبيه.',
+  'settings.stages.title': 'مهام المراحل',
   'settings.stale':
     'تم تغيير هذه الإعدادات في مكان آخر أثناء تحريرك. أعد التحميل لرؤيتها (ستفقد تعديلاتك غير المحفوظة هنا).',
   'settings.status_action': 'الإجراء',
@@ -667,6 +830,10 @@ export const ar: LabelResource = {
   'setup.page.change-windows.description':
     'متى يُمنع التغيير ومتى يُفضَّل: فترات التجميد ونوافذ الصيانة، للجميع أو لبعض المواقع والمجموعات.',
   'setup.page.change-windows.keywords': 'تجميد, تجميد التغييرات, نافذة صيانة, تقويم التغييرات',
+  'setup.page.erasures.description':
+    'اطلب محو بيانات شخص ووافق عليه وتابعه (اللائحة العامة لحماية البيانات)، مع تقرير بالمواضع التي يُذكر فيها.',
+  'setup.page.erasures.keywords':
+    'محو، اللائحة العامة لحماية البيانات، الخصوصية، الحق في النسيان، البيانات الشخصية، الحجز القانوني',
   'setup.page.files.description': 'حدود الرفع وأنواع الملفات المسموح بها وفحص البرامج الضارة.',
   'setup.page.files.keywords': 'ملفات، مرفقات، رفع، حجم، تخزين، برامج ضارة، فيروسات، فحص',
   'setup.page.incidents.description': 'المستويات والفئات والقوالب ورموز الإغلاق والأسباب للحوادث.',
@@ -692,6 +859,10 @@ export const ar: LabelResource = {
     'كل ما تفعله بوابة الخدمة الذاتية لمقدمي الطلبات، في صفحة واحدة.',
   'setup.page.portal.keywords':
     'البوابة، الخدمة الذاتية، البحث، مصادر البحث، إخفاء نموذج الحوادث، الموعد، تاريخ التسليم، نيابة عن، الموافقات، تسجيل الدخول، تعديل الملف، التذكيرات، التكلفة، الضيوف، التسجيل الذاتي',
+  'setup.page.releases.description':
+    'كيف تُغلق الإصدارات: رموز إغلاقها، وما يلزم للإغلاق، وأي عمل مفتوح يُنبّه أو يمنع، وهل تمنع مهام المرحلة المفتوحة مغادرة المرحلة.',
+  'setup.page.releases.keywords':
+    'إصدار, إعدادات الإصدارات, رموز الإغلاق, الإغلاق, التراجع, مهام المرحلة, النشر',
   'setup.page.requests.description':
     'طلبات الخدمة: نيابة عمن يمكن لمقدمي الطلبات تقديمها، وطرق عرض الطلبات.',
   'setup.page.requests.keywords': 'طلبات الخدمة، الكتالوج، نيابة عن، تقديم، طلبات، طرق العرض',
@@ -701,6 +872,9 @@ export const ar: LabelResource = {
     'تسجيل الدخول وكلمات المرور والتحقق بخطوتين والدخول الموحد والجلسات ومفاتيح API.',
   'setup.page.security.keywords':
     'أمان، كلمة المرور، تحقق بخطوتين، دخول موحد، جلسات، مهلة، دعوات، مفاتيح',
+  'setup.page.service-accounts.description':
+    'حسابات تعمل بها أنظمة أخرى عبر مفاتيح API، لكل منها مالك مسؤول عنها، وأدوارها.',
+  'setup.page.service-accounts.keywords': 'حسابات الخدمة، تكاملات، مالك، تسليم، أتمتة، API',
   'setup.page.sla.description': 'أهداف الخدمة وساعات العمل والعطلات والتصعيد.',
   'setup.page.sla.keywords':
     'اتفاقية مستوى الخدمة، أهداف، وقت الاستجابة، الحل، ساعات العمل، تقويم، عطلات، تصعيد',

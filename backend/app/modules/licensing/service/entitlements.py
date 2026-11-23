@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY
+from app.core.database import SESSION_TENANT_KEY, transaction_memo
 from app.core.errors import EntitlementRequired, LimitReached, ReadOnlyMode
 from app.core.modules import UsageCounter
 from app.core.tenancy import TenantContext
@@ -167,8 +167,19 @@ class EntitlementService:
         your own state before deciding whether to reserve, e.g. "is this user already counted?".
         """
         tenant = session_tenant(session)
+        # Taken once per transaction (an import's batch reserves per row: one lock round trip
+        # each, WP-049b). The memo ends with the transaction and with any rolled-back savepoint,
+        # which releases a lock it took, so a lock is never assumed after it was given up.
+        # That relies on every savepoint going through SQLAlchemy (begin_nested): a raw
+        # "ROLLBACK TO SAVEPOINT" statement would release the lock without clearing the memo,
+        # and the next reserve would count without holding it (lane C's note, step B).
+        held = transaction_memo(session, "licensing.held_limits")
+        if held is not None and key in held:
+            return
         lock_key = func.hashtextextended(f"licensing:{tenant.tenant_id}:{key.value}", 0)
         await session.execute(select(func.pg_advisory_xact_lock(lock_key)))
+        if held is not None:
+            held[key] = True
 
     async def reserve(
         self,

@@ -5,6 +5,7 @@ notification centre fetches an entry by its ID, with the person's own permission
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar
 
 from app.shared.events import DomainEvent
@@ -69,10 +70,27 @@ class PreferencesChanged(DomainEvent):
     user_id: uuid.UUID
 
 
+class MailNotSentSummary(DomainEvent):
+    """One run gave up on e-mails that waited 7 days for outgoing mail to be set up (D-157).
+
+    One per run and tenant, whatever the count: the people who set mail up hear it once, in the
+    app (the summary is no e-mail: there is no mail to send it with). Counts and a time only.
+    """
+
+    event_type: ClassVar[str] = "notifications.mail.not_sent_summary"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "notification_delivery"
+
+    summary_id: uuid.UUID
+    count: int
+    oldest_at: datetime
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     NotificationCreated,
     NotificationsRead,
     DeliveryRecorded,
     RuleChanged,
     PreferencesChanged,
+    MailNotSentSummary,
 )

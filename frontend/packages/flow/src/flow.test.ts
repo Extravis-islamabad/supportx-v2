@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { readDefinition, type FlowDefinition, type FlowNodeDef } from './definition';
+import { readDefinition, readVariables, type FlowDefinition, type FlowNodeDef } from './definition';
 import { fromGraph, toGraph } from './graph';
-import { COLUMN, ROW, layout, withLayout } from './layout';
+import { COLUMN, freeSpot, ROW, layout, withLayout } from './layout';
 
 const node = (id: string, type: string, x = 0, y = 0): FlowNodeDef => ({
   id,
@@ -143,5 +143,26 @@ describe('automatic layout', () => {
       })),
     };
     expect(layout(chain).get(`n${String(count - 1)}`)?.y).toBe((count - 1) * ROW);
+  });
+});
+
+describe('readVariables', () => {
+  it('reads names and kinds, an unknown kind as text, and drops what is not an object', () => {
+    expect(
+      readVariables([{ name: 'count', kind: 'number' }, { name: 'note', kind: 'blob' }, 'x', null]),
+    ).toEqual([
+      { name: 'count', kind: 'number' },
+      { name: 'note', kind: 'text' },
+    ]);
+  });
+});
+
+describe('a new step never covers another (QA 2026-11-12 V-08)', () => {
+  it('keeps a free spot, and moves a covered one down a row at a time', () => {
+    const start = { x: 0, y: 0 };
+    const end = { x: 0, y: ROW };
+    expect(freeSpot({ x: 2 * COLUMN, y: 0 }, [start, end])).toEqual({ x: 2 * COLUMN, y: 0 });
+    expect(freeSpot({ x: 30, y: 10 }, [start, end])).toEqual({ x: 30, y: 10 + 2 * ROW });
+    expect(freeSpot({ x: 0, y: 0 }, [])).toEqual({ x: 0, y: 0 });
   });
 });

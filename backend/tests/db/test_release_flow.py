@@ -55,7 +55,7 @@ async def _approve_stage(world: World, org: Org, item: dict[str, Any]) -> dict[s
     return await current(world, org, item)
 
 
-async def _walk(world: World, org: Org) -> None:
+async def _walk(world: World, org: Org) -> dict[str, Any]:
     item = await a_release(world, org)
     roles = await world.call("GET", f"{REL}/{item['id']}/roles", org, org.admin)
     assert roles.status_code == 200, roles.text
@@ -88,15 +88,37 @@ async def _walk(world: World, org: Org) -> None:
     assert item["status"] == "review_in_progress"
     # Completing the review closes the release: it asks for the closure code too.
     item = await _moved_with(
-        world, org, item, "review_completed", resolution="Reviewed.", closure_code="fixed"
+        world, org, item, "review_completed", resolution="Reviewed.", closure_code="completed"
     )
     if item["status"] != "closure_closed":
-        item = await _moved_with(world, org, item, "closure_closed", closure_code="fixed")
+        item = await _moved_with(world, org, item, "closure_closed", closure_code="completed")
     assert (item["status"], item["status_category"]) == ("closure_closed", "closed")
+    return item
 
 
 async def test_a_standard_release_walks_from_request_to_closed(world: World) -> None:
     await _walk(world, world.a)
+
+
+async def test_req_rel_054_ac2_reopening_keeps_the_closure_in_history_and_on_the_rail(
+    world: World,
+) -> None:
+    """Back to its review with a reason; the closure code it had stays in its history."""
+    a = world.a
+    closed = await _walk(world, a)
+    assert closed["closure_code"] == "completed"
+    reopened = await _moved_with(
+        world, a, closed, "review_in_progress", reason_text="The review missed a step."
+    )
+    assert (reopened["status"], reopened["closure_code"]) == ("review_in_progress", None)
+    history = await world.call("GET", f"{REL}/{closed['id']}/history", a, a.admin)
+    assert history.status_code == 200, history.text
+    entries = history.json()["items"] if isinstance(history.json(), dict) else history.json()
+    codes = [c for e in entries for c in e.get("changes", []) if c.get("field") == "closure_code"]
+    assert any(c.get("old") == "completed" and c.get("new") is None for c in codes), codes
+    rail = (await world.call("GET", f"{REL}/{closed['id']}/stages", a, a.admin)).json()["rail"]
+    closure = next(s for s in rail if s["stage"] == "closure")
+    assert closure["entries"], closure  # its time in closure stays on the rail
 
 
 async def _look_old(

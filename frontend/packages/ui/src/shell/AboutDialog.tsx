@@ -44,6 +44,13 @@ export function AboutDialog({ open, onClose, appName }: AboutDialogProps) {
               : t('shell.loading')}
         </Typography.Text>
         <Typography.Text type="secondary">{t('about.made_by')}</Typography.Text>
+        {/* D-170: DB-IP Lite is CC BY 4.0; its licence asks for this credit, with the link. */}
+        <Typography.Text type="secondary" style={{ textAlign: 'center' }} data-testid="about-geoip">
+          {t('about.geoip_attribution')}{' '}
+          <Typography.Link href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
+            {t('about.geoip_provider')}
+          </Typography.Link>
+        </Typography.Text>
       </Flex>
     </Modal>
   );

@@ -11,6 +11,7 @@
   follows the old one.
 """
 
+import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -37,6 +38,10 @@ RULE_FIELDS = frozenset(
         "tags",
     }
 )
+# Conditions a closure rule can list beside fields (REQ-REL-051): a release's review completed.
+# Only a release may list it; an emergency release always needs it (REQ-REL-012 AC2).
+REVIEW_COMPLETED = "review_completed"
+RELEASE_CONDITIONS = frozenset({REVIEW_COMPLETED})
 # Asked by the move dialog itself, on either move when the rules list them (a closure code
 # before resolving, a resolution before closing); the rest are filled on the record.
 MOVE_FIELDS = frozenset({RESOLUTION, CLOSURE_CODE})
@@ -61,6 +66,9 @@ class OpenWorkKind(StrEnum):
     CHECKLISTS = "checklists"  # WP-020e
     CHILD_INCIDENTS = "child_incidents"  # WP-020e links
     APPROVALS = "approvals"  # WP-030
+    # WP-058b S4 (REQ-REL-052), generic for any type that registers them:
+    LINKED_CHANGES = "linked_changes"  # open changes linked to the record (a release's changes)
+    CHILD_RELEASES = "child_releases"  # open sub-releases
 
 
 OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
@@ -68,6 +76,8 @@ OPEN_WORK_DEFAULTS: Mapping[OpenWorkKind, OpenWorkMode] = {
     OpenWorkKind.CHECKLISTS: OpenWorkMode.WARN,
     OpenWorkKind.CHILD_INCIDENTS: OpenWorkMode.WARN,
     OpenWorkKind.APPROVALS: OpenWorkMode.BLOCK,
+    OpenWorkKind.LINKED_CHANGES: OpenWorkMode.WARN,  # listed, with an offer to close them
+    OpenWorkKind.CHILD_RELEASES: OpenWorkMode.WARN,
 }
 
 
@@ -80,10 +90,17 @@ def open_work_modes(saved: Mapping[str, str]) -> dict[OpenWorkKind, OpenWorkMode
     return modes
 
 
-def rule_field_problems(fields: Iterable[str], custom_keys: Iterable[str]) -> list[str]:
-    """Fields an admin may not require: unknown standard fields or custom fields."""
+def rule_field_problems(
+    fields: Iterable[str],
+    custom_keys: Iterable[str],
+    conditions: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Fields an admin may not require: unknown standard fields, custom fields or conditions.
+
+    `conditions`: the type's own (RELEASE_CONDITIONS for releases), none for the others.
+    """
     custom = {f"custom.{key}" for key in custom_keys}
-    return [f for f in fields if f not in RULE_FIELDS and f not in custom]
+    return [f for f in fields if f not in RULE_FIELDS and f not in custom and f not in conditions]
 
 
 def is_empty(value: Any) -> bool:  # noqa: ANN401 - any field value
@@ -191,3 +208,25 @@ def auto_close_due(
 def within_reopen_window(done_at: datetime | None, now: datetime, days: int) -> bool:
     """Whether a reply at `now` is within `days` after resolution or closure."""
     return done_at is not None and now <= done_at + timedelta(days=days)
+
+
+def first_contact(  # noqa: PLR0913 - the record's facts and the tenant's window, explicit
+    *,
+    created_by: uuid.UUID | None,
+    created_at: datetime,
+    reassignments: int,
+    resolved_by: uuid.UUID | None,
+    resolved_at: datetime,
+    minutes: int,
+) -> bool:
+    """Whether a resolution is suggested as first-contact resolution (REQ-INC-102 AC1-AC2).
+
+    Its creator resolved it, it was never handed to someone else, and within the tenant's
+    window; the technician confirms or changes the suggestion, and reports use their value.
+    """
+    return (
+        resolved_by is not None
+        and resolved_by == created_by
+        and reassignments == 0
+        and resolved_at - created_at <= timedelta(minutes=minutes)
+    )

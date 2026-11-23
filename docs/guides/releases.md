@@ -62,6 +62,68 @@ A misspelt stage or field is refused when you save.
 - If nobody can be named (a role nobody holds, for example), the approval administrators get it,
   and the reason is shown.
 
+## Changes in a release
+
+The **Changes** tab lists the changes the release delivers:
+- each with its number, title, stage and status, linked to the change;
+- a change you may not see shows as *A change you can't see*.
+
+To add one, search by number or title (needs *Edit releases*). A change can be in one open
+release at a time: adding it to a second is refused, naming the release it is in. Once that
+release is closed or canceled, the change may join another. **Take out** removes it. Both
+records note the link in their history.
+
+## The release calendar (Releases › Release calendar)
+
+The releases you may see, by their deployment window and planned downtimes. It is the same
+calendar as the change calendar:
+- **views:** month, week, day, agenda and **timeline** (a row per release across the month);
+- **layers:** freeze and maintenance windows;
+- **Only mine:** the releases you hold.
+
+Choosing a release opens a quick view, with a link to the release. **Move…** (or dragging) moves
+a deployment window to another day at the same time of day.
+
+**Show changes** draws changes on the same calendar, each type in its own colour with a legend
+(it needs *View changes*). A change moves by its own rules: its implementation window, with its
+re-approval warning. The change calendar has **Show releases** the same way.
+
+**The release's scheduler:** *Open in the calendar* on a release's Schedule tab opens the
+calendar on its deployment window, marks the release, and shows its own changes. Turn off
+*Only its changes* to see every change.
+
+## Tasks and time by stage
+
+- **Tasks belong to a stage:** the one the release is in when they are added. The stage rail shows
+  each stage's tasks as *done / total*, live.
+- **A stage with open tasks cannot be left:** the refusal names the first open task and how many
+  more. Canceling is never held up. An administrator can switch this off for releases (Releases
+  settings): the move then goes ahead and the counters show what is still open.
+- **Worklogs** record the stage the release was in when the time was logged; it stays as it was when the release moves on, so time spent in each stage adds up.
+- **A failed workflow step** shows on the release's header with why, *Retry* for those allowed,
+  and a link to its Workflows tab.
+
+## Freezes and conflicts
+
+A release's **deployment window** and its **planned downtime** are checked against the freeze and
+maintenance windows (Admin › Change and release windows), as a change's implementation is.
+- **A blocking freeze** refuses the move, on every path, naming the freeze. Someone holding
+  *Let a release go ahead in a freeze* (the release manager and administrators) can pass it with
+  a reason: on the release's Schedule tab, or right away when a calendar move is refused. Only the
+  freezes named are passed; a freeze added later still blocks. The reason is kept in the release's
+  history and the audit log.
+- **Outside every maintenance window** a release is warned, never refused (the change setting that
+  blocks it applies to changes only).
+- **Overlaps:** another change or release planned at the same time in the same group or site, or
+  whose planned downtime names the same service or configuration item. They are named by number
+  and type only; open them to see more if you may.
+- **Booked twice:** the release manager or engineer is on another deployment at the same time.
+
+The Schedule tab lists the conflicts as they are now and updates live. A warning can be
+**acknowledged** with a reason: it stays listed, marked with who and why. If either side moves, the
+conflict is shown again as new. A block is never acknowledged. Calendar chips show how many
+conflicts each planned window has.
+
 ## Plan, schedule, downtime and sub-releases
 
 - **Plan:**

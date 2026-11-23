@@ -175,7 +175,7 @@ test('a valid connection cannot join channels it has no token for', async ({ pag
   raw.close();
 });
 
-test('a role change cuts the live connection within a second and stops rejoining', async ({
+test('a role change cuts the live connection within a second and stops rejoining @smoke', async ({
   browser,
 }) => {
   const adminContext = await browser.newContext();

@@ -884,19 +884,30 @@ async def update_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     summary="Start a draft",
     status_code=status.HTTP_201_CREATED,
     responses={409: {"model": ProblemDetail, "description": "kb_draft_exists."}},
+    response_model=VersionOut,
 )
-async def new_draft(
+async def new_draft(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     article_id: uuid.UUID,
     language: Language,
     session: TenantSession,
     subject: Viewer,
     request: Request,
-) -> VersionOut:
-    """A new version from the published one, or a translation (same ID, topic and audience)."""
-    draft = await articles.new_draft(
-        session, subject, article_id, language, source=source_of(request)
-    )
-    return VersionOut.of(draft, editor=True)
+    idempotency: Idempotency,
+) -> Response:
+    """A new version from the published one, or a translation (same ID, topic and audience).
+
+    Idempotency-Key (audit #19): a retry replays the first answer instead of a kb_draft_exists
+    refusal for the draft it just made.
+    """
+
+    async def operation() -> Created:
+        draft = await articles.new_draft(
+            session, subject, article_id, language, source=source_of(request)
+        )
+        return Created(VersionOut.of(draft, editor=True), {})
+
+    # No body: the article and language are what a repeat must match.
+    return await idempotency.run({"article_id": str(article_id), "language": language}, operation)
 
 
 @router.patch(

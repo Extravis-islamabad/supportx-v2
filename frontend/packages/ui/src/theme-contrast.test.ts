@@ -72,3 +72,22 @@ describe.each(THEME_MODES)('V5: empty tables and lists, %s', (mode) => {
     }
   });
 });
+
+describe.each(THEME_MODES)('tabs, %s', (mode) => {
+  it('a hovered or selected tab reads on its card (matrix run 42977617899)', () => {
+    const config = buildTheme(mode);
+    const token = antdTheme.getDesignToken(config);
+    const tabs = config.components?.Tabs;
+    const background = flat(token.colorBgContainer, '#ffffff');
+    const shown = {
+      hover: tabs?.itemHoverColor ?? token.colorPrimaryHover,
+      selected: tabs?.itemSelectedColor ?? token.colorPrimary,
+    };
+    for (const [state, colour] of Object.entries(shown)) {
+      expect(
+        contrastRatio(flat(colour, background), background),
+        `${state} tab`,
+      ).toBeGreaterThanOrEqual(AA);
+    }
+  });
+});

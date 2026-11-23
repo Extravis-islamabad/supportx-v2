@@ -5,7 +5,6 @@ import {
   Button,
   Checkbox,
   Divider,
-  Drawer,
   Flex,
   Form,
   Input,
@@ -16,7 +15,6 @@ import {
   Space,
   Spin,
   Switch,
-  Tabs,
   Typography,
 } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,24 +37,28 @@ import {
 } from '@supportx/api-client';
 import { refreshRecord, useRecordChannel } from '@supportx/realtime';
 import {
-  useConflictRetry,
   ConflictDialog,
+  Drawer,
   FormProblem,
-  ToneTag,
   lengthLimit,
   markHandled,
+  PersonSessions,
   reportError,
+  Tabs,
+  ToneTag,
   useAccess,
   useAppearance,
   useConflict,
+  useConflictRetry,
   useFormProblem,
   useLabel,
-  PersonSessions,
 } from '@supportx/ui';
 
 import { MemberAvailability } from '../../../MemberAvailability';
 import { PersonSignInActions } from '../security/PersonSignInActions';
 import { UserAccessPanel } from '../UserAccessDrawer';
+import { CostRatesCard, VIEW_COST_RATES } from './CostRatesCard';
+import { PersonPrivacy } from '../erasures/ErasureRequest';
 import { roleName } from '../roleName';
 import { personFieldKey } from './fields';
 
@@ -199,6 +201,26 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
                     key: 'sessions',
                     label: t('people.tab.sessions'),
                     children: <PersonSessions userId={user.id} />,
+                  },
+                ]
+              : []),
+            // A person's cost per hour (REQ-INC-068): money, only with users.view_cost_rates.
+            ...(can(VIEW_COST_RATES) && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'cost',
+                    label: t('people.tab.cost'),
+                    children: <CostRatesCard userId={user.id} />,
+                  },
+                ]
+              : []),
+            // GDPR (ADR-052, D-171): the person's erasure, for those who may erase.
+            ...((can('people.erase') || can('audit.manage_holds')) && user.user_type !== 'service'
+              ? [
+                  {
+                    key: 'privacy',
+                    label: t('people.tab.privacy'),
+                    children: <PersonPrivacy user={user} />,
                   },
                 ]
               : []),
@@ -737,8 +759,13 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
         <Segmented<PersonType>
           data-testid="person-type"
           disabled={busy}
-          // A connector's identity never opens here (not in people lists): nothing selected.
-          value={user.user_type === 'service' ? undefined : user.user_type}
+          // Connector identities and vendor support accounts never open here (not in people
+          // lists): only a person's type is ever selected.
+          value={
+            user.user_type === 'requester' || user.user_type === 'technician'
+              ? user.user_type
+              : undefined
+          }
           options={(['requester', 'technician'] as const).map((value) => ({
             value,
             label: t(`user_type.${value}`),

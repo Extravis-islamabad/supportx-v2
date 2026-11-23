@@ -74,3 +74,8 @@ for (const proto of [Range.prototype, Element.prototype, Text.prototype] as obje
 if (typeof Element.prototype.scrollIntoView !== 'function') {
   Element.prototype.scrollIntoView = () => undefined;
 }
+
+// A UI language remembered by one test's session never starts the next test's app (V-01).
+afterEach(() => {
+  window.localStorage.removeItem('supportx.locale');
+});

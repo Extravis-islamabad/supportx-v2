@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage, MIMEPart
 from email.utils import getaddresses, parseaddr
 
+from app.shared.mail.domain.sender_check import sender_verified
+
 MAX_TEXT = 200_000  # characters of a body kept; the rest is cut (the original stays on the server)
 
 # A display ID in a subject: "[INC-123]" (case-insensitive, any record prefix).
@@ -66,6 +68,9 @@ class InboundMessage:
     html: str | None
     attachments: tuple[InboundAttachment, ...] = field(default_factory=tuple)
     automatic: str | None = None  # why it is automatic mail, or None for mail a person wrote
+    # The mailbox's trusted server vouched for the sender (sender_check; WP-046a S6): only then
+    # are commands written in the mail honoured. False unless the caller names a server.
+    sender_verified: bool = False
 
     @property
     def tokens(self) -> tuple[str, ...]:
@@ -123,8 +128,14 @@ def _html_to_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", unescape(text)).strip()
 
 
-def parse(raw: bytes) -> InboundMessage:
-    """One received message (bytes as fetched) as an InboundMessage."""
+def parse(
+    raw: bytes, *, trusted_servers: tuple[str, ...] = (), trust_provider: bool = False
+) -> InboundMessage:
+    """One received message (bytes as fetched) as an InboundMessage.
+
+    `trusted_servers` / `trust_provider`: the mailbox's settings for believing its mail server's
+    Authentication-Results (see sender_check); with neither, `sender_verified` is False.
+    """
     message: EmailMessage = email.message_from_bytes(raw, policy=email.policy.default)
     sender_name, sender = parseaddr(str(message.get("From") or ""))
     sender = sender.strip().lower()
@@ -162,6 +173,9 @@ def parse(raw: bytes) -> InboundMessage:
         html=html[:MAX_TEXT] if html is not None else None,
         attachments=tuple(attachments),
         automatic=automatic_reason(message, sender),
+        sender_verified=sender_verified(
+            message, trusted=trusted_servers, trust_provider=trust_provider
+        ),
     )
 
 

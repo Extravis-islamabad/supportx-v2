@@ -15,9 +15,10 @@ import {
   Select,
   Space,
   Typography,
+  ConfigProvider,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   ApiError,
@@ -27,6 +28,8 @@ import {
   useIncidentCatalogue,
   useIncidentCategories,
   useIncidentTemplates,
+  useKnownAsset,
+  useKnownUser,
   useKbSettings,
   useLinkKbArticle,
   usePossibleDuplicates,
@@ -41,7 +44,18 @@ import {
   type IncidentTemplate,
   type TemplateField,
 } from '@supportx/api-client';
-import { applyServerErrors, FormField, useForm, useKeptDraft, zodResolver } from '@supportx/forms';
+import {
+  applyServerErrors,
+  arrangeFields,
+  asFormRules,
+  evaluateRules,
+  FormField,
+  type FormLayout,
+  type Path,
+  useForm,
+  useKeptDraft,
+  zodResolver,
+} from '@supportx/forms';
 import { useListFormat } from '@supportx/labels';
 import {
   FormPage,
@@ -67,6 +81,7 @@ import { KnowledgeSuggestions } from '../knowledge/KnowledgeSuggestions';
 import { fieldName } from '../customFields/values';
 import { HandOverWarning } from './assign';
 import { CategoryCascade } from './CategoryCascade';
+import { LaidOutSections, type PlacedField } from './LaidOutSections';
 import {
   bodyOf,
   EMPTY,
@@ -82,6 +97,9 @@ import { listValueLabel, scaleLabel, templateLabel } from './labels';
 import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
+import { pickedOf } from '../assets/raise';
+import { KeptDraftNotice } from './KeptDraft';
+import { useServerDraft } from './useServerDraft';
 import { AssetPickerField } from './RecordAssets';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -190,10 +208,13 @@ export function NewIncidentPage() {
   const templates = useIncidentTemplates();
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
+  const [params] = useSearchParams();
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   const problem = useFormProblem();
   // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
   const draft = useKeptDraft(form, 'incident-new');
+  // And on the server, sealed, for a crash or another tab (REQ-INC-019, WP-046a S5c).
+  const serverDraft = useServerDraft(form, 'incident-new', { localRestored: draft.restored });
   const departments = useStructure('departments', true, true);
   /**
    * The requester's department and site fill the empty fields as soon as they are picked, so the
@@ -221,7 +242,9 @@ export function NewIncidentPage() {
   const [another, setAnother] = useState(false);
   const [keepRequester, setKeepRequester] = useState(false);
   const [handover, setHandover] = useState<Values | null>(null);
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  // Raised from an asset (REQ-AST-045, lane B's WP-049b s4a): `?template=`, `?asset=` and
+  // `?requester=` (the asset's holder) start the form; everything stays editable.
+  const [picked, setChosenId] = useState<string | null>(null);
   const [switching, setSwitching] = useState<{ next: IncidentTemplate; lost: string[] } | null>(
     null,
   );
@@ -233,12 +256,43 @@ export function NewIncidentPage() {
   const fallback = offered.find((x) => x.is_default) ?? offered[0];
   // A template disabled while the form is open: keep it until the user picks another (the
   // server refuses it on save and says so), rather than switching fields under their hands.
+  // A template from the address counts only while it is offered (unknown, disabled or not
+  // for this person: the default, quietly); the person's own pick always wins.
+  const fromAddress = params.get('template');
+  const chosenId =
+    picked ??
+    (fromAddress !== null && offered.some((x) => x.id === fromAddress) ? fromAddress : null);
   const template =
     (templates.data ?? []).find((x) => x.id === chosenId) ??
     (chosenId === null ? fallback : undefined);
   const rules: Rules | undefined = template?.fields;
-  const shown = (name: TemplateField) => rules?.[name]?.shown ?? true;
-  const required = (name: TemplateField) => rules?.[name]?.required ?? false;
+  // The template's form rules, live (REQ-INC-037): the same evaluator the server runs on save,
+  // over the values as typed. A field's own setting is the base; a matching rule shows, hides,
+  // requires, locks or fills it.
+  const watched = form.watch();
+  const ruleBase: Record<string, readonly [boolean, boolean]> = {};
+  for (const [name, r] of Object.entries(rules ?? {})) {
+    ruleBase[name] = [r.shown, r.required];
+  }
+  for (const [key, r] of Object.entries(template?.custom_fields ?? {})) {
+    ruleBase[`custom.${key}`] = [r.shown, r.required];
+  }
+  const ruled = evaluateRules(asFormRules(template?.form_rules ?? []), ruleBase, {
+    ...watched,
+    ...Object.fromEntries(Object.entries(watched.custom).map(([k, v]) => [`custom.${k}`, v])),
+  });
+  const shown = (name: TemplateField) => ruled.fields[name]?.shown ?? rules?.[name]?.shown ?? true;
+  const required = (name: TemplateField) =>
+    ruled.fields[name]?.required ?? rules?.[name]?.required ?? false;
+  const locked = (name: string) => ruled.fields[name]?.locked === true;
+  // A rule's value fills an empty field (the server does the same on save).
+  const ruleSets = JSON.stringify(ruled.set_values);
+  useEffect(() => {
+    for (const [name, value] of Object.entries(ruled.set_values)) {
+      form.setValue(name as Path<Values>, value, { shouldDirty: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when what the rules set changes
+  }, [ruleSets]);
   // Suggestions while typing (REQ-INC-021, D-125): for readers of knowledge, when switched on.
   const kbSettings = useKbSettings(can('knowledge.view'), true);
   const suggesting = can('knowledge.view') && kbSettings.data?.suggest_on_technician_form === true;
@@ -250,8 +304,15 @@ export function NewIncidentPage() {
   const draftSubject = useDebounced(typedSubject, 600);
   const draftDescription = useDebounced(typedDescription.replace(/<[^>]*>/g, ' '), 600);
   const typedRequester = form.watch('requester_id');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [pickedAssets, setAssetIds] = useState<string[] | null>(null);
   const { has } = useLicence();
+  // Each ID from the address is checked quietly first: one that is unknown or not the
+  // person's to see leaves its field empty, with no message (lane A's condition). The server
+  // checks everything again on submit, as for any typed value.
+  const knownAsset = useKnownAsset(params.get('asset'), has('assets'));
+  const knownRequester = useKnownUser(params.get('requester'));
+  const knownPicked = knownAsset.data === undefined ? [] : [pickedOf(knownAsset.data)];
+  const assetIds = pickedAssets ?? (knownAsset.data === undefined ? [] : [knownAsset.data.id]);
   const duplicates = usePossibleDuplicates(
     {
       title: draftSubject,
@@ -283,9 +344,11 @@ export function NewIncidentPage() {
   const offeredCustom = (customFields.data ?? []).filter((f) => !f.retired);
   const byKey = new Map((customFields.data ?? []).map((f) => [f.key, f]));
   const customRule = (key: string) => template?.custom_fields[key];
-  const customShown = (f: CustomField) => customRule(f.key)?.shown ?? true;
+  const customShown = (f: CustomField) =>
+    ruled.fields[`custom.${f.key}`]?.shown ?? customRule(f.key)?.shown ?? true;
   const customRequired = (f: CustomField) =>
-    (customRule(f.key)?.required ?? false) || f.validation.required;
+    (ruled.fields[`custom.${f.key}`]?.required ?? customRule(f.key)?.required ?? false) ||
+    f.validation.required;
   const shownCustom = offeredCustom.filter(customShown);
   const fieldLabel = (name: string) => {
     if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
@@ -342,6 +405,14 @@ export function NewIncidentPage() {
     startedCustom.current = starts;
     form.setValue('custom', values);
   };
+  // The asset's holder (REQ-AST-045), once known, as if picked: their department and site too.
+  useEffect(() => {
+    const found = knownRequester.data?.id;
+    if (found === undefined || form.getValues('requester_id') !== null) return;
+    form.setValue('requester_id', found);
+    void placeFromRequester(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the person is known
+  }, [knownRequester.data?.id]);
   // First load: apply the default template once the template, catalogue and tree are known.
   const applied = useRef<string | null>(null);
   const ready =
@@ -406,6 +477,8 @@ export function NewIncidentPage() {
       ),
       keep_following: keepFollowing ?? null,
       ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
+      // The kept draft of this form goes with the save (yours only, on the server).
+      draft_form_key: 'incident-new' as const,
     };
     const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
     problem.clear();
@@ -514,12 +587,30 @@ export function NewIncidentPage() {
   const span = (name: string, comfortable: number) =>
     FULL_WIDTH.has(name) ? 24 : compact ? 12 : comfortable;
 
-  const cell = (name: TemplateField, comfortable: number, element: ReactElement) =>
-    shown(name) ? (
-      <Col key={name} xs={24} md={span(name, comfortable)}>
+  // Every field drawn, by name, for the designer's layout (REQ-INC-036); a locked one is shown
+  // but cannot be changed (a form rule, REQ-INC-037).
+  const placed = new Map<string, PlacedField>();
+  const extras: ReactElement[] = [];
+  const extra = (element: ReactElement) => {
+    extras.push(element);
+    return element;
+  };
+  const cell = (name: TemplateField, comfortable: number, element: ReactElement) => {
+    if (!shown(name)) return null;
+    const drawn = locked(name) ? (
+      <ConfigProvider key={name} componentDisabled>
         {element}
+      </ConfigProvider>
+    ) : (
+      element
+    );
+    placed.set(name, { element: drawn, wide: FULL_WIDTH.has(name) });
+    return (
+      <Col key={name} xs={24} md={span(name, comfortable)}>
+        {drawn}
       </Col>
-    ) : null;
+    );
+  };
 
   interface TemplateOption {
     value: string;
@@ -542,6 +633,462 @@ export function NewIncidentPage() {
       name === '' ? { label: t('templates.ungrouped'), options } : { label: name, options },
     );
   })();
+
+  // The classic sections, built first in every case: building them registers every field
+  // the designer's layout can place (REQ-INC-036).
+  const classic = (
+    <>
+      <FormSection title={t('incidents.section.request')} testId="inc-section-request">
+        <Row gutter={16}>
+          {cell(
+            'subject',
+            24,
+            <FormField
+              control={control}
+              name="subject"
+              labelKey="work_item.field.subject"
+              required
+              render={(field) => (
+                <Input
+                  {...field}
+                  dir="auto"
+                  count={lengthLimit(SUBJECT_MAX, true)}
+                  data-testid="inc-subject"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'requester_id',
+            12,
+            <FormField
+              control={control}
+              name="requester_id"
+              labelKey="work_item.field.requester_id"
+              required
+              render={(field) => (
+                <UserPicker
+                  id={field.id}
+                  value={field.value}
+                  onChange={(next) => {
+                    field.onChange(next);
+                    if (next !== null) void placeFromRequester(next);
+                  }}
+                  testId="inc-requester"
+                  ariaLabel={t('work_item.field.requester_id')}
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'on_behalf_of_id',
+            12,
+            <FormField
+              control={control}
+              name="on_behalf_of_id"
+              labelKey="work_item.field.on_behalf_of_id"
+              required={required('on_behalf_of_id')}
+              render={(field) => (
+                <UserPicker
+                  id={field.id}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-on-behalf"
+                  ariaLabel={t('work_item.field.on_behalf_of_id')}
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'channel',
+            8,
+            <FormField
+              control={control}
+              name="channel"
+              labelKey="work_item.field.channel"
+              required={required('channel')}
+              render={(field) => (
+                <Radio.Group
+                  id={field.id}
+                  value={field.value}
+                  onChange={(event) => {
+                    field.onChange(event.target.value);
+                  }}
+                  optionType="button"
+                  options={[
+                    { value: 'phone', label: t('work_item_channel.phone') },
+                    { value: 'walk_up', label: t('work_item_channel.walk_up') },
+                  ]}
+                  data-testid="inc-channel"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'site_id',
+            8,
+            <FormField
+              control={control}
+              name="site_id"
+              labelKey="work_item.field.site_id"
+              helpKey="incidents.site_help"
+              required={required('site_id')}
+              render={(field) => (
+                <SitePicker
+                  id={field.id}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-site"
+                  ariaLabel={t('work_item.field.site_id')}
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'department_id',
+            8,
+            <FormField
+              control={control}
+              name="department_id"
+              labelKey="work_item.field.department_id"
+              helpKey="incidents.department_help"
+              required={required('department_id')}
+              render={(field) => (
+                <DepartmentPicker
+                  id={field.id}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-department"
+                  ariaLabel={t('work_item.field.department_id')}
+                />
+              )}
+            />,
+          )}
+          {/* REQ-AST-025: the assets it is about, the requester's own first. */}
+          {has('assets') &&
+            extra(
+              <Col key="assets" xs={24}>
+                <Form.Item label={t('work_item.field.asset_ids')} htmlFor="inc-assets">
+                  <AssetPickerField
+                    id="inc-assets"
+                    value={assetIds}
+                    onChange={setAssetIds}
+                    forUser={typedRequester ?? null}
+                    testId="inc-assets"
+                    known={knownPicked}
+                  />
+                </Form.Item>
+              </Col>,
+            )}
+        </Row>
+      </FormSection>
+      <FormSection
+        title={t('incidents.section.classification')}
+        testId="inc-section-classification"
+      >
+        <Row gutter={16}>
+          {cell(
+            'level',
+            8,
+            <FormField
+              control={control}
+              name="level"
+              labelKey="work_item.field.level"
+              required={required('level')}
+              render={(field) => (
+                <Select
+                  id={field.id}
+                  allowClear
+                  value={field.value ?? undefined}
+                  onChange={(next: string | undefined) => {
+                    field.onChange(next ?? null);
+                  }}
+                  placeholder={t('incidents.level_placeholder')}
+                  options={(catalogue.data?.levels ?? [])
+                    .filter((v) => !v.disabled)
+                    .map((v) => ({
+                      value: v.code,
+                      label: listValueLabel(t, 'level', v, locale),
+                    }))}
+                  data-testid="inc-level"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'category_id',
+            24,
+            <FormField
+              control={control}
+              name="category_id"
+              labelKey="work_item.field.category_id"
+              required={required('category_id')}
+              render={(field) => (
+                <CategoryCascade
+                  id={field.id}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-category"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'impact',
+            8,
+            <FormField
+              control={control}
+              name="impact"
+              labelKey="work_item.field.impact"
+              required={required('impact')}
+              render={(field) => (
+                <Select
+                  id={field.id}
+                  allowClear
+                  value={field.value ?? undefined}
+                  onChange={(next: string | undefined) => {
+                    field.onChange(next ?? null);
+                  }}
+                  options={IMPACTS.map((v) => ({
+                    value: v,
+                    label: scaleLabel(t, catalogue.data, 'impact', v, locale),
+                  }))}
+                  data-testid="inc-impact"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'urgency',
+            8,
+            <FormField
+              control={control}
+              name="urgency"
+              labelKey="work_item.field.urgency"
+              required={required('urgency')}
+              render={(field) => (
+                <Select
+                  id={field.id}
+                  allowClear
+                  value={field.value ?? undefined}
+                  onChange={(next: string | undefined) => {
+                    field.onChange(next ?? null);
+                  }}
+                  options={URGENCIES.map((v) => ({
+                    value: v,
+                    label: scaleLabel(t, catalogue.data, 'urgency', v, locale),
+                  }))}
+                  data-testid="inc-urgency"
+                />
+              )}
+            />,
+          )}
+          {extra(
+            <Col key="priority" xs={24} md={compact ? 12 : 8}>
+              <Form.Item label={t('work_item.field.priority')}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <span data-testid="inc-priority-preview">
+                    {manual === null &&
+                      (preview === null ? (
+                        <Typography.Text type="secondary">
+                          {t('incidents.priority_pending')}
+                        </Typography.Text>
+                      ) : (
+                        <PriorityTag priority={preview.priority as 'p1'} source={preview.source} />
+                      ))}
+                  </span>
+                  {canPriority && (
+                    <Select
+                      aria-label={t('incidents.priority_override')}
+                      value={manual ?? ''}
+                      onChange={(next: string) => {
+                        form.setValue('priority', next === '' ? null : next);
+                      }}
+                      options={[
+                        { value: '', label: t('incidents.priority_from_matrix') },
+                        ...PRIORITIES.map((p) => ({
+                          value: p,
+                          label: scaleLabel(t, catalogue.data, 'priority', p, locale),
+                        })),
+                      ]}
+                      data-testid="inc-priority-override"
+                    />
+                  )}
+                </Space>
+              </Form.Item>
+            </Col>,
+          )}
+          {manual !== null &&
+            extra(
+              <Col key="priority_reason" xs={24}>
+                <FormField
+                  control={control}
+                  name="priority_reason"
+                  labelKey="work_item.field.priority_reason"
+                  required
+                  render={(field) => (
+                    <Input
+                      {...field}
+                      dir="auto"
+                      count={lengthLimit(500)}
+                      data-testid="inc-priority-reason"
+                    />
+                  )}
+                />
+              </Col>,
+            )}
+          {cell(
+            'impact_details',
+            24,
+            <FormField
+              control={control}
+              name="impact_details"
+              labelKey="work_item.field.impact_details"
+              helpKey="incidents.impact_details_help"
+              required={required('impact_details')}
+              render={(field) => (
+                <Input.TextArea
+                  {...field}
+                  dir="auto"
+                  autoSize={{ minRows: 2, maxRows: 6 }}
+                  count={lengthLimit(IMPACT_DETAILS_MAX, true)}
+                  data-testid="inc-impact-details"
+                />
+              )}
+            />,
+          )}
+        </Row>
+      </FormSection>
+      {canAssign && (
+        <FormSection title={t('incidents.section.assignment')} testId="inc-section-assignment">
+          <Row gutter={16}>
+            {cell(
+              'group_id',
+              12,
+              <FormField
+                control={control}
+                name="group_id"
+                labelKey="work_item.field.group_id"
+                required={required('group_id')}
+                render={(field) => (
+                  <GroupPicker
+                    id={field.id}
+                    value={field.value}
+                    onChange={(next) => {
+                      field.onChange(next);
+                      form.setValue('technician_id', null);
+                    }}
+                    testId="inc-group"
+                    ariaLabel={t('work_item.field.group_id')}
+                  />
+                )}
+              />,
+            )}
+            {cell(
+              'technician_id',
+              12,
+              <FormField
+                control={control}
+                name="technician_id"
+                labelKey="work_item.field.technician_id"
+                required={required('technician_id')}
+                render={(field) => (
+                  <TechnicianPicker
+                    id={field.id}
+                    groupId={group}
+                    value={field.value}
+                    onChange={field.onChange}
+                    testId="inc-technician"
+                    ariaLabel={t('work_item.field.technician_id')}
+                  />
+                )}
+              />,
+            )}
+          </Row>
+        </FormSection>
+      )}
+      <FormSection title={t('incidents.section.details')} testId="inc-section-details">
+        <Row gutter={16}>
+          {cell(
+            'description',
+            24,
+            <FormField
+              control={control}
+              name="description"
+              labelKey="work_item.field.description"
+              required={required('description')}
+              render={(field) => (
+                <RichTextField
+                  id={field.id}
+                  label={t('work_item.field.description')}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-description-editor"
+                />
+              )}
+            />,
+          )}
+          {cell(
+            'tags',
+            24,
+            <FormField
+              control={control}
+              name="tags"
+              labelKey="work_item.field.tags"
+              required={required('tags')}
+              render={(field) => (
+                <TagsInput
+                  id={field.id}
+                  value={field.value}
+                  onChange={field.onChange}
+                  testId="inc-tags"
+                />
+              )}
+            />,
+          )}
+          {shownCustom.map((f) => {
+            const name = `custom.${f.key}`;
+            const element = (
+              <CustomFormField control={control} field={f} required={customRequired(f)} />
+            );
+            const drawn = locked(name) ? (
+              <ConfigProvider componentDisabled>{element}</ConfigProvider>
+            ) : (
+              element
+            );
+            placed.set(name, { element: drawn, wide: f.field_type === 'long_text' });
+            return (
+              <Col key={f.key} xs={24} md={f.field_type === 'long_text' ? 24 : 12}>
+                {drawn}
+              </Col>
+            );
+          })}
+        </Row>
+      </FormSection>
+    </>
+  );
+  const layout = (template?.layout ?? null) as FormLayout | null;
+  const laidOut =
+    layout === null ? null : (
+      <>
+        <LaidOutSections
+          arranged={arrangeFields(layout, 'technician', [...placed.keys()])}
+          fields={placed}
+          errored={
+            new Set([
+              ...Object.keys(form.formState.errors).filter((k) => k !== 'custom'),
+              ...Object.keys(form.formState.errors.custom ?? {}).map((k) => `custom.${k}`),
+            ])
+          }
+          testIdPrefix="inc-layout"
+        />
+        {extras.length > 0 && (
+          <FormSection title={t('incidents.section.more')} testId="inc-section-more">
+            <Row gutter={16}>{extras}</Row>
+          </FormSection>
+        )}
+      </>
+    );
 
   // Template B (D-147; QA10V-07): sections in cards, one footer bar at the bottom of the
   // window with Cancel before the primary; the suggestions beside the form on wide screens.
@@ -648,7 +1195,9 @@ export function NewIncidentPage() {
               <Button
                 size="small"
                 onClick={() => {
-                  draft.startEmpty(EMPTY);
+                  serverDraft.discard(() => {
+                    draft.startEmpty(EMPTY);
+                  });
                   started.current = {};
                   apply(template);
                 }}
@@ -659,6 +1208,16 @@ export function NewIncidentPage() {
             }
           />
         )}
+        <KeptDraftNotice
+          form={form}
+          draft={serverDraft}
+          onRestore={(values) => {
+            form.reset({ ...form.getValues(), ...values }, { keepDefaultValues: true });
+          }}
+          onDiscard={() => {
+            draft.discard();
+          }}
+        />
         <Form.Item label={t('templates.field')} htmlFor="inc-template-picker">
           <Select
             id="inc-template-picker"
@@ -718,412 +1277,7 @@ export function NewIncidentPage() {
         <Typography.Paragraph type="secondary" data-testid="inc-required-note">
           {t('incidents.required_note')}
         </Typography.Paragraph>
-        <FormSection title={t('incidents.section.request')} testId="inc-section-request">
-          <Row gutter={16}>
-            <Col xs={24}>
-              <FormField
-                control={control}
-                name="subject"
-                labelKey="work_item.field.subject"
-                required
-                render={(field) => (
-                  <Input
-                    {...field}
-                    dir="auto"
-                    count={lengthLimit(SUBJECT_MAX, true)}
-                    data-testid="inc-subject"
-                  />
-                )}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <FormField
-                control={control}
-                name="requester_id"
-                labelKey="work_item.field.requester_id"
-                required
-                render={(field) => (
-                  <UserPicker
-                    id={field.id}
-                    value={field.value}
-                    onChange={(next) => {
-                      field.onChange(next);
-                      if (next !== null) void placeFromRequester(next);
-                    }}
-                    testId="inc-requester"
-                    ariaLabel={t('work_item.field.requester_id')}
-                  />
-                )}
-              />
-            </Col>
-            {cell(
-              'on_behalf_of_id',
-              12,
-              <FormField
-                control={control}
-                name="on_behalf_of_id"
-                labelKey="work_item.field.on_behalf_of_id"
-                required={required('on_behalf_of_id')}
-                render={(field) => (
-                  <UserPicker
-                    id={field.id}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-on-behalf"
-                    ariaLabel={t('work_item.field.on_behalf_of_id')}
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'channel',
-              8,
-              <FormField
-                control={control}
-                name="channel"
-                labelKey="work_item.field.channel"
-                required={required('channel')}
-                render={(field) => (
-                  <Radio.Group
-                    id={field.id}
-                    value={field.value}
-                    onChange={(event) => {
-                      field.onChange(event.target.value);
-                    }}
-                    optionType="button"
-                    options={[
-                      { value: 'phone', label: t('work_item_channel.phone') },
-                      { value: 'walk_up', label: t('work_item_channel.walk_up') },
-                    ]}
-                    data-testid="inc-channel"
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'site_id',
-              8,
-              <FormField
-                control={control}
-                name="site_id"
-                labelKey="work_item.field.site_id"
-                helpKey="incidents.site_help"
-                required={required('site_id')}
-                render={(field) => (
-                  <SitePicker
-                    id={field.id}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-site"
-                    ariaLabel={t('work_item.field.site_id')}
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'department_id',
-              8,
-              <FormField
-                control={control}
-                name="department_id"
-                labelKey="work_item.field.department_id"
-                helpKey="incidents.department_help"
-                required={required('department_id')}
-                render={(field) => (
-                  <DepartmentPicker
-                    id={field.id}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-department"
-                    ariaLabel={t('work_item.field.department_id')}
-                  />
-                )}
-              />,
-            )}
-            {/* REQ-AST-025: the assets it is about, the requester's own first. */}
-            {has('assets') && (
-              <Col xs={24}>
-                <Form.Item label={t('work_item.field.asset_ids')} htmlFor="inc-assets">
-                  <AssetPickerField
-                    id="inc-assets"
-                    value={assetIds}
-                    onChange={setAssetIds}
-                    forUser={typedRequester ?? null}
-                    testId="inc-assets"
-                  />
-                </Form.Item>
-              </Col>
-            )}
-          </Row>
-        </FormSection>
-        <FormSection
-          title={t('incidents.section.classification')}
-          testId="inc-section-classification"
-        >
-          <Row gutter={16}>
-            {cell(
-              'level',
-              8,
-              <FormField
-                control={control}
-                name="level"
-                labelKey="work_item.field.level"
-                required={required('level')}
-                render={(field) => (
-                  <Select
-                    id={field.id}
-                    allowClear
-                    value={field.value ?? undefined}
-                    onChange={(next: string | undefined) => {
-                      field.onChange(next ?? null);
-                    }}
-                    placeholder={t('incidents.level_placeholder')}
-                    options={(catalogue.data?.levels ?? [])
-                      .filter((v) => !v.disabled)
-                      .map((v) => ({
-                        value: v.code,
-                        label: listValueLabel(t, 'level', v, locale),
-                      }))}
-                    data-testid="inc-level"
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'category_id',
-              24,
-              <FormField
-                control={control}
-                name="category_id"
-                labelKey="work_item.field.category_id"
-                required={required('category_id')}
-                render={(field) => (
-                  <CategoryCascade
-                    id={field.id}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-category"
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'impact',
-              8,
-              <FormField
-                control={control}
-                name="impact"
-                labelKey="work_item.field.impact"
-                required={required('impact')}
-                render={(field) => (
-                  <Select
-                    id={field.id}
-                    allowClear
-                    value={field.value ?? undefined}
-                    onChange={(next: string | undefined) => {
-                      field.onChange(next ?? null);
-                    }}
-                    options={IMPACTS.map((v) => ({
-                      value: v,
-                      label: scaleLabel(t, catalogue.data, 'impact', v, locale),
-                    }))}
-                    data-testid="inc-impact"
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'urgency',
-              8,
-              <FormField
-                control={control}
-                name="urgency"
-                labelKey="work_item.field.urgency"
-                required={required('urgency')}
-                render={(field) => (
-                  <Select
-                    id={field.id}
-                    allowClear
-                    value={field.value ?? undefined}
-                    onChange={(next: string | undefined) => {
-                      field.onChange(next ?? null);
-                    }}
-                    options={URGENCIES.map((v) => ({
-                      value: v,
-                      label: scaleLabel(t, catalogue.data, 'urgency', v, locale),
-                    }))}
-                    data-testid="inc-urgency"
-                  />
-                )}
-              />,
-            )}
-            <Col xs={24} md={compact ? 12 : 8}>
-              <Form.Item label={t('work_item.field.priority')}>
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <span data-testid="inc-priority-preview">
-                    {manual === null &&
-                      (preview === null ? (
-                        <Typography.Text type="secondary">
-                          {t('incidents.priority_pending')}
-                        </Typography.Text>
-                      ) : (
-                        <PriorityTag priority={preview.priority as 'p1'} source={preview.source} />
-                      ))}
-                  </span>
-                  {canPriority && (
-                    <Select
-                      aria-label={t('incidents.priority_override')}
-                      value={manual ?? ''}
-                      onChange={(next: string) => {
-                        form.setValue('priority', next === '' ? null : next);
-                      }}
-                      options={[
-                        { value: '', label: t('incidents.priority_from_matrix') },
-                        ...PRIORITIES.map((p) => ({
-                          value: p,
-                          label: scaleLabel(t, catalogue.data, 'priority', p, locale),
-                        })),
-                      ]}
-                      data-testid="inc-priority-override"
-                    />
-                  )}
-                </Space>
-              </Form.Item>
-            </Col>
-            {manual !== null && (
-              <Col xs={24}>
-                <FormField
-                  control={control}
-                  name="priority_reason"
-                  labelKey="work_item.field.priority_reason"
-                  required
-                  render={(field) => (
-                    <Input
-                      {...field}
-                      dir="auto"
-                      count={lengthLimit(500)}
-                      data-testid="inc-priority-reason"
-                    />
-                  )}
-                />
-              </Col>
-            )}
-            {cell(
-              'impact_details',
-              24,
-              <FormField
-                control={control}
-                name="impact_details"
-                labelKey="work_item.field.impact_details"
-                helpKey="incidents.impact_details_help"
-                required={required('impact_details')}
-                render={(field) => (
-                  <Input.TextArea
-                    {...field}
-                    dir="auto"
-                    autoSize={{ minRows: 2, maxRows: 6 }}
-                    count={lengthLimit(IMPACT_DETAILS_MAX, true)}
-                    data-testid="inc-impact-details"
-                  />
-                )}
-              />,
-            )}
-          </Row>
-        </FormSection>
-        {canAssign && (
-          <FormSection title={t('incidents.section.assignment')} testId="inc-section-assignment">
-            <Row gutter={16}>
-              {cell(
-                'group_id',
-                12,
-                <FormField
-                  control={control}
-                  name="group_id"
-                  labelKey="work_item.field.group_id"
-                  required={required('group_id')}
-                  render={(field) => (
-                    <GroupPicker
-                      id={field.id}
-                      value={field.value}
-                      onChange={(next) => {
-                        field.onChange(next);
-                        form.setValue('technician_id', null);
-                      }}
-                      testId="inc-group"
-                      ariaLabel={t('work_item.field.group_id')}
-                    />
-                  )}
-                />,
-              )}
-              {cell(
-                'technician_id',
-                12,
-                <FormField
-                  control={control}
-                  name="technician_id"
-                  labelKey="work_item.field.technician_id"
-                  required={required('technician_id')}
-                  render={(field) => (
-                    <TechnicianPicker
-                      id={field.id}
-                      groupId={group}
-                      value={field.value}
-                      onChange={field.onChange}
-                      testId="inc-technician"
-                      ariaLabel={t('work_item.field.technician_id')}
-                    />
-                  )}
-                />,
-              )}
-            </Row>
-          </FormSection>
-        )}
-        <FormSection title={t('incidents.section.details')} testId="inc-section-details">
-          <Row gutter={16}>
-            {cell(
-              'description',
-              24,
-              <FormField
-                control={control}
-                name="description"
-                labelKey="work_item.field.description"
-                required={required('description')}
-                render={(field) => (
-                  <RichTextField
-                    id={field.id}
-                    label={t('work_item.field.description')}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-description-editor"
-                  />
-                )}
-              />,
-            )}
-            {cell(
-              'tags',
-              24,
-              <FormField
-                control={control}
-                name="tags"
-                labelKey="work_item.field.tags"
-                required={required('tags')}
-                render={(field) => (
-                  <TagsInput
-                    id={field.id}
-                    value={field.value}
-                    onChange={field.onChange}
-                    testId="inc-tags"
-                  />
-                )}
-              />,
-            )}
-            {shownCustom.map((f) => (
-              <Col key={f.key} xs={24} md={f.field_type === 'long_text' ? 24 : 12}>
-                <CustomFormField control={control} field={f} required={customRequired(f)} />
-              </Col>
-            ))}
-          </Row>
-        </FormSection>
+        {laidOut ?? classic}
         <FormProblem problem={problem} />
       </Form>
       <Modal

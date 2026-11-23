@@ -20,6 +20,8 @@ ALLOWED = {
     "modules/analytics": "scheduled reports: the report file is the message, D-100",
     "modules/integrations": "the answer to mail that created nothing: a reply to the sender's own "
     "message, never to automatic mail (WP-024)",
+    "modules/work_items": "people kept informed (REQ-INC-066): addresses with no account, which "
+    "the engine cannot reach; public replies only, each mail with its stop link (WP-046a S6)",
 }
 
 

@@ -52,3 +52,8 @@ setDefaultClientFactory(inertClientFactory);
 if (typeof Element.prototype.scrollIntoView !== 'function') {
   Element.prototype.scrollIntoView = () => undefined;
 }
+
+// A UI language remembered by one test's session never starts the next test's app (V-01).
+afterEach(() => {
+  window.localStorage.removeItem('supportx.locale');
+});

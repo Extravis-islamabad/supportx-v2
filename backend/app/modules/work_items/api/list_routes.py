@@ -4,23 +4,31 @@ Mounted before `/{record_id}`, like the other collection routes.
 """
 
 import uuid
-from datetime import datetime
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.errors import FieldError, ValidationFailed
+from app.core.tenancy import TenantContext
 from app.modules import metadata
-from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.audit import AuditNote, audited
+from app.modules.identity_access import Subject, get_policy
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.lists import (
     MAX_BULK,
     MAX_COLUMNS,
+    BoardGroupBy,
     BulkAction,
     BulkOutcome,
     BulkStatus,
+    ListLayout,
+    RowColourBy,
     ViewVisibility,
 )
 from app.modules.work_items.domain.types import WorkItemType
@@ -30,12 +38,15 @@ from app.modules.work_items.infra.models import (
     WorkItemView,
 )
 from app.modules.work_items.service import bulk as bulk_service
+from app.modules.work_items.service import catalogue, custom_values, view_audit, view_filters
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS
+from app.modules.work_items.service.access import FIELDS, type_fields
 from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, set_etag
+from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.listing import ListQuery, list_query, request_zone
+from app.shared.api.listing import ListQuery, list_query, list_query_body, request_zone
+from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
 
 CONFLICT_409: dict[int | str, dict[str, object]] = {
@@ -105,6 +116,27 @@ class SavedViewPatch(BaseModel):
     sort: str | None = Field(default=None, max_length=200)
 
 
+class UnsharedViewOut(BaseModel):
+    """A view the audit made private (D-176): whose, when, and the filter field that caused it."""
+
+    id: uuid.UUID
+    name: str
+    owner_id: uuid.UUID
+    unshared_at: datetime
+    field: str = Field(description="The filter field's key; the console names it by its label.")
+
+
+class ViewAuditOut(BaseModel):
+    """The report: the views made private, newest first (at most 200)."""
+
+    items: list[UnsharedViewOut]
+    seal_pending: int = Field(
+        default=0,
+        description="Views still holding a sealed field's value in plain text; sealed on the "
+        "next run once the tenant's keys are available.",
+    )
+
+
 class SavedViewOut(BaseModel):
     """A saved view; `mine` says whether you may change it."""
 
@@ -114,6 +146,8 @@ class SavedViewOut(BaseModel):
     group_ids: list[uuid.UUID]
     owner_id: uuid.UUID
     mine: bool
+    # Starred by you (REQ-INC-107 AC1); favourites come first in the list.
+    favourite: bool = False
     filter: dict[str, Any] | None
     columns: list[ListColumn]
     sort: str | None
@@ -121,16 +155,25 @@ class SavedViewOut(BaseModel):
     updated_at: datetime
 
     @classmethod
-    def of(cls, row: WorkItemView, subject: Subject) -> "SavedViewOut":
+    def of(
+        cls,
+        row: WorkItemView,
+        subject: Subject,
+        *,
+        favourite: bool = False,
+        filter_shown: dict[str, Any] | None = None,
+    ) -> "SavedViewOut":
         """From a row, for the subject."""
         return cls(
+            favourite=favourite,
             id=row.id,
             name=row.name,
             visibility=ViewVisibility(row.visibility),
             group_ids=list(row.group_ids),
             owner_id=row.owner_id,
             mine=row.owner_id == subject.user_id,
-            filter=row.filter,
+            # The reader's form (sealed values opened or withheld); never the stored `sx2:` text.
+            filter=filter_shown,
             columns=[ListColumn(**c) for c in row.columns],
             sort=row.sort,
             version=row.version,
@@ -144,6 +187,16 @@ class ListSettingIn(BaseModel):
     columns: list[ListColumn] = Field(default_factory=list, max_length=MAX_COLUMNS)
     sort: str | None = Field(default=None, max_length=200)
     page_size: int = Field(default=50, description="25, 50 or 100.")
+    row_colour_by: RowColourBy | None = Field(
+        default=None, description="Your own row colouring for this view; null: the default."
+    )
+    layout: ListLayout | None = Field(
+        default=None,
+        description="Table, cards, board or calendar for this view (REQ-INC-111/112); null: table.",
+    )
+    group_by: BoardGroupBy | None = Field(
+        default=None, description="The board's columns; null: status."
+    )
 
 
 class ListSettingOut(BaseModel):
@@ -153,6 +206,9 @@ class ListSettingOut(BaseModel):
     columns: list[ListColumn]
     sort: str | None
     page_size: int
+    row_colour_by: RowColourBy | None = None
+    layout: ListLayout | None = None
+    group_by: BoardGroupBy | None = None
     version: int | None
 
     @classmethod
@@ -165,8 +221,26 @@ class ListSettingOut(BaseModel):
             columns=[ListColumn(**c) for c in row.columns],
             sort=row.sort,
             page_size=row.page_size,
+            row_colour_by=RowColourBy(row.row_colour_by) if row.row_colour_by else None,
+            layout=ListLayout(row.layout) if row.layout else None,
+            group_by=BoardGroupBy(row.group_by) if row.group_by else None,
             version=row.version,
         )
+
+
+class ListDisplayIn(BaseModel):
+    """The tenant's default row colouring (REQ-INC-115 AC1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    row_colour_by: RowColourBy
+
+
+class ListDisplayOut(BaseModel):
+    """The default row colouring, with the type settings' version (the ETag)."""
+
+    row_colour_by: RowColourBy
+    settings_version: int
 
 
 class BulkJobIn(BaseModel):
@@ -230,17 +304,85 @@ class BulkJobOut(BaseModel):
         )
 
 
-def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
-    """The list's ListQuery dependency: built-in fields plus custom fields (WP-026)."""
-    return list_query(
-        FIELDS,
-        extra_parameters=frozenset({"view", "tag"}),
+async def _own_and_custom(session: AsyncSession, wtype: WorkItemType) -> Mapping[str, FilterField]:
+    custom = await metadata.filter_fields(session, wtype.code.value, "work_items")
+    # A sealed field never sorts and never compares as stored text: its `eq` / `in` filters are
+    # rewritten to its blind index before this allowlist is used (WP-057 S3b-2).
+    sealed = await custom_values.not_plain_keys(session, wtype.code.value)
+    custom = {n: f for n, f in custom.items() if n.removeprefix("custom.") not in sealed}
+    return {**type_fields(wtype), **custom}
+
+
+def _names(tree: Any, simple: Mapping[str, Sequence[str]]) -> list[str]:  # noqa: ANN401 - the DSL tree
+    return [str(c["field"]) for c in view_filters.conditions(tree)] + list(simple)
+
+
+def _hooks(wtype: WorkItemType) -> dict[str, Any]:
+    """The list's hooks, the same for its GET and its POST form."""
+
+    async def withheld(request: Request, tenant: TenantContext) -> frozenset[str]:
+        subject = await get_policy(request).subject_for(request, tenant)
+        return field_rules.unseen(subject.field_access, wtype.code.value).all
+
+    async def sealed(
+        session: AsyncSession,
+        tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+        simple: dict[str, list[str]],
+        withheld: frozenset[str],
+    ) -> tuple[Any, dict[str, list[str]], Mapping[str, FilterField]]:
+        return await custom_values.rewrite_sealed_filters(
+            session, wtype.code.value, tree, simple, withheld
+        )
+
+    return {
         # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
-        fields_for=lambda session: metadata.filter_fields(session, wtype.code.value, "work_items"),
+        # A type's own fields too (a change's risk, a problem's type): drill-down (REQ-CHG-116).
+        "fields_for": lambda session: _own_and_custom(session, wtype),
+        "exclude_for": withheld,
+        "rewrite_for": sealed,
+    }
+
+
+def list_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
+    """The list's ListQuery dependency (GET): built-in fields plus custom fields (WP-026).
+
+    Minus the fields the caller's roles hide or mask (ADR-047 AC2): filtering or sorting on one
+    is refused like any unknown field, so a filter never probes a value the list leaves out.
+    A filter naming a sealed field is refused here (`sealed_filter_needs_post`): its value
+    would travel in the URL, so it goes in `POST .../list`'s body (lane C).
+    """
+
+    async def refuse(
+        session: AsyncSession,
+        tree: Any,  # noqa: ANN401 - the filter DSL's parsed JSON tree
+        simple: Mapping[str, Sequence[str]],
+    ) -> None:
+        found = await service.sealed_fields(session, wtype)
+        named = next((n for n in _names(tree, simple) if n in found), None)
+        if named is not None:
+            # The field, never the value (lane C): the value is what must not travel.
+            raise ValidationFailed(
+                errors=[
+                    FieldError(
+                        field="query.filter",
+                        code="sealed_filter_needs_post",
+                        message_key="errors.field.sealed_filter_needs_post",
+                        params={"field": named},
+                    )
+                ]
+            )
+
+    return list_query(
+        FIELDS, extra_parameters=frozenset({"view", "tag"}), refuse_for=refuse, **_hooks(wtype)
     )
 
 
-def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901 - one route per operation
+def list_body_dependency(wtype: WorkItemType) -> Any:  # noqa: ANN401 - a FastAPI dependency
+    """The same list query from `POST .../list`'s body: a sealed filter may come this way."""
+    return list_query_body(FIELDS, extra_parameters=frozenset({"view", "tag"}), **_hooks(wtype))
+
+
+def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C901, PLR0915 - one route per op
     """`/saved-views`, `/list-settings/{view_key}`, `/bulk` and `/bulk-jobs`."""
     perm = wtype.permission
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
@@ -286,8 +428,43 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
 
     @router.get("/saved-views", summary="Your saved views and the shared ones")
     async def saved_views(session: TenantSession, subject: View) -> list[SavedViewOut]:
-        """By name. Shared views are listed for everyone; only their owner changes them."""
-        return [SavedViewOut.of(r, subject) for r in await service.views(session, subject, wtype)]
+        """Your starred views first, then by name. Only their owner changes shared views."""
+        rows = await service.views(session, subject, wtype)
+        starred = await service.favourite_ids(session, subject, wtype)
+        shown = [
+            SavedViewOut.of(
+                r,
+                subject,
+                favourite=r.id in starred,
+                filter_shown=await service.shown_filter(session, subject, wtype, r),
+            )
+            for r in rows
+        ]
+        return sorted(shown, key=lambda v: not v.favourite)  # stable: names stay in order
+
+    @router.put(
+        "/saved-views/{view_id}/favourite",
+        summary="Star a view",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def star_saved_view(
+        view_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Yours only; nobody else sees it. Starring twice is the same as once."""
+        await service.star_view(session, subject, wtype, view_id, starred=True)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.delete(
+        "/saved-views/{view_id}/favourite",
+        summary="Un-star a view",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def unstar_saved_view(
+        view_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> Response:
+        """Removing a star that is not there is fine."""
+        await service.star_view(session, subject, wtype, view_id, starred=False)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.post(
         "/saved-views",
@@ -309,7 +486,12 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
                 session, subject, wtype, body.model_dump(mode="json"), source=source_of(request)
             )
             return Created(
-                body=SavedViewOut.of(row, subject), headers={"ETag": etag_for(row.version)}
+                body=SavedViewOut.of(
+                    row,
+                    subject,
+                    filter_shown=await service.shown_filter(session, subject, wtype, row),
+                ),
+                headers={"ETag": etag_for(row.version)},
             )
 
         return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
@@ -335,7 +517,9 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
             source=source_of(request),
         )
         set_etag(response, row.version)
-        return SavedViewOut.of(row, subject)
+        return SavedViewOut.of(
+            row, subject, filter_shown=await service.shown_filter(session, subject, wtype, row)
+        )
 
     @router.delete(
         "/saved-views/{view_id}",
@@ -355,6 +539,112 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
             session, subject, wtype, view_id, expected_version=version, source=source_of(request)
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # --- row colours (REQ-INC-115 AC1) ------------------------------------------------------------
+
+    SettingsAdmin = Annotated[  # noqa: N806 - type alias
+        Subject, Depends(require_permission("config.service_desk", "settings.manage"))
+    ]
+
+    @router.get("/settings/list-display", summary="How list rows are coloured by default")
+    async def list_display(
+        session: TenantSession, subject: View, response: Response
+    ) -> ListDisplayOut:
+        """Everyone who sees the list reads it (their own choice per view overrides it)."""
+        del subject
+        cat = await catalogue.load(session, wtype)
+        set_etag(response, cat.settings_version)
+        return ListDisplayOut(
+            row_colour_by=RowColourBy(cat.row_colour_by), settings_version=cat.settings_version
+        )
+
+    @router.put("/settings/list-display", summary="Set how list rows are coloured by default")
+    async def put_list_display(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        body: ListDisplayIn,
+        session: TenantSession,
+        subject: SettingsAdmin,
+        version: ExpectedVersion,
+        response: Response,
+        request: Request,
+        note: Annotated[
+            AuditNote,
+            audited(f"{audit}.list_display_changed", object_type=f"{audit}_settings"),
+        ],
+    ) -> ListDisplayOut:
+        """Needs If-Match on the type's settings; the change is audited."""
+        cat, before, after = await service.set_row_colour_default(
+            session,
+            wtype,
+            body.row_colour_by.value,
+            expected_version=version,
+            source=source_of(request),
+            user_id=subject.user_id,
+        )
+        note.details = {"before": before, "after": after}
+        set_etag(response, cat.settings_version)
+        return ListDisplayOut(
+            row_colour_by=RowColourBy(cat.row_colour_by), settings_version=cat.settings_version
+        )
+
+    # --- the shared-view audit (D-176) ------------------------------------------------------------
+
+    Admin = Annotated[Subject, Depends(require_permission("roles.manage"))]  # noqa: N806 - alias
+
+    def _report(rows: list[WorkItemView], pending: int = 0) -> ViewAuditOut:
+        return ViewAuditOut(
+            seal_pending=pending,
+            items=[
+                UnsharedViewOut(
+                    id=r.id,
+                    name=r.name,
+                    owner_id=r.owner_id,
+                    unshared_at=r.unshared_at,
+                    field=r.unshared_field or "",
+                )
+                for r in rows
+                if r.unshared_at is not None
+            ],
+        )
+
+    @router.get(
+        "/saved-views/audit",
+        summary="Views made private because of their filter",
+        dependencies=[Depends(rate_limit("identity"))],
+    )
+    async def view_audit_report(session: TenantSession, subject: Admin) -> ViewAuditOut:
+        """Administrators: shared views the audit made private, with the field that caused it."""
+        del subject
+        return _report(
+            await view_audit.unshared_views(session, wtype),
+            len(await view_audit.seal_pending(session, wtype)),
+        )
+
+    @router.post(
+        "/saved-views/audit",
+        summary="Check the shared views again",
+        response_model=ViewAuditOut,
+        dependencies=[Depends(rate_limit("identity"))],
+    )
+    async def rerun_view_audit(
+        session: TenantSession,
+        subject: Admin,
+        idempotency: Idempotency,
+        note: Annotated[
+            AuditNote,
+            audited(f"{audit}.view_audit_run", object_type=f"{audit}_settings"),
+        ],
+    ) -> Response:
+        """Runs the audit now (idempotent: views already private stay as they are); audited."""
+        del subject, note  # the entry names who ran it; the views it changed carry their own
+
+        async def run() -> ViewAuditOut:
+            await view_audit.audit_type(session, wtype, datetime.now(UTC))
+            return _report(
+                await view_audit.unshared_views(session, wtype),
+                len(await view_audit.seal_pending(session, wtype)),
+            )
+
+        return await idempotency.run(None, run, status_code=status.HTTP_200_OK)
 
     # --- list settings ----------------------------------------------------------------------------
 

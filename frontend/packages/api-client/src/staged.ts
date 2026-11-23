@@ -40,22 +40,27 @@ function useRefresh(path: StagedPath) {
 }
 
 /** The type's configuration: statuses, closure codes and its own lists. */
-export function useStagedSettings(path: StagedPath) {
+export function useStagedSettings(path: StagedPath, enabled = true) {
   return useQuery({
     queryKey: stagedKeys(path).settings,
     queryFn: () => call(api.GET(at(path, '/api/v1/releases/settings'))),
     staleTime: 60_000,
+    enabled,
   });
+}
+
+/** The rail and the moves offered, as query options: for a screen that asks on demand (a board). */
+export function stagedPanelQuery(path: StagedPath, id: string) {
+  return {
+    queryKey: stagedKeys(path).part(id, 'stages'),
+    queryFn: () =>
+      call(api.GET(at(path, `${RECORD}/stages`), { params: { path: { record_id: id } } })),
+  };
 }
 
 /** The rail and the moves offered from the current status (ADR-041 §7). */
 export function useStagedPanel(path: StagedPath, id: string) {
-  return useQuery({
-    queryKey: stagedKeys(path).part(id, 'stages'),
-    queryFn: () =>
-      call(api.GET(at(path, `${RECORD}/stages`), { params: { path: { record_id: id } } })),
-    enabled: id !== '',
-  });
+  return useQuery({ ...stagedPanelQuery(path, id), enabled: id !== '' });
 }
 
 /** A listed move, with If-Match on the record and the values the move asks for. */
@@ -92,6 +97,47 @@ export function useStagedRoles(path: StagedPath, id: string) {
     queryFn: () =>
       call(api.GET(at(path, `${RECORD}/roles`), { params: { path: { record_id: id } } })),
     enabled: id !== '',
+  });
+}
+
+export type RoleDefOut = components['schemas']['RoleDefOut'];
+
+/**
+ * A staged type's role definitions with the admin's own labels (the roles settings), for screens
+ * that name its roles outside a record (a workflow's approval step). Reading needs the type's
+ * settings view: without it the query fails quietly and callers label roles from their codes.
+ */
+export function useRoleDefs(path: StagedPath | undefined) {
+  return useQuery({
+    queryKey: [...stagedKeys(path ?? 'changes').settings, 'roles'] as const,
+    queryFn: () => call(api.GET(at(path ?? 'changes', '/api/v1/releases/settings/roles'))),
+    enabled: path !== undefined,
+    retry: false,
+    // A designer without the settings view gets a 403: labels fall back to the codes quietly,
+    // never a global error toast (lane A's #420 review).
+    meta: { silent: true },
+  });
+}
+
+/**
+ * Make one role what Take makes you (releases, REQ-REL-057 AC2), on the type's settings version
+ * the screen showed; the roles and the settings refetch.
+ */
+export function useSetTakeRole(path: StagedPath) {
+  const queryClient = useQueryClient();
+  const keys = stagedKeys(path);
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ code, version }: { code: string; version: number }) =>
+      call(
+        api.PATCH(at(path, '/api/v1/releases/settings/roles/{code}'), {
+          params: { path: { code }, header: ifMatch(version) },
+          body: { take: true },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.settings });
+    },
   });
 }
 

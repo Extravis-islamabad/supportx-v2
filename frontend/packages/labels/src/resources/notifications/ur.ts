@@ -25,24 +25,47 @@ export const ur: LabelResource = {
   'delivery_state.retrying': 'دوبارہ کوشش جاری',
   'delivery_state.sent': 'بھیج دیا گیا',
   'delivery_state.waiting': 'میل ترتیب دیے جانے کا انتظار',
+  'erasure_count.deliveries_deleted': 'اطلاعات کی ترسیلات حذف کی گئیں',
+  'erasure_count.notifications_deleted': 'ایپ کے اندر اطلاعات حذف کی گئیں',
+  'erasure_count.preferences_deleted': 'اطلاعات کی ترجیحات حذف کی گئیں',
   'event_delivery.stalled.body':
     'اطلاعات، براہ راست اپ ڈیٹس اور ایکسپورٹس میں تاخیر ہے۔ کچھ ضائع نہیں ہوگا: سروس بحال ہوتے ہی یہ بھیج دیے جائیں گے۔',
   'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
   'event_delivery_state.ok': 'ترسیل جاری',
   'event_delivery_state.stalled': 'رکی ہوئی',
+  'notice.custom_field.seal_opening': 'قدروں کو کھولنا',
+  'notice.custom_field.seal_sealing': 'قدروں کی مہر بندی',
+  'notice.sign_in_secret.days_1': 'ایک دن کے اندر ختم ہو جائے گی',
+  'notice.sign_in_secret.days_30': '30 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.days_7': '7 دن میں ختم ہو جائے گی',
+  'notice.sign_in_secret.expired': 'ختم ہو چکی ہے',
+  'notice.sign_in_secret.item_certificate': 'دستخطی سرٹیفکیٹ',
+  'notice.sign_in_secret.item_client_secret': 'کلائنٹ کی خفیہ کلید',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
   'notification_area.asset': 'اثاثے',
+  'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
   'notification_area.connector': 'کنیکٹرز',
+  'notification_area.custom_field': 'اپنی مرضی کے خانے',
   'notification_area.incident': 'واقعات',
   'notification_area.kb_article': 'علمی ذخیرہ',
   'notification_area.mailbox': 'میل',
+  'notification_area.outgoing_mail': 'جانے والی میل',
   'notification_area.problem': 'مسائل',
   'notification_area.problem_repeat': 'مسائل',
   'notification_area.release': 'ریلیزز',
+  'notification_area.reminder': 'یاد دہانیاں',
+  'notification_area.report_schedule': 'شیڈول شدہ رپورٹس',
   'notification_area.rule_step': 'قواعد اور ایسکلیشن',
+  'notification_area.security': 'سیکیورٹی اطلاعات',
+  'notification_area.service_account': 'سروس اکاؤنٹس',
   'notification_area.service_request': 'سروس کی درخواستیں',
+  'notification_area.sign_in_secret': 'سائن اِن کے سرٹیفکیٹ اور خفیہ کلیدیں',
+  'notification_area.support_grant': 'وینڈر سپورٹ رسائی',
+  'notification_area.task': 'کام',
+  'notification_area.verified_domain': 'تصدیق شدہ ڈومینز',
+  'notification_area.work_item_view': 'محفوظ منظر',
   'notification_category.approval': 'منظوریاں',
   'notification_category.assignment': 'تفویض',
   'notification_category.conversation': 'جوابات اور نوٹس',
@@ -59,20 +82,51 @@ export const ur: LabelResource = {
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
   'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
+  'notification_event.asset.erased_holder_items':
+    'جس فرد کو مٹایا جا رہا ہے اس کے پاس ابھی اثاثے ہیں',
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
   'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
+  'notification_event.break_glass.signed_in': 'ایک ہنگامی منتظم نے سائن اِن کیا',
+  'notification_event.change.approval_fallback': 'تبدیلی کی منظوری جس کا کوئی فیصلہ کرنے والا نہیں',
+  'notification_event.change.approval_requested': 'تبدیلی کی منظوری درکار',
+  'notification_event.change.approved': 'تبدیلی منظور',
+  'notification_event.change.assigned': 'تبدیلی آپ کے سپرد',
+  'notification_event.change.backed_out': 'تبدیلی واپس لی گئی',
+  'notification_event.change.board_empty': 'تبدیلی بورڈ کا کوئی رکن نہیں',
+  'notification_event.change.cab_reminder': 'تبدیلی بورڈ میں آپ کے فیصلے کی منتظر',
+  'notification_event.change.clarification': 'تبدیلی کو مزید معلومات درکار',
+  'notification_event.change.closed': 'تبدیلی بند',
+  'notification_event.change.implementation_failed': 'تبدیلی کا نفاذ ناکام',
+  'notification_event.change.implementation_overdue': 'تبدیلی کا نفاذ تاخیر کا شکار',
+  'notification_event.change.implemented': 'تبدیلی نافذ',
+  'notification_event.change.mentioned': 'تبدیلی پر آپ کا ذکر',
+  'notification_event.change.note': 'تبدیلی پر نوٹ',
+  'notification_event.change.overridden': 'ہنگامی استثنا استعمال ہوا',
   'notification_event.change.public_reply': 'درخواست گزار کو جواب',
+  'notification_event.change.rejected': 'تبدیلی مسترد',
+  'notification_event.change.review_due': 'تبدیلی کے جائزے کا وقت',
+  'notification_event.change.sent_back': 'منظور شدہ تبدیلی کو دوبارہ منظوری درکار',
+  'notification_event.change.status_entered': 'تبدیلی ایک حالت میں داخل ہوئی',
+  'notification_event.change.submitted': 'تبدیلی جمع ہوئی',
+  'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
+  'notification_event.custom_field.seal_paused': 'حساس فیلڈ کی قدروں کی مہر بندی رک گئی ہے',
+  'notification_event.incident.approval_rejected': 'منظوری مسترد ہوئی',
+  'notification_event.incident.approval_requested': 'منظوری مانگی گئی',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
+  'notification_event.incident.cancellation_to_managers':
+    'منسوخی کی درخواست سروس ڈیسک مینیجرز کو بھیجی گئی',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
   'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
   'notification_event.incident.created_in_group': 'گروپ میں نیا واقعہ',
   'notification_event.incident.follower_added': 'فالوور کے طور پر شامل',
+  'notification_event.incident.major_declared': 'بڑا واقعہ قرار دیا گیا',
+  'notification_event.incident.major_ended': 'بڑا واقعہ ختم ہوا',
   'notification_event.incident.mentioned': 'ذکر',
   'notification_event.incident.private_note': 'نجی نوٹ',
   'notification_event.incident.public_note': 'عوامی نوٹ',
@@ -94,6 +148,7 @@ export const ur: LabelResource = {
     'میل باکس ایپ کا سیکرٹ یا سرٹیفکیٹ ختم ہونے والا ہے',
   'notification_event.mailbox.failing': 'میل باکس نے کام کرنا بند کر دیا',
   'notification_event.mailbox.mail_held': 'ایک بھیجنے والا میل باکس کو پیغامات سے بھر رہا ہے',
+  'notification_event.outgoing_mail.not_sent': 'ای میلز کبھی نہیں بھیجی گئیں: میل سیٹ اپ نہیں',
   'notification_event.problem.assigned': 'مسئلہ تفویض ہوا',
   'notification_event.problem.closed': 'مسئلہ بند ہوا',
   'notification_event.problem.created_in_group': 'آپ کے گروپ میں مسئلہ بنا',
@@ -106,7 +161,16 @@ export const ur: LabelResource = {
   'notification_event.problem.target_warning': 'مسئلے کی ہدف تاریخ قریب',
   'notification_event.problem_repeat.detected': 'بار بار واقعات ملے',
   'notification_event.release.public_reply': 'درخواست گزار کو جواب',
+  'notification_event.reminder.due': 'آپ کی یاد دہانی',
+  'notification_event.report_schedule.recipients_skipped':
+    'ایک شیڈول شدہ رپورٹ نے کچھ لوگوں کو چھوڑ دیا',
   'notification_event.rule_step.assignee_unavailable': 'قاعدہ اپنے فرد کو تفویض نہیں کر سکا',
+  'notification_event.security.locked_out': 'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا',
+  'notification_event.security.mfa_added': 'آپ کے اکاؤنٹ میں سائن اِن جانچ (MFA) شامل کی گئی',
+  'notification_event.security.mfa_removed': 'آپ کے اکاؤنٹ سے سائن اِن جانچ (MFA) ہٹا دی گئی',
+  'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
+  'notification_event.security.password_changed': 'آپ کا پاس ورڈ بدل دیا گیا',
+  'notification_event.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
@@ -116,6 +180,18 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.sign_in_secret.expiring':
+    'سائن اِن کا سرٹیفکیٹ یا خفیہ کلید ختم ہونے والی ہے',
+  'notification_event.support_grant.ended': 'وینڈر سپورٹ رسائی ختم ہوئی',
+  'notification_event.support_grant.extended': 'وینڈر سپورٹ رسائی میں توسیع',
+  'notification_event.support_grant.first_used': 'سپورٹ انجینئر نے پہلی بار سائن اِن کیا',
+  'notification_event.support_grant.granted': 'وینڈر سپورٹ رسائی دی گئی',
+  'notification_event.support_grant.removal_stuck': 'سپورٹ اکاؤنٹ ابھی تک نہیں ہٹایا گیا',
+  'notification_event.task.assigned': 'آپ کو ایک کام دیا گیا',
+  'notification_event.task.overdue': 'آپ کا کام تاخیر کا شکار ہے',
+  'notification_event.task.starts_soon': 'آپ کا کام جلد شروع ہو رہا ہے',
+  'notification_event.verified_domain.lapsed': 'تصدیق شدہ ڈومین اب تصدیق شدہ نہیں رہا',
+  'notification_event.work_item_view.unshared': 'آپ کا شیئر کیا ہوا منظر نجی کر دیا گیا',
   'notification_preferences.col.category': 'قسم',
   'notification_preferences.dnd_help':
     'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
@@ -138,35 +214,54 @@ export const ur: LabelResource = {
   'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
   'notification_recipient.author': 'مصنف',
   'notification_recipient.borrower': 'ادھار لینے والا',
+  'notification_recipient.cab': 'تبدیلی بورڈ کے ارکان',
+  'notification_recipient.cab_member': 'فیصلے کا منتظر بورڈ رکن',
+  'notification_recipient.change_manager': 'تبدیلی مینیجر',
+  'notification_recipient.change_owner': 'تبدیلی کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
+  'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
   'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
   'notification_recipient.holder': 'جس کے پاس یہ ہے',
+  'notification_recipient.implementer': 'نافذ کنندہ',
+  'notification_recipient.line_manager': 'براہِ راست مینیجر',
   'notification_recipient.linked_incident_technicians': 'منسلک واقعات کے تکنیکی ماہرین',
   'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
+  'notification_recipient.major_team': 'بڑے واقعات کی ٹیم',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
   'notification_recipient.new_investigator': 'شامل کیا گیا تفتیش کار',
   'notification_recipient.on_behalf_of': 'جس کے لیے ہے',
+  'notification_recipient.other_tenant_admins': 'دیگر ٹیننٹ منتظمین',
   'notification_recipient.owner': 'مضمون کا مالک',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
+  'notification_recipient.reviewer': 'جائزہ کار',
+  'notification_recipient.schedule_owner': 'شیڈول کا مالک',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
+  'notification_recipient.tenant_admins': 'ادارے کے ایڈمنسٹریٹرز',
+  'notification_recipient.the_person': 'متعلقہ شخص',
   'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_recipient.view_owner': 'منظر کا مالک',
   'notification_recipient.workflow_audience': 'ورک فلو میں نامزد افراد',
   'notification_rules.any_priority': 'کوئی بھی ترجیح',
+  'notification_rules.any_status': 'کوئی بھی حالت',
   'notification_rules.changed': '{{when}} کو تبدیل ہوا',
   'notification_rules.col.channels': 'کیسے',
   'notification_rules.col.event': 'واقعہ',
   'notification_rules.col.on': 'آن',
   'notification_rules.col.priority': 'صرف اس ترجیح کے لیے',
   'notification_rules.col.recipients': 'کون',
+  'notification_rules.col.status': 'صرف اس حالت کے لیے',
   'notification_rules.intro':
     'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
+  'notification_rules.locked': 'سکیورٹی کے لیے طے شدہ',
+  'notification_rules.locked_help':
+    'سکیورٹی اطلاع: ہمیشہ انہی لوگوں کو بھیجی جاتی ہے جن کا اس میں ذکر ہے۔ کوئی اسے بند یا وصول کنندگان تبدیل نہیں کر سکتا۔',
   'notification_rules.none': 'کوئی واقعہ نہیں ملا',
   'notification_rules.required': 'لوگوں کے لیے لازمی',
   'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',
@@ -197,6 +292,12 @@ export const ur: LabelResource = {
     'براہ کرم تصدیق کریں {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'براہ کرم {{ record.display_id }} {{ record.title }} کی تصدیق کریں',
+  'notification_template.asset.erased_holder_items.body':
+    'السلام علیکم {{ recipient.name }}،\nجس فرد کا ڈیٹا درخواست پر مٹایا جا رہا ہے اس کے پاس یہ اثاثے ابھی ہیں یا عاریتاً ہیں: {{ holdings.assets }}۔ ان کی تفویض اور عاریتیں کھلی رہیں گی: براہِ کرم اثاثے واپس لیں اور معمول کے مطابق بند کریں۔ {{ record.link }}',
+  'notification_template.asset.erased_holder_items.in_app':
+    'مٹائے جانے والے فرد کے پاس ابھی: {{ holdings.assets }}',
+  'notification_template.asset.erased_holder_items.subject':
+    'مٹائے جانے والے فرد سے {{ holdings.count }} اثاثے واپس لیں',
   'notification_template.asset.loan_due.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} کو ادھار دیے گئے اثاثے کل واپس کرنے ہیں۔',
   'notification_template.asset.loan_due.in_app': '{{ holder.name }} کا ادھار کل واپس کرنا ہے',
@@ -222,12 +323,142 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کی وارنٹی {{ warranty.ends_on }} کو ختم',
   'notification_template.asset.warranty_expiring.subject':
     'وارنٹی ختم ہو رہی ہے: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے ہنگامی ایڈمنسٹریٹر اکاؤنٹ سے سائن اِن کیا، جو سنگل سائن آن لازمی ہونے پر بھی کام کرتا ہے۔ اگر آپ کو اس کی توقع نہیں تھی تو ابھی سائن اِن اور سیکیورٹی دیکھیں: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} نے ہنگامی ایڈمنسٹریٹر اکاؤنٹ سے سائن اِن کیا',
+  'notification_template.break_glass.signed_in.subject': 'ہنگامی سائن اِن: {{ record.title }}',
+  'notification_template.change.approval_fallback.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی ایک منظوری کسی کے پاس نہیں۔ منظوری کا منتظم اس کا فیصلہ کر سکتا ہے۔',
+  'notification_template.change.approval_fallback.in_app':
+    '{{ record.display_id }} کی ایک منظوری کا کوئی منظور کنندہ نہیں: {{ record.title }}',
+  'notification_template.change.approval_fallback.subject':
+    'کوئی منظور کنندہ نہیں: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approval_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" آپ کی منظوری کی منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}\n\nیہ لنک صرف ایک بار، صرف آپ کے لیے کام کرتا ہے۔',
+  'notification_template.change.approval_requested.in_app':
+    '{{ record.display_id }} آپ کی منظوری کی منتظر ہے: {{ record.title }}',
+  'notification_template.change.approval_requested.subject':
+    'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approved.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" منظور ہو گئی۔ اب اس کی حالت: {{ record.status }}۔',
+  'notification_template.change.approved.in_app':
+    '{{ record.display_id }} منظور ہوئی: {{ record.title }}',
+  'notification_template.change.approved.subject':
+    'منظور: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\nاب آپ {{ record.display_id }} "{{ record.title }}" کے مالک ہیں۔',
+  'notification_template.change.assigned.in_app':
+    'آپ {{ record.display_id }} کے مالک ہیں: {{ record.title }}',
+  'notification_template.change.assigned.subject':
+    'آپ {{ record.display_id }} {{ record.title }} کے مالک ہیں',
+  'notification_template.change.backed_out.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" واپس لے لی گئی۔ اب اس کی حالت: {{ record.status }}۔',
+  'notification_template.change.backed_out.in_app':
+    '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
+  'notification_template.change.backed_out.subject':
+    'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.board_empty.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" ایسے تبدیلی بورڈ کی منتظر ہے جس کا کوئی رکن نہیں۔ بورڈ میں ارکان شامل کریں یا کوئی اور بورڈ چنیں۔',
+  'notification_template.change.board_empty.in_app':
+    '{{ record.display_id }} ایسے بورڈ کی منتظر ہے جس کا کوئی رکن نہیں: {{ record.title }}',
+  'notification_template.change.board_empty.subject':
+    'بورڈ بغیر ارکان: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.cab_reminder.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" {{ window.start }} پر شروع ہوگی اور ابھی تک آپ کے فیصلے کی منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}',
+  'notification_template.change.cab_reminder.in_app':
+    '{{ record.display_id }} {{ window.start }} پر شروع ہوگی اور آپ کی منتظر ہے: {{ record.title }}',
+  'notification_template.change.cab_reminder.subject':
+    'آپ کا فیصلہ، جلد شروع: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.clarification.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کو آگے بڑھنے سے پہلے مزید معلومات درکار ہیں۔ کیا مانگا گیا ہے، دیکھنے کے لیے اسے کھولیں۔',
+  'notification_template.change.clarification.in_app':
+    '{{ record.display_id }} کو مزید معلومات درکار ہیں: {{ record.title }}',
+  'notification_template.change.clarification.subject':
+    'مزید معلومات درکار: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.closed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" بند ہو گئی۔',
+  'notification_template.change.closed.in_app':
+    '{{ record.display_id }} بند ہوئی: {{ record.title }}',
+  'notification_template.change.closed.subject': 'بند: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_failed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کا نفاذ ناکام ہو گیا۔ اب اس کی حالت: {{ record.status }}۔',
+  'notification_template.change.implementation_failed.in_app':
+    '{{ record.display_id }} کا نفاذ ناکام ہوا: {{ record.title }}',
+  'notification_template.change.implementation_failed.subject':
+    'نفاذ ناکام: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کے نفاذ کا وقت ختم ہو گیا، اور تبدیلی ابھی نافذ نہیں ہوئی۔',
+  'notification_template.change.implementation_overdue.in_app':
+    '{{ record.display_id }} کا وقت ختم ہو گیا اور یہ نافذ نہیں ہوئی: {{ record.title }}',
+  'notification_template.change.implementation_overdue.subject':
+    'نفاذ میں تاخیر: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implemented.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" نافذ ہو گئی۔ اب اس کی حالت: {{ record.status }}۔',
+  'notification_template.change.implemented.in_app':
+    '{{ record.display_id }} نافذ ہوئی: {{ record.title }}',
+  'notification_template.change.implemented.subject':
+    'نافذ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.mentioned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر آپ کا ذکر کیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.mentioned.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
+  'notification_template.change.mentioned.subject':
+    '{{ record.display_id }} {{ record.title }} پر آپ کا ذکر ہوا',
+  'notification_template.change.note.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر نوٹ لکھا:\n\n{{ conversation.excerpt }}',
+  'notification_template.change.note.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر نوٹ لکھا',
+  'notification_template.change.note.subject':
+    'نیا نوٹ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.overridden.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر ہنگامی استثنا استعمال ہوا۔ اب اس کا جائزہ لازمی ہے۔',
+  'notification_template.change.overridden.in_app':
+    '{{ record.display_id }} پر ہنگامی استثنا استعمال ہوا: {{ record.title }}',
+  'notification_template.change.overridden.subject':
+    'ہنگامی استثنا: {{ record.display_id }} {{ record.title }}',
   'notification_template.change.public_reply.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
   'notification_template.change.public_reply.in_app':
     '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
   'notification_template.change.public_reply.subject':
     '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.change.rejected.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" مسترد ہو گئی۔ اب اس کی حالت: {{ record.status }}۔',
+  'notification_template.change.rejected.in_app':
+    '{{ record.display_id }} مسترد ہوئی: {{ record.title }}',
+  'notification_template.change.rejected.subject':
+    'مسترد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.review_due.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کے نفاذ کے بعد کے جائزے کا وقت آ گیا ہے۔',
+  'notification_template.change.review_due.in_app':
+    '{{ record.display_id }} کے جائزے کا وقت آ گیا: {{ record.title }}',
+  'notification_template.change.review_due.subject':
+    'جائزے کا وقت: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.sent_back.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" منظوری کے بعد بدل گئی، اس لیے اسے دوبارہ منظوری درکار ہے۔',
+  'notification_template.change.sent_back.in_app':
+    '{{ record.display_id }} کو دوبارہ منظوری درکار ہے: {{ record.title }}',
+  'notification_template.change.sent_back.subject':
+    'دوبارہ منظوری درکار: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.status_entered.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی حالت اب: {{ record.status }}۔',
+  'notification_template.change.status_entered.in_app':
+    '{{ record.display_id }} اب {{ record.status }} ہے: {{ record.title }}',
+  'notification_template.change.status_entered.subject':
+    '{{ record.status }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.submitted.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" جمع ہوئی اور تبدیلی مینیجر کی منتظر ہے۔',
+  'notification_template.change.submitted.in_app':
+    '{{ record.display_id }} جمع ہوئی: {{ record.title }}',
+  'notification_template.change.submitted.subject':
+    'جمع شدہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.window_reminder.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کے نفاذ کا وقت {{ window.start }} پر شروع ہوتا ہے۔',
+  'notification_template.change.window_reminder.in_app':
+    '{{ record.display_id }} {{ window.start }} پر شروع ہوگی: {{ record.title }}',
+  'notification_template.change.window_reminder.subject':
+    'جلد شروع: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -237,6 +468,24 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} دوبارہ کام کر رہا ہے۔ مزید کچھ کرنے کی ضرورت نہیں۔',
   'notification_template.connector.recovered.in_app': '{{ record.title }} دوبارہ کام کر رہا ہے',
   'notification_template.connector.recovered.subject': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.custom_field.seal_paused.body':
+    'سلام {{ recipient.name }}،\nاپنی مرضی کا خانہ {{ record.title }} کے لیے {{ notice.direction }} رک گیا ہے: خفیہ کاری کی کلیدیں دستیاب نہیں ہیں۔ فیلڈ کی قدریں جیسی ہیں ویسی رہیں گی، اور کلیدیں واپس آنے پر کام خود جاری ہو جائے گا۔ براہِ کرم کلیدوں کی ترتیب چیک کریں۔ {{ record.link }}',
+  'notification_template.custom_field.seal_paused.in_app':
+    'کلیدیں نہ ہونے کی وجہ سے رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'رکا ہوا: {{ record.title }} کے لیے {{ notice.direction }}',
+  'notification_template.incident.approval_rejected.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} «{{ record.title }}» کے لیے مانگی گئی منظوری مسترد ہو گئی۔ کس نے اور کیوں فیصلہ کیا، دیکھنے کے لیے واقعہ کھولیں: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    '{{ record.display_id }} کی منظوری مسترد ہوئی: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'منظوری مسترد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} «{{ record.title }}» آپ کی منظوری کا منتظر ہے۔\n\nمنظور یا مسترد کریں: {{ approval_link }}\n\nیہ لنک صرف ایک بار اور صرف آپ کے لیے کام کرتا ہے۔',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}\nدرخواست گزار: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
@@ -248,6 +497,12 @@ export const ur: LabelResource = {
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} منسوخ ہو گیا',
   'notification_template.incident.canceled.subject':
     'منسوخ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.cancellation_to_managers.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} “{{ record.title }}” کسی کو تفویض نہیں، اس لیے اسے منسوخ کرنے کی آپ کی درخواست سروس ڈیسک مینیجرز کو بھیج دی گئی ہے۔ وہ فیصلہ کریں گے: {{ record.link }}',
+  'notification_template.incident.cancellation_to_managers.in_app':
+    '{{ record.display_id }} منسوخ کرنے کی آپ کی درخواست سروس ڈیسک مینیجرز کے پاس ہے',
+  'notification_template.incident.cancellation_to_managers.subject':
+    '{{ record.display_id }} منسوخ کرنے کی آپ کی درخواست',
   'notification_template.incident.closed.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب بند ہے۔',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} بند ہو گیا',
@@ -271,6 +526,18 @@ export const ur: LabelResource = {
     'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} "{{ record.title }}" بڑا واقعہ قرار دیا گیا۔ آپ بڑے واقعات کی ٹیم میں ہیں: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    '{{ record.display_id }} کو بڑا واقعہ قرار دیا گیا: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'بڑا واقعہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'السلام علیکم {{ recipient.name }}،\n\nواقعہ {{ record.display_id }} "{{ record.title }}" اب بڑا واقعہ نہیں رہا: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    '{{ record.display_id }} اب بڑا واقعہ نہیں رہا: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'بڑا واقعہ ختم: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر آپ کا ذکر کیا:\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':
@@ -386,6 +653,12 @@ export const ur: LabelResource = {
     '{{ record.title }} کی میل جائزے کے لیے روکی گئی: ایک بھیجنے والے نے ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے',
   'notification_template.mailbox.mail_held.subject':
     'میل باکس {{ record.title }}: میل جائزے کے لیے روکی گئی',
+  'notification_template.outgoing_mail.not_sent.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں کیونکہ جانے والی میل 7 دن میں سیٹ اپ نہیں ہوئی۔ سب سے پرانی {{ mail.oldest_at }} کی تھی۔ یہ دیر سے نہیں بھیجی جائیں گی۔ جانے والی میل سیٹ اپ کرنے کے لیے ایڈمن › میل کھولیں۔',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    '{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں: جانے والی میل 7 دن میں سیٹ اپ نہیں ہوئی (سب سے پرانی {{ mail.oldest_at }} کی)۔ میل سیٹ اپ کریں تاکہ اگلی ای میلز جائیں۔',
+  'notification_template.outgoing_mail.not_sent.subject':
+    '{{ mail.count }} ای میلز کبھی نہیں بھیجی گئیں',
   'notification_template.problem.assigned.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -456,12 +729,57 @@ export const ur: LabelResource = {
     '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
   'notification_template.release.public_reply.subject':
     '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کی یاد دہانی {{ reminder.at }} پر ہے:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app':
+    '{{ reminder.at }} پر یاد دہانی: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'یاد دہانی: {{ reminder.note }} ({{ record.display_id }})',
+  'notification_template.report_schedule.recipients_skipped.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا پچھلا رن کچھ وصول کنندگان کو نہیں بھیجا گیا، کیونکہ ان کے کردار رپورٹ میں استعمال ہونے والا ایک فیلڈ نہیں دکھاتے۔\n\nچھوڑے گئے لوگ: {{ skipped.count }}\nوہ فیلڈ جو وہ نہیں دیکھ سکتے: {{ fields.labels }}\n\nباقی سب کو رپورٹ مل گئی۔ سب کو شامل کرنے کے لیے یہ فیلڈ رپورٹ سے نکال دیں، یا کسی ایڈمنسٹریٹر سے ان کے کرداروں کی فیلڈ رسائی بدلنے کو کہیں۔',
+  'notification_template.report_schedule.recipients_skipped.in_app':
+    '{{ record.title }} نے کچھ لوگوں کو چھوڑ دیا (چھوڑے گئے لوگ: {{ skipped.count }})۔ وہ فیلڈ جو وہ نہیں دیکھ سکتے: {{ fields.labels }}',
+  'notification_template.report_schedule.recipients_skipped.subject':
+    '{{ record.title }} سب تک نہیں پہنچی',
   'notification_template.rule_step.assignee_unavailable.body':
     'السلام علیکم {{ recipient.name }}،\n\nایک قاعدے یا ایسکلیشن کو {{ record.display_id }} "{{ record.title }}" کو {{ unavailable.person }} کے سپرد کرنا تھا، جو {{ unavailable.reason }}۔ یہ کسی کو تفویض کیے بغیر گروپ میں چلا گیا۔ براہ کرم کسی کو تفویض کریں یا قاعدہ بدلیں۔',
   'notification_template.rule_step.assignee_unavailable.in_app':
     '{{ record.display_id }} کسی کو تفویض کیے بغیر اپنے گروپ میں چلا گیا: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'کسی کو تفویض نہیں: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'السلام علیکم {{ recipient.name }}،\n\nغلط پاس ورڈ سے کئی بار سائن اِن کی کوشش کے بعد آپ کا اکاؤنٹ {{ notice.when }} پر مقفل ہو گیا ({{ notice.place }})۔\n\nآپ جلد از جلد {{ notice.opens_at }} کے بعد دوبارہ کوشش کر سکتے ہیں۔ مزید غلط پاس ورڈ آزمائے گئے تو انتظار بڑھ جائے گا۔\n\nاگر یہ آپ نہیں تھے تو کوئی آپ کا یوزر نیم جانتا ہو سکتا ہے۔ اندر آنے کے بعد اپنا پاس ورڈ بدلیں اور اپنا اکاؤنٹ دیکھیں: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا۔ جلد از جلد {{ notice.opens_at }} کے بعد دوبارہ کوشش کریں۔',
+  'notification_template.security.locked_out.subject':
+    'ناکام سائن اِن کے بعد آپ کا اکاؤنٹ مقفل ہو گیا',
+  'notification_template.security.mfa_added.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ میں {{ notice.when }} پر سائن اِن جانچ (تصدیقی ایپ، سکیورٹی کی یا ریکوری کوڈ) شامل کی گئی ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو فوراً اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'آپ کے اکاؤنٹ میں سائن اِن جانچ (MFA) شامل کی گئی ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'آپ کے اکاؤنٹ میں سائن اِن جانچ شامل کی گئی',
+  'notification_template.security.mfa_removed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ سے {{ notice.when }} پر سائن اِن جانچ (تصدیقی ایپ، سکیورٹی کی یا ریکوری کوڈ) ہٹا دی گئی ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو اپنا پاس ورڈ بدلیں اور فوراً اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'آپ کے اکاؤنٹ سے سائن اِن جانچ (MFA) ہٹا دی گئی ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject': 'آپ کے اکاؤنٹ سے سائن اِن جانچ ہٹا دی گئی',
+  'notification_template.security.new_device.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ میں ابھی ایسے براؤزر یا آلے سے سائن اِن ہوا جو آپ نے پہلے استعمال نہیں کیا:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں، تو اپنا پاس ورڈ بدلیں اور اپنے اکاؤنٹ میں "باقی ہر جگہ سے سائن آؤٹ کریں" استعمال کریں: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    '{{ notice.device }} سے نیا سائن اِن ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'آپ کے اکاؤنٹ میں نیا سائن اِن: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ کے اکاؤنٹ کا پاس ورڈ {{ notice.when }} پر بدلا گیا ({{ notice.place }})۔\n\nاگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔ اگر نہیں تو فوراً سائن اِن صفحے سے پاس ورڈ ری سیٹ کریں اور اپنے منتظم کو بتائیں۔ آپ کا اکاؤنٹ: {{ record.link }}',
+  'notification_template.security.password_changed.in_app':
+    'آپ کا پاس ورڈ بدل دیا گیا ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'آپ کا پاس ورڈ بدل دیا گیا',
+  'notification_template.service_account.needs_owner.body':
+    'سلام {{ recipient.name }}،\nسروس اکاؤنٹ {{ record.title }} کے ذمہ دار شخص کو غیر فعال کر دیا گیا ہے۔ اکاؤنٹ کام کرتا رہے گا؛ براہِ کرم نیا مالک منتخب کریں۔ {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} کو نئے مالک کی ضرورت ہے',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} کو نئے مالک کی ضرورت ہے',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -516,6 +834,70 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\nسنگل سائن آن "{{ record.title }}" کی {{ notice.item }} {{ notice.left }} ({{ notice.expires }})۔ ختم ہونے پر لوگ اس کے ذریعے سائن اِن نہیں کر سکیں گے۔ شناخت فراہم کنندہ سے اس کی تجدید کریں اور سائن اِن اور سیکیورٹی میں اپ ڈیٹ کریں: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'سنگل سائن آن {{ record.title }}: {{ notice.item }} {{ notice.left }}',
+  'notification_template.support_grant.ended.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی Extravis سپورٹ رسائی ختم ہو گئی ہے اور ان کا اکاؤنٹ ہٹایا جا رہا ہے۔ دیکھیں اس دوران کیا کیا گیا: {{ record.link }}',
+  'notification_template.support_grant.ended.in_app':
+    '{{ record.title }} کی سپورٹ رسائی ختم ہو گئی',
+  'notification_template.support_grant.ended.subject': 'وینڈر سپورٹ ختم: {{ record.title }}',
+  'notification_template.support_grant.extended.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی Extravis سپورٹ رسائی میں توسیع کی گئی۔ ختم ہونے کا نیا وقت دیکھیں: {{ record.link }}',
+  'notification_template.support_grant.extended.in_app':
+    '{{ record.title }} کی سپورٹ رسائی میں توسیع کی گئی',
+  'notification_template.support_grant.extended.subject':
+    'وینڈر سپورٹ میں توسیع: {{ record.title }}',
+  'notification_template.support_grant.first_used.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} نے پہلی بار اپنی Extravis سپورٹ رسائی سے سائن اِن کیا ہے۔ ان کے کام آڈٹ لاگ میں Extravis سپورٹ کے نام سے ہیں: {{ record.link }}',
+  'notification_template.support_grant.first_used.in_app':
+    '{{ record.title }} نے پہلی بار اپنی سپورٹ رسائی سے سائن اِن کیا',
+  'notification_template.support_grant.first_used.subject':
+    'سپورٹ انجینئر نے سائن اِن کیا: {{ record.title }}',
+  'notification_template.support_grant.granted.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کو Extravis سپورٹ کی عارضی رسائی دی گئی۔ دیکھیں کس نے دی، کیوں اور کب تک: {{ record.link }}',
+  'notification_template.support_grant.granted.in_app':
+    'Extravis سپورٹ رسائی {{ record.title }} کو دی گئی',
+  'notification_template.support_grant.granted.subject': 'وینڈر سپورٹ دی گئی: {{ record.title }}',
+  'notification_template.support_grant.removal_stuck.body':
+    'سلام {{ recipient.name }}،\n\n{{ record.title }} کی رسائی ایک دن سے زیادہ پہلے ختم ہو گئی، لیکن ان کا سائن اِن اکاؤنٹ ابھی تک ہٹایا نہیں جا سکا۔ یہ استعمال نہیں ہو سکتا، اور SupportX کوشش جاری رکھتا ہے۔ اگر یہ جاری رہے تو جانچیں کہ سائن اِن سروس دستیاب ہے: {{ record.link }}',
+  'notification_template.support_grant.removal_stuck.in_app':
+    '{{ record.title }} کا سپورٹ اکاؤنٹ رسائی ختم ہونے کے ایک دن بعد بھی نہیں ہٹایا گیا',
+  'notification_template.support_grant.removal_stuck.subject':
+    'سپورٹ اکاؤنٹ نہیں ہٹایا گیا: {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر کام "{{ task.title }}" اب آپ کا ہے۔',
+  'notification_template.task.assigned.in_app':
+    '{{ record.display_id }} پر {{ task.title }} اب آپ کا ہے',
+  'notification_template.task.assigned.subject':
+    'آپ کے لیے کام: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے کام "{{ task.title }}" کا وقت {{ task.due_at }} تھا اور یہ ابھی کھلا ہے۔',
+  'notification_template.task.overdue.in_app': '{{ task.title }} کا وقت {{ task.due_at }} تھا',
+  'notification_template.task.overdue.subject':
+    'تاخیر شدہ: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کا کام "{{ task.title }}" {{ task.starts_at }} پر شروع ہوگا۔',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} {{ task.starts_at }} پر شروع ہوگا',
+  'notification_template.task.starts_soon.subject':
+    'جلد شروع: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.verified_domain.lapsed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nSupportX تین دن تک {{ record.title }} کا تصدیقی ریکارڈ نہیں ڈھونڈ سکا، اس لیے یہ ڈومین اب تصدیق شدہ نہیں اور اس کے سائن اِن اب آپ کے سنگل سائن آن پر نہیں بھیجے جاتے۔ ریکارڈ دوبارہ شائع کریں اور سائن اِن اور سکیورٹی میں اسے جانچیں: {{ record.link }}',
+  'notification_template.verified_domain.lapsed.in_app':
+    '{{ record.title }} اب تصدیق شدہ نہیں: اس کی سائن اِن روٹنگ رک گئی ہے',
+  'notification_template.verified_domain.lapsed.subject':
+    'ڈومین {{ record.title }} اب تصدیق شدہ نہیں رہا',
+  'notification_template.work_item_view.unshared.body':
+    'السلام علیکم {{ recipient.name }}،\nآپ کا محفوظ منظر {{ record.title }} {{ view.field }} پر فلٹر کرتا ہے، جسے وہ کچھ لوگ نہیں دیکھ سکتے جن کے ساتھ آپ نے اسے شیئر کیا۔ اب یہ صرف آپ کے لیے ہے؛ اور کچھ نہیں بدلا۔ اسے دوبارہ شیئر کرنے کے لیے وہ شرط ہٹائیں اور چنیں کہ کون دیکھے۔ {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} اب نجی ہے: یہ {{ view.field }} پر فلٹر کرتا ہے',
+  'notification_template.work_item_view.unshared.subject':
+    'آپ کا منظر {{ record.title }} اب نجی ہے',
+  'notification_value.unnamed_requester': 'درخواست گزار',
   'notification_variable.acknowledgement.comment': 'تصدیق › تبصرہ',
   'notification_variable.actor.name': 'تبدیل کنندہ › نام',
   'notification_variable.approval.comment': 'منظوری دینے والے کا تبصرہ',
@@ -523,14 +905,21 @@ export const ur: LabelResource = {
   'notification_variable.article.reason': 'مضمون › وجہ',
   'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',
   'notification_variable.assignee.name': 'تکنیکی ماہر › نام',
+  'notification_variable.break_glass.person': 'ہنگامی منتظم › نام',
   'notification_variable.category.name': 'زمرہ',
   'notification_variable.change.from_status': 'تبدیلی › سابقہ حالت',
   'notification_variable.connector.name': 'کنیکٹر › نام',
   'notification_variable.connector.reason': 'کنیکٹر › وجہ',
   'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.custom_field.direction': 'اپنی مرضی کا خانہ › کیا چل رہا تھا',
+  'notification_variable.custom_field.name': 'اپنی مرضی کا خانہ › نام',
   'notification_variable.holder.name': 'حامل › نام',
+  'notification_variable.holdings.assets': 'ہولڈنگز › اثاثے',
+  'notification_variable.holdings.count': 'ہولڈنگز › تعداد',
   'notification_variable.incident.count': 'واقعات کی تعداد',
+  'notification_variable.mail.count': 'میل › نہ بھیجی گئی ای میلز',
+  'notification_variable.mail.oldest_at': 'میل › سب سے پرانی',
   'notification_variable.mailbox.address': 'میل باکس › پتہ',
   'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
   'notification_variable.mailbox.reason': 'میل باکس › وجہ',
@@ -542,15 +931,37 @@ export const ur: LabelResource = {
   'notification_variable.record.priority': 'ریکارڈ › ترجیح',
   'notification_variable.record.status': 'ریکارڈ › حالت',
   'notification_variable.record.title': 'ریکارڈ › موضوع',
+  'notification_variable.reminder.at': 'یاد دہانی کا وقت',
+  'notification_variable.reminder.note': 'یاد دہانی کا نوٹ',
+  'notification_variable.report_schedule.fields': 'شیڈول › وہ فیلڈ جو وہ نہیں دیکھ سکتے',
+  'notification_variable.report_schedule.name': 'شیڈول › نام',
+  'notification_variable.report_schedule.skipped_count': 'شیڈول › چھوڑے گئے لوگ',
   'notification_variable.requester.name': 'درخواست گزار › نام',
   'notification_variable.rule.name': 'اصول',
+  'notification_variable.saved_view.field': 'محفوظ منظر › وہ فیلڈ جس پر فلٹر ہے',
+  'notification_variable.saved_view.name': 'محفوظ منظر › نام',
+  'notification_variable.security.device': 'سائن اِن › براؤزر اور آلہ',
+  'notification_variable.security.opens_at': 'قفل › دوبارہ کوشش کا جلد از جلد وقت',
+  'notification_variable.security.place': 'سائن اِن › تقریبی مقام',
+  'notification_variable.security.when': 'سائن اِن › وقت',
+  'notification_variable.service_account.name': 'سروس اکاؤنٹ › نام',
+  'notification_variable.sign_in_secret.expires': 'سنگل سائن آن › ختم ہونے کی تاریخ',
+  'notification_variable.sign_in_secret.item': 'سنگل سائن آن › کیا ختم ہو رہا ہے',
+  'notification_variable.sign_in_secret.left': 'سنگل سائن آن › باقی وقت',
+  'notification_variable.sign_in_secret.provider': 'سنگل سائن آن › نام',
   'notification_variable.site.name': 'مقام',
   'notification_variable.sla.target': 'ایس ایل اے › ہدف',
   'notification_variable.stock.minimum': 'اسٹاک › کم از کم',
   'notification_variable.stock.quantity': 'اسٹاک › مقدار',
+  'notification_variable.support_grant.engineer': 'وینڈر سپورٹ › انجینئر',
+  'notification_variable.task.due_at': 'کام کا مقررہ وقت',
+  'notification_variable.task.starts_at': 'کام کا طے شدہ آغاز',
+  'notification_variable.task.title': 'کام کا عنوان',
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
+  'notification_variable.verified_domain.domain': 'ڈومین › نام',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
+  'notification_variable.window.start': 'وقت کا آغاز',
   'notifications.banner.no_mail_one':
     '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',
   'notifications.banner.no_mail_other':

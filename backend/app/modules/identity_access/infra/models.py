@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -9,7 +10,9 @@ from sqlalchemy import (
     Computed,
     ForeignKeyConstraint,
     Index,
+    Integer,
     LargeBinary,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -17,9 +20,23 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, CIDR, INET, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
+from app.modules.identity_access.domain.erasure import (
+    LAST_STEP,
+    OPEN_STATES,
+    ErasureReason,
+    ErasureState,
+)
+from app.modules.identity_access.domain.mentions import MentionMatchKind, MentionState
+from app.modules.identity_access.domain.network import IP_ALLOW_MAX
+from app.modules.identity_access.domain.sign_in import (
+    SignInApp,
+    SignInMethod,
+    SignInOutcome,
+    Source,
+)
 from app.shared.db.models import Actors, Base, TenantEntity, TenantKeyed, Timestamps, Versioned
 
 # Name and email; the email also split at its punctuation, so "ahmed" finds ahmed.ali@x.com.
@@ -48,13 +65,34 @@ class User(TenantEntity):
         CheckConstraint("locale IN ('en', 'ar', 'ur')", name="locale_code"),
         CheckConstraint("status IN ('active', 'disabled')", name="status_code"),
         CheckConstraint(
-            "user_type IN ('technician', 'requester', 'service')", name="user_type_code"
+            "break_glass OR NOT break_glass_ip_exempt",
+            name="break_glass_ip_exempt_needs_break_glass",
+        ),
+        CheckConstraint(
+            "user_type IN ('technician', 'requester', 'service', 'vendor_support')",
+            name="user_type_code",
         ),
         # A service identity (WP-040) has no account to sign in with, and no address to link one.
         CheckConstraint(
             "user_type <> 'service' OR (external_subject IS NULL AND email IS NULL"
             " AND NOT can_sign_in)",
             name="service_no_sign_in",
+        ),
+        # A service account's owner and purpose (WP-057 S4a, REQ-SEC-036; 0174): service only.
+        CheckConstraint(
+            "user_type = 'service' OR (service_owner_id IS NULL AND service_description IS NULL)",
+            name="service_fields",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "service_owner_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_users_service_owner",
+        ),
+        Index(
+            "ix_users_tenant_service_owner",
+            "tenant_id",
+            "service_owner_id",
+            postgresql_where=text("service_owner_id IS NOT NULL"),
         ),
         # Synced from a directory (WP-040 session 2): its fields are the directory's to change.
         CheckConstraint(
@@ -120,6 +158,10 @@ class User(TenantEntity):
             unique=True,
             postgresql_where=text("employee_id IS NOT NULL"),
         ),
+        CheckConstraint("char_length(legal_hold_reason) <= 1000", name="legal_hold_reason_length"),
+        CheckConstraint(
+            "(legal_hold_at IS NULL) = (legal_hold_reason IS NULL)", name="legal_hold_complete"
+        ),
         Index("ix_users_tenant_manager", "tenant_id", "manager_id"),
         # Keyset pagination for the sortable columns of GET /users (tenant first, ID last).
         Index("ix_users_tenant_created", "tenant_id", "created_at", "id"),
@@ -154,6 +196,10 @@ class User(TenantEntity):
     # an authenticator on their Keycloak account (sign-in, enrolment, reset keep it current).
     mfa_required_since: Mapped[datetime | None]
     mfa_enrolled_at: Mapped[datetime | None]
+    # WP-057 S1b (REQ-SEC-009): a named admin who keeps a local password with MFA while single
+    # sign-on is required; optionally exempt from the IP allow-lists too. Set by tenant admins.
+    break_glass: Mapped[bool] = mapped_column(server_default="false")
+    break_glass_ip_exempt: Mapped[bool] = mapped_column(server_default="false")
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
@@ -190,6 +236,10 @@ class User(TenantEntity):
     manager_id: Mapped[uuid.UUID | None]
     # May sign in (REQ-ADM-004); without it the person is a contact (requester by email).
     can_sign_in: Mapped[bool] = mapped_column(server_default="true")
+    # WP-057 S4a (REQ-SEC-036): who answers for a service account and what it is for. When the
+    # owner is deactivated the account is flagged for hand-over (REQ-ADM-011).
+    service_owner_id: Mapped[uuid.UUID | None]
+    service_description: Mapped[str | None] = mapped_column(String(500))
     invited_at: Mapped[datetime | None]
     # Per-person override of what a manager sees in the portal (REQ-ADM-035, used by WP-028):
     # NULL = the tenant's rule; "site" = all requests of their site.
@@ -202,6 +252,14 @@ class User(TenantEntity):
     search_name: Unmapped[str] = unmapped_column(
         Text, Computed("sx_search_normalize(display_name)", persisted=True)
     )
+    # Legal hold (H1, D-171; migration 0161): a held person is never erased. Set and lifted by
+    # holders of `audit.manage_holds`, each audited with the reason.
+    legal_hold_at: Mapped[datetime | None]
+    legal_hold_by: Mapped[uuid.UUID | None]
+    legal_hold_reason: Mapped[str | None] = mapped_column(Text)
+    # GDPR erasure done (ADR-052 step 5): the row stays, anonymised, so IDs everywhere resolve.
+    erased_at: Mapped[datetime | None]
+    erased_by: Mapped[uuid.UUID | None]
 
 
 SCOPE_CODES = ("all", "site", "group", "own")
@@ -257,6 +315,75 @@ class RolePermission(TenantKeyed, Base):
     scope: Mapped[str]
     # Attribute rule in the filter DSL (shared/api/filters.py); NULL = every record in scope.
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class RoleFieldAccess(TenantEntity):
+    """One role's rule for one field of one record type (ADR-047; REQ-WI-016, REQ-ADM-026).
+
+    `mode` is read_only, masked or hidden; a field with no live rule is clear for the role. A
+    person's mode is the clearest any of their roles gives, compiled into their subject. Removing
+    a rule soft-deletes it; a new rule for the same field is a new row.
+    """
+
+    __tablename__ = "role_field_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_field_access_role",
+        ),
+        Index(
+            "uq_rfa_tenant_role_type_field",
+            "tenant_id",
+            "role_id",
+            "record_type",
+            "field",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_rfa_tenant_type_field", "tenant_id", "record_type", "field"),
+        CheckConstraint("mode IN ('read_only', 'masked', 'hidden')", name="mode_code"),
+        CheckConstraint("record_type ~ '^[a-z][a-z_]{0,39}$'", name="record_type_format"),
+        CheckConstraint("char_length(field) BETWEEN 1 AND 80", name="field_length"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    field: Mapped[str] = mapped_column(String(80))
+    mode: Mapped[str] = mapped_column(String(10))
+
+
+class RoleResourceAccess(TenantEntity):
+    """One role's rule narrowing which assets or CIs it shows (ADR-053; D-172; 0183).
+
+    `resource` is asset or ci; `criteria` names what passes ({criterion: [values]}, the owning
+    module's criteria). Rules only narrow a role's scope, never grant. Removing a rule
+    soft-deletes it; the person's next request has the change (the authz consumer).
+    """
+
+    __tablename__ = "role_resource_access"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="CASCADE",
+            name="fk_role_resource_access_role",
+        ),
+        Index(
+            "ix_rra_tenant_role_resource",
+            "tenant_id",
+            "role_id",
+            "resource",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("resource IN ('asset', 'ci')", name="resource_code"),
+        CheckConstraint("jsonb_typeof(criteria) = 'object'", name="criteria_object"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    resource: Mapped[str] = mapped_column(String(10))
+    criteria: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
 class GroupRole(TenantKeyed, Base):
@@ -373,6 +500,8 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
 
     __tablename__ = "identity_settings"
     __table_args__ = (
+        CheckConstraint("key_max_lifetime_days BETWEEN 1 AND 366", name="key_max_lifetime_days"),
+        CheckConstraint("key_unused_days BETWEEN 7 AND 365", name="key_unused_days"),
         CheckConstraint(
             f"console_idle_seconds BETWEEN {MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}"
             " AND portal_idle_seconds BETWEEN "
@@ -396,6 +525,16 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
             f"password_policy_state IN {PASSWORD_POLICY_STATES!r}", name="password_policy_state"
         ),
         CheckConstraint("mfa_grace_days BETWEEN 0 AND 30", name="mfa_grace_days_range"),
+        CheckConstraint(
+            "sso_required IN ('off', 'technicians', 'everyone')", name="sso_required_code"
+        ),
+        CheckConstraint(
+            f"cardinality(console_ip_allow) <= {IP_ALLOW_MAX}", name="console_ip_allow_size"
+        ),
+        CheckConstraint(
+            f"cardinality(portal_ip_allow) <= {IP_ALLOW_MAX}", name="portal_ip_allow_size"
+        ),
+        CheckConstraint(f"cardinality(api_ip_allow) <= {IP_ALLOW_MAX}", name="api_ip_allow_size"),
     )
 
     console_idle_seconds: Mapped[int] = mapped_column(
@@ -436,6 +575,110 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # without an expiry date are allowed (off: 90 days by default, at most a year).
     people_may_create_keys: Mapped[bool] = mapped_column(server_default="false")
     allow_non_expiring_keys: Mapped[bool] = mapped_column(server_default="false")
+    # WP-057 S4a (REQ-SEC-037; 0174): the key policy for new and renewed keys. Keys made before
+    # a stricter policy are flagged and listed, never revoked (the coordinator, 2026-11-16).
+    key_max_lifetime_days: Mapped[int] = mapped_column(Integer, server_default="366")
+    keys_require_ip_range: Mapped[bool] = mapped_column(server_default="false")
+    key_unused_days: Mapped[int] = mapped_column(Integer, server_default="90")
+    # REQ-SEC-034 (WP-057 S1a, 0151): who may sign in or call, by address, per app. Empty = no
+    # restriction; at most IP_ALLOW_MAX entries each. The API's list applies to API keys.
+    console_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    portal_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    api_ip_allow: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    # REQ-SEC-009, REQ-SEC-026 (WP-057 S1b): single sign-on for nobody, technicians or everyone;
+    # and SupportX's own MFA after a single sign-on too (off: the provider's MFA is trusted).
+    sso_required: Mapped[str] = mapped_column(String(12), server_default="off")
+    sso_also_require_mfa: Mapped[bool] = mapped_column(server_default="false")
+    # D-173 (9), WP-057 S4c: while on, no vendor support grant can be made (changing it is audited).
+    never_allow_vendor_support: Mapped[bool] = mapped_column(server_default="false")
+
+
+SUPPORT_ACCESS = ("view", "view_and_change")
+SUPPORT_STATES = ("pending_verification", "active", "ended", "revoked")
+SUPPORT_OPEN_STATES = ("pending_verification", "active")
+SUPPORT_VERIFICATION = ("email", "out_of_band")
+SUPPORT_MAX_HOURS = 72
+
+
+def _support_codes(column: str, codes: tuple[str, ...]) -> str:
+    return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
+
+
+class SupportGrant(TenantEntity):
+    """A tenant admin's grant of temporary access to one named Extravis engineer (WP-057 S4c-1).
+
+    REQ-SEC-045, D-173. The grant makes a temporary `vendor_support` account in the tenant's realm,
+    deleted when the grant ends; this record and its audit stay. 72 hours at most in total, "view
+    and change" only with its own reason, and an out-of-band confirmation names the admin who
+    confirmed the engineer (no e-mail link when air-gapped).
+    """
+
+    __tablename__ = "support_grants"
+    __table_args__ = (
+        Index(
+            "ix_support_grants_tenant_link_token_hash",
+            "tenant_id",
+            "link_token_hash",
+            unique=True,
+            postgresql_where=text("link_token_hash IS NOT NULL"),
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "support_user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_support_grants_support_user",
+        ),
+        CheckConstraint(_support_codes("access", SUPPORT_ACCESS), name="access_code"),
+        CheckConstraint(_support_codes("state", SUPPORT_STATES), name="state_code"),
+        CheckConstraint(
+            _support_codes("verification", SUPPORT_VERIFICATION), name="verification_code"
+        ),
+        CheckConstraint(
+            f"ends_at > starts_at AND ends_at <= starts_at + interval '{SUPPORT_MAX_HOURS} hours'",
+            name="window",
+        ),
+        CheckConstraint("access = 'view' OR change_reason IS NOT NULL", name="change_reason"),
+        CheckConstraint("verification = 'email' OR confirmed_by IS NOT NULL", name="confirmed_by"),
+        Index(
+            "ix_support_grants_tenant_engineer_open",
+            "tenant_id",
+            text("lower(engineer_email)"),
+            unique=True,
+            postgresql_where=text(_support_codes("state", SUPPORT_OPEN_STATES)),
+        ),
+        Index("ix_support_grants_tenant_state_ends", "tenant_id", "state", "ends_at"),
+    )
+
+    engineer_name: Mapped[str] = mapped_column(String(200))
+    engineer_email: Mapped[str] = mapped_column(String(320))
+    reason: Mapped[str] = mapped_column(String(500))
+    ticket_ref: Mapped[str | None] = mapped_column(String(100))
+    access: Mapped[str] = mapped_column(String(20), server_default="view")
+    change_reason: Mapped[str | None] = mapped_column(String(500))
+    unmask_personal: Mapped[bool] = mapped_column(server_default="false")
+    ip_allowlist: Mapped[list[str]] = mapped_column(
+        ARRAY(CIDR), server_default=text("'{}'::cidr[]")
+    )
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+    state: Mapped[str] = mapped_column(String(30), server_default="pending_verification")
+    verification: Mapped[str] = mapped_column(String(20))
+    confirmed_by: Mapped[uuid.UUID | None]
+    confirmation_note: Mapped[str | None] = mapped_column(String(500))
+    support_user_id: Mapped[uuid.UUID | None]
+    first_used_at: Mapped[datetime | None]
+    ended_at: Mapped[datetime | None]
+    ended_by: Mapped[uuid.UUID | None]
+    account_removed_at: Mapped[datetime | None]
+    removal_alerted_at: Mapped[datetime | None]  # a stuck removal told once (lane B)
+    link_token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32))  # never the token
+    link_expires_at: Mapped[datetime | None]
+    link_used_at: Mapped[datetime | None]
 
 
 MFA_MODES = ("off", "optional", "required")
@@ -509,6 +752,8 @@ class SsoProvider(TenantEntity):
         ),
         CheckConstraint("state IN ('draft', 'tested', 'on', 'off')", name="state_code"),
         UniqueConstraint("tenant_id", "alias", name="uq_sso_providers_tenant_alias"),
+        # Lets the expiry marks point at a provider of their own tenant only (0158).
+        UniqueConstraint("tenant_id", "id", name="uq_sso_providers_tenant_id_id"),
         Index("ix_sso_providers_tenant_state", "tenant_id", "state"),
     )
 
@@ -527,10 +772,13 @@ class SsoProvider(TenantEntity):
     tested_at: Mapped[datetime | None]
     tested_by: Mapped[uuid.UUID | None]
     switched_on_at: Mapped[datetime | None]
+    # When the OIDC client secret runs out (REQ-SEC-011, WP-057 S2b-2; 0158): entered by an admin
+    # from the identity provider's own console. SupportX never reads the secret itself.
+    client_secret_expires_at: Mapped[datetime | None]
 
 
 INVITATION_STATES = ("pending", "accepted", "revoked")
-INVITATION_DELIVERY = ("email", "existing_account")
+INVITATION_DELIVERY = ("email", "existing_account", "link")
 
 
 class Invitation(TenantEntity):
@@ -543,11 +791,22 @@ class Invitation(TenantEntity):
     __tablename__ = "invitations"
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'accepted', 'revoked')", name="status_code"),
-        CheckConstraint("delivery IN ('email', 'existing_account')", name="delivery_code"),
+        CheckConstraint("delivery IN ('email', 'existing_account', 'link')", name="delivery_code"),
         ForeignKeyConstraint(
             ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
         ),
         Index("ix_invitations_tenant_user", "tenant_id", "user_id", "status"),
+        CheckConstraint(
+            "link_token_hash IS NULL OR octet_length(link_token_hash) = 32",
+            name="link_token_hash_length",
+        ),
+        Index(
+            "uq_invitations_link_token",
+            "tenant_id",
+            "link_token_hash",
+            unique=True,
+            postgresql_where=text("link_token_hash IS NOT NULL"),
+        ),
         Index("ix_invitations_tenant_created", "tenant_id", "created_at", "id"),
     )
 
@@ -563,3 +822,508 @@ class Invitation(TenantEntity):
     accepted_at: Mapped[datetime | None]
     revoked_at: Mapped[datetime | None]
     sends: Mapped[int] = mapped_column(server_default="1")
+    # The copied invite link (REQ-SEC-021, WP-057 S2b-2; 0158): only the SHA-256 of its token,
+    # single use, valid until `expires_at`; copying again replaces it. Offered without mail only.
+    link_token_hash: Mapped[bytes | None] = mapped_column(LargeBinary)
+    link_copied_at: Mapped[datetime | None]
+
+
+class UserCostRate(TenantEntity):
+    """A person's cost per hour from a moment on (REQ-INC-068; migration 0148).
+
+    The rate in force at a moment is the latest live row starting at or before it. The currency
+    is the tenant's base currency when the rate was set. Money: only `users.view_cost_rates`
+    reads it over the API; it never joins the person's record, lists, search or events.
+    """
+
+    __tablename__ = "user_cost_rates"
+    __table_args__ = (
+        CheckConstraint("rate >= 0", name="rate_not_negative"),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="currency_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_user_cost_rates_user",
+        ),
+        Index(
+            "uq_user_cost_rates_start",
+            "tenant_id",
+            "user_id",
+            "effective_from",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_user_cost_rates_in_force", "tenant_id", "user_id", text("effective_from DESC")),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    rate: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    effective_from: Mapped[datetime]
+
+
+class SessionKeyId(Timestamps, Actors, Base):
+    """A sign-in session key ID the installation has listed (D-162, ADR-048; migration 0146).
+
+    Platform table: no tenant_id, the ring is one per installation. IDs only, never key
+    material. Not edited by people (start-up records it), so it carries no version.
+    """
+
+    __tablename__ = "session_key_ids"
+    __table_args__ = (CheckConstraint("key_id ~ '^[a-z0-9_-]{1,32}$'", name="key_id_format"),)
+
+    key_id: Mapped[str] = mapped_column(String, primary_key=True)
+    first_seen_at: Mapped[datetime]
+    retired_at: Mapped[datetime | None]
+
+
+SESSION_KEY_ACTIONS = ("security.session_key_rotated", "security.session_key_retired")
+
+
+class SessionKeyEvent(Timestamps, Actors, Base):
+    """One claimed change of the sign-in key ring, waiting to be announced (D-162; 0146).
+
+    Platform table: written by the start-up that won the claim, read by the announcer, which
+    sets `announced_at` once every tenant has its entry. IDs and counts only, never material.
+    """
+
+    __tablename__ = "session_key_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('security.session_key_rotated', 'security.session_key_retired')",
+            name="action_code",
+        ),
+        CheckConstraint("key_id ~ '^[a-z0-9_-]{1,32}$'", name="key_id_format"),
+        CheckConstraint(
+            "previous_key_id IS NULL OR previous_key_id ~ '^[a-z0-9_-]{1,32}$'",
+            name="previous_key_id_format",
+        ),
+        CheckConstraint("readable_keys BETWEEN 0 AND 64", name="readable_keys_range"),
+        Index(
+            "ix_session_key_events_pending",
+            "occurred_at",
+            postgresql_where=text("announced_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    key_id: Mapped[str] = mapped_column(String)
+    action: Mapped[str] = mapped_column(String)
+    previous_key_id: Mapped[str | None] = mapped_column(String)
+    readable_keys: Mapped[int] = mapped_column(SmallInteger)
+    occurred_at: Mapped[datetime]
+    announced_at: Mapped[datetime | None]
+
+
+class SessionKeyAnnouncement(TenantKeyed, Timestamps, Actors, Base):
+    """A key-ring change already written into this tenant's audit log (D-162; 0146).
+
+    Inserted in the same transaction as the audit entry, unique per tenant and change: a crash
+    rolls both back, a second run finds the row and writes nothing. Never edited.
+    """
+
+    __tablename__ = "session_key_announcements"
+    __table_args__ = (
+        ForeignKeyConstraint(["event_id"], ["session_key_events.id"], ondelete="RESTRICT"),
+    )
+
+    event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    key_id: Mapped[str] = mapped_column(String)
+    action: Mapped[str] = mapped_column(String)
+
+
+SIGN_IN_OUTCOMES = tuple(o.value for o in SignInOutcome)
+SIGN_IN_METHODS = tuple(m.value for m in SignInMethod)
+SIGN_IN_APPS = tuple(a.value for a in SignInApp)
+SIGN_IN_SOURCES = tuple(s.value for s in Source)
+
+
+def _codes(column: str, codes: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(c) for c in codes)})"
+
+
+class SignInEvent(TenantKeyed, Base):
+    """One sign-in event of a tenant (REQ-AUD-015; WP-057 S1a, migration 0151).
+
+    Append-only, like connector_runs: written by the BFF for what it decides and imported from
+    Keycloak's events for what Keycloak decides, only into the tenant whose own address or
+    organization the attempt carried. `ip` and `device` are personal data: nulled by erasure,
+    gone with the row after the retention. `user_id` only when the person is known: never the
+    name typed for an unknown one (people type passwords there).
+    """
+
+    __tablename__ = "sign_in_events"
+    __table_args__ = (
+        CheckConstraint(_codes("outcome", SIGN_IN_OUTCOMES), name="outcome_code"),
+        CheckConstraint(_codes("method", SIGN_IN_METHODS), name="method_code"),
+        CheckConstraint(_codes("app", SIGN_IN_APPS), name="app_code"),
+        CheckConstraint(_codes("source", SIGN_IN_SOURCES), name="source_code"),
+        CheckConstraint(
+            "(source = 'keycloak') = (keycloak_event_id IS NOT NULL)", name="keycloak_event_id"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_sign_in_events_user",
+        ),
+        Index("ix_sign_in_events_recent", "tenant_id", text("occurred_at DESC")),
+        Index(
+            "ix_sign_in_events_person",
+            "tenant_id",
+            "user_id",
+            text("occurred_at DESC"),
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_sign_in_events_keycloak",
+            "tenant_id",
+            "keycloak_event_id",
+            unique=True,
+            postgresql_where=text("keycloak_event_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID | None]
+    occurred_at: Mapped[datetime]
+    outcome: Mapped[str] = mapped_column(String(20))
+    reason: Mapped[str | None] = mapped_column(String(60))
+    method: Mapped[str] = mapped_column(String(20))
+    app: Mapped[str] = mapped_column(String(10))
+    ip: Mapped[str | None] = mapped_column(INET)
+    device: Mapped[str | None] = mapped_column(String(120))
+    identity_provider: Mapped[str | None] = mapped_column(String(80))
+    source: Mapped[str] = mapped_column(String(10))
+    keycloak_event_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SignInImportCursor(Base):
+    """How far the Keycloak events import got, per realm (0151). Installation-wide."""
+
+    __tablename__ = "sign_in_import_cursor"
+    __table_args__ = (CheckConstraint("last_offset >= 0", name="last_offset_not_negative"),)
+
+    realm: Mapped[str] = mapped_column(String(60), primary_key=True)
+    last_time_ms: Mapped[int]
+    # Events of last_time_ms already read, when one millisecond held more than a run (0153).
+    last_offset: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class SiteNetwork(TenantKeyed, Timestamps, Actors, Base):
+    """An admin's address range → site, for the sign-in place (WP-057 S2b, D-170; 0157).
+
+    Edited as one list with the tenant's identity settings (their `version` is the If-Match), so
+    rows have no version of their own. The most specific prefix wins (domain/place.py). At most
+    MAX_SITE_NETWORKS per tenant, checked by the service; one row per range.
+    """
+
+    __tablename__ = "site_networks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "site_id"], ["sites.tenant_id", "sites.id"], name="fk_site_networks_site"
+        ),
+        UniqueConstraint("tenant_id", "network", name="uq_site_networks_network"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    network: Mapped[str] = mapped_column(CIDR)
+    site_id: Mapped[uuid.UUID]
+
+
+class KnownDevice(TenantKeyed, Timestamps, Base):
+    """A browser or device a person has signed in from before (REQ-SEC-033; WP-057 S2b; 0157).
+
+    Only a keyed fingerprint: HMAC(the "known-device" key of the ADR-048 ring, user, device code,
+    the address's /24 or /48). Never the address or the browser string, so the table reveals
+    nothing on its own. A sign-in whose fingerprint is new sends the person a notice. Erasure
+    deletes the person's rows.
+    """
+
+    __tablename__ = "known_devices"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_known_devices_user"
+        ),
+        UniqueConstraint("tenant_id", "user_id", "fingerprint", name="uq_known_devices_print"),
+        CheckConstraint("octet_length(fingerprint) = 32", name="fingerprint_length"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    fingerprint: Mapped[bytes] = mapped_column(LargeBinary)
+    last_seen_at: Mapped[datetime]
+
+
+ERASURE_STATES = tuple(state.value for state in ErasureState)
+ERASURE_REASONS = tuple(reason.value for reason in ErasureReason)
+# As migration 0161 wrote the index (same order, so the model matches the migration).
+_OPEN_ORDER = ("requested", "approved", "running", "failed")
+assert set(_OPEN_ORDER) == {state.value for state in OPEN_STATES}  # noqa: S101 - import-time check
+_OPEN = ", ".join(f"'{state}'" for state in _OPEN_ORDER)
+
+
+class PersonErasure(TenantEntity):
+    """One GDPR erasure of a person (D-171, ADR-052 §3; migration 0161).
+
+    Requested by one admin, approved by another, then run by the erasure job step by step:
+    `step` is the next step to run (domain/erasure.Step), so a stopped run resumes there.
+    `last_error_code` is a code, never a message. `keep_files` maps a file ID to the admin's
+    reason for keeping it. `report` is the mentions report shown to the approver (S1b); approval
+    and the job refuse without it. `counts` holds what each step removed, by kind (never data).
+    """
+
+    __tablename__ = "person_erasures"
+    __table_args__ = (
+        CheckConstraint(f"state IN {ERASURE_STATES!r}", name="state_code"),
+        CheckConstraint(f"reason_code IN {ERASURE_REASONS!r}", name="reason_code"),
+        CheckConstraint(f"step BETWEEN 0 AND {LAST_STEP}", name="step_range"),
+        CheckConstraint("attempts >= 0", name="attempts_not_negative"),
+        CheckConstraint("char_length(port_cursor) <= 2000", name="port_cursor_length"),
+        CheckConstraint("char_length(reason_text) <= 1000", name="reason_text_length"),
+        CheckConstraint("jsonb_typeof(keep_files) = 'object'", name="keep_files_object"),
+        CheckConstraint("approved_by IS NULL OR approved_by <> requested_by", name="four_eyes"),
+        CheckConstraint("successor_id <> person_id", name="successor_other"),
+        ForeignKeyConstraint(
+            ["tenant_id", "person_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_person",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "successor_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_successor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "requested_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_requested_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "approved_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_approved_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "rejected_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasures_rejected_by",
+        ),
+        Index(
+            "uq_person_erasures_open",
+            "tenant_id",
+            "person_id",
+            unique=True,
+            # nosemgrep: sx.sql-format - a fixed list of erasure state codes
+            postgresql_where=text(f"state IN ({_OPEN})"),
+        ),
+        Index("ix_person_erasures_tenant_created", "tenant_id", "created_at", "id"),
+        Index("ix_person_erasures_tenant_state", "tenant_id", "state"),
+        # The mentions' composite key points here (0164).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasures_tenant_id_id"),
+    )
+
+    person_id: Mapped[uuid.UUID]
+    state: Mapped[str] = mapped_column(String(12), server_default="requested")
+    step: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    # Inside step 4 (ADR-052 §4, batches): the module being erased and its cursor.
+    port_module: Mapped[str | None] = mapped_column(String(60))
+    port_cursor: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0")
+    reason_code: Mapped[str] = mapped_column(String(40))
+    reason_text: Mapped[str | None] = mapped_column(Text)
+    successor_id: Mapped[uuid.UUID]
+    # The successor the job used: the requested one, or the approver when the requested one was
+    # no longer active at job start (lane C's review of ADR-052 §4).
+    effective_successor_id: Mapped[uuid.UUID | None]
+    keep_files: Mapped[dict[str, str]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    requested_by: Mapped[uuid.UUID]
+    requested_at: Mapped[datetime]
+    expires_at: Mapped[datetime]
+    approved_by: Mapped[uuid.UUID | None]
+    approved_at: Mapped[datetime | None]
+    rejected_by: Mapped[uuid.UUID | None]
+    rejected_at: Mapped[datetime | None]
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(60))
+    report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    counts: Mapped[dict[str, int]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # S1b (0164): an admin looked at the finished report; approval needs it (D-171 a).
+    report_reviewed_at: Mapped[datetime | None]
+    report_reviewed_by: Mapped[uuid.UUID | None]
+
+
+MENTION_KINDS = tuple(kind.value for kind in MentionMatchKind)
+MENTION_STATES = tuple(state.value for state in MentionState)
+
+
+class PersonErasureMention(TenantEntity):
+    """One place an erasure's person is named in other people's text (ADR-052 S1b; 0164).
+
+    Where (module, record, field), which kind and how often: never the text, never the terms.
+    Written by the report build; `state` moves to redacted (the admin replaced it with the
+    marker) or left (approved with it in place). No DELETE grant: the record of what the
+    approver saw stays with the erasure.
+    """
+
+    __tablename__ = "person_erasure_mentions"
+    __table_args__ = (
+        CheckConstraint(f"match_kind IN {MENTION_KINDS!r}", name="match_kind_code"),
+        CheckConstraint(f"state IN {MENTION_STATES!r}", name="state_code"),
+        CheckConstraint("occurrences > 0", name="occurrences_positive"),
+        ForeignKeyConstraint(
+            ["tenant_id", "erasure_id"],
+            ["person_erasures.tenant_id", "person_erasures.id"],
+            name="fk_person_erasure_mentions_erasure",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "redacted_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_person_erasure_mentions_redacted_by",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "erasure_id",
+            "module_key",
+            "record_type",
+            "record_id",
+            "field",
+            "match_kind",
+            name="uq_person_erasure_mentions_place",
+        ),
+        # The composite key signed history redactions point at (0167).
+        UniqueConstraint("tenant_id", "id", name="uq_person_erasure_mentions_tenant_id_id"),
+        Index("ix_person_erasure_mentions_state", "tenant_id", "erasure_id", "state"),
+    )
+
+    erasure_id: Mapped[uuid.UUID]
+    module_key: Mapped[str] = mapped_column(String(60))
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    match_kind: Mapped[str] = mapped_column(String(10))
+    occurrences: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(10), server_default="found")
+    redacted_by: Mapped[uuid.UUID | None]
+    redacted_at: Mapped[datetime | None]
+    # History rows of the field left at redaction: a fingerprinted audit entry commits to them
+    # (ADR-046), so blanking them would read as tampering. Shown to the admin, never hidden.
+    history_kept: Mapped[int] = mapped_column(Integer, server_default="0")
+
+
+EXPIRY_THRESHOLDS = (0, 1, 7, 30)  # domain/expiry.py: days before, 0 = run out
+NOTICE_KINDS = ("locked_out", "password_changed", "password_set", "mfa_added", "mfa_removed")
+
+
+class SecurityNoticeMark(TenantKeyed, Base):
+    """A Keycloak user event already turned into a notice, or kept quiet (REQ-SEC-033; 0158).
+
+    Once per Keycloak event ID. Only what that check and the lock-out count need (lane B): no
+    address, browser or client. `told` False: kept quiet (one lock-out notice an hour; a first
+    password). Purged after 30 days; erasure deletes the person's rows.
+    """
+
+    __tablename__ = "security_notice_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_security_notice_marks_user",
+        ),
+        UniqueConstraint("tenant_id", "keycloak_event_id", name="uq_security_notice_marks_once"),
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in NOTICE_KINDS) + ")", name="kind_code"
+        ),
+        Index("ix_security_notice_marks_person", "tenant_id", "user_id", "kind", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    keycloak_event_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime]
+    told: Mapped[bool]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SecurityExpiryMark(TenantKeyed, Base):
+    """An expiry alert already sent (REQ-SEC-011; WP-057 S2b-2; 0158), so each goes once.
+
+    `item` names what runs out: a SAML signing certificate by its SHA-256 fingerprint, or
+    `client_secret`. Append-only; the daily schedule writes one row per alert (and per threshold
+    a late run passes over).
+    """
+
+    __tablename__ = "security_expiry_marks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_id"],
+            ["sso_providers.tenant_id", "sso_providers.id"],
+            name="fk_security_expiry_marks_provider",
+        ),
+        UniqueConstraint(
+            "tenant_id", "provider_id", "item", "threshold", name="uq_security_expiry_marks_once"
+        ),
+        CheckConstraint(
+            "threshold IN (" + ", ".join(str(t) for t in EXPIRY_THRESHOLDS) + ")",
+            name="threshold_code",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    provider_id: Mapped[uuid.UUID]
+    item: Mapped[str] = mapped_column(String(64))
+    threshold: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class VerifiedDomain(TenantEntity):
+    """An e-mail domain a tenant proves it owns by a DNS TXT record (WP-057 S5d; 0189).
+
+    REQ-SEC-010. Only the proof token's SHA-256 is kept (the token is shown once). One tenant per
+    verified domain (AC2): a partial unique index over verified rows, across tenants.
+    """
+
+    __tablename__ = "verified_domains"
+    __table_args__ = (
+        CheckConstraint("state IN ('pending', 'verified', 'lapsed')", name="state_code"),
+        CheckConstraint(
+            "verified_by_method IS NULL OR verified_by_method IN ('dns', 'manual')",
+            name="method_code",
+        ),
+        CheckConstraint(
+            "domain = lower(domain) AND domain !~ '\\.$' AND domain ~ '\\.'", name="domain_form"
+        ),
+        CheckConstraint("failure_count >= 0", name="failures"),
+        CheckConstraint(
+            "(state = 'verified') = (verified_at IS NOT NULL AND verified_by_method IS NOT NULL)"
+            " OR state = 'lapsed'",
+            name="verified_facts",
+        ),
+        Index(
+            "ix_verified_domains_tenant_domain",
+            "tenant_id",
+            "domain",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_verified_domains_verified_domain",
+            "domain",
+            unique=True,
+            postgresql_where=text("state = 'verified' AND deleted_at IS NULL"),
+        ),
+        Index("ix_verified_domains_tenant_state", "tenant_id", "state", "last_checked_at"),
+    )
+
+    domain: Mapped[str] = mapped_column(String(253))
+    state: Mapped[str] = mapped_column(String(16), server_default="pending")
+    token_digest: Mapped[bytes] = mapped_column(LargeBinary(32))
+    verified_at: Mapped[datetime | None]
+    verified_by_method: Mapped[str | None] = mapped_column(String(16))
+    last_checked_at: Mapped[datetime | None]
+    last_outcome: Mapped[str | None] = mapped_column(String(40))
+    failing_since: Mapped[datetime | None]
+    failure_count: Mapped[int] = mapped_column(Integer, server_default="0")

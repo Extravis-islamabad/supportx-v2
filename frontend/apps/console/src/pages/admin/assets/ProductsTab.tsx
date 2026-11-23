@@ -22,7 +22,14 @@ import {
   type AssetProductInput,
   type AssetProductType,
 } from '@supportx/api-client';
-import { EmptyText, lengthLimit, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  EmptyText,
+  lengthLimit,
+  useAccess,
+  useAppearance,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { Problems } from '../incidents/shared';
 import { nameOf, useCatalogueSave } from './shared';
@@ -100,6 +107,9 @@ function bodyOf(draft: Draft): AssetProductInput {
 export function ProductsTab({ types }: { types: AssetProductType[] }) {
   const t = useLabel();
   const { locale, intlLocale } = useAppearance();
+  // D-157 2b: list prices and default depreciation are money (assets.view_financials); the
+  // API sends them as null to others, so the screen leaves them out.
+  const seesMoney = useAccess().can('assets.view_financials');
   const [typeId, setTypeId] = useState<string>();
   const products = useAssetProducts({ productTypeId: typeId });
   const { run, problems, clear, pending } = useCatalogueSave();
@@ -229,22 +239,27 @@ export function ProductsTab({ types }: { types: AssetProductType[] }) {
                 <bdi dir="auto">{product.manufacturer ?? ''}</bdi>
               ),
             },
-            {
-              key: 'price',
-              title: t('assets.admin.price'),
-              align: 'end',
-              render: (_: unknown, product: AssetProduct) => money(product.price, product.currency),
-            },
-            {
-              key: 'total',
-              title: t('assets.admin.total'),
-              align: 'end',
-              render: (_: unknown, product: AssetProduct) => (
-                <span data-testid={`asset-product-total-${product.id}`}>
-                  {money(product.total, product.currency)}
-                </span>
-              ),
-            },
+            ...(seesMoney
+              ? [
+                  {
+                    key: 'price',
+                    title: t('assets.admin.price'),
+                    align: 'end' as const,
+                    render: (_: unknown, product: AssetProduct) =>
+                      money(product.price, product.currency),
+                  },
+                  {
+                    key: 'total',
+                    title: t('assets.admin.total'),
+                    align: 'end' as const,
+                    render: (_: unknown, product: AssetProduct) => (
+                      <span data-testid={`asset-product-total-${product.id}`}>
+                        {money(product.total, product.currency)}
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
             {
               key: 'actions',
               title: <span className="sr-only">{t('assets.admin.actions')}</span>,
@@ -351,8 +366,8 @@ export function ProductsTab({ types }: { types: AssetProductType[] }) {
               </Form.Item>
             ))}
             <Flex gap={16} wrap>
-              {amount('price', t('assets.admin.price'))}
-              {amount('tax', t('assets.admin.tax'))}
+              {seesMoney && amount('price', t('assets.admin.price'))}
+              {seesMoney && amount('tax', t('assets.admin.tax'))}
               <Form.Item label={t('assets.admin.currency')} htmlFor="asset-product-currency">
                 <Input
                   id="asset-product-currency"
@@ -367,36 +382,38 @@ export function ProductsTab({ types }: { types: AssetProductType[] }) {
                 />
               </Form.Item>
             </Flex>
-            <Flex gap={16} wrap>
-              <Form.Item label={t('assets.admin.depreciation')} htmlFor="asset-product-method">
-                <Select
-                  id="asset-product-method"
-                  aria-label={t('assets.admin.depreciation')}
-                  allowClear
-                  value={draft.depreciation_method ?? undefined}
-                  onChange={(method: AssetDepreciationMethod | undefined) => {
-                    setDraft({ ...draft, depreciation_method: method ?? null });
-                  }}
-                  options={METHODS.map((code) => ({
-                    value: code,
-                    label: t(`asset_depreciation.${code}`),
-                  }))}
-                  style={{ minWidth: 220 }}
-                />
-              </Form.Item>
-              <Form.Item label={t('assets.admin.useful_life')} htmlFor="asset-product-life">
-                <InputNumber
-                  id="asset-product-life"
-                  min={1}
-                  max={100}
-                  value={draft.useful_life_years}
-                  onChange={(value) => {
-                    setDraft({ ...draft, useful_life_years: value });
-                  }}
-                />
-              </Form.Item>
-              {amount('salvage_value', t('assets.admin.salvage_value'))}
-            </Flex>
+            {seesMoney && (
+              <Flex gap={16} wrap>
+                <Form.Item label={t('assets.admin.depreciation')} htmlFor="asset-product-method">
+                  <Select
+                    id="asset-product-method"
+                    aria-label={t('assets.admin.depreciation')}
+                    allowClear
+                    value={draft.depreciation_method ?? undefined}
+                    onChange={(method: AssetDepreciationMethod | undefined) => {
+                      setDraft({ ...draft, depreciation_method: method ?? null });
+                    }}
+                    options={METHODS.map((code) => ({
+                      value: code,
+                      label: t(`asset_depreciation.${code}`),
+                    }))}
+                    style={{ minWidth: 220 }}
+                  />
+                </Form.Item>
+                <Form.Item label={t('assets.admin.useful_life')} htmlFor="asset-product-life">
+                  <InputNumber
+                    id="asset-product-life"
+                    min={1}
+                    max={100}
+                    value={draft.useful_life_years}
+                    onChange={(value) => {
+                      setDraft({ ...draft, useful_life_years: value });
+                    }}
+                  />
+                </Form.Item>
+                {amount('salvage_value', t('assets.admin.salvage_value'))}
+              </Flex>
+            )}
             <Checkbox
               checked={draft.hide_from_purchase_orders}
               onChange={(event) => {

@@ -39,6 +39,11 @@ spec:
               value: {{ .Values.app.profile | quote }}
             - name: SUPPORTX_DEPLOY_DATABASE
               value: {{ .Values.postgresql.database | quote }}
+            {{- if eq (include "supportx.dbTls" .) "true" }}
+            # verify-full on every connection, the superuser's included (audit row 5).
+            - name: SUPPORTX_DATABASE_SSL_ROOT_CERT
+              value: /etc/supportx/tls/postgres/ca.crt
+            {{- end }}
             - name: SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: migrator-db-password}}
             - name: SUPPORTX_MIGRATION_DATABASE_URL
@@ -63,6 +68,8 @@ spec:
             {{- toYaml .Values.migrate.resources | nindent 12 }}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            {{- with include "supportx.dbCaMount" . | trim }}{{ . | nindent 12 }}{{ end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- with include "supportx.dbCaVolume" . | trim }}{{ . | nindent 8 }}{{ end }}

@@ -139,6 +139,11 @@ async def _check_version(
         raise await stale_settings(session, wtype, current, expected_version)
 
 
+# Other settings services (life cycle versions, ADR-049) bump the same settings version.
+bump = _bump
+check_version = _check_version
+
+
 # --- statuses -------------------------------------------------------------------------------------
 
 
@@ -232,6 +237,8 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
             source=source,
             user_id=user_id,
         )
+    # A reason prompt is a setting, not the life cycle's shape (ADR-049): it applies to the move
+    # in every version, so records on an older version ask the same as new ones.
     await session.execute(
         update(WorkItemTransition)
         .where(
@@ -846,6 +853,19 @@ async def add_role_def(  # noqa: PLR0913 - the role and its context, explicit
     return cat, code
 
 
+def _take_marker(
+    wtype: WorkItemType, row: WorkItemRoleDef, changes: Mapping[str, Any], *, take: bool
+) -> bool:
+    """WP-058b S5a (REQ-REL-057 AC2): what Take makes you, a release's role only, never retired."""
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        raise invalid(field="take", field_code="invalid_choice")
+    if take and changes.get("disabled_at", row.disabled_at) is not None:
+        raise invalid(field="take", field_code="role_disabled")
+    if take and row.code == "requester":  # who asked for the release never takes it
+        raise invalid(field="take", field_code="invalid_choice")
+    return take
+
+
 async def update_role_def(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -876,13 +896,24 @@ async def update_role_def(  # noqa: PLR0913 - the change and its context, explic
         changes["disabled_at"] = (
             (row.disabled_at or datetime.now(UTC)) if values["disabled"] else None
         )
+    if values.get("take") is not None:
+        changes["taken_by_take"] = _take_marker(wtype, row, changes, take=bool(values["take"]))
     before = {k: getattr(row, k) for k in changes}
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if not changes:
         return current
+    if changes.get("taken_by_take"):
+        # One Take role per type (the partial unique index): the marker moves here.
+        await session.execute(
+            update(WorkItemRoleDef)
+            .where(WorkItemRoleDef.type == wtype.code, WorkItemRoleDef.taken_by_take)
+            .values(taken_by_take=False)
+        )
+        await session.flush()
     for name, value in changes.items():
         setattr(row, name, value)
     await session.flush()
+    names = {"disabled_at": "disabled", "taken_by_take": "take"}
     return await _bump(
         session,
         wtype,
@@ -890,7 +921,7 @@ async def update_role_def(  # noqa: PLR0913 - the change and its context, explic
         expected_version=expected_version,
         changes=[
             Change(
-                f"roles.{code}.{'disabled' if k == 'disabled_at' else k}",
+                f"roles.{code}.{names.get(k, k)}",
                 before[k] is not None if k == "disabled_at" else before[k],
                 v is not None if k == "disabled_at" else v,
             )

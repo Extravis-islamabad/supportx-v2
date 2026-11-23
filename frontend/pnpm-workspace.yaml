@@ -40,3 +40,11 @@ catalog:
 # protobufjs (via centrifuge, D-030): its postinstall only prints a version notice; not needed.
 allowBuilds:
   protobufjs: false
+
+# minimatch 7.x to 11.0.0 (GHSA-g3hv-75wg-m249, moderate): lifted to the patched 11.0.1+, the
+# same package already in the tree (openapi-typescript's), not a new dependency.
+overrides:
+  'minimatch@>=7.0.0 <11.0.1': ^11.0.1
+
+# D-174: no advisory is ignored. picomatch's GHSA-fc5q-39xc-vjpf was withdrawn on 2026-11-18,
+# so its ignore went (2026-11-23); the mobile Trivy entry for the CVE stays (.trivyignore.yaml).

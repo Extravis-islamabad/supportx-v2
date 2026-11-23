@@ -3,6 +3,9 @@ import type { LabelResource } from '../en';
 // shared labels (see ../README.md).
 export const ur: LabelResource = {
   'about.close': 'بند کریں',
+  'about.geoip_attribution':
+    'سائن اِن کے تقریبی مقامات IP to City Lite ڈیٹا (CC BY 4.0) استعمال کرتے ہیں، فراہم کنندہ:',
+  'about.geoip_provider': 'DB-IP.com',
   'about.made_by': 'Extravis کی تیار کردہ',
   'about.open': 'SupportX کے بارے میں',
   'about.version': 'ورژن {{version}}',
@@ -60,6 +63,8 @@ export const ur: LabelResource = {
   'appearance.theme.light': 'ہلکا',
   'appearance.theme.system': 'سسٹم کے مطابق',
   'appearance.title': 'ظاہری شکل',
+  'board.count_of': '{{total}} میں سے {{shown}}',
+  'board.move_to': 'منتقل کریں…',
   'check_status.failed': 'ناکام',
   'check_status.not_configured': 'ترتیب نہیں دیا گیا',
   'check_status.ok': 'ٹھیک ہے',
@@ -136,6 +141,13 @@ export const ur: LabelResource = {
   'home.subtitle': '{{tenant}} میں آپ کی ورک اسپیس',
   'home.technician_seats': 'ٹیکنیشن نشستیں',
   'home.title': 'خوش آمدید، {{name}}',
+  'kept_draft.discard': 'رد کریں',
+  'kept_draft.found': 'اس فارم کا ایک مسودہ {{when}} محفوظ کیا گیا',
+  'kept_draft.replace_body':
+    'مسودہ فارم میں موجود ہر چیز کی جگہ لے لے گا۔ اسے واپس نہیں کیا جا سکتا۔',
+  'kept_draft.replace_title': 'جو آپ نے لکھا اسے مسودے سے بدل دیں؟',
+  'kept_draft.restore': 'بحال کریں',
+  'kept_draft.unreadable': 'اس فارم کا محفوظ مسودہ پڑھا نہیں جا سکا۔',
   'layout.add_value': 'شامل کریں',
   'layout.alerts_count_one': '{{count}} انتباہ',
   'layout.alerts_count_other': '{{count}} انتباہات',
@@ -162,7 +174,11 @@ export const ur: LabelResource = {
   'layout.properties_fewer': 'خالی فیلڈز چھپائیں',
   'layout.reset_widths': 'چوڑائی دوبارہ طے کریں',
   'layout.resize_column': '{{column}} کی چوڑائی: تیر والی کلیدیں استعمال کریں',
+  'layout.restricted_hidden': 'آپ کو نہیں دکھایا جاتا',
+  'layout.restricted_masked': 'جزوی طور پر چھپایا گیا',
   'layout.star': 'پسندیدہ میں شامل کریں',
+  'layout.tabs_earlier': 'پچھلے ٹیب',
+  'layout.tabs_later': 'اگلے ٹیب',
   'layout.unstar': 'پسندیدہ سے ہٹائیں',
   'layout.view': 'دیکھیں',
   'live.changed_by':
@@ -173,6 +189,11 @@ export const ur: LabelResource = {
   'locale.ar': 'العربية',
   'locale.en': 'English',
   'locale.ur': 'اردو',
+  'mail_command_field.category': 'زمرہ',
+  'mail_command_field.group': 'گروپ',
+  'mail_command_field.priority': 'ترجیح',
+  'mail_command_field.technician': 'تکنیکی ماہر',
+  'mail_command_field.template': 'سانچہ',
   'mobile.about.app_version': 'ایپ کا ورژن',
   'mobile.about.server': 'سرور',
   'mobile.about.server_status': 'سرور کی حالت',
@@ -305,6 +326,7 @@ export const ur: LabelResource = {
   'nav.admin_catalog': 'سروس کیٹلاگ',
   'nav.admin_change_boards': 'تبدیلی مشاورتی بورڈ',
   'nav.admin_change_windows': 'فریز اور مینٹیننس ونڈوز',
+  'nav.admin_erasures': 'مٹانے کی درخواستیں',
   'nav.admin_files': 'فائلیں',
   // WP-020c: incident settings, templates, levels, closure codes, form density
   'nav.admin_incidents': 'واقعات',
@@ -317,9 +339,11 @@ export const ur: LabelResource = {
   'nav.admin_notifications': 'اطلاعات',
   'nav.admin_organization': 'ادارہ',
   'nav.admin_portal': 'پورٹل',
+  'nav.admin_releases': 'ریلیز کی ترتیبات',
   'nav.admin_requests': 'سروس درخواستیں',
   'nav.admin_roles': 'کردار',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
+  'nav.admin_service_accounts': 'سروس اکاؤنٹس',
   'nav.admin_sla': 'ایس ایل اے',
   'nav.admin_users': 'افراد',
   // Announcements, field history, action reasons (WP-012)
@@ -340,6 +364,7 @@ export const ur: LabelResource = {
   'nav.main': 'مرکزی نیویگیشن',
   'nav.more': 'مزید',
   'nav.my_requests': 'میری درخواستیں',
+  'nav.my_tasks': 'میرے کام',
   'nav.open_menu': 'مینو کھولیں',
   'nav.problems': 'مسائل',
   'nav.profile': 'میری پروفائل',
@@ -427,7 +452,7 @@ export const ur: LabelResource = {
   'richtext.table': 'جدول شامل کریں',
   'richtext.templates': 'سانچے',
   'richtext.templates_manage': 'سانچوں کا انتظام…',
-  'richtext.templates_none': 'ابھی کوئی جواب کا سانچہ نہیں',
+  'richtext.templates_none': 'ابھی کوئی سانچہ نہیں',
   'richtext.text_colour': 'متن کا رنگ',
   'richtext.text_style': 'متن کا انداز',
   'richtext.toolbar': 'فارمیٹنگ',
@@ -442,6 +467,11 @@ export const ur: LabelResource = {
   'search.same_requester': '{{name}} کے دیگر واقعات',
   'search.status_filter': 'حالت',
   'search.type_to_search': 'نمبر، الفاظ یا نام لکھیں',
+  'service_roles.add': 'کردار دیں',
+  'service_roles.inactive': 'غیر فعال: دوبارہ چالو ہونے تک کچھ نہیں کرتی۔',
+  'service_roles.no_roles': 'ابھی کوئی کردار نہیں: یہ کسی ریکارڈ پر کام نہیں کر سکتی۔',
+  'service_roles.none_offered': 'آپ کے دینے کے قابل کوئی کردار اس شناخت کے لیے موزوں نہیں۔',
+  'service_roles.remove': 'کردار {{name}} واپس لیں',
   'settings.actions': 'کارروائیاں',
   'settings.add_category': 'زمرہ شامل کریں',
   'settings.add_item': 'آئٹم شامل کریں',
@@ -456,8 +486,27 @@ export const ur: LabelResource = {
   'settings.categories': 'زمرے',
   'settings.categories_help':
     'زمرہ، ذیلی زمرہ اور آئٹم۔ ریٹائرڈ اندراجات نئے واقعات پر پیش نہیں ہوتے لیکن انہیں استعمال کرنے والے واقعات پر نظر آتے رہتے ہیں۔',
+  'settings.cc_from_first_mail': 'پہلی ای میل کے Cc کو باخبر رکھیں',
+  'settings.cc_from_first_mail_help':
+    'واقعہ کھولنے والی میل کے Cc میں موجود پتوں کو اس کے عوامی جوابات ملتے ہیں (زیادہ سے زیادہ 20)۔ ہر میل میں انہیں روکنے کا لنک ہوتا ہے۔',
   'settings.changed_elsewhere':
     'کسی اور نے ابھی یہ ترتیبات بدلی ہیں۔ تازہ ترین ورژن دکھایا گیا ہے؛ براہِ کرم اپنی تبدیلی دوبارہ کریں۔',
+  'settings.checklists.add': 'نئی لائبریری چیک لسٹ',
+  'settings.checklists.enabled_named': '{{name}} پیش کریں',
+  'settings.checklists.help':
+    'تیار چیک لسٹس جو ٹیکنیشن کسی واقعے میں شامل کر سکتا ہے۔ واقعے کو اپنی نقل ملتی ہے: یہاں تبدیلی ان واقعات کو نہیں بدلتی جن میں یہ پہلے سے ہے۔',
+  'settings.checklists.import': 'CSV فائل سے آئٹمز شامل کریں',
+  'settings.checklists.imported':
+    '{{items}} آئٹمز پڑھے گئے، {{rejected}} قطاریں شامل نہیں ہوئیں۔ جائزہ لیں، پھر محفوظ کریں۔',
+  'settings.checklists.items': 'آئٹمز',
+  'settings.checklists.items_count_one': '{{count}} آئٹم',
+  'settings.checklists.items_count_other': '{{count}} آئٹمز',
+  'settings.checklists.items_help': 'ہر سطر میں ایک آئٹم۔ خالی سطریں شامل نہیں ہوتیں۔',
+  'settings.checklists.name': 'نام',
+  'settings.checklists.none': 'لائبریری میں ابھی کوئی چیک لسٹ نہیں۔',
+  'settings.checklists.rejected_row': 'قطار {{row}}: {{reason}}',
+  'settings.checklists.title': 'چیک لسٹ لائبریری',
+  'settings.checklists.why.name': 'پہلے چیک لسٹ کا نام دیں۔',
   'settings.closing.auto_close': 'حل شدہ واقعات خودکار طور پر بند کریں',
   'settings.closing.auto_close_days': 'خودکار بندش سے پہلے کاروباری دن',
   'settings.closing.auto_close_help':
@@ -465,27 +514,79 @@ export const ur: LabelResource = {
   'settings.closing.auto_close_needs_notifications':
     'درخواست گزاروں کی اطلاعات درکار ہیں: خودکار بندش اس وقت تک بند رہتی ہے جب تک کوئی چینل (ای میل یا پورٹل) درخواست گزاروں کو حل کی اطلاع نہ دے سکے۔ کسی ایسے درخواست گزار کا واقعہ کبھی بند نہیں ہوتا جسے اطلاع نہ دی گئی ہو۔',
   'settings.closing.channel_state': '{{channel}}: {{reason}}۔',
+  'settings.closing.checklist_item_max': 'ہر ریکارڈ میں چیک لسٹ آئٹمز',
+  'settings.closing.checklist_item_max_help':
+    'ریکارڈ کی تمام چیک لسٹس ملا کر، {{min}} سے {{max}} تک۔ لمبی فہرست رد کی جاتی ہے، کاٹی نہیں جاتی۔',
   'settings.closing.close_requires': 'بندش سے پہلے درکار',
   'settings.closing.close_requires_help': 'وہ فیلڈز جو واقعہ بند کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.closed_edit_lock': 'بند واقعات کو مقفل کریں',
+  'settings.closing.closed_edit_lock_help':
+    'جب تک یہ آن ہے کوئی بند واقعے کے فیلڈ نہیں بدلتا، «بند واقعات میں ترمیم» والے اور ایڈمنسٹریٹر بھی نہیں۔ نوٹس اور جوابات جاری رہتے ہیں۔ یہ فوراً محفوظ ہوتا ہے اور سائن اِن کی تصدیق مانگ سکتا ہے۔',
+  'settings.closing.closed_edit_lock_switch': 'بند واقعات کو مکمل مقفل کریں',
   'settings.closing.complete_open_work': 'بندش پر کھلا کام مکمل کریں',
   'settings.closing.complete_open_work_help':
     'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
+  'settings.closing.condition.review_completed': 'جائزہ مکمل',
+  'settings.closing.copy_limit': 'ایک وقت میں کاپیاں',
+  'settings.closing.copy_limit_help':
+    'ایک درخواست میں واقعے کی کتنی کاپیاں بن سکتی ہیں، {{min}} سے {{max}} تک۔',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
+  'settings.closing.edit_reason_fields': 'وہ فیلڈ جن کی تبدیلی کے لیے وجہ درکار ہے',
+  'settings.closing.edit_reason_fields_help':
+    'جو ان میں سے کوئی فیلڈ بدلے وہ وجہ بتائے؛ وجہ ریکارڈ کی تاریخ میں محفوظ رہتی ہے۔',
+  'settings.closing.first_contact_minutes': 'پہلے رابطے کی مدت (منٹ)',
+  'settings.closing.first_contact_minutes_help':
+    'جو واقعہ اس کا بنانے والا اس وقت کے اندر حل کرے اور جو دوبارہ تفویض نہ ہوا ہو، اسے پہلے رابطے پر حل شدہ تجویز کیا جاتا ہے ({{min}} سے {{max}})۔',
   'settings.closing.help':
     'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',
   'settings.closing.open_work': 'کھلا کام',
   'settings.closing.open_work_help':
     'جب واقعہ حل یا بند کیا جائے اور اس پر کام ابھی کھلا ہو تو کیا ہوتا ہے۔ یہ جانچ ٹاسکس، چیک لسٹس، منسلک واقعات اور منظوریاں آنے پر کام شروع کریں گی۔',
+  'settings.closing.release.close_requires_help':
+    'وہ فیلڈز جو ریلیز بند کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.release.complete_open_work_help':
+    'ریلیز بند کرنے سے اس کے کھلے کام مکمل نشان زد ہو جاتے ہیں؛ منسلک تبدیلیاں اور ذیلی ریلیز اس کے ساتھ کبھی بند نہیں ہوتیں۔',
+  'settings.closing.release.help':
+    'ریلیز حل اور بند کرنے کے لیے کیا درکار ہے، اور اس کے کھلے کام کا کیا ہوتا ہے: کام، منظوریاں، منسلک تبدیلیاں اور ذیلی ریلیز۔',
+  'settings.closing.release.open_work_help':
+    'جب ریلیز حل یا بند کی جائے اور اس پر کام ابھی کھلا ہو تو کیا ہوتا ہے۔',
+  'settings.closing.release.resolve_requires_help':
+    'وہ فیلڈز جو ریلیز حل کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.release.task_owner_access':
+    'کام کے ذمہ دار ریلیز تک رسائی کے بغیر اپنے کام پر کام کریں',
+  'settings.closing.release.task_owner_access_help':
+    'وہ اپنا کام اور ریلیز کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ نوٹس یا منصوبے کبھی نہیں۔',
+  'settings.closing.release.timer_auto_start': 'جب کوئی اپنی ریلیز کھولے تو ٹائمر شروع کریں',
+  'settings.closing.release.timer_auto_start_help':
+    'ہر ریلیز پر ایک بار، اس کے مالک کے لیے۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
+  'settings.closing.release.worklog_block_closed': 'بند ریلیزوں پر وقت نہیں',
+  'settings.closing.release.worklog_block_closed_help':
+    'ریلیز بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.release.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.release.worklog_count_nonworking_help':
+    'ریلیز پر کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',
   'settings.closing.reopen_window_help':
     'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
   'settings.closing.resolve_requires': 'حل سے پہلے درکار',
   'settings.closing.resolve_requires_help': 'وہ فیلڈز جو واقعہ حل کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.task_dependency_mode': 'انتظار والے کام روکیں',
+  'settings.closing.task_dependency_mode_help':
+    'جب تک وہ کام کھلا ہے جس کا یہ انتظار کرتا ہے، یہ کام شروع یا مکمل نہیں ہو سکتا۔ بند: یہ صرف انتظار میں دکھتا ہے۔',
   'settings.closing.task_owner_access':
     'کام کے ذمہ دار واقعے تک رسائی کے بغیر اپنے کام پر کام کریں',
   'settings.closing.task_owner_access_help':
     'وہ اپنا کام اور واقعے کی شناخت اور موضوع دیکھتے ہیں اور کام کی حالت بدل سکتے ہیں؛ گفتگو یا نوٹس کبھی نہیں۔',
+  'settings.closing.timer_auto_start': 'ٹیکنیشن کے اپنا واقعہ کھولنے پر ٹائمر شروع کریں',
+  'settings.closing.timer_auto_start_help':
+    'ہر واقعے پر ایک بار، اسی شخص کے لیے جسے یہ تفویض ہو۔ پہلے سے بند: جس ٹائمر پر کسی کی نظر نہ ہو وہ غلط وقت درج کرتا ہے۔',
   'settings.closing.title': 'حل اور بندش',
+  'settings.closing.worklog_block_closed': 'بند واقعات پر وقت نہیں',
+  'settings.closing.worklog_block_closed_help':
+    'واقعہ بند ہونے کے بعد کوئی اس کا وقت درج، تبدیل یا ختم نہیں کر سکتا۔',
+  'settings.closing.worklog_count_nonworking': 'کام کے اوقات سے باہر کا وقت شمار کریں',
+  'settings.closing.worklog_count_nonworking_help':
+    'کام کے اوقات سے باہر درج وقت مجموعوں اور رپورٹوں میں شمار ہوتا ہے۔ بند ہو تو صرف کام کے اوقات شمار ہوتے ہیں۔',
   'settings.closure_codes_help':
     'واقعہ کیسے ختم ہوا۔ بند کرتے وقت منتخب کیا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
   'settings.colour': 'رنگ',
@@ -516,8 +617,44 @@ export const ur: LabelResource = {
   'settings.leave_title': 'محفوظ کیے بغیر چھوڑیں؟',
   'settings.levels_help':
     'وہ سپورٹ سطح جس پر واقعہ نمٹایا جاتا ہے۔ ویوز، قواعد اور رپورٹس میں استعمال ہوتی ہے۔',
+  'settings.lifecycle.add_move': 'منتقلی شامل کریں',
+  'settings.lifecycle.discard': 'مسودہ ختم کریں',
+  'settings.lifecycle.discard_body':
+    'مسودہ اور اس کی منتقلیاں ہٹا دی جائیں گی۔ کوئی ریکارڈ اسے استعمال نہیں کرتا۔',
+  'settings.lifecycle.discard_title': 'ورژن {{number}} کا مسودہ ختم کریں؟',
+  'settings.lifecycle.draft_help':
+    'منتقلیاں بدلیں، مسودہ محفوظ کریں، اور جب کچھ ٹھیک کرنا باقی نہ رہے تو شائع کریں۔',
+  'settings.lifecycle.draft_title': 'ورژن {{number}} کا مسودہ',
+  'settings.lifecycle.extra_right': 'اضافی اختیار درکار',
+  'settings.lifecycle.moves': 'منتقلیاں',
+  'settings.lifecycle.new_records_start_here': 'نئے ریکارڈ یہاں سے شروع ہوتے ہیں',
+  'settings.lifecycle.no_extra_right': 'کوئی نہیں',
+  'settings.lifecycle.problems_title_one': 'شائع کرنے سے پہلے {{count}} مسئلہ ٹھیک کرنا ہے',
+  'settings.lifecycle.problems_title_other': 'شائع کرنے سے پہلے {{count}} مسائل ٹھیک کرنے ہیں',
+  'settings.lifecycle.publish': 'شائع کریں',
+  'settings.lifecycle.publish_body':
+    'نئے ریکارڈ اس ورژن پر شروع ہوں گے۔ موجودہ ریکارڈ اسی ورژن پر رہیں گے جس پر وہ شروع ہوئے تھے اور اس کی منتقلیاں رکھیں گے۔',
+  'settings.lifecycle.publish_title': 'ورژن {{number}} شائع کریں؟',
+  'settings.lifecycle.published_at': 'شائع ہوا',
+  'settings.lifecycle.remove_move': '{{status}} سے {{action}} ہٹائیں',
+  'settings.lifecycle.required_fields': 'پہلے درکار فیلڈز',
+  'settings.lifecycle.retire': 'ریٹائر کریں',
+  'settings.lifecycle.save_draft': 'مسودہ محفوظ کریں',
+  'settings.lifecycle.start_draft': 'نیا ورژن شروع کریں',
+  'settings.lifecycle.state': 'حالت',
+  'settings.lifecycle.unsaved': 'مسودے میں آپ کی غیر محفوظ تبدیلیاں ہیں۔',
+  'settings.lifecycle.version': 'ورژن',
+  'settings.lifecycle.version_number': 'ورژن {{number}}',
+  'settings.lifecycle.versions': 'لائف سائیکل کے ورژن',
+  'settings.lifecycle.versions_help':
+    'ہر ورژن حالت کی منتقلیوں کا ایک مجموعہ ہے۔ نئے ریکارڈ نیچے نشان زدہ ورژن پر شروع ہوتے ہیں اور اسی پر رہتے ہیں؛ شائع شدہ ورژن کبھی نہیں بدلتا۔ کون منتقلی چلا سکتا ہے اور یہ کب پیش کی جاتی ہے، یہ آٹومیشن میں طے ہوتا ہے اور تمام ورژنز پر ایک ساتھ لاگو ہوتا ہے۔',
   'settings.load_failed':
     'واقعات کی ترتیبات لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
+  'settings.mail': 'ای میل',
+  'settings.mail_command_fields': 'وہ فیلڈ جو میل سیٹ کر سکتی ہے',
+  'settings.mail_commands': 'ای میل میں لکھے احکام لاگو کریں',
+  'settings.mail_commands_help':
+    'میل priority = p1 جیسی سطروں سے شروع ہو سکتی ہے۔ یہ بھیجنے والے کے طور پر صرف تب لاگو ہوتی ہیں جب میل باکس کا قابلِ اعتماد سرور بھیجنے والے کی تصدیق کرے، اور صرف وہ تبدیلیاں جو بھیجنے والا SupportX میں کر سکتا ہو۔',
   'settings.matrix': 'ترجیحی میٹرکس',
   'settings.matrix_cell': 'اثر "{{impact}}" اور فوریت "{{urgency}}" کے لیے ترجیح',
   'settings.matrix_help':
@@ -559,8 +696,21 @@ export const ur: LabelResource = {
   'settings.reason_prompts': 'حالت بدلنے پر وجوہات',
   'settings.reason_prompts_help':
     'منتخب کریں کہ ہر تبدیلی وجہ پوچھے یا نہیں۔ روکنا، منسوخ کرنا اور دوبارہ کھولنا وجوہات کی فہرستوں سے انتخاب کرتے ہیں۔',
+  'settings.release_closure_codes_help':
+    'ریلیز کیسے ختم ہوئی۔ ریلیز بند کرتے وقت چنا جاتا ہے؛ رپورٹس اسی کے مطابق گروپ ہوتی ہیں۔',
+  'settings.release_roles.take_help':
+    'ریلیز لینے سے آپ اس پر یہ کردار بن جاتے ہیں، اگر ابھی کسی کے پاس نہ ہو۔ ہر کردار کون رکھ سکتا ہے یہ اس کردار کے اپنے قواعد پر ہے۔',
+  'settings.release_roles.take_title': 'لینے سے آپ کیا بنتے ہیں',
   'settings.rename': 'نام بدلیں',
   'settings.rename_value': '"{{name}}" کا نام بدلیں',
+  'settings.requester_cancel': 'درخواست گزار منسوخ کر سکتے ہیں',
+  'settings.requester_edit_fields': 'وہ فیلڈز جو درخواست گزار ترمیم کر سکتے ہیں',
+  'settings.requester_edit_fields_help':
+    'کچھ نہیں: جواب دینے کے سوا واقعہ ان کے لیے صرف پڑھنے کے لیے ہے۔',
+  'settings.requester_edit_none': 'کچھ نہیں (صرف پڑھنے کے لیے)',
+  'settings.requester_rules': 'درخواست گزاروں کی منسوخی اور ترمیم',
+  'settings.requester_rules_help':
+    'رپورٹ کرنے کے بعد درخواست گزار اپنے واقعات پر کیا کر سکتے ہیں۔ بند اور کچھ نہیں: پہلے کی طرح۔',
   'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
   'settings.resume_on_requester_reply_for':
     'درخواست گزار کا جواب “{{status}}” کو دوبارہ شروع کرتا ہے',
@@ -583,21 +733,31 @@ export const ur: LabelResource = {
     'اسے کتنی جلدی ٹھیک کرنا ہے۔ چار قدریں مقرر ہیں؛ آپ ان کا نام بدل سکتے ہیں۔',
   'settings.section.business-rules': 'کاروباری اصول',
   'settings.section.categories': 'زمرے',
+  'settings.section.checklists': 'چیک لسٹس',
   'settings.section.closing': 'بندش',
   'settings.section.closure-codes': 'بندش کے کوڈ',
   'settings.section.custom-fields': 'اپنی مرضی کے خانے',
   'settings.section.general': 'عمومی',
   'settings.section.levels': 'سطحیں',
+  'settings.section.lifecycle': 'لائف سائیکل',
   'settings.section.priority': 'ترجیح',
   'settings.section.reasons': 'وجوہات',
   'settings.section.reply-templates': 'جوابی سانچے',
+  'settings.section.resolution-templates': 'حل کے سانچے',
+  'settings.section.roles': 'کردار',
   'settings.section.routing': 'روٹنگ اور تفویض',
+  'settings.section.stages': 'مراحل',
   'settings.section.statuses': 'حالتیں',
+  'settings.section.task-templates': 'کاموں کے سانچے',
   'settings.section.templates': 'سانچے',
   'settings.section.transitions': 'حالت کی تبدیلیاں',
   'settings.section.triggers': 'ٹرگرز',
   'settings.shipped_name': 'بلٹ اِن نام: {{name}}',
   'settings.shipped_name_hint': 'بلٹ اِن نام: {{name}}۔ اسے رکھنے کے لیے نام خالی چھوڑ دیں۔',
+  'settings.stages.open_tasks_block': 'کھلے مرحلہ کام مرحلے کو روکتے ہیں',
+  'settings.stages.open_tasks_block_help':
+    'جب تک کسی مرحلے کا کوئی کام کھلا ہے، ریلیز وہ مرحلہ نہیں چھوڑ سکتی؛ منتقلی اس کام کا نام بتاتی ہے۔ بند: منتقلی صرف انتباہ دیتی ہے۔',
+  'settings.stages.title': 'مرحلہ کام',
   'settings.stale':
     'آپ کے ترمیم کرتے دوران یہ ترتیبات کہیں اور بدل دی گئیں۔ انہیں دیکھنے کے لیے ری لوڈ کریں (یہاں آپ کی غیر محفوظ تبدیلیاں ضائع ہو جائیں گی)۔',
   'settings.status_action': 'کارروائی',
@@ -654,6 +814,9 @@ export const ur: LabelResource = {
   'setup.page.change-windows.description':
     'کب تبدیلیاں نہیں ہونی چاہئیں اور کب ہونی چاہئیں: فریز اور مینٹیننس ونڈوز، سب کے لیے یا کچھ سائٹس اور گروپس کے لیے۔',
   'setup.page.change-windows.keywords': 'فریز, تبدیلی فریز, مینٹیننس ونڈو, تبدیلیوں کا کیلنڈر',
+  'setup.page.erasures.description':
+    'کسی شخص کے ڈیٹا کو مٹانے کی درخواست، منظوری اور پیروی (GDPR)، ان جگہوں کی رپورٹ کے ساتھ جہاں ان کا ذکر ہے۔',
+  'setup.page.erasures.keywords': 'مٹانا، GDPR، رازداری، بھول جانے کا حق، ذاتی ڈیٹا، قانونی روک',
   'setup.page.files.description': 'اپ لوڈ کی حدیں، اجازت یافتہ فائل اقسام اور میلویئر اسکیننگ۔',
   'setup.page.files.keywords': 'فائلیں، منسلکات، اپ لوڈ، سائز، اسٹوریج، میلویئر، وائرس، اسکیننگ',
   'setup.page.incidents.description': 'واقعات کے لیول، زمرے، سانچے، بندش کوڈ اور وجوہات۔',
@@ -679,6 +842,10 @@ export const ur: LabelResource = {
     'سیلف سروس پورٹل درخواست گزاروں کے لیے جو کچھ کرتا ہے، ایک صفحے پر۔',
   'setup.page.portal.keywords':
     'پورٹل، سیلف سروس، تلاش، تلاش کے ذرائع، واقعہ فارم چھپائیں، وقت، ترسیل کی تاریخ، کی طرف سے، منظوریاں، سائن اِن، پروفائل، یاد دہانیاں، لاگت، مہمان، خود رجسٹریشن',
+  'setup.page.releases.description':
+    'ریلیز کیسے بند ہوتی ہیں: ان کے بندش کوڈ، بندش کے لیے کیا درکار ہے، کون سا کھلا کام انتباہ دیتا یا روکتا ہے، اور کیا کھلے مرحلہ کام مرحلے کو روکتے ہیں۔',
+  'setup.page.releases.keywords':
+    'ریلیز, ریلیز کی ترتیبات, بندش کوڈ, بندش, واپسی, مرحلہ کام, تعیناتی',
   'setup.page.requests.description':
     'سروس کی درخواستیں: درخواست گزار کس کی طرف سے انہیں درج کر سکتے ہیں، اور درخواستوں کے منظر۔',
   'setup.page.requests.keywords': 'سروس درخواستیں، کیٹلاگ، کی طرف سے، درج کریں، درخواستیں، منظر',
@@ -688,6 +855,9 @@ export const ur: LabelResource = {
     'سائن اِن، پاس ورڈ، دو مرحلہ سائن اِن، سنگل سائن آن، سیشن اور API کلیدیں۔',
   'setup.page.security.keywords':
     'سیکیورٹی، پاس ورڈ، دو مرحلہ، سنگل سائن آن، سیشن، ٹائم آؤٹ، دعوت نامے، کلیدیں',
+  'setup.page.service-accounts.description':
+    'وہ اکاؤنٹ جن کے ذریعے دوسرے سسٹم API کلیدوں سے کام کرتے ہیں، ہر ایک کا ذمہ دار مالک اور اس کے کردار۔',
+  'setup.page.service-accounts.keywords': 'سروس اکاؤنٹس، انضمام، مالک، حوالگی، خودکاری، API',
   'setup.page.sla.description': 'سروس اہداف، کام کے اوقات، چھٹیاں اور ایسکلیشن۔',
   'setup.page.sla.keywords': 'SLA، اہداف، جوابی وقت، حل، کاروباری اوقات، کیلنڈر، چھٹیاں، ایسکلیشن',
   'setup.page.users.description': 'لوگ شامل کریں، ان کی قسم اور حالت بدلیں، فائل سے درآمد کریں۔',

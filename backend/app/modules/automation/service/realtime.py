@@ -93,6 +93,11 @@ ROUTES = [
     RealtimeRoute(("automation.workflow_instance.changed",), _instance_changed),
     RealtimeRoute(("automation.workflow_job.progressed",), _job_progressed),
     RealtimeRoute(
-        ("automation.workflow.changed", "automation.workflow.deleted"), _workflow_changed
+        (
+            "automation.workflow.changed",
+            "automation.workflow.deleted",
+            "automation.workflow.run_as_changed",
+        ),
+        _workflow_changed,
     ),
 ]

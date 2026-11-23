@@ -19,6 +19,7 @@ import {
   useAssetComponents,
   useAssetHoldings,
   useAssetLinks,
+  useAssetRecord,
   useAssetRecords,
   useAssetRelations,
   useStructure,
@@ -277,14 +278,89 @@ function LinkDialog({
  * (WP-049a s4; REQ-AST-018, 019, 026, 027). Every change refreshes live through the asset's
  * channel; links show from both ends with the wording for each side.
  */
-export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: boolean }) {
+/** Fit a free part into the asset (REQ-AST-018): the part's holder becomes this asset. */
+function FitPartDialog({
+  asset,
+  open,
+  onClose,
+}: {
+  asset: AssetRecord;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const t = useLabel();
+  const { setHolder } = useAssetRelations();
+  const [part, setPart] = useState<string>();
+  const picked = useAssetRecord(part);
+  const [problem, setProblem] = useState<string | null>(null);
+  const close = () => {
+    setPart(undefined);
+    setProblem(null);
+    onClose();
+  };
+  return (
+    <Modal
+      open={open}
+      title={t('assets.components.fit_title', { name: asset.name })}
+      cancelText={t('actions.cancel')}
+      onCancel={close}
+      footer={okFooter({
+        okText: t('assets.components.fit'),
+        loading: setHolder.isPending,
+        whyDisabled: picked.data === undefined ? t('assets.components.part_needed') : undefined,
+        onOk: () => {
+          if (picked.data === undefined) return;
+          setHolder.mutate(
+            {
+              id: picked.data.id,
+              version: picked.data.version,
+              holder: { kind: 'asset', id: asset.id },
+            },
+            {
+              onSuccess: close,
+              onError: (error) => {
+                setProblem(problemText(t, error));
+              },
+            },
+          );
+        },
+        testId: 'asset-part-fit-ok',
+      })}
+      destroyOnHidden
+    >
+      <Form layout="vertical">
+        <Form.Item label={t('assets.components.part')}>
+          <AssetPicker
+            value={part}
+            onChange={setPart}
+            exclude={asset.id}
+            testId="asset-part-pick"
+            ariaLabel={t('assets.components.part')}
+          />
+        </Form.Item>
+        {problem !== null && <Alert type="error" showIcon message={problem} />}
+      </Form>
+    </Modal>
+  );
+}
+
+export function AssetRelations({
+  asset,
+  manage,
+  parts = manage,
+}: {
+  asset: AssetRecord;
+  manage: boolean;
+  /** Fitting and removing parts: managers, and (D-157) a technician through its ticket. */
+  parts?: boolean;
+}) {
   const t = useLabel();
   const { format } = useDateTime();
   const holdings = useAssetHoldings(asset.id);
   const links = useAssetLinks(asset.id);
   const components = useAssetComponents(asset.id);
   const { setHolder, removeLink } = useAssetRelations();
-  const [dialog, setDialog] = useState<'holder' | 'link'>();
+  const [dialog, setDialog] = useState<'holder' | 'link' | 'part'>();
   const componentRows = useMemo(() => components.data?.items ?? [], [components.data]);
   return (
     <Flex vertical gap={16}>
@@ -357,13 +433,50 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
           )}
         />
       </Card>
-      <Card title={t('assets.components.title')} data-testid="asset-components">
+      <Card
+        title={t('assets.components.title')}
+        extra={
+          parts && (
+            <WriteButton
+              onClick={() => {
+                setDialog('part');
+              }}
+              data-testid="asset-part-open"
+            >
+              {t('assets.components.fit')}
+            </WriteButton>
+          )
+        }
+        data-testid="asset-components"
+      >
         <List
           size="small"
           dataSource={componentRows}
           locale={{ emptyText: <EmptyText>{t('assets.components.none')}</EmptyText> }}
           renderItem={(c) => (
-            <List.Item key={c.id}>
+            <List.Item
+              key={c.id}
+              actions={
+                parts
+                  ? [
+                      <WriteButton
+                        key="remove"
+                        size="small"
+                        loading={setHolder.isPending}
+                        onClick={() => {
+                          setHolder.mutate(
+                            { id: c.id, version: c.version, holder: null },
+                            { onError: reportError },
+                          );
+                        }}
+                        data-testid={`asset-part-remove-${c.id}`}
+                      >
+                        {t('assets.components.remove')}
+                      </WriteButton>,
+                    ]
+                  : []
+              }
+            >
               <Link to={`/assets/${c.id}`}>
                 <bdi dir="ltr">{c.tag ?? ''}</bdi> <bdi dir="auto">{c.name}</bdi>
               </Link>
@@ -430,6 +543,13 @@ export function AssetRelations({ asset, manage }: { asset: AssetRecord; manage: 
       <HolderDialog
         asset={asset}
         open={dialog === 'holder'}
+        onClose={() => {
+          setDialog(undefined);
+        }}
+      />
+      <FitPartDialog
+        asset={asset}
+        open={dialog === 'part'}
         onClose={() => {
           setDialog(undefined);
         }}

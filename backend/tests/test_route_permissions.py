@@ -2,58 +2,17 @@
 
 A route must have `require_permission(...)` or `require_signed_in()` among its dependencies, or
 be marked `@public_route` (health probes, the login flow). A route with none fails here: no
-endpoint can ship without an authorization decision.
+endpoint can ship without an authorization decision. The route walker lives in
+tooling/route_permissions.py, which also writes the code-owned route-permission map (D-168).
 """
 
-from collections.abc import Callable, Iterator
-from typing import Any
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter, Depends, FastAPI
-from fastapi.routing import APIRoute, iter_route_contexts
-
-from app.core.authorization import declared_access, public_route, require_permission
+from app.core.authorization import public_route, require_permission
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.main import create_app
 from conftest import make_settings
-
-
-def _dependencies(dependant: Any) -> Iterator[Callable[..., Any]]:  # noqa: ANN401 - FastAPI Dependant
-    stack = list(dependant.dependencies)
-    while stack:
-        current = stack.pop()
-        if current.call is not None:
-            yield current.call
-        stack.extend(current.dependencies)
-
-
-def api_routes(app: FastAPI) -> Iterator[tuple[str, str, Any, Callable[..., Any]]]:
-    """(method, path, dependant, endpoint) of every API route, included routers flattened."""
-    for context in iter_route_contexts(app.routes):
-        if not isinstance(context.original_route, APIRoute) or not str(context.path).startswith(
-            "/api/v1"
-        ):
-            continue
-        endpoint = context.endpoint
-        if endpoint is None:  # pragma: no cover - API routes always have one
-            continue
-        for method in sorted(context.methods or ()):
-            yield method, str(context.path), context.dependant, endpoint
-
-
-def unprotected_routes(app: FastAPI) -> list[str]:
-    """`METHOD path` of every route without a declared access rule."""
-    return [
-        f"{method} {path}"
-        for method, path, dependant, endpoint in api_routes(app)
-        if declared_access(list(_dependencies(dependant)), endpoint) is None
-    ]
-
-
-def access_table(app: FastAPI) -> dict[str, str]:
-    return {
-        f"{method} {path}": str(declared_access(list(_dependencies(dependant)), endpoint))
-        for method, path, dependant, endpoint in api_routes(app)
-    }
+from tooling.route_permissions import access_table, unprotected_routes
 
 
 def test_every_route_declares_its_access() -> None:
@@ -70,6 +29,10 @@ def test_the_admin_api_requires_the_right_permissions() -> None:
     assert table["PATCH /api/v1/users/{user_id}"] == "permission:profile.edit"
     assert table["GET /api/v1/entitlements"] == "signed_in"
     assert table["GET /api/v1/health"] == "public"
+    # @public_route with the BFF session dependency (CurrentSession): 401 without a session.
+    assert table["POST /api/v1/auth/logout"] == "session (BFF)"
+    assert table["GET /api/v1/auth/me"] == "session (BFF)"
+    assert table["GET /api/v1/auth/callback"] == "public"
 
 
 def test_the_guard_catches_an_unprotected_route() -> None:

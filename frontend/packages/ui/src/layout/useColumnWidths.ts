@@ -5,10 +5,13 @@ import { useListSetting, useSaveListSetting, type ListKind } from '@supportx/api
 import { ResizableHeader, type ResizableHeaderProps } from './ResizableHeader';
 
 /**
- * Resizable columns for a work-item list that has no column chooser (D-147 template C; Haider,
- * 2026-11-10): each person's widths are kept per view through the type's own `/list-settings`
- * and the same save chain as the incidents list's column moves, so quick changes never meet a
- * false conflict.
+ * Resizable columns for a list that has no column chooser (D-147 template C; Haider,
+ * 2026-11-10): each person's widths are kept per view, and the same save chain as the incidents
+ * list's column moves keeps quick changes from meeting a false conflict.
+ *
+ * `kind` picks the store: a work-item type's own `/list-settings` (`incidents`, `problems` ...),
+ * or the shared list-settings store (`assets`, `asset_consumables`; WP-049b s4a), whose saves
+ * keep the view's favourite star as it is.
  *
  * `keys` are the list's columns in order. A column nobody resized keeps its automatic width.
  */

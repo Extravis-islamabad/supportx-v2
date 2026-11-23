@@ -1,4 +1,9 @@
-import { useReleaseDetails, type Release } from '@supportx/api-client';
+import {
+  useReleaseChanges,
+  useReleaseDetails,
+  useSubReleases,
+  type Release,
+} from '@supportx/api-client';
 import {
   PropertiesPanel,
   PropertyList,
@@ -13,7 +18,9 @@ import { useOwnList } from './lists';
 
 /**
  * The release's properties on the end side (UI pass 2's record layout; QA6-REL-01): where it is,
- * what kind it is and when it is planned. Editing stays in the Details tab; this panel reads.
+ * what kind it is and when it is planned. Editing stays in the Details tab; this panel reads,
+ * so fields change only through the edit form (REQ-REL-058 AC2). Its association counts follow
+ * the record channel: a change linked from the change's own page shows here at once (AC3).
  */
 export function ReleaseProperties({ id, release }: { id: string; release: Release }) {
   const t = useLabel();
@@ -21,6 +28,8 @@ export function ReleaseProperties({ id, release }: { id: string; release: Releas
   const { format } = useDateTime();
   const details = useReleaseDetails(id).data;
   const types = useOwnList('release_type');
+  const changes = useReleaseChanges(id).data;
+  const subReleases = useSubReleases(id).data;
   const type = types.find((v) => v.code === details?.release_type);
   // D-155: only the fields that hold a value, then "Add details (n)"; never rows of "Not set".
   // The stage is the stage bar's, so it is not repeated here.
@@ -73,6 +82,21 @@ export function ReleaseProperties({ id, release }: { id: string; release: Releas
       filled: Boolean(details?.scheduled_end),
     },
   ];
+  // Counted with the ones you may not see (they show only that they are there).
+  const associations: PropertyItem[] = [
+    {
+      key: 'changes',
+      label: t('releases.tab.changes'),
+      content: changes === undefined ? null : String(changes.length),
+      filled: changes !== undefined,
+    },
+    {
+      key: 'sub-releases',
+      label: t('releases.tab.sub_releases'),
+      content: subReleases === undefined ? null : String(subReleases.length),
+      filled: subReleases !== undefined,
+    },
+  ];
   return (
     <PropertiesPanel
       testId="release-properties"
@@ -92,6 +116,11 @@ export function ReleaseProperties({ id, release }: { id: string; release: Releas
               },
             ]
           : []),
+        {
+          key: 'associations',
+          title: t('releases.associations'),
+          children: <PropertyList items={associations} testId="release-associations" />,
+        },
       ]}
     />
   );

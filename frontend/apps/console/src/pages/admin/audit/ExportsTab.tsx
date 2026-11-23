@@ -14,6 +14,7 @@ import { DateTimeRangeField, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
 import { StateTag } from './StateTag';
+import { TableRegion } from '../../../TableRegion';
 
 const STATUS_COLOURS: Record<string, string> = {
   running: 'processing',
@@ -100,75 +101,77 @@ export function ExportsTab() {
         {start.error !== null && <ProblemAlert error={start.error} />}
         {downloadError !== null && <ProblemAlert error={downloadError} />}
       </Card>
-      <Table<AuditExport>
-        rowKey="id"
-        size="small"
-        data-testid="audit-exports"
-        loading={exportsList.isPending}
-        dataSource={exportsList.data ?? []}
-        pagination={false}
-        columns={[
-          {
-            key: 'created',
-            title: t('audit.ui.export.created'),
-            render: (_, row) => dates.formatExact(row.created_at),
-          },
-          {
-            key: 'status',
-            title: t('audit.ui.export.status'),
-            render: (_, row) => (
-              <Space direction="vertical" size={0}>
-                <StateTag tone={STATUS_COLOURS[row.status]}>
-                  {t(`audit.export_status.${row.status}`)}
-                </StateTag>
-                {row.problem !== null && (
-                  <Typography.Text type="danger">{t(`errors.${row.problem}`)}</Typography.Text>
-                )}
-              </Space>
-            ),
-          },
-          {
-            key: 'range',
-            title: t('audit.ui.run.range'),
-            render: (_, row) =>
-              row.range_from === null && row.range_to === null
-                ? t('audit.ui.run.everything')
-                : `${dates.format(row.range_from)} – ${dates.format(row.range_to)}`,
-          },
-          {
-            key: 'entries',
-            title: t('audit.ui.export.entries'),
-            render: (_, row) => (row.status === 'ready' ? row.entries : null),
-          },
-          {
-            key: 'verified',
-            title: t('audit.ui.export.verified'),
-            render: (_, row) =>
-              row.verification === null ? null : t(`audit.run_status.${row.verification}`),
-          },
-          {
-            key: 'download',
-            title: t('audit.ui.export.download'),
-            render: (_, row) =>
-              row.status === 'ready' ? (
+      <TableRegion label={t('audit.ui.tab.exports')}>
+        <Table<AuditExport>
+          rowKey="id"
+          size="small"
+          data-testid="audit-exports"
+          loading={exportsList.isPending}
+          dataSource={exportsList.data ?? []}
+          pagination={false}
+          columns={[
+            {
+              key: 'created',
+              title: t('audit.ui.export.created'),
+              render: (_, row) => dates.formatExact(row.created_at),
+            },
+            {
+              key: 'status',
+              title: t('audit.ui.export.status'),
+              render: (_, row) => (
                 <Space direction="vertical" size={0}>
-                  <Button
-                    size="small"
-                    data-testid={`audit-export-download-${row.id}`}
-                    onClick={() => {
-                      void download(row);
-                    }}
-                  >
-                    {t('audit.ui.export.download')} ({sizeLabel(row.size_bytes)})
-                  </Button>
-                  <Typography.Text type="secondary">
-                    {t('audit.ui.export.expires', { time: dates.format(row.expires_at) })}
-                  </Typography.Text>
+                  <StateTag tone={STATUS_COLOURS[row.status]}>
+                    {t(`audit.export_status.${row.status}`)}
+                  </StateTag>
+                  {row.problem !== null && (
+                    <Typography.Text type="danger">{t(`errors.${row.problem}`)}</Typography.Text>
+                  )}
                 </Space>
-              ) : null,
-          },
-        ]}
-      />
+              ),
+            },
+            {
+              key: 'range',
+              title: t('audit.ui.run.range'),
+              render: (_, row) =>
+                row.range_from === null && row.range_to === null
+                  ? t('audit.ui.run.everything')
+                  : `${dates.format(row.range_from)} – ${dates.format(row.range_to)}`,
+            },
+            {
+              key: 'entries',
+              title: t('audit.ui.export.entries'),
+              render: (_, row) => (row.status === 'ready' ? row.entries : null),
+            },
+            {
+              key: 'verified',
+              title: t('audit.ui.export.verified'),
+              render: (_, row) =>
+                row.verification === null ? null : t(`audit.run_status.${row.verification}`),
+            },
+            {
+              key: 'download',
+              title: t('audit.ui.export.download'),
+              render: (_, row) =>
+                row.status === 'ready' ? (
+                  <Space direction="vertical" size={0}>
+                    <Button
+                      size="small"
+                      data-testid={`audit-export-download-${row.id}`}
+                      onClick={() => {
+                        void download(row);
+                      }}
+                    >
+                      {t('audit.ui.export.download')} ({sizeLabel(row.size_bytes)})
+                    </Button>
+                    <Typography.Text type="secondary">
+                      {t('audit.ui.export.expires', { time: dates.format(row.expires_at) })}
+                    </Typography.Text>
+                  </Space>
+                ) : null,
+            },
+          ]}
+        />
+      </TableRegion>
     </Space>
   );
 }

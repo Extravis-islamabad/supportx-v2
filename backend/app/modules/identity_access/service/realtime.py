@@ -20,10 +20,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.modules.identity_access.infra.models import User, UserRole
+from app.modules.identity_access.infra.models import GroupRole, Role, User, UserRole
 from app.modules.identity_access.service.authz_consumer import handler as authz_handler
 from app.modules.identity_access.service.directory import USERS
-from app.modules.identity_access.service.policy import authorize_stored
+from app.modules.identity_access.service.policy import UNMAPPED_DEFAULT, authorize_stored
 from app.modules.organization import memberships, users_in_groups
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -54,7 +54,26 @@ IDENTITY_LIST = LiveList("identity", "identity.manage")
 INVITATIONS_LIST = LiveList("invitations", "users.manage")
 # API keys (WP-041): every key for key managers; each owner hears of their own on their channel.
 API_KEYS_LIST = LiveList("api_keys", "api_keys.manage")
-KEY_SETTINGS = frozenset({"people_may_create_keys", "allow_non_expiring_keys"})
+# A person's cost per hour (REQ-INC-068): only for those who may see cost rates. The message
+# names the person only; the screen refetches their rates (never an amount on a channel).
+COST_RATES_LIST = LiveList("user_cost_rates", "users.view_cost_rates")
+# Field access rules (ADR-047): the role editor's field access tab.
+FIELD_ACCESS_LIST = LiveList("field_access", "roles.view")
+# Fine-grained access rules (ADR-053): the role editor's Records tab.
+RESOURCE_ACCESS_LIST = LiveList("resource_access", "roles.view")
+# The sign-in log (REQ-AUD-015): only for those who may read it; the message names nothing.
+SIGN_INS_LIST = LiveList("sign_ins", "identity.view_sign_ins")
+# GDPR erasures (ADR-052): for those who may erase; the message names the erasure only.
+ERASURES_LIST = LiveList("person_erasures", "people.erase")
+KEY_SETTINGS = frozenset(
+    {
+        "people_may_create_keys",
+        "allow_non_expiring_keys",
+        "key_max_lifetime_days",
+        "keys_require_ip_range",
+        "key_unused_days",
+    }
+)
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -96,6 +115,11 @@ CHANNELS = [
     IDENTITY_LIST.spec(),
     INVITATIONS_LIST.spec(),
     API_KEYS_LIST.spec(),
+    COST_RATES_LIST.spec(),
+    FIELD_ACCESS_LIST.spec(),
+    RESOURCE_ACCESS_LIST.spec(),
+    SIGN_INS_LIST.spec(),
+    ERASURES_LIST.spec(),
 ]
 
 
@@ -218,6 +242,72 @@ async def _role_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     )
 
 
+async def _role_holders(session: AsyncSession, role_id: uuid.UUID) -> list[uuid.UUID]:
+    """Everyone holding a role: directly, through a group, or as their type's default role."""
+    holders = set(
+        await session.scalars(select(UserRole.user_id).where(UserRole.role_id == role_id))
+    )
+    groups = frozenset(
+        await session.scalars(select(GroupRole.group_id).where(GroupRole.role_id == role_id))
+    )
+    if groups:
+        holders |= set(await session.scalars(users_in_groups(groups)))
+    key = await session.scalar(select(Role.key).where(Role.id == role_id))
+    types = [t for t, default in UNMAPPED_DEFAULT.items() if default == key]
+    if types:
+        holders |= set(
+            await session.scalars(
+                select(User.id).where(
+                    User.user_type.in_(types),
+                    User.roles_mapped_at.is_(None),
+                    User.deleted_at.is_(None),
+                    ~User.id.in_(select(UserRole.user_id)),
+                )
+            )
+        )
+    return sorted(holders)
+
+
+async def _field_access_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A field access rule changed (ADR-047): subjects stale, then the list and the role's holders.
+
+    Holders' records refetch with what they may now see. Channels stay open: a field rule changes
+    what a record shows, never who may follow it.
+    """
+    await _fresh_access(envelope)
+    tenant = envelope.tenant_id
+    role_id = uuid.UUID(str(envelope.payload["role_id"]))
+    return RealtimeEffects(
+        publications=[
+            *FIELD_ACCESS_LIST.publications(
+                tenant, "field_access.changed", role_id, actor_id=_actor(envelope)
+            ),
+            *_access_changed(tenant, await _role_holders(session, role_id)),
+        ]
+    )
+
+
+async def _resource_access_changed(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """A fine-grained access rule changed (ADR-053): subjects stale, the list, the role's holders.
+
+    Holders refetch what they hold open; a record now outside their set answers 404, and every
+    record message carries IDs only, so nothing outside the set is ever delivered.
+    """
+    await _fresh_access(envelope)
+    tenant = envelope.tenant_id
+    role_id = uuid.UUID(str(envelope.payload["role_id"]))
+    return RealtimeEffects(
+        publications=[
+            *RESOURCE_ACCESS_LIST.publications(
+                tenant, "resource_access.changed", role_id, actor_id=_actor(envelope)
+            ),
+            *_access_changed(tenant, await _role_holders(session, role_id)),
+        ]
+    )
+
+
 async def _membership_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user joined or left a site/group: their access, their record, that unit's users list."""
     del session
@@ -313,6 +403,45 @@ async def _api_key_changed(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+async def _cost_rate_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A person's rate was set, changed or removed: open rate cards of that person refetch."""
+    del session
+    return RealtimeEffects(
+        publications=COST_RATES_LIST.publications(
+            envelope.tenant_id,
+            "user_cost_rates.changed",
+            uuid.UUID(str(envelope.payload["user_id"])),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
+async def _sign_in_recorded(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A sign-in, refusal or sign-out was logged: open sign-in logs refetch (rule 5c)."""
+    del session
+    return RealtimeEffects(
+        publications=SIGN_INS_LIST.publications(
+            envelope.tenant_id,
+            "sign_ins.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=None,
+        )
+    )
+
+
+async def _erasure_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An erasure was requested, decided or moved on: open erasure screens refetch (rule 5c)."""
+    del session
+    return RealtimeEffects(
+        publications=ERASURES_LIST.publications(
+            envelope.tenant_id,
+            "person_erasures.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -338,6 +467,8 @@ ROUTES = [
     RealtimeRoute(("identity_access.user_role.changed",), _role_assignment),
     RealtimeRoute(("identity_access.group_role.changed",), _group_role_changed),
     RealtimeRoute(("identity_access.role.changed",), _role_changed),
+    RealtimeRoute(("identity_access.field_access.changed",), _field_access_changed),
+    RealtimeRoute(("identity_access.resource_access.changed",), _resource_access_changed),
     RealtimeRoute(("organization.membership.changed",), _membership_changed),
     RealtimeRoute(("licensing.entitlement.changed",), _plan_changed),
     # The technician defaults changed (D-073): like a plan change, everyone's access is redone.
@@ -348,9 +479,17 @@ ROUTES = [
             "identity_access.identity_settings.changed",
             "identity_access.sso_provider.changed",
             "identity_access.mfa.changed",
+            # Verified e-mail domains (WP-057 S5d): IDs and a change code only.
+            "identity_access.verified_domain.changed",
         ),
         _identity_changed,
     ),
-    RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
+    RealtimeRoute(
+        ("identity_access.invitation.changed", "identity_access.invitation.link_copied"),
+        _invitation_changed,
+    ),
     RealtimeRoute(("identity_access.api_key.changed",), _api_key_changed),
+    RealtimeRoute(("identity_access.user_cost_rate.changed",), _cost_rate_changed),
+    RealtimeRoute(("identity_access.sign_in.recorded",), _sign_in_recorded),
+    RealtimeRoute(("identity_access.person_erasure.changed",), _erasure_changed),
 ]

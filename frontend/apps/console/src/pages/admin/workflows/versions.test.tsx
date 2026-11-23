@@ -153,7 +153,7 @@ describe('console: workflow versions', () => {
     const box = select.closest('.ant-select')?.querySelector('.ant-select-selector');
     if (box === null || box === undefined) throw new Error('no select');
     fireEvent.mouseDown(box);
-    const option = (await screen.findAllByTitle('Wait for a change (hold)')).at(-1);
+    const option = (await screen.findAllByTitle('Wait for a change')).at(-1);
     if (option === undefined) throw new Error('no option');
     fireEvent.click(option);
     fireEvent.click(within(dialog).getByTestId('version-dry-run'));

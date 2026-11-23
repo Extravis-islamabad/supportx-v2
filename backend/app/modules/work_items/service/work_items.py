@@ -23,12 +23,26 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
 
-from sqlalchemy import ColumnElement, Select, and_, delete, exists, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    and_,
+    delete,
+    exists,
+    false,
+    func,
+    or_,
+    select,
+)
+from sqlalchemy import update as sql_update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata, service_catalog, sla
+from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import AuditActorType, RequestFacts
+from app.modules.audit import record as record_audit
 from app.modules.automation import (
     TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
 )
@@ -54,10 +68,12 @@ from app.modules.identity_access import (
     display_names,
     people_matching,
     person_placement,
+    restricted_fields,
     role_names,
     scope_filter,
     user_contacts,
     user_names,
+    worker_policy,
 )
 from app.modules.organization import (
     default_desk_id,
@@ -68,7 +84,11 @@ from app.modules.organization import (
     users_in_groups,
 )
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import change_windows as window_rules
 from app.modules.work_items.domain import changes as change_rules
+from app.modules.work_items.domain import closure as closure_rules
+from app.modules.work_items.domain import field_access as field_rules
+from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain import releases as release_rules
 from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.classification import (
@@ -82,16 +102,21 @@ from app.modules.work_items.domain.classification import (
 from app.modules.work_items.domain.closure import MOVE_FIELDS, missing_fields, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
+    DONE_CATEGORIES,
     FINAL_CATEGORIES,
+    DefaultStatus,
     PauseClock,
     ReasonList,
     ReasonMode,
     StatusCategory,
+    TransitionDef,
     WorkItemAction,
     after_assignment,
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.lists import BoardGroupBy
+from app.modules.work_items.domain.parts import TaskStatus
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.stages import (
     DEFAULT_PATH,
@@ -108,6 +133,7 @@ from app.modules.work_items.domain.templates import PickList, clean_impact_detai
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     STANDARD_LIFECYCLE,
+    TYPES,
     Channel,
     WorkItemType,
     WorkItemTypeCode,
@@ -131,6 +157,7 @@ from app.modules.work_items.events import (
 )
 from app.modules.work_items.infra.models import (
     WorkItem,
+    WorkItemApproval,
     WorkItemCategory,
     WorkItemChangeDetails,
     WorkItemConversation,
@@ -141,6 +168,7 @@ from app.modules.work_items.infra.models import (
     WorkItemRoleDef,
     WorkItemRoleHolder,
     WorkItemStageSchedule,
+    WorkItemTask,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import (
@@ -149,13 +177,15 @@ from app.modules.work_items.service import (
     change_conflicts,
     change_types,
     closing,
+    custom_values,
     followers,
+    record_roles,
     templates,
 )
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service import stages as stage_service
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import COST_TYPES, EDIT_CLOSED, RESOURCE, VIEW_COSTS
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -292,12 +322,23 @@ class WorkItemView:
     conversation: list[ActionState] = field(default_factory=list)
     following: bool = False
     conversation_count: int = 0
-    # Fields this subject may not read (problems: the root cause without view_root_cause).
+    # Fields this subject may not read: role rules (ADR-047) and the older permission gates (the
+    # root cause without view_root_cause). Both come back null and are listed by name.
     hidden: frozenset[str] = frozenset()
+    # Fields shown as masked (ADR-047): null too, listed apart so the page says "masked".
+    masked: frozenset[str] = frozenset()
+    # Fields this subject may not change (any rule; hidden and masked imply it, ADR-047 §1), so
+    # the page disables them up front rather than meeting a 403 field_read_only.
+    read_only: frozenset[str] = frozenset()
     # Problems: who last changed each analysis field, and when (REQ-PRB-030).
     analysis_changes: tuple["AnalysisChange", ...] = ()
     # Problems: closing needs the review summary (REQ-PRB-053, D-140 Q4).
     review_required: bool = False
+    # The custom values this subject may read, sealed ones opened (WP-057 S3b-2): the only custom
+    # values a route returns. None before `visible_custom` ran (a view that shows no values).
+    custom: dict[str, Any] | None = None
+    # Custom keys whose sealed value did not open (shown "unreadable", ADR-050), never empty.
+    unreadable: frozenset[str] = frozenset()
 
 
 def _now() -> datetime:
@@ -348,6 +389,17 @@ async def may_edit(
     if live is None:
         return False
     return await _may(session, subject, wtype, "edit", record_id)
+
+
+async def may_assign(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> bool:
+    """Whether `subject` may assign the record (its type's assign permission, in scope).
+
+    Mail commands ask first, before looking up any group or person a mail names, so the answer
+    never tells someone without the right whether that name exists (lane B's #485 review).
+    """
+    return await _may(session, subject, wtype, "assign", record_id)
 
 
 async def labels_of(
@@ -425,6 +477,28 @@ async def _relatives(
     return frozenset(found)
 
 
+# A who-may-run refusal (WP-029's transition settings) on a move: 403 with only its kind
+# (`not_offered` or `not_for_you`), never who it is limited to (ADR-049 §5, lane B).
+CONDITION_NOT_MET = "transition_condition_not_met"
+
+
+async def _move_refusal(
+    subject: Subject,
+    transitions: "_Transitions",
+    action: WorkItemAction,
+    step: TransitionDef | None,
+) -> str | None:
+    """ADR-049 §5 steps 3 and 4, for the offer and the move alike (one function, lane B).
+
+    Steps 1 and 2 (the record in scope, the type's right for the action) come first, as
+    before. Then the version's extra right, then who may run it and when it is offered; a
+    condition never stands in for a missing right.
+    """
+    if step is not None and step.permission is not None and not subject.holds(step.permission):
+        return NO_PERMISSION
+    return await transitions.refusal(action.value)
+
+
 class _Transitions:
     """A record's transition settings, checked for one subject (loaded once per view)."""
 
@@ -481,11 +555,11 @@ class _Transitions:
         )
 
 
-async def _view(  # noqa: C901 - one state per action and operation, flat
+async def _view(  # noqa: C901, PLR0912 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
-    lifecycle = cat.lifecycle_of(record.lifecycle)
+    lifecycle = cat.lifecycle_for(record)
     final = StatusCategory(record.status_category) in FINAL_CATEGORIES
     allowed_now = set(lifecycle.actions_from(record.status))
     reasons: dict[str, str | None] = {}
@@ -523,8 +597,8 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         ):
             refused = CANNOT_TAKE
         if refused is None:
-            # Who may run it and when it is offered (REQ-WF-003, 004).
-            refused = await transitions.refusal(action.value)
+            # The version's extra right, then who may run it and when (REQ-WF-003, 004).
+            refused = await _move_refusal(subject, transitions, action, transition)
         actions.append(
             ActionState(
                 action,
@@ -537,15 +611,25 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                     await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
                 ),
                 missing=tuple(
-                    name
-                    for name in await closing.missing_for(session, cat, record, action)
-                    if name not in MOVE_FIELDS
+                    dict.fromkeys(
+                        name
+                        for name in (
+                            *await closing.missing_for(session, cat, record, action),
+                            *(closing.move_missing(record, transition) if transition else ()),
+                        )
+                        if name not in MOVE_FIELDS
+                    )
                 ),
             )
         )
     operations: list[ActionState] = []
+    closed_edit = final and await _closed_edit_open(session, subject, wtype, record)
     for op in OPERATIONS:
         refused = await reason(op)
+        if refused is None and op == "edit" and closed_edit:
+            # WP-046b S1 (REQ-INC-101): a closed incident's fields, with the right and a reason.
+            operations.append(ActionState(op, allowed=True, reason_mode=ReasonMode.REQUIRED))
+            continue
         if refused is None and final and op != "delete":
             refused = RECORD_CLOSED
         if refused is None and op == "take":
@@ -560,7 +644,14 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             if refused is None and final:
                 refused = RECORD_CLOSED
             operations.append(ActionState(op, allowed=refused is None, reason=refused))
-    hidden = await hidden_fields(session, subject, wtype, record.id)
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    hidden = unseen.all  # the analysis trail names no withheld field either
+    # The one place a record's custom values are read for this subject (WP-057 S3b-2).
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
     analysis = (
         await _analysis_changes(session, record.id, hidden)
         if wtype.code is WorkItemTypeCode.PROBLEM
@@ -599,9 +690,41 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         conversation=conversation,
         following=await followers.current(session, record.id, subject.user_id) is not None,
         conversation_count=int(entries or 0),
-        hidden=hidden,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
         analysis_changes=analysis,
         review_required=closing.review_required(cat, record),
+        custom=shown.values,
+        unreadable=shown.unreadable,
+    )
+
+
+async def _handed_away(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> WorkItemView:
+    """The record its writer just handed out of their own reach (D-053), still redacted.
+
+    The response carries the record as saved, so the writer's field rules apply to it as to any
+    read (ADR-047 §4): a value hidden from them never comes back because they lost access.
+    """
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record.id),
+    )
+    shown = await custom_values.visible_custom(session, record.id, record.custom, unseen=unseen)
+    return WorkItemView(
+        record=record,
+        actions=[],
+        operations=[],
+        history_count=0,
+        visible=False,
+        hidden=unseen.hidden,
+        masked=unseen.masked,
+        read_only=field_rules.read_only(subject.field_access, wtype.code.value),
+        custom=shown.values,
+        unreadable=shown.unreadable,
     )
 
 
@@ -684,6 +807,56 @@ async def views_for(
     return view_predicates(subject, zone=zone, now=_now(), reports=reports)
 
 
+def _release_views(subject: Subject) -> dict[str, ColumnElement[bool]]:
+    """The release list's own views (REQ-REL-055), on its role holders and its own fields.
+
+    A release's manager and engineer are kept in two places until they are one (PROGRESS): both
+    are read, so a release is never missed from "My releases" or wrongly "Unassigned".
+    """
+    me = subject.user_id
+    held = select(WorkItemRoleHolder.work_item_id).where(
+        or_(
+            WorkItemRoleHolder.user_id == me,
+            WorkItemRoleHolder.group_id.in_(subject.group_ids) if subject.group_ids else false(),
+        )
+    )
+    named = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id == me,
+            WorkItemReleaseDetails.release_engineer_id == me,
+        )
+    )
+    staffed = select(WorkItemRoleHolder.work_item_id).where(
+        WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES))
+    )
+    staffed_by_field = select(WorkItemReleaseDetails.work_item_id).where(
+        or_(
+            WorkItemReleaseDetails.release_manager_id.is_not(None),
+            WorkItemReleaseDetails.release_engineer_id.is_not(None),
+        )
+    )
+    scheduled = select(WorkItemReleaseDetails.work_item_id).where(
+        WorkItemReleaseDetails.scheduled_start.is_not(None)
+    )
+    return {
+        "my_releases": or_(WorkItem.id.in_(held), WorkItem.id.in_(named)),  # AC1
+        "release_unassigned": and_(
+            _open(), WorkItem.id.not_in(staffed), WorkItem.id.not_in(staffed_by_field)
+        ),
+        "scheduled": and_(_open(), WorkItem.id.in_(scheduled)),
+        "unscheduled": and_(_open(), WorkItem.id.not_in(scheduled)),  # AC2
+        "deployed": or_(
+            WorkItem.status == "deployment_deployed",
+            and_(
+                WorkItem.status_category.not_in(
+                    (StatusCategory.CLOSED.value, StatusCategory.CANCELED.value)
+                ),
+                WorkItem.stage.in_(RELEASE_DEPLOYED_STAGES),
+            ),
+        ),
+    }
+
+
 def view_predicates(
     subject: Subject,
     *,
@@ -759,6 +932,23 @@ def view_predicates(
         ),
         "accepted_due_review": and_(
             WorkItem.accepted_at.is_not(None), WorkItem.accept_review_at <= now
+        ),
+        # Changes (WP-045d S2, REQ-CHG-098): at the CAB now, in implementation now, on the
+        # emergency path (open), and closed past their review date with the review still open.
+        # Releases (WP-058b S4, REQ-REL-053 AC3): a failed or rolled-back deployment.
+        "failed": WorkItem.status.in_(RELEASE_FAILED),
+        **_release_views(subject),
+        "awaiting_cab": WorkItem.status == CHANGE_AT_CAB,
+        "in_implementation": and_(_open(), WorkItem.stage == "implementation"),
+        "emergency": and_(_open(), WorkItem.stage_path == "emergency"),
+        "due_for_review": and_(
+            _open(),
+            WorkItem.stage == "review",
+            WorkItem.id.in_(
+                select(WorkItemChangeDetails.work_item_id).where(
+                    WorkItemChangeDetails.review_due_at <= now
+                )
+            ),
         ),
         "all": WorkItem.id.is_not(None),
         **_personal(subject, now=now, today_end=tomorrow),
@@ -870,12 +1060,22 @@ async def view_filters(
                 "value": [ApprovalStatus.APPROVED.value, ApprovalStatus.NOT_NEEDED.value],
             },
         ),
+        "failed": _cond("status", "in", list(RELEASE_FAILED)),
+        # Releases (WP-058b S5a): their people and schedule are the release's own tables.
+        **dict.fromkeys(RELEASE_VIEW_CODES[1:], NOT_EXPRESSIBLE),
+        "awaiting_cab": _cond("status", "eq", CHANGE_AT_CAB),
+        "in_implementation": NOT_EXPRESSIBLE,  # the stage fields are not in the DSL yet
+        "emergency": NOT_EXPRESSIBLE,
+        "due_for_review": NOT_EXPRESSIBLE,  # the review date is a change detail
         "known_errors": NOT_EXPRESSIBLE,  # the known error fields are not in the DSL yet
         "accepted_due_review": NOT_EXPRESSIBLE,
         "all": None,
         "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
         "waiting_on_me": _all(mine, _cond("status_category", "eq", StatusCategory.OPEN.value)),
+        # WP-045d S4a: approvals and the schedule are not in the DSL.
+        "pending_my_approval": NOT_EXPRESSIBLE,
+        "my_starting_today": NOT_EXPRESSIBLE,
         "updated_by_others": NOT_EXPRESSIBLE,  # "changed or written by someone else" needs SQL
         "unassigned_in_my_groups": both(
             _all(open_, _cond("technician_id", op="is_null")), in_groups
@@ -893,6 +1093,19 @@ COUNTERS = (
     "updated_by_others",
     "unassigned_in_my_groups",
 )
+# REQ-CHG-117 (WP-045d S4a): a change's own counters, beside the ones every type has; "my overdue
+# changes" is `my_overdue` (the change's SLA due time).
+CHANGE_COUNTERS = (
+    "pending_my_approval",
+    "my_starting_today",
+)
+
+
+def counter_codes(wtype: WorkItemType) -> tuple[str, ...]:
+    """The type's personal counters, in their fixed order."""
+    return (*COUNTERS, *CHANGE_COUNTERS) if wtype.code is WorkItemTypeCode.CHANGE else COUNTERS
+
+
 RECENT = timedelta(hours=24)
 
 
@@ -935,11 +1148,32 @@ def _personal(
         )
         if groups
         else WorkItem.id.is_(None),
+        # REQ-CHG-117: an approval waiting for this person (theirs, still pending), and their
+        # changes whose implementation window starts today (in the zone of the request).
+        "pending_my_approval": WorkItem.id.in_(
+            select(WorkItemApproval.work_item_id).where(
+                WorkItemApproval.approver_id == subject.user_id,
+                WorkItemApproval.state == "pending",
+                WorkItemApproval.deleted_at.is_(None),
+            )
+        ),
+        "my_starting_today": and_(
+            mine,
+            active,
+            WorkItem.id.in_(
+                select(WorkItemStageSchedule.work_item_id).where(
+                    WorkItemStageSchedule.stage == change_rules.IMPLEMENTATION,
+                    WorkItemStageSchedule.scheduled_start >= today_end - timedelta(days=1),
+                    WorkItemStageSchedule.scheduled_start < today_end,
+                )
+            ),
+        ),
     }
 
 
 # The statuses a change waits in for a stage's approval (its stages' `raised_by`).
 CHANGE_AWAITING = tuple(sorted(str(s["raised_by"]) for s in change_rules.STAGE_APPROVALS.values()))
+CHANGE_AT_CAB = str(change_rules.STAGE_APPROVALS["cab_review"]["raised_by"])
 VIEW_CODES = (
     "open",
     "my_open",
@@ -963,7 +1197,27 @@ VIEW_CODES = (
 SR_VIEW_CODES = ("pending_approval", "awaiting_fulfilment")
 PROBLEM_VIEW_CODES = ("known_errors", "accepted_due_review", "pending_approval")
 # Changes: waiting for a stage's approval (acceptance, the plan, the CAB), the change screens.
-CHANGE_VIEW_CODES = ("pending_approval",)
+# WP-045d S2 adds the CAB's own view and the change states people look for (REQ-CHG-098).
+# Releases: their failed and rolled-back deployments (REQ-REL-053 AC3), reportable.
+RELEASE_FAILED = ("deployment_failed", "deployment_rolled_back")
+# WP-058b S5a (REQ-REL-055): mine (any release role), nobody to run it, (un)scheduled, deployed.
+RELEASE_VIEW_CODES = (
+    "failed",
+    "my_releases",
+    "release_unassigned",
+    "scheduled",
+    "unscheduled",
+    "deployed",
+)
+# Deployed and not closed yet: the deployment done, training and review to come or under way.
+RELEASE_DEPLOYED_STAGES = ("training", "review")
+CHANGE_VIEW_CODES = (
+    "pending_approval",
+    "awaiting_cab",
+    "in_implementation",
+    "emergency",
+    "due_for_review",
+)
 COUNT_CAP = 1000
 
 
@@ -975,6 +1229,8 @@ def view_codes(wtype: WorkItemType) -> tuple[str, ...]:
         return (*VIEW_CODES[:-1], *PROBLEM_VIEW_CODES, VIEW_CODES[-1])
     if wtype.code is WorkItemTypeCode.CHANGE:
         return (*VIEW_CODES[:-1], *CHANGE_VIEW_CODES, VIEW_CODES[-1])
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        return (*VIEW_CODES[:-1], *RELEASE_VIEW_CODES, VIEW_CODES[-1])
     return VIEW_CODES
 
 
@@ -1042,6 +1298,58 @@ async def view_counts(
     return found
 
 
+# A board's columns by what they group on (REQ-INC-111): the record's own column.
+BOARD_COLUMNS: dict[BoardGroupBy, Any] = {
+    BoardGroupBy.STATUS: WorkItem.status,
+    BoardGroupBy.PRIORITY: WorkItem.priority,
+    BoardGroupBy.TECHNICIAN: WorkItem.technician_id,
+    BoardGroupBy.GROUP: WorkItem.group_id,
+}
+
+
+async def board_counts(  # noqa: PLR0913 - the list's own narrowing, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    query: ListQuery,
+    *,
+    group_by: BoardGroupBy,
+    view: str | None,
+    zone: tzinfo,
+    tag: str | None = None,
+) -> list[tuple[str | None, int]]:
+    """(column key, count) for a board: the list's own query, counted per column.
+
+    Lane C's condition 1: the count is of the same statement the list pages (scope, view, tag
+    and filter), so it only ever counts records the reader may see. Column order is stable,
+    never by count, so cards don't jump about (the coordinator): statuses in their workflow
+    order and priorities by rank, every one shown even when empty; technicians and groups by
+    key, with the unassigned column (None) last.
+    """
+    await config.ensure_seeded(session, wtype)
+    statement = await narrowed(
+        session, subject, staff_rows(subject, wtype), view=view, zone=zone, tag=tag
+    )
+    column = BOARD_COLUMNS[group_by]
+    filtered = statement.where(query.where).with_only_columns(column.label("key"), WorkItem.id)
+    counted = filtered.subquery()
+    rows = (
+        await session.execute(select(counted.c.key, func.count()).group_by(counted.c.key))
+    ).all()
+    found: dict[str | None, int] = {(None if key is None else str(key)): int(n) for key, n in rows}
+    if group_by in {BoardGroupBy.STATUS, BoardGroupBy.PRIORITY}:
+        cat = await config.load(session, wtype)
+        if group_by is BoardGroupBy.STATUS:
+            fixed = [s.code for s in cat.statuses if not s.disabled or s.code in found]
+        else:
+            ranked = sorted((v for v in cat.scales if v.scale == "priority"), key=lambda v: v.rank)
+            fixed = [v.code for v in ranked]
+        extra = sorted(k for k in found if k is not None and k not in fixed)
+        return [(k, found.get(k, 0)) for k in (*fixed, *extra)]
+    keyed = sorted(k for k in found if k is not None)
+    return [(k, found[k]) for k in keyed] + ([(None, found[None])] if None in found else [])
+
+
 # Fields whose history values are user IDs: the page names them (QA BUG-03).
 PERSON_FIELDS = frozenset(
     {
@@ -1053,6 +1361,12 @@ PERSON_FIELDS = frozenset(
         "task.owner_id",  # WP-020e
     }
 )
+
+
+# History fields that are money: their values only for those who may see the record's costs
+# (D-164: `<type>.view_costs`); others see them as MASKED.
+MONEY_FIELDS = frozenset({"task.extra_cost"})
+MASKED: dict[str, bool] = {"masked": True}
 
 
 async def history(  # noqa: PLR0913 - paging options, explicit
@@ -1074,11 +1388,47 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
-    hidden = await hidden_fields(session, subject, wtype, record_id)
-    if hidden:  # the root cause stays out of the history too (D-140 Q7)
+    # Withheld fields stay out of the history too: hidden ones (role rules, ADR-047, and the root
+    # cause without view_root_cause, D-140 Q7) are left out; masked ones keep the line (that it
+    # changed, when, by whom) but never the values, as money does below.
+    unseen = field_rules.unseen(
+        subject.field_access,
+        wtype.code.value,
+        also_hidden=await hidden_fields(session, subject, wtype, record_id),
+    )
+    if unseen.all:
         entries = [
-            replace(e, changes=[c for c in e.changes if c.field not in hidden]) for e in entries
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in unseen.masked else c
+                    for c in e.changes
+                    if c.field not in unseen.hidden
+                ],
+            )
+            for e in entries
         ]
+    # Sealed custom values open for their own cell, only those the strip above left (WP-057
+    # S3b-2, lane B's #520 review); a value that does not open becomes the hidden line.
+    entries = await custom_values.open_history(session, RECORD_TYPE, record_id, entries)
+    # A task's extra cost is money (D-164): only with the type's cost right, as the task API
+    # shows it (lane B's #442 review). Others keep the line (that it changed, when, by whom) but
+    # never the amounts. A type without the right keeps S1's rule, those who may edit.
+    money_right = VIEW_COSTS if wtype.code in COST_TYPES else "edit"
+    if any(c.field in MONEY_FIELDS for e in entries for c in e.changes) and not await _may(
+        session, subject, wtype, money_right, record_id
+    ):
+        entries = [
+            replace(
+                e,
+                changes=[
+                    Change(c.field, MASKED, MASKED) if c.field in MONEY_FIELDS else c
+                    for c in e.changes
+                ],
+            )
+            for e in entries
+        ]
+    entries = await _unseen_links_hidden(session, subject, entries)
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1098,6 +1448,62 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
+
+
+def _link_target(value: object) -> uuid.UUID | None:
+    if isinstance(value, dict) and value.get("id"):
+        try:
+            return uuid.UUID(str(value["id"]))
+        except ValueError:
+            return None
+    return None
+
+
+async def _unseen_links_hidden(
+    session: AsyncSession, subject: Subject, entries: list[HistoryEntry]
+) -> list[HistoryEntry]:
+    """A link's other record shows in history only if the reader may see it.
+
+    A link change holds the other record's ID and number; the links list already hides a side
+    the reader may not see, and history must too: the line stays (a link was added or removed,
+    of which kind), the other record becomes "a record you can't open" (`hidden`), never its
+    number or ID. Each other record is checked by its own type's view right (lane C).
+    """
+    targets = {
+        target
+        for e in entries
+        for c in e.changes
+        if c.field == "link"
+        for target in (_link_target(c.old), _link_target(c.new))
+        if target is not None
+    }
+    if not targets:
+        return entries
+    seen: set[uuid.UUID] = set()
+    for target in targets:
+        kind = await session.scalar(select(WorkItem.type).where(WorkItem.id == target))
+        other = TYPES.get(WorkItemTypeCode(kind)) if kind is not None else None
+        if other is not None and await _may(session, subject, other, "view", target):
+            seen.add(target)
+    if targets <= seen:
+        return entries
+
+    def shown(value: Any) -> Any:  # noqa: ANN401 - a stored history value
+        target = _link_target(value)
+        if target is None or target in seen:
+            return value
+        return {"kind": value.get("kind"), "id": None, "display_id": None, "hidden": True}
+
+    return [
+        replace(
+            e,
+            changes=[
+                Change(c.field, shown(c.old), shown(c.new)) if c.field == "link" else c
+                for c in e.changes
+            ],
+        )
+        for e in entries
+    ]
 
 
 async def assignees(  # noqa: PLR0913 - search options, explicit
@@ -1211,7 +1617,7 @@ async def _check_units(session: AsyncSession, values: Mapping[str, Any]) -> list
     return problems
 
 
-def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
+def _check_fields(  # noqa: C901, PLR0912, PLR0915 - one rule per field, flat
     values: Mapping[str, Any], *, creating: bool
 ) -> tuple[dict[str, Any], list[tuple[str, str]]]:
     """Pure field rules; returns the cleaned values and (field, code) problems."""
@@ -1250,10 +1656,19 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             if value is not None and value not in set(enum):
                 problems.append((name, "invalid_choice"))
             cleaned[name] = value
+    if "first_contact_resolution" in values:  # REQ-INC-102: the technician's word on it
+        flag = values["first_contact_resolution"]
+        if flag is not None and not isinstance(flag, bool):
+            problems.append(("first_contact_resolution", "invalid_choice"))
+        cleaned["first_contact_resolution"] = flag
     if "impact_details" in values:
         details, codes = clean_impact_details(values["impact_details"])
         problems += [("impact_details", c) for c in codes]
         cleaned["impact_details"] = details
+    if "notify_emails" in values:  # WP-046a S6 (REQ-INC-066): people kept informed by e-mail
+        kept, found = kept_informed.problems(list(values["notify_emails"] or []))
+        problems += found
+        cleaned["notify_emails"] = kept
     if "level" in values:
         cleaned["level"] = values["level"] or None
     for name in PROBLEM_FIELDS:
@@ -1444,6 +1859,38 @@ async def _analysis_changes(
     )
 
 
+def _given(values: Mapping[str, Any], defaults: Mapping[str, Any]) -> list[str]:
+    """The fields a create's input fills in (`custom.<key>` for custom ones).
+
+    Not an empty one, and not one holding the chosen template's own default: the form sends the
+    template's values back as it shows them, and that is the template's choice, not the
+    person's (lane B's #503 review; the same rule as a locked field's).
+    """
+
+    def filled(name: str, value: Any) -> bool:  # noqa: ANN401 - any JSON value
+        return value not in (None, "", [], {}) and _json(value) != _json(defaults.get(name))
+
+    return [n for n, v in values.items() if n != "custom" and filled(n, v)] + [
+        f"custom.{k}" for k, v in (values.get("custom") or {}).items() if filled(f"custom.{k}", v)
+    ]
+
+
+def require_writable(subject: Subject, wtype: WorkItemType, changed: Sequence[str]) -> None:
+    """403 `field_read_only` when a person changes a field their roles may only read (ADR-047 §8).
+
+    `changed` names really changed fields (`custom.<key>` for custom ones), so a form sending a
+    read-only value back unchanged passes. A service identity's writes (a workflow's, a
+    connector's) are system writes and pass; what they read is still restricted.
+    """
+    if not subject.person:
+        return
+    locked = field_rules.refused(
+        changed, field_rules.read_only(subject.field_access, wtype.code.value)
+    )
+    if locked:
+        raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
+
+
 async def hidden_fields(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> frozenset[str]:
@@ -1518,6 +1965,8 @@ SNAPSHOT_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3)
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -1545,8 +1994,14 @@ async def _custom_text(
 ) -> str | None:
     """Free text kept on the record for search (WP-026, WP-027).
 
-    Custom values, and a release's version and build reference (REQ-REL-005 AC1).
+    Custom values, and a release's version and build reference (REQ-REL-005 AC1). Not a custom
+    field any role restricts (ADR-047 §6): nobody finds a record by a value someone may not see.
     """
+    from app.modules.work_items.service.search_rebuild import withheld_keys  # noqa: PLC0415 - a cycle
+
+    if custom:
+        withheld = await withheld_keys(session, wtype.code.value)
+        custom = {k: v for k, v in custom.items() if k not in withheld}
     parts = [await metadata.text_for_search(session, wtype.code.value, custom) if custom else None]
     if record_id is not None and wtype.code is WorkItemTypeCode.RELEASE:
         details = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), record_id))
@@ -1558,6 +2013,29 @@ async def _custom_text(
             )
     text = " ".join(p for p in parts if p)
     return text or None
+
+
+custom_text_for = _custom_text  # the search text rebuild (service/search_rebuild.py)
+
+
+async def _custom_columns(
+    session: AsyncSession, wtype: WorkItemType, custom: Mapping[str, Any], record_id: uuid.UUID
+) -> dict[str, Any]:
+    """A saved record's `custom` (sensitive values sealed) and `custom_text`, index kept in step.
+
+    Every writer of an existing record's custom values goes through it (WP-057 S3b-2).
+    """
+    sealed = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await custom_values.write_index(session, record_id, sealed.index)
+    return {
+        "custom": sealed.stored,
+        "custom_text": await _custom_text(session, wtype, sealed.stored, record_id),
+    }
 
 
 def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
@@ -1621,13 +2099,27 @@ def _audience(record: WorkItem) -> Audience:
 
 
 async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID) -> Conflict:
-    return await explain_conflict(
+    """The 409 with what changed since, restricted fields named only "restricted".
+
+    ADR-047 §7: a field's name alone says a value changed that someone may not see.
+    """
+    explained = await explain_conflict(
         session,
         error,
         record_type=RECORD_TYPE,
         record_id=record_id,
         names=lambda ids: display_names(session, ids),
     )
+    named = str(explained.params.get("changed_fields") or "")
+    record_type = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
+    restricted = (
+        await restricted_fields(session, str(record_type)) if named and record_type else frozenset()
+    )
+    if not restricted:
+        return explained
+    fields = dict.fromkeys("restricted" if f in restricted else f for f in named.split(","))
+    params = {**explained.params, "changed_fields": ",".join(fields)}
+    return Conflict(code=explained.instance_code, params=params, headers=explained.headers)
 
 
 async def _update(
@@ -1720,8 +2212,12 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
     target: str,
     reason_code: str | None,
     reason_text: str | None,
+    actor: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Column changes of a status move: category, reason, pause clock and time stamps."""
+    """Column changes of a status move: category, reason, pause clock and time stamps.
+
+    `actor` (a person's move) is who resolves, for the first-contact suggestion (REQ-INC-102).
+    """
     cat = await config.load(session, wtype)
     old = StatusCategory(record.status_category)
     new = cat.lifecycle.category(target)
@@ -1759,7 +2255,21 @@ async def _status_change(  # noqa: PLR0913 - the record, the move and its contex
             "last_reopened_at": now,
             "resolved_at": None,
             "closed_at": None,
+            "first_contact_resolution": None,  # the next resolution decides it again
         }
+    elif (
+        wtype.code is WorkItemTypeCode.INCIDENT
+        and "resolved_at" in changes
+        and record.first_contact_resolution is None
+    ):  # REQ-INC-102: suggested at the first resolution; the technician confirms or changes it
+        changes["first_contact_resolution"] = closure_rules.first_contact(
+            created_by=record.created_by,
+            created_at=record.created_at,
+            reassignments=record.reassignment_count,
+            resolved_by=actor,
+            resolved_at=now,
+            minutes=cat.closure.first_contact_minutes,
+        )
     return changes
 
 
@@ -1773,6 +2283,7 @@ STAMP_FIELDS = (
     # WP-020f: the fix and the closure code; history keeps them after a reopen (REQ-INC-097).
     "resolution",
     "closure_code",
+    "first_contact_resolution",  # WP-046b S1 (REQ-INC-102 AC3): the suggestion, recorded
 )
 
 
@@ -1818,6 +2329,17 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
+
+
+async def _end_timers(session: AsyncSession, record: WorkItem) -> None:
+    """Resolved, closed or canceled: running timers become their owners' drafts (REQ-INC-069)."""
+    if StatusCategory(record.status_category) not in DONE_CATEGORIES:
+        return
+    # Imported here: the timer service builds on this module (WP-046a S3).
+    from app.modules.work_items.service import timers  # noqa: PLC0415 - see above
+
+    await timers.save_drafts(session, record)
 
 
 def _closed(record: WorkItem) -> bool:
@@ -1901,16 +2423,28 @@ async def _rules_on_edit(
     that group afterwards (REQ-ASG-001 "on move"), never outside it.
     """
     facts = await automation.requester_facts(session, record.requester_id)
-    before = {**_snapshot(record), **automation.flat_custom(record.custom), **facts}
+    # Rules read values, never ciphertext: sealed ones opened for the system (lane A, S3b-2).
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
+    before = {**_snapshot(record), **automation.flat_custom(plain_custom), **facts}
     edited = {
         name: _json(value)
         for name, value in columns.items()
         if name not in {"custom", "custom_text"}
     }
     if "custom" in columns:
-        current_custom = automation.flat_custom(record.custom)
+        current_custom = automation.flat_custom(plain_custom)
         edited |= dict.fromkeys(current_custom)
-        edited |= automation.flat_custom(columns["custom"])
+        edited |= automation.flat_custom(
+            (
+                await custom_values.visible_custom(
+                    session, record.id, columns["custom"], unseen=field_rules.Unseen()
+                )
+            ).values
+        )
     automated = await automation.automate(
         session,
         wtype,
@@ -1934,8 +2468,8 @@ async def _rules_on_edit(
         columns["priority_source"] = PrioritySource.RULE
     if custom_changes:
         merged = {**(columns.get("custom", record.custom) or {}), **custom_changes}
-        columns["custom"] = {k: v for k, v in merged.items() if v is not None}
-        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"], record.id)
+        kept = {k: v for k, v in merged.items() if v is not None}
+        columns.update(await _custom_columns(session, wtype, kept, record.id))
     return automated
 
 
@@ -1951,14 +2485,24 @@ async def _record_automation(
     session: AsyncSession, record: WorkItem, automated: automation.Automated
 ) -> None:
     """One history entry per rule, routing and assignment step, and the run log (REQ-WI-004)."""
+    sealed = await custom_values.sealing_keys(session, record.type) if automated.entries else None
     for ref, changes in automated.entries:
+        # A rule that set a sensitive field: its values reach history sealed (WP-057 S3b-2).
+        entry = await custom_values.seal_history(
+            session,
+            RECORD_TYPE,
+            record.id,
+            record.version,
+            [Change(name, old, new) for name, old, new in changes],
+            sealed_keys=sealed or frozenset(),
+        )
         await record_changes(
             session,
             record_type=RECORD_TYPE,
             record_id=record.id,
             version=record.version,
             kind="updated",
-            changes=[Change(name, old, new) for name, old, new in changes],
+            changes=entry,
             source="rule",
             automation_ref=ref,
         )
@@ -2220,7 +2764,16 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     group (history: "routed to the group of the way it came in").
     """
     cat = await config.load(session, wtype)
+    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
+    # The template's form rules first (REQ-INC-037): what they set or clear is then checked
+    # like any other input, and what they refuse is reported with the other field errors.
+    # What the person filled in themselves (before the form rules): a read-only field they may
+    # not set (ADR-047 §8); values a rule sets are the server's, not theirs.
+    require_writable(subject, wtype, _given(values, template.defaults or {}))
+    ruled = await templates.apply_form_rules(session, wtype, template, values, before=None)
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=True)
+    problems += ruled.problems
     manual, priority_reason, priority_problems = _priority_input(values)
     problems += priority_problems
     if manual is not None and not subject.holds(wtype.permission("change_priority")):
@@ -2241,10 +2794,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
-    template = await templates.for_create(session, wtype, values.get("template_id"), subject)
-    problems += await templates.required_problems(
-        session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
-    )
+    problems += [
+        p
+        for p in await templates.required_problems(
+            session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
+        )
+        if p not in problems  # a rule's "required" already said it
+    ]
     new_change, change_problems = change_types.prepare(wtype, cat, values, template)
     problems += change_problems + change_types.problems_for(wtype, values)
     problems += _check_level(cat, cleaned.get("level"), current=None)
@@ -2271,6 +2827,9 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     # A staged type starts in its path's first stage and that stage's first status (ADR-041).
     stage_columns = await _first_stage(
         session, wtype, template, new_change.path if new_change is not None else None
+    )
+    chosen_lifecycle = (
+        template.lifecycle if template.lifecycle in cat.lifecycles else STANDARD_LIFECYCLE
     )
     await change_types.retrospective_start(session, wtype, new_change, stage_columns)
     initial, group_id, technician_id = _from_item(
@@ -2319,6 +2878,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     )
     now = _now()
     number = await next_display_number(session, wtype.counter_key)
+    # Sensitive values sealed under the new record's ID before it is written (WP-057 S3b-2).
+    new_custom = await custom_values.seal_custom(
+        session,
+        record_id,
+        custom or {},
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     record = WorkItem(
         id=record_id,
         type=wtype.code,
@@ -2337,19 +2903,25 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         category_id=cleaned.get("category_id"),
         impact=cleaned.get("impact"),
         impact_details=cleaned.get("impact_details"),
+        notify_emails=cleaned.get("notify_emails") or [],
         urgency=cleaned.get("urgency"),
         priority=priority,
         priority_source=priority_source,
         level=cleaned.get("level"),
         **{name: cleaned.get(name) for name in (*PROBLEM_FIELDS, *ANALYSIS_FIELDS)},
         template_id=template.id,
-        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025).
-        lifecycle=template.lifecycle
-        if template.lifecycle in cat.lifecycles
-        else STANDARD_LIFECYCLE,
+        # The template's transition set, if the type has it (WP-044a s4, REQ-PRB-025), at its
+        # latest published version: the record keeps that version (ADR-049 §3). A staged type's
+        # version comes with its stage columns.
+        lifecycle=chosen_lifecycle,
+        **(
+            {}
+            if "lifecycle_version" in stage_columns
+            else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
+        ),
         **_item_columns(item, values),
-        custom=custom or {},
-        custom_text=await _custom_text(session, wtype, custom or {}),
+        custom=new_custom.stored,
+        custom_text=await _custom_text(session, wtype, new_custom.stored),
         status=initial,
         status_category=cat.lifecycle.category(initial),
         status_changed_at=now,
@@ -2365,6 +2937,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     for name, value in stamped.items():  # the same insert: the record is still at version 1
         setattr(record, name, value)
     await session.flush()
+    await custom_values.write_index(session, record_id, new_custom.index)
     await stage_service.start(session, record, now=now)
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
@@ -2388,13 +2961,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     }
     own = await change_types.store(session, record, new_change)  # a change's type and reason
     roles_filled = await change_types.fill_line_manager(session, record)
-    await record_changes(
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    created = await custom_values.seal_history(
         session,
-        record_type=RECORD_TYPE,
-        record_id=record.id,
-        version=record.version,
-        kind="created",
-        changes=[
+        RECORD_TYPE,
+        record.id,
+        record.version,
+        [
             *(
                 Change(name, None, value)
                 for name, value in {**by_person, **own}.items()
@@ -2402,6 +2975,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             ),
             *roles_filled,
         ],
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="created",
+        changes=created,
         source=source,
         reason=priority_reason,
     )
@@ -2422,6 +3004,20 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     await approval_stage.after_submission(  # REQ-SR-021
         session, record, item, source=source, holders=holders
     )
+    if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
+        # Imported here: the task service builds on this module (WP-046a S1).
+        from app.modules.work_items.service import task_templates  # noqa: PLC0415 - see above
+
+        await task_templates.add_template_tasks(
+            session, subject, wtype, record, template.tasks, source=source
+        )
+    if template.checklists:  # REQ-INC-040: the template's checklists whose condition matches
+        # Imported here: the checklist service builds on this module (WP-046a S2).
+        from app.modules.work_items.service import checklists  # noqa: PLC0415 - see above
+
+        await checklists.add_template_checklists(
+            session, wtype, record, template.checklists, source=source
+        )
     if change_types.pre_approved(new_change):  # REQ-CHG-006: a standard change, approved now
         record = await _stage_move(
             session,
@@ -2437,16 +3033,14 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         )
     if technician_id is not None and cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(record.lifecycle),
+            cat.lifecycle_for(record),
             record.status,
             had_technician=False,
             has_technician=True,
         )
         if move is not None:
             before = _snapshot(record, STAMP_FIELDS)
-            target = cat.lifecycle_of(record.lifecycle).target(
-                record.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(record).target(record.status, move, before_cancel=None)
             changes = await _status_change(
                 session, wtype, record, move, target=target, reason_code=None, reason_text=None
             )
@@ -2456,13 +3050,76 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             )
     await _follow_after_handover(session, subject, record, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=record, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, record)
     return await _view(session, subject, wtype, record)
 
 
 # --- edit -----------------------------------------------------------------------------------------
+
+
+CLOSED_EDITED = "incident.closed_edited"
+EDIT_REASON_MAX = 500  # as every other reason in history
+
+
+def _closed_not_merged(record: WorkItem) -> bool:
+    """Whether REQ-INC-101's closed-edit may open this record.
+
+    A closed incident only: never a canceled one (REQ-INC-100 AC2), nor one the system closed by
+    a merge (its own move, undo, is the way back).
+    """
+    return (
+        StatusCategory(record.status_category) is StatusCategory.CLOSED
+        and record.status != DefaultStatus.MERGED.value
+    )
+
+
+async def _may_edit_closed(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem, cat: Catalogue
+) -> None:
+    """A closed record's fields: an incident's, with `incidents.edit_closed`, unless locked.
+
+    The tenant's full lock outranks the right, tenant administrators included (lane B); other
+    types stay read-only once closed. Reopening is a move of its own, never this.
+    """
+    if (
+        wtype.code is not WorkItemTypeCode.INCIDENT
+        or not _closed_not_merged(record)
+        or cat.closure.closed_edit_locked
+    ):
+        raise Conflict(
+            code=RECORD_CLOSED,
+            params={"status": record.status, "locked": cat.closure.closed_edit_locked},
+        )
+    if not await _may(session, subject, wtype, EDIT_CLOSED, record.id):
+        # Without the right the record is simply closed to them (the answer it always gave).
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status, "locked": False})
+
+
+async def _closed_edit_open(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> bool:
+    """Whether the subject may edit this closed record's fields now (what the page offers)."""
+    if wtype.code is not WorkItemTypeCode.INCIDENT or not _closed_not_merged(record):
+        return False
+    cat = await config.load(session, wtype)
+    if cat.closure.closed_edit_locked:
+        return False
+    return await _may(session, subject, wtype, EDIT_CLOSED, record.id)
+
+
+def _edit_reason(
+    cat: Catalogue, columns: Mapping[str, Any], reason: str | None, *, closed: bool
+) -> str | None:
+    """The edit's reason, checked: required on a closed record and for the tenant's fields."""
+    why = (reason or "").strip() or None
+    if why is not None and len(why) > EDIT_REASON_MAX:
+        raise _errors([("reason", "value_too_long")], reason={"max": str(EDIT_REASON_MAX)})
+    named = {n for n in columns if n != "custom"} | {
+        f"custom.{key}" for key in (columns.get("custom") or {})
+    }
+    if why is None and (closed or named & cat.closure.edit_reason_fields):
+        raise _errors([("reason", "required")])
+    return why
 
 
 async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one version, one change set
@@ -2474,15 +3131,41 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    reason: str | None = None,
+    facts: RequestFacts | None = None,
 ) -> WorkItemView:
-    """Edit fields (never status or assignment). Unchanged input: no new version, no event."""
+    """Edit fields (never status or assignment). Unchanged input: no new version, no event.
+
+    `reason` (REQ-INC-124) goes into history; it is required to edit a closed incident (with
+    `incidents.edit_closed`, REQ-INC-101) and for the fields the tenant names. `facts` are the
+    request's, for the audit entry of a closed incident's edit (a worker's without them).
+    """
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
-    if _closed(record):
-        raise Conflict(code="record_closed", params={"status": record.status})
     cat = await config.load(session, wtype)
+    closed = _closed(record)
+    if closed:
+        await _may_edit_closed(session, subject, wtype, record, cat)
+    # The record's custom values as they read, sealed ones opened for the system (WP-057 S3b-2):
+    # form rules, validation and change detection compare values, never ciphertext.
+    plain_custom = (
+        await custom_values.visible_custom(
+            session, record.id, record.custom, unseen=field_rules.Unseen()
+        )
+    ).values
+    # The record's template's form rules (REQ-INC-037), on the record as this edit leaves it.
+    ruled = await templates.apply_form_rules(
+        session,
+        wtype,
+        await templates.of_record(session, record.template_id),
+        values,
+        before={name: getattr(record, name) for name in templates.FORM_FIELDS},
+        before_custom=plain_custom,
+    )
+    values = ruled.values
     cleaned, problems = _check_fields(values, creating=False)
+    problems += ruled.problems
     priority_sent = "priority" in values
     manual, priority_reason, priority_problems = (
         _priority_input(values) if priority_sent else (None, None, [])
@@ -2498,12 +3181,13 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         session, subject, wtype, record, [n for n in ANALYSIS_FIELDS if n in cleaned]
     )
     # Only a changed value counts: a form may send back a read-only field unchanged.
-    custom_now = record.custom or {}
+    custom_now = plain_custom
     sent = [
         n
         for n, v in values.items()
         if n != "custom" and _json(getattr(record, n, None)) != _json(v)
     ] + [f"custom.{k}" for k, v in (values.get("custom") or {}).items() if custom_now.get(k) != v]
+    require_writable(subject, wtype, sent)
     problems += await _read_only_problems(session, record, sent)
     if problems:
         raise _errors(problems)
@@ -2520,27 +3204,27 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         problems += _check_level(cat, cleaned["level"], current=record.level)
     problems += _check_problem_fields(wtype, cat, cleaned, record)
     custom, custom_problems = await _custom_in(
-        session, wtype, values, current=record.custom or {}, creating=False
+        session, wtype, values, current=plain_custom, creating=False
     )
     problems += custom_problems
-    emptied = {
-        f"custom.{k}": None for k in (record.custom or {}) if custom is not None and k not in custom
-    }
+    emptied = {f"custom.{k}": None for k in plain_custom if custom is not None and k not in custom}
     problems += await templates.emptied_required(
         session,
         record.template_id,
         {
             **{name: getattr(record, name) for name in cleaned},
-            **_flat(record.custom or {}),
+            **_flat(plain_custom),
         },
         {**cleaned, **(_flat(custom) if custom is not None else {}), **emptied},
     )
     if problems:
         raise await _value_errors(session, wtype, problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
+    if custom is not None:
+        # A sealed value sent back unchanged stays the stored ciphertext (no change, no history).
+        custom = await custom_values.unchanged_sealed(session, record.id, record.custom, custom)
     if custom is not None and custom != (record.custom or {}):
-        columns["custom"] = custom
-        columns["custom_text"] = await _custom_text(session, wtype, custom, record.id)
+        columns.update(await _custom_columns(session, wtype, custom, record.id))
     automated = automation.Automated()
     if columns:
         # Business rules on the edit (REQ-RUL-001, 006), before the priority matrix.
@@ -2564,6 +3248,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         if record.version != expected_version:
             raise await _conflict(session, _stale(record, expected_version), record.id)
         return await _view(session, subject, wtype, record)
+    why = _edit_reason(cat, columns, reason, closed=closed)
     before = _snapshot(record)
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
@@ -2591,6 +3276,15 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         for n, v in after.items()
         if before[n] != v and n not in automatic and n not in by_rules
     ]
+    # Sealed custom values reach history sealed for their own cell (WP-057 S3b-2).
+    people = await custom_values.seal_history(
+        session,
+        RECORD_TYPE,
+        updated.id,
+        updated.version,
+        people,
+        sealed_keys=await custom_values.sealing_keys(session, wtype.code.value),
+    )
     if people:
         await record_changes(
             session,
@@ -2600,7 +3294,19 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             kind="updated",
             changes=people,
             source=source,
-            reason=priority_reason,
+            reason=why or priority_reason,
+        )
+    if closed and people:  # REQ-INC-101 AC2: each edit of a closed incident is audited
+        await record_audit(
+            session,
+            action_code=CLOSED_EDITED,
+            facts=facts or AUDIT_WORKER,
+            actor=(AuditActorType.PERSON, subject.user_id),
+            object_type=wtype.code.value,
+            object_id=str(updated.id),
+            # The field names, never their values (lane B; the record's history has those).
+            details={"fields": sorted(c.field for c in people)},
+            reason=why,
         )
     if recomputed:
         await record_changes(
@@ -2646,9 +3352,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 
@@ -2680,13 +3384,11 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     """
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
+    # ADR-049 §5 steps 1-2: in scope (404 otherwise) and the type's right for the action.
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
-    refused = await _Transitions(session, subject, record).refusal(action.value)
-    if refused is not None:
-        raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
+        step = cat.lifecycle_for(record).transition(record.status, action)
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -2699,6 +3401,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise _errors(problems, reason_text={"max_length": 500})
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    # Steps 3-4, with the facts read now, after the If-Match check and in this transaction
+    # (the group, the requester or a manager may have changed since the buttons were shown).
+    refused = await _move_refusal(subject, _Transitions(session, subject, record), action, step)
+    if refused == NO_PERMISSION:
+        raise PermissionDenied(params={"permission": step.permission, "reason": NO_PERMISSION})
+    if refused is not None:
+        raise PermissionDenied(code=CONDITION_NOT_MET, params={"kind": refused})
+    closing.check_move_fields(record, step)
     if action == WorkItemAction.START_WORK and record.technician_id is None:
         if await _reason_for(session, subject, wtype, "take", record.id) is not None:
             raise PermissionDenied(
@@ -2721,8 +3431,8 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         record = taken.record
         expected_version = record.version
     try:
-        step = cat.lifecycle_of(record.lifecycle).transition(record.status, action)
-        target = cat.lifecycle_of(record.lifecycle).target(
+        step = cat.lifecycle_for(record).transition(record.status, action)
+        target = cat.lifecycle_for(record).target(
             record.status,
             action,
             before_cancel=record.status_before_cancel,
@@ -2737,7 +3447,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
+        session,
+        wtype,
+        record,
+        action,
+        target=target,
+        reason_code=reason_code,
+        reason_text=text,
+        actor=subject.user_id,
     )
     changes.update(closing_step.changes)
     # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they
@@ -2875,6 +3592,8 @@ class StagePanel:
     record: WorkItem
     rail: list[RailStage]
     moves: list[StageOffer]
+    # WP-058b S3 (REQ-REL-048 AC2): each stage's tasks, done and all (canceled ones not counted).
+    tasks: Mapping[str, tuple[int, int]] = field(default_factory=dict)
 
 
 async def stage_panel(
@@ -2906,7 +3625,22 @@ async def stage_panel(
         moves.append(
             StageOffer(t, target.stage, refused is None, refused, missing, planned.landed.code)
         )
-    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves)
+    counted = await session.execute(
+        select(
+            WorkItemTask.stage,
+            func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+            func.count(),
+        )
+        .where(
+            WorkItemTask.work_item_id == record.id,
+            WorkItemTask.deleted_at.is_(None),
+            WorkItemTask.status != TaskStatus.CANCELED.value,
+            WorkItemTask.stage.is_not(None),
+        )
+        .group_by(WorkItemTask.stage)
+    )
+    tasks = {str(stage): (int(done), int(total)) for stage, done, total in counted}
+    return StagePanel(record, await stage_service.rail_of(session, wtype, record), moves, tasks)
 
 
 async def system_stage_move(  # noqa: PLR0913 - the move and its context, explicit
@@ -2984,10 +3718,22 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
         raise _errors(missing)
     guard = stage_service.guard_of(record.type)
     refusals = [] if guard is None else await guard.check(session, record, move)
-    if refusals:  # the full list (lane A), the first one also on its own for simple screens
+    if refusals:
+        # A guard knows no person: each refusal is worded for this one, so it never names a
+        # record they may not see (the sub-releases behind, lane C).
+        from app.modules.work_items.service import release_links  # noqa: PLC0415 - cycle
+
+        refusals = [await release_links.named_for(session, subject, r) for r in refusals]
+        # The full list (lane A), the first one also on its own for simple screens.
         raise Conflict(
             code="stage_move_refused",
             params={
+                # The first refusal's own params too (which freezes, D-156), never over these.
+                **{
+                    k: v
+                    for k, v in (refusals[0].params or {}).items()
+                    if k not in {"reason", "reasons", "count"}
+                },
                 "reason": refusals[0].code,
                 "reasons": ",".join(r.code for r in refusals),
                 "count": len(refusals),
@@ -2998,7 +3744,11 @@ async def _stage_move(  # noqa: PLR0913 - the move and its context, explicit
     # The closing rules by category (WP-020f): entering resolved runs resolve's, closed close's,
     # leaving a final status clears the resolution as a reopen does.
     closing_step = await closing.before_move(
-        session, cat, record, _closing_action(record, move), given
+        session,
+        cat,
+        record,
+        _closing_action(record, move),
+        replace(given, passes_through=move.target.code),
     )
     before = _snapshot(record, (*STAMP_FIELDS, "stage"))
     from_stage = str(record.stage)
@@ -3202,6 +3952,7 @@ async def _record_stage_move(  # noqa: PLR0913 - the move, what it did and its s
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+    await _end_timers(session, record)
     if entries:
         await record_event(
             session,
@@ -3410,7 +4161,12 @@ async def copy_release(  # noqa: PLR0913 - the copy and its context, explicit
     _release_only(wtype)
     original = await _visible(session, subject, wtype, record_id)
     values: dict[str, Any] = {n: getattr(original, n) for n in COPIED_FIELDS}
-    values["custom"] = dict(original.custom or {})
+    # Sealed values are bound to the original: opened here, sealed again under the copy's ID.
+    values["custom"] = (
+        await custom_values.visible_custom(
+            session, original.id, original.custom, unseen=field_rules.Unseen()
+        )
+    ).values
     made = await create(session, subject, wtype, values, source=source, holders=holders)
     row = await session.get(WorkItemReleaseDetails, (config.tenant_of(session), original.id))
     copied = (
@@ -3444,6 +4200,7 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     source: Source,
     risk_reason: str | None = None,
     copying: bool = False,
+    holders: PermissionHolders | None = None,
 ) -> ReleaseDetailsView:
     """Change the fields you send (If-Match on the record). Unchanged input: no new version.
 
@@ -3479,6 +4236,17 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
     if row is None:
         row = spec.model(tenant_id=tenant, work_item_id=record.id)
         session.add(row)
+    # A release's manager and engineer are its roles too: checked as roles, both written.
+    role_problems, role_params, role_changes = await _mirror_details_to_roles(
+        # Every path checks as the API does (a move's fields have no request's policy).
+        session,
+        wtype,
+        record.id,
+        changed,
+        None if copying else (holders or worker_policy()),
+    )
+    if role_problems:
+        raise _errors(role_problems, **role_params)
     for name, value in changed.items():
         setattr(row, name, value)
     await session.flush()
@@ -3495,7 +4263,10 @@ async def update_details(  # noqa: PLR0913 - the change and its context, explici
         record_id=updated.id,
         version=updated.version,
         kind="updated",
-        changes=[Change(n, _json(current[n]), _json(v)) for n, v in changed.items()],
+        changes=[
+            *(Change(n, _json(current[n]), _json(v)) for n, v in changed.items()),
+            *role_changes,
+        ],
         source=source,
         reason=reason,
     )
@@ -3530,6 +4301,7 @@ class RoleHolding:
     definition: WorkItemRoleDef
     user_ids: tuple[uuid.UUID, ...]
     group_ids: tuple[uuid.UUID, ...]
+    from_record: bool = False  # the record's own field holds it (F-02): changed there
 
 
 @dataclass(frozen=True)
@@ -3577,9 +4349,14 @@ async def roles_of(
     if not wtype.roles:
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
-    held = await _holders_of(session, record.id)
+    held = await record_roles.role_holders(session, record)
     roles = [
-        RoleHolding(d, tuple(held.get(d.code, ([], []))[0]), tuple(held.get(d.code, ([], []))[1]))
+        RoleHolding(
+            d,
+            tuple(held.get(d.code, ([], []))[0]),
+            tuple(held.get(d.code, ([], []))[1]),
+            from_record=d.code in wtype.record_roles,
+        )
         for d in await _role_defs(session, wtype)
         if d.disabled_at is None or d.code in held
     ]
@@ -3659,6 +4436,166 @@ async def _holder_problems(
     return problems + people, params
 
 
+async def taken_role(session: AsyncSession, wtype: WorkItemType) -> str:
+    """The role Take makes you: the one marked, else the type's default (a release's engineer)."""
+    definitions = await _role_defs(session, wtype)
+    marked = next((d.code for d in definitions if d.taken_by_take), None)
+    return marked or "release_engineer"
+
+
+async def take_role(  # noqa: PLR0913 - the record and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """Take a release: you become its Take role, when nobody holds it (REQ-REL-057 AC2).
+
+    The take right and the stage's access, then the role's own rules (eligibility), as the Roles
+    tab applies them; the manager and engineer fields follow (both written).
+    """
+    record = await _for_action(
+        session, subject, wtype, "take", record_id, stage_access=stage_service.EDIT
+    )
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    role = await taken_role(session, wtype)
+    users, groups = (await _holders_of(session, record.id)).get(role, ([], []))
+    if users == [subject.user_id] and not groups:
+        raise Conflict(code="already_yours")
+    if users or groups:
+        names = await user_names(session, [str(u) for u in users])
+        taken_by = names.get(str(users[0]), "") if users else ""
+        raise Conflict(code="already_taken", params={"taken_by": taken_by})
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=[subject.user_id],
+        group_ids=[],
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
+async def _replace_holders(  # noqa: PLR0913, PLR0917 - the record's role and its holders
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+    groups: Sequence[uuid.UUID],
+) -> None:
+    """`role` is held by exactly these people and groups now (no checks: the callers make them)."""
+    await session.execute(
+        delete(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id == record_id, WorkItemRoleHolder.role == role
+        )
+    )
+    tenant = config.tenant_of(session)
+    session.add_all(
+        [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, user_id=u
+            )
+            for u in users
+        ]
+        + [
+            WorkItemRoleHolder(
+                tenant_id=tenant, work_item_id=record_id, type=wtype.code, role=role, group_id=g
+            )
+            for g in groups
+        ]
+    )
+    await session.flush()
+
+
+async def _mirror_role_to_details(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    role: str,
+    users: Sequence[uuid.UUID],
+) -> list[Change]:
+    """A release's manager or engineer role written to its own field too (same transaction).
+
+    The field holds one person: the role's person, or none when a group (or nobody) holds it.
+    Returns the field's change for the same history entry.
+    """
+    name = release_rules.PEOPLE_ROLES.get(role)
+    if wtype.code is not WorkItemTypeCode.RELEASE or name is None:
+        return []
+    spec = _spec(wtype)
+    row = await _details_row(session, spec, record_id)
+    old = getattr(row, name) if row is not None else None
+    new = users[0] if len(users) == 1 else None
+    if old == new:
+        return []
+    if row is None:
+        row = spec.model(tenant_id=config.tenant_of(session), work_item_id=record_id)
+        session.add(row)
+    setattr(row, name, new)
+    await session.flush()
+    return [Change(name, _json(old), _json(new))]
+
+
+async def _mirror_details_to_roles(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    changed: Mapping[str, Any],
+    holders: PermissionHolders | None,
+) -> tuple[list[tuple[str, str]], dict[str, Any], list[Change]]:
+    """A release's manager or engineer field written to its role too, with the role's own checks.
+
+    Returns the problems (on the field), their params, and the roles' changes for history.
+    `holders` None: a copy of another release's people, already held there, not checked again.
+    """
+    if wtype.code is not WorkItemTypeCode.RELEASE:
+        return [], {}, []
+    by_field = {f: r for r, f in release_rules.PEOPLE_ROLES.items() if f in changed}
+    if not by_field:
+        return [], {}, []
+    definitions = {d.code: d for d in await _role_defs(session, wtype)}
+    held = await _holders_of(session, record_id)
+    problems: list[tuple[str, str]] = []
+    params: dict[str, Any] = {}
+    changes: list[Change] = []
+    wanted = {
+        role: [changed[name]] if changed[name] is not None else []
+        for name, role in by_field.items()
+    }
+    # Check every role first, then write (lane A's #438 review): nothing half written.
+    for name, role in by_field.items():
+        definition = definitions.get(role)
+        if definition is not None and holders is not None and wanted[role]:
+            found, found_params = await _person_holder_problems(
+                session, holders, definition, wanted[role]
+            )
+            problems += [(name, code) for _field, code in found]
+            params |= found_params
+    if problems:
+        return problems, params, []
+    for role, users in wanted.items():
+        before = held.get(role, ([], []))
+        await _replace_holders(session, wtype, record_id, role, users, [])
+        changes.append(
+            Change(
+                f"role.{role}",
+                {"users": [str(u) for u in before[0]], "groups": [str(g) for g in before[1]]},
+                {"users": [str(u) for u in users], "groups": []},
+            )
+        )
+    return problems, params, changes
+
+
 async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -3678,11 +4615,41 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
     record = await _for_action(
         session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
     )
+    return await _write_role(
+        session,
+        subject,
+        wtype,
+        record,
+        role,
+        user_ids=user_ids,
+        group_ids=group_ids,
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+
+
+async def _write_role(  # noqa: PLR0913 - the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    role: str,
+    *,
+    user_ids: Sequence[uuid.UUID],
+    group_ids: Sequence[uuid.UUID],
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> RolesView:
+    """`role`'s new holders on a record the caller may change (its right already checked)."""
     if _closed(record):
         raise Conflict(code="record_closed", params={"status": record.status})
     definition = next((d for d in await _role_defs(session, wtype) if d.code == role), None)
     if definition is None:
         raise NotFound(code="role_not_found")
+    if role in wtype.record_roles:  # the record's own field: changed where that field is
+        raise _errors([("role", "role_held_by_record")])
     users, groups = list(dict.fromkeys(user_ids)), list(dict.fromkeys(group_ids))
     held = (await _holders_of(session, record.id)).get(role, ([], []))
     if definition.disabled_at is not None and (users or groups) and (users, groups) != held:
@@ -3692,27 +4659,9 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
         raise _errors(problems, **params)
     if (set(users), set(groups)) == (set(held[0]), set(held[1])):
         return await roles_of(session, subject, wtype, record.id)
-    await session.execute(
-        delete(WorkItemRoleHolder).where(
-            WorkItemRoleHolder.work_item_id == record.id, WorkItemRoleHolder.role == role
-        )
-    )
-    tenant = config.tenant_of(session)
-    session.add_all(
-        [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, user_id=u
-            )
-            for u in users
-        ]
-        + [
-            WorkItemRoleHolder(
-                tenant_id=tenant, work_item_id=record.id, type=wtype.code, role=role, group_id=g
-            )
-            for g in groups
-        ]
-    )
-    await session.flush()
+    await _replace_holders(session, wtype, record.id, role, users, groups)
+    # A release's manager and engineer are its own fields too: both change together.
+    mirrored = await _mirror_role_to_details(session, wtype, record.id, role, users)
     updated = await _update(session, record, expected_version, {})
     await record_changes(
         session,
@@ -3725,7 +4674,8 @@ async def set_role(  # noqa: PLR0913 - the change and its context, explicit
                 f"role.{role}",
                 {"users": [str(u) for u in held[0]], "groups": [str(g) for g in held[1]]},
                 {"users": [str(u) for u in users], "groups": [str(g) for g in groups]},
-            )
+            ),
+            *mirrored,
         ],
         source=source,
     )
@@ -4191,8 +5141,12 @@ async def _window_guard(  # noqa: PLR0913 - the save and its values, explicit
     merged: Mapping[str, Any],
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's implementation window moved: a blocking freeze refuses it (WP-045c, ADR-042)."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or stage != change_rules.IMPLEMENTATION:
+    """A change's or release's planned window moved: a blocking freeze refuses it.
+
+    The change's implementation (WP-045c, ADR-042), the release's deployment (WP-058b S2,
+    addendum A).
+    """
+    if stage != window_rules.PLANNED_STAGE.get(wtype.code.value):
         return
     if not {"scheduled_start", "scheduled_end"} & set(changed):
         return
@@ -4333,8 +5287,8 @@ async def _downtime_guard(  # noqa: PLR0913 - the save and its values, explicit
     adding: bool,
     changed: Mapping[str, Any],
 ) -> None:
-    """A change's planned downtime is its planned time too: a blocking freeze refuses it."""
-    if wtype.code is not WorkItemTypeCode.CHANGE or merged["phase"] != "planned":
+    """A change's or release's planned downtime is its planned time too: a freeze refuses it."""
+    if wtype.code.value not in window_rules.PLANNED_STAGE or merged["phase"] != "planned":
         return
     if adding or {"starts_at", "ends_at", "phase"} & set(changed):
         await change_conflicts.guard(session, record, [(merged["starts_at"], merged["ends_at"])])
@@ -4377,6 +5331,8 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
 # --- the requester replies (WP-020f) --------------------------------------------------------------
 
 REQUESTER_REPLY = "requester_reply"
+# The requester cancelled their own record from the portal (WP-046b S5; REQ-INC-148).
+REQUESTER_CANCELED = "requester_canceled"
 
 
 async def system_move(  # noqa: PLR0913 - the move and its context, explicit
@@ -4390,14 +5346,17 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     rule: str = REQUESTER_REPLY,
     given: closing.MoveInput | None = None,
     by_requester: bool = True,
+    reason_text: str | None = None,
 ) -> WorkItem:
     """A move made for the requester's act (a reply, a confirmation) or by the system.
+
+    `reason_text`: the requester's own words when the move asks for one (a cancel; S5).
 
     The requester's own acts (reply, confirm, reject) are theirs, never automation (WP-020f
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
     saying what they did. Only the system's own moves (auto-close) are automatic.
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4406,7 +5365,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+        session, wtype, record, action, target=target, reason_code=None, reason_text=reason_text
     )
     changes.update(step.changes)
     updated = await _update(session, record, record.version, changes)
@@ -4416,7 +5375,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         updated,
         action,
         source=source,
-        reason=None,
+        reason=reason_text,
         automatic=not by_requester,
         rule=rule,
         extra=[Change("requester_action", None, requester_action(rule, action))]
@@ -4434,15 +5393,22 @@ async def set_fields(  # noqa: PLR0913 - the record, its version, the change and
     expected_version: int,
     source: Source,
     reason: str | None = None,
+    unrecorded: frozenset[str] = frozenset(),
 ) -> WorkItem:
     """Columns a service sets after its own checks (a known error marked; WP-044b).
 
-    If-Match, field history with the reason, and the usual update event.
+    If-Match, field history with the reason, and the usual update event. `unrecorded` columns
+    are named in history without their values: free text that may be personal data, kept on the
+    record and in the audit entry only (a major incident's reason, lane B).
     """
     audience_before = _audience(record)
     before = {name: getattr(record, name) for name in columns}
     updated = await _update(session, record, expected_version, columns)
-    changes = [Change(n, _json(before[n]), _json(v)) for n, v in columns.items() if before[n] != v]
+    changes = [
+        Change(n, None, None) if n in unrecorded else Change(n, _json(before[n]), _json(v))
+        for n, v in columns.items()
+        if before[n] != v
+    ]
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -4462,6 +5428,65 @@ async def set_fields(  # noqa: PLR0913 - the record, its version, the change and
             status=updated.status,
             status_category=updated.status_category,
             changed_fields=sorted(columns),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def redact_fields(
+    session: AsyncSession,
+    record: WorkItem,
+    columns: Mapping[str, Any],
+    *,
+    fields: Sequence[str],
+    reason: str,
+) -> WorkItem:
+    """Text a person's erasure redacts (ADR-052 S2): new values, never the old ones in history.
+
+    The history row names the fields only (old and new None): the old text is what is being
+    removed, and the registry blanks the older history itself. Custom values recompute the
+    record's search text (the search vector is generated), and the usual update event follows,
+    so lists, search and the AI re-embedding all see the redacted text.
+    """
+    changes = dict(columns)
+    if "custom" in changes:
+        wtype = TYPES[WorkItemTypeCode(record.type)]
+        changes.update(await _custom_columns(session, wtype, changes["custom"], record.id))
+    audience_before = _audience(record)
+    # Its own versioned save, not `_update`: a trashed record's text is redacted too (lane B's
+    # #514 review), and text alone moves no SLA clock.
+    version = record.version
+    saved = await session.execute(
+        sql_update(WorkItem)
+        .where(WorkItem.id == record.id, WorkItem.version == version)
+        .values(**changes, version=version + 1, updated_at=_now())
+    )
+    if not getattr(saved, "rowcount", 0):
+        raise await stale_record(session, record, version)
+    await session.refresh(record)
+    updated = record
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[Change(name, None, None) for name in fields],
+        source="system",
+        reason=reason,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(fields),
             audience_before=audience_before,
         ),
         aggregate_id=updated.id,
@@ -4515,7 +5540,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     channel, with the record's new approval status. On approval the item's technician (after
     approval, REQ-SR-008 AC2) is set in the same save, then the usual move to "assigned".
     """
-    target = cat.lifecycle_of(record.lifecycle).target(
+    target = cat.lifecycle_for(record).target(
         record.status,
         action,
         before_cancel=record.status_before_cancel,
@@ -4563,7 +5588,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
     )
     move = (
         after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=False,
             has_technician=True,
@@ -4579,7 +5604,7 @@ async def decided_move(  # noqa: PLR0913 - the move and what the approval decide
         wtype,
         updated,
         move,
-        target=cat.lifecycle_of(updated.lifecycle).target(updated.status, move, before_cancel=None),
+        target=cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None),
         reason_code=None,
         reason_text=None,
     )
@@ -4613,7 +5638,7 @@ async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, expl
     """
     cat = await config.load(session, wtype)
     category = StatusCategory(record.status_category)
-    allowed = set(cat.lifecycle_of(record.lifecycle).actions_from(record.status))
+    allowed = set(cat.lifecycle_for(record).actions_from(record.status))
     if category == StatusCategory.PAUSED:
         status = next((s for s in cat.statuses if s.code == record.status), None)
         resumes = status is not None and status.resume_on_requester_reply
@@ -4810,16 +5835,14 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     if cat.auto_status_on_assign:
         move = after_assignment(
-            cat.lifecycle_of(updated.lifecycle),
+            cat.lifecycle_for(updated),
             updated.status,
             had_technician=had_technician,
             has_technician=technician_id is not None,
         )
         if move is not None:
             stamps = _snapshot(updated, STAMP_FIELDS)
-            target = cat.lifecycle_of(updated.lifecycle).target(
-                updated.status, move, before_cancel=None
-            )
+            target = cat.lifecycle_for(updated).target(updated.status, move, before_cancel=None)
             status_columns = await _status_change(
                 session, wtype, updated, move, target=target, reason_code=None, reason_text=None
             )
@@ -4829,9 +5852,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
             )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
-        return WorkItemView(
-            record=updated, actions=[], operations=[], history_count=0, visible=False
-        )
+        return await _handed_away(session, subject, wtype, updated)
     return await _view(session, subject, wtype, updated)
 
 
@@ -4897,7 +5918,21 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
     source: Source,
     holders: PermissionHolders,
 ) -> WorkItemView:
-    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply."""
+    """Become the technician (REQ-INC-054); sets the group when only one of yours can apply.
+
+    A release has no technician to become: Take makes you its Take role (REQ-REL-057 AC2).
+    """
+    if wtype.code is WorkItemTypeCode.RELEASE:
+        await take_role(
+            session,
+            subject,
+            wtype,
+            record_id,
+            expected_version=expected_version,
+            source=source,
+            holders=holders,
+        )
+        return await get(session, subject, wtype, record_id)
     record = await _for_action(session, subject, wtype, "take", record_id)
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
@@ -5240,12 +6275,108 @@ async def save_detail_change(  # noqa: PLR0913 - the save and its history, expli
     return updated
 
 
+async def change_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Each listed change's type and its effective risk (chosen, else assessed)."""
+    rows = await session.execute(
+        select(
+            WorkItemChangeDetails.work_item_id,
+            WorkItemChangeDetails.change_type,
+            WorkItemChangeDetails.risk_chosen,
+            WorkItemChangeDetails.risk,
+        ).where(WorkItemChangeDetails.work_item_id.in_(list(ids)))
+    )
+    return {r.work_item_id: (r.change_type, r.risk_chosen or r.risk) for r in rows}
+
+
+@dataclass(frozen=True)
+class ReleaseListFacts:
+    """A listed release's own columns (REQ-REL-055): type, version, schedule, people, tasks."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int
+
+
+async def release_list_facts(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, ReleaseListFacts]:
+    """Each listed release's columns, in three reads for the page (never one per row).
+
+    Its manager and engineer are its role holders when one person holds them, else its fields
+    (both are kept equal; read both until they are one).
+    """
+    if not ids:
+        return {}
+    wanted = list(ids)
+    details = {
+        r.work_item_id: r
+        for r in await session.scalars(
+            select(WorkItemReleaseDetails).where(WorkItemReleaseDetails.work_item_id.in_(wanted))
+        )
+    }
+    holders: dict[tuple[uuid.UUID, str], list[uuid.UUID]] = {}
+    for holder in await session.scalars(
+        select(WorkItemRoleHolder).where(
+            WorkItemRoleHolder.work_item_id.in_(wanted),
+            WorkItemRoleHolder.role.in_(tuple(release_rules.PEOPLE_ROLES)),
+            WorkItemRoleHolder.user_id.is_not(None),
+        )
+    ):
+        if holder.user_id is not None:  # a group holder names nobody on the row
+            holders.setdefault((holder.work_item_id, holder.role), []).append(holder.user_id)
+    counted = {
+        item: (int(done), int(total))
+        for item, done, total in await session.execute(
+            select(
+                WorkItemTask.work_item_id,
+                func.count().filter(WorkItemTask.status == TaskStatus.DONE.value),
+                func.count(),
+            )
+            .where(
+                WorkItemTask.work_item_id.in_(wanted),
+                WorkItemTask.deleted_at.is_(None),
+                WorkItemTask.status != TaskStatus.CANCELED.value,
+            )
+            .group_by(WorkItemTask.work_item_id)
+        )
+    }
+
+    def person(item: uuid.UUID, role: str, field_value: uuid.UUID | None) -> uuid.UUID | None:
+        held = holders.get((item, role), [])
+        return held[0] if len(held) == 1 else field_value
+
+    found: dict[uuid.UUID, ReleaseListFacts] = {}
+    for item in wanted:
+        row = details.get(item)
+        done, total = counted.get(item, (0, 0))
+        found[item] = ReleaseListFacts(
+            release_type=row.release_type if row else None,
+            release_version=row.release_version if row else None,
+            scheduled_end=row.scheduled_end if row else None,
+            release_manager_id=person(
+                item, "release_manager", row.release_manager_id if row else None
+            ),
+            release_engineer_id=person(
+                item, "release_engineer", row.release_engineer_id if row else None
+            ),
+            tasks_done=done,
+            tasks_total=total,
+        )
+    return found
+
+
 may = _may
 is_closed = _closed
 audience_of = _audience
 now = _now
 field_errors = _errors
-now = _now
+not_found = _not_found
 
 
 async def update_columns(
@@ -5359,8 +6490,7 @@ async def _automated_columns(
     columns = {n: v for n, v in columns.items() if getattr(record, n) != v}
     cleaned_custom = {k: v for k, v in custom.items() if v is not None}
     if cleaned_custom != (record.custom or {}):
-        columns["custom"] = cleaned_custom
-        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom, record.id)
+        columns.update(await _custom_columns(session, wtype, cleaned_custom, record.id))
     return columns
 
 
@@ -5385,6 +6515,7 @@ async def automation_facts(
         **_snapshot(record),
         "status": record.status,
         "status_category": record.status_category,
+        "stage": record.stage,  # WP-058b S3: a staged record's stage (stage_entered triggers)
         **await automation.requester_facts(session, record.requester_id),
     }
 

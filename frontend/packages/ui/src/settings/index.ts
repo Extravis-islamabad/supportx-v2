@@ -11,3 +11,5 @@ export { SettingsCard } from './SettingsCard';
 export { useSettingsDraft, type SettingsDraft } from './useSettingsDraft';
 export { StickySaveBar, type StickySaveBarProps } from './StickySaveBar';
 export { TranslatedField, type TranslatedValue } from './TranslatedField';
+export { ServiceRolesSection } from './ServiceRolesSection';
+export { serviceRoleName } from './serviceRoles';

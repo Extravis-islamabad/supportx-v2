@@ -55,6 +55,29 @@ describe('ActionBar', () => {
     expect(screen.getByTestId('a-assign').className).not.toContain('ant-btn-primary');
   });
 
+  it('quiet: the same buttons in the same order, none primary (an open composer holds it)', () => {
+    const actions = [
+      action('assign', { rank: 4 }),
+      action('reply', {
+        rank: 1,
+        variants: [{ key: 'reply_all', label: 'Reply all', onClick: vi.fn() }],
+      }),
+      action('resolve', { rank: 2 }),
+    ];
+    const ids = () =>
+      screen
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('data-testid'))
+        .filter((id) => id !== null && id !== 'bar-more');
+    const { unmount } = renderUi(<ActionBar testId="bar" actions={actions} />);
+    const loud = ids();
+    expect(document.querySelectorAll('.ant-btn-primary').length).toBeGreaterThan(0);
+    unmount();
+    renderUi(<ActionBar testId="bar" actions={actions} quiet />);
+    expect(ids()).toEqual(loud);
+    expect(document.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
+  });
+
   it("QA10V-03: a split button's chevron is named after its action", () => {
     const reply = action('reply', {
       label: 'Reply',

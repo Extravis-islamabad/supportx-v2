@@ -44,6 +44,7 @@ readable only by you. Look there whenever you need a password (see the table bel
 |---|---|
 | `make dev-up` | Start the **core** services (enough for most backend and frontend work). |
 | `make dev-up-full` | Start core **plus** Temporal, Temporal UI, OpenSearch, ClickHouse and ClamAV. The first start takes several minutes because ClamAV downloads its virus signatures. `make backend-env` points the API at ClamAV only when clamd answers, so run it after this (a core-only stack has no scanner: files wait as "scanning" and /ready lists no malware_signatures check). |
+| `make dev-up-scan` | Start **only ClamAV** (from the full set) beside a running core stack, without Temporal, OpenSearch or ClickHouse. It needs about 1-1.5 GB of RAM, and the first start takes a few minutes while it downloads the virus signatures (`make dev-ps` shows it healthy when done; then run `make backend-env`). Without a scanner, uploaded files wait as "scanning". |
 | `make dev-ps` | Show every service and whether it is healthy. |
 | `make dev-logs` | Follow all logs. One service only: `make dev-logs s=keycloak`. |
 | `make dev-check` | Check every running service end to end. Services from the full set that are not running are reported as SKIP. |
@@ -70,7 +71,8 @@ dark / high contrast, right-to-left, language); the tenant switcher
 profile** in the user menu (open it in two browsers and save in both to see the conflict
 dialog); `/dev/components` (development builds only: chart, every error message). Licence states
 are driven with `make dev-subscription` (see "Plans and licence limits"). Playwright: `make e2e`
-(frontend/e2e/README.md). How the frontend is built: docs/architecture/frontend.md.
+(frontend/e2e/README.md), or `make e2e-smoke` for the ~5-minute `@smoke` subset. How the
+frontend is built: docs/architecture/frontend.md.
 
 ## 4. Services, ports and logins
 
@@ -188,7 +190,7 @@ How it works:
   `SHOWCASE_TOTP_KEY`.
 - Every quick sign-in is in the audit log ("Signed in with the dev quick sign-in").
 - It works only from `localhost` and only for the showcase tenant.
-- The mobile app's debug build shows the same buttons on its Sign in screen (D-163), through
+- The mobile app's debug build shows the same buttons on its Sign in screen (D-183), through
   `POST /api/v1/auth/dev/mobile/sign-in`: same rules, but the session ID comes back in the body
   (no cookie), and only the app may call it (`X-SupportX-Client: mobile`, no `Origin`). On the
   emulator, use `http://localhost:5173` as the server, with `adb reverse` (mobile/README.md).
@@ -454,7 +456,28 @@ restart keycloak` mounts it again; no data is touched. `docker exec supportx-dev
 **OpenSearch fails with "max virtual memory areas vm.max_map_count is too low" (Linux only)**
 Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows already sets this.
 
-## 7. Notes
+## 7. A second stack beside the shared one
+
+The shared dev stack's data volumes are named `supportx_dev_*`. A second stack from this compose
+file (a throwaway e2e stack, another lane's) must never mount them: two PostgreSQL servers on one
+data directory corrupt it (2026-11-20). So:
+
+- start compose through `deploy/compose/scripts/compose.sh` (every `make dev-*` target does). It
+  refuses a project name other than `supportx-dev` unless `SUPPORTX_VOLUME_PREFIX` names volumes
+  of its own, and refuses the shared project with a foreign prefix:
+
+  ```
+  SUPPORTX_VOLUME_PREFIX=throwaway_e2e deploy/compose/scripts/compose.sh -p throwaway-e2e up -d
+  ```
+
+  Its ports must differ too (a second `.env`, `--env-file`).
+- Local database tests never use the shared stack unless asked: point `SUPPORTX_TEST_ADMIN_URL`
+  and the role passwords (`SUPPORTX_TEST_APP_PASSWORD`, `..._MIGRATOR_PASSWORD`,
+  `..._RELAY_PASSWORD`) at a standalone throwaway PostgreSQL (a plain `docker run` of the stack's
+  image on its own port, no named volume), or set `SUPPORTX_TEST_ALLOW_DEV_STACK=1` to use the
+  shared one on purpose. The same opt-in covers the Valkey, NATS and MinIO fallbacks.
+
+## 8. Notes
 
 - Image versions are pinned. Upgrade them deliberately: change the tag, run `make dev-up-full` and
   `make dev-check`.
@@ -472,6 +495,33 @@ heavy jobs (the dev stack with end-to-end tests, the cluster images) start with 
 pull request cancels that pull request's older runs; runs on `main` and nightly runs are never
 cancelled.
 
+## Backend tests on pull requests: only what the change reaches
+
+The merge queue, the nightly run, manual runs and pull requests labelled `full-ci` always run
+the whole backend suite on all 8 shards and check the combined 90% coverage. A pull request run
+(once it is out of draft) runs only the test files its changes can affect, on as few shards as
+those files need (about ten minutes of tests a shard). The `backend paths` job decides, with
+`backend/tooling/test_select.py`:
+
+- No backend test at all: changes only to `frontend/`, `docs/`, `mobile/`, Markdown,
+  `deploy/helm/`, `deploy/k3s/`, `deploy/k3d/` or workflows other than `ci.yml` (the label and
+  CI guard tests still run in `backend checks`).
+- Everything: any change to `backend/app/core/`, `backend/app/shared/`, `backend/app/main.py`,
+  `backend/workers/`, `backend/migrations/`, `backend/tooling/`, any `conftest.py`,
+  `backend/tests/db/shared_world.py`, the backend's project files (`pyproject.toml`, `uv.lock`,
+  `alembic.ini`), any backend file that is not a `.py` file in `app/modules/` or `tests/`,
+  `deploy/compose/`, `ci.yml`, `.github/actions/`, the `Makefile` or `.pre-commit-config.yaml`.
+- Otherwise the test files whose imports (grimp's import graph, without the app factory
+  `app.main`) reach a changed module package `app.modules.<m>` or a changed test file or test
+  helper, plus the quick `tests/test_*.py`.
+
+Tests that reach a module only through HTTP on `create_app` are not selected for it; the queue's
+full run catches those. On a selecting run, coverage is checked per changed app file instead:
+at most 1 point below the newest nightly's (`backend-coverage-baseline`), 90% for a new file
+(`backend/tooling/coverage_compare.py`). `make ci-metrics DAYS=7` prints, read-only, the daily
+queue runs, merged pull requests, merge-group size and the PR shard minutes.
+`backend/tests/test_ci_triggers.py` guards that only an unlabelled pull request run selects.
+
 ## Merging
 
 `main` takes changes only through GitHub's merge queue (the `main` ruleset: pull request required,
@@ -483,6 +533,12 @@ Required checks: `backend`, `frontend`, `pre-commit`, `chart`, `core profile, in
 Their workflows (`ci.yml`, `security.yml`, `stack-smoke.yml`) trigger on `merge_group` as well as
 `pull_request`; a required check without that trigger would stall the queue
 (`backend/tests/test_ci_triggers.py` guards it). Docs-only groups take the fast path.
+
+`static analysis (Semgrep)` (`security.yml`, audit row 27) is not required yet: it runs the
+repo's own rules in `.semgrep.yml` (never the online registry) on ready pull requests, queue
+groups and nightly. Run it locally with `make semgrep` from the main checkout (inside a git
+worktree the container cannot read the shared `.git`). A safe finding gets
+`nosemgrep: <rule id> - <reason>` on the line before it.
 
 How to merge a pull request:
 
@@ -505,6 +561,42 @@ checks), the queue page at https://github.com/Extravis-islamabad/supportx-v2/que
 and the group's runs), `gh pr merge <number> --disable-auto` (take a pull request out again).
 Never `--admin` and never force-push: the ruleset refuses both, and asking for a bypass is a
 product owner decision.
+
+## Security code owners (D-168)
+
+`.github/CODEOWNERS` names `@supportx-reviewer`, the security reviewer's account, for the code
+that decides who gets in and what they may see: sign-in, sessions and tokens (the BFF, the session
+cipher and store, OIDC, API keys, MFA, SSO, password reset), the policy layer, roles and the
+identity permission catalogue, the generated route-permission map (below), tenant isolation (`app/core/tenancy.py`, `app/shared/db/rls.py`,
+`migrations/helpers.py`, the RLS guard), the request edge (settings, middleware, trusted proxies,
+rate limits), the shared crypto, egress and files packages, the audit and licensing modules, the
+deployment secrets script, network policies and Keycloak files, and the security scans with
+`CODEOWNERS` itself. Nothing else is owned: D-168 dropped D-007's catch-all `* @devhat-pm`, since
+every lane pushes as that account and it can't approve its own PRs. A mistake in
+these files can leak one tenant's data to another or let someone in, so a second pair of eyes is
+required there, and only there, to keep reviews fast elsewhere.
+
+The file takes effect once Haider has created the reviewer account and turned on "Require review
+from code owners" in the `main` ruleset; until then it only requests reviews. Nobody but Haider
+handles that account or its sign-in.
+
+Module `api/` folders and permission catalogues are not owned (Haider, 2026-11-13), as nearly every
+feature PR touches them. Instead `docs/security/route-permissions.md` is: every `/api/v1` route
+with the access it declares (`require_permission` keys, `signed_in` or `public`) and the scopes
+each permission takes, then every built-in role's permissions and scopes. It is generated from
+code, never edited by hand: after adding a route, changing a route's permission, adding a
+permission or changing a role default, run `make route-permissions` and commit the result.
+`backend/tests/test_route_permission_map.py` fails on a stale file, so such a PR changes an owned
+file and gets the security review; a feature PR that leaves access alone doesn't.
+
+Migrations are not code-owned as a whole, since nearly every work package adds one. Instead (option
+(b)), SQL that decides table access (`CREATE`/`ALTER`/`DROP POLICY`, `GRANT`, `REVOKE`,
+`ALTER DEFAULT PRIVILEGES`) appears only in the owned helpers: `migrations/helpers.py`
+(`enable_tenant_rls`, `grant_app`, `grant_report`, ...), which runs the statements
+`app/shared/db/rls.py` builds. `backend/tests/test_migration_policy_sql.py` fails on any such SQL
+in `migrations/versions/` outside the merged migrations that already had it (a fixed list, as
+merged migrations are never edited). Need something the helpers can't do? Add a helper; that
+change gets the security review.
 
 ## Tool versions
 

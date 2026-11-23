@@ -32,6 +32,7 @@ spec:
         - |
           import os, sys, httpx, valkey
           from valkey.exceptions import AuthenticationError, ConnectionError, ResponseError
+          from valkey.exceptions import TimeoutError as ValkeyTimeout
           rel = {{ .Release.Name | quote }}
           checks = [
               ("API ready", f"http://{rel}-api:8000/api/v1/ready", 200),
@@ -55,14 +56,34 @@ spec:
           targets.append(("valkey", f"{rel}-valkey", 6379))
           {{- end }}
           {{- if .Values.valkeyHa.enabled }}
-          # HA (ADR-038): a server and a sentinel each refuse without the password.
-          targets.append(("valkey", f"{rel}-valkey-0.{rel}-valkey-headless", 6379))
-          targets.append(("sentinel", f"{rel}-valkey-0.{rel}-valkey-headless", 26379))
+          # HA (ADR-038): a server and a sentinel each refuse without the password. By the name
+          # the app uses (<pod>.<headless>.<namespace>.svc): with TLS on, the certificate names
+          # it, and a wildcard never covers the one-label "<headless>" suffix.
+          pod0 = f"{rel}-valkey-0.{rel}-valkey-headless.{{ .Release.Namespace }}.svc"
+          targets.append(("valkey", pod0, 6379))
+          targets.append(("sentinel", pod0, 26379))
+          {{- end }}
+          tls = {}
+          {{- if eq (include "supportx.valkeyTls" .) "true" }}
+          # TLS only (audit row 5): every check below over TLS, the certificate checked against
+          # the internal CA and the pod's name; and a plaintext client gets no answer at all.
+          tls = {"ssl": True, "ssl_ca_certs": "/etc/supportx/tls/internal-ca/ca.crt",
+                 "ssl_cert_reqs": "required", "ssl_check_hostname": True}
+          for label, host, port in targets:
+              try:
+                  valkey.Valkey(host=host, port=port, socket_timeout=5,
+                                password=os.environ["VALKEY_PASSWORD"]).ping()
+                  got = "answered in plaintext"
+              except (ConnectionError, ValkeyTimeout, ResponseError):
+                  got = "refused"
+              ok = got == "refused"
+              failed += not ok
+              print(f"{'ok  ' if ok else 'FAIL'} {label} plaintext: {got}")
           {{- end }}
           for label, host, port in targets:
               # Without a password: it must answer, and answer NOAUTH (an unreachable one fails).
               try:
-                  valkey.Valkey(host=host, port=port, socket_timeout=5).ping()
+                  valkey.Valkey(host=host, port=port, socket_timeout=5, **tls).ping()
                   got = "PONG without a password"
               except (AuthenticationError, ResponseError) as exc:
                   got = "NOAUTH" if "auth" in str(exc).lower() else f"error {exc}"
@@ -74,7 +95,8 @@ spec:
               # With the password: PONG.
               try:
                   pong = valkey.Valkey(
-                      host=host, port=port, password=os.environ["VALKEY_PASSWORD"], socket_timeout=5
+                      host=host, port=port, password=os.environ["VALKEY_PASSWORD"], socket_timeout=5,
+                      **tls,
                   ).ping()
                   got = "PONG" if pong else "no PONG"
               except Exception as exc:  # noqa: BLE001 - every failure is a test failure here
@@ -87,3 +109,11 @@ spec:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
         limits: {cpu: 200m, memory: 128Mi}
+      {{- with include "supportx.internalCaMount" . | trim }}
+      volumeMounts:
+        {{- . | nindent 8 }}
+      {{- end }}
+  {{- with include "supportx.internalCaVolume" . | trim }}
+  volumes:
+    {{- . | nindent 4 }}
+  {{- end }}

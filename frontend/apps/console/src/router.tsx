@@ -27,6 +27,38 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        // WP-053 S1: the CMDB home, a new CI and one CI.
+        path: 'cmdb',
+        handle: { section: 'cmdb' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('./pages/cmdb/CmdbPage')).CmdbPage }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({ Component: (await import('./pages/cmdb/NewCiPage')).NewCiPage }),
+          },
+          {
+            // WP-053 S2: business views (the list, and one view's map).
+            path: 'views',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewsPage')).BusinessViewsPage,
+            }),
+          },
+          {
+            path: 'views/:viewId',
+            lazy: async () => ({
+              Component: (await import('./pages/cmdb/views/BusinessViewPage')).BusinessViewPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({ Component: (await import('./pages/cmdb/CiPage')).CiPage }),
+          },
+        ],
+      },
+      {
         // WP-049a s2: the asset list, vendors and one asset.
         path: 'assets',
         handle: { section: 'assets' },
@@ -64,6 +96,19 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // WP-049b s3 (REQ-AST-042, 043): asset audits, and one audit.
+            path: 'audits',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditsPage')).AuditsPage,
+            }),
+          },
+          {
+            path: 'audits/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/assets/AuditPage')).AuditPage,
+            }),
+          },
+          {
             // WP-049a s4 (REQ-AST-028): static and dynamic groups.
             path: 'groups',
             lazy: async () => ({
@@ -75,6 +120,13 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/assets/AssetPage')).AssetPage }),
           },
         ],
+      },
+      {
+        // WP-046a S1 (REQ-INC-076): your open tasks on every type.
+        path: 'my-tasks',
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/MyTasksPage')).MyTasksPage,
+        }),
       },
       {
         // The change screens (WP-045d D19, taken forward): the list, a new change, the record.
@@ -106,6 +158,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/changes/ChangePage')).ChangePage,
             }),
           },
+          {
+            path: ':id/pack',
+            lazy: async () => ({
+              Component: (await import('./pages/changes/ChangePack')).ChangePack,
+            }),
+          },
         ],
       },
       {
@@ -123,6 +181,20 @@ export const routes: RouteObject[] = [
             path: 'new',
             lazy: async () => ({
               Component: (await import('./pages/releases/NewReleasePage')).NewReleasePage,
+            }),
+          },
+          {
+            // WP-058b S1: the release calendar (the shared staged calendar).
+            path: 'calendar',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseCalendarPage')).ReleaseCalendarPage,
+            }),
+          },
+          {
+            // WP-058b S5b (REQ-REL-056): releases by stage.
+            path: 'board',
+            lazy: async () => ({
+              Component: (await import('./pages/releases/ReleaseBoardPage')).ReleaseBoardPage,
             }),
           },
           {
@@ -215,6 +287,13 @@ export const routes: RouteObject[] = [
             path: ':id',
             lazy: async () => ({
               Component: (await import('./pages/incidents/IncidentPage')).IncidentPage,
+            }),
+          },
+          {
+            // WP-046b S4 (REQ-INC-126): the printable incident, sections chosen in the dialog.
+            path: ':id/print',
+            lazy: async () => ({
+              Component: (await import('./pages/incidents/IncidentPrint')).IncidentPrintPage,
             }),
           },
         ],
@@ -349,6 +428,19 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),
           },
           {
+            // ADR-052 (D-171): people's erasures, the list and one erasure.
+            path: 'erasures',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasuresPage')).ErasuresPage,
+            }),
+          },
+          {
+            path: 'erasures/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/erasures/ErasurePage')).ErasurePage,
+            }),
+          },
+          {
             path: 'organization/:section?',
             lazy: async () => ({
               Component: (await import('./pages/admin/organization/OrganizationPage'))
@@ -370,6 +462,14 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
                 .IncidentSettingsPage,
+            }),
+          },
+          {
+            // WP-058b S4: release closure codes, closing and stages (template E).
+            path: 'releases/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/releases/ReleaseSettingsPage'))
+                .ReleaseSettingsPage,
             }),
           },
           {
@@ -404,6 +504,20 @@ export const routes: RouteObject[] = [
             path: 'assets',
             lazy: async () => ({
               Component: (await import('./pages/admin/assets/AssetCatalogPage')).AssetCatalogPage,
+            }),
+          },
+          {
+            // WP-053 S1: CI types, states and the CMDB settings (template E).
+            path: 'cmdb',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/CmdbAdminPage')).CmdbAdminPage,
+            }),
+          },
+          {
+            // 0175 part 2: one CI type's custom fields (template E).
+            path: 'cmdb/types/:typeId/fields',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/CiTypeFieldsPage')).CiTypeFieldsPage,
             }),
           },
           {
@@ -481,6 +595,13 @@ export const routes: RouteObject[] = [
             path: 'api-keys',
             lazy: async () => ({
               Component: (await import('./pages/admin/ApiKeysPage')).ApiKeysPage,
+            }),
+          },
+          {
+            // WP-057 S4a (REQ-SEC-036): non-person identities with an owner.
+            path: 'service-accounts',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/ServiceAccountsPage')).ServiceAccountsPage,
             }),
           },
           {

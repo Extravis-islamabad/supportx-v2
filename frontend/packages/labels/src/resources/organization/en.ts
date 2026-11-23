@@ -1,5 +1,8 @@
 // organization labels (see ../README.md). English is the reference.
 export const en = {
+  'audience_kind.department': 'Department',
+  'audience_kind.group': 'Group',
+  'audience_kind.site': 'Site',
   'branding.check.dark_links': 'Links in dark mode',
   'branding.check.dark_links_raised': 'Links on panels in dark mode',
   'branding.check.high_contrast': 'Primary colour in high contrast',

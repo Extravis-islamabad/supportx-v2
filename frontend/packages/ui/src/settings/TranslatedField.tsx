@@ -1,8 +1,9 @@
-import { Badge, Form, Input, Tabs } from 'antd';
+import { Badge, Form, Input } from 'antd';
 import { useState } from 'react';
 
 import { useLabel } from '../appearance';
 import { lengthLimit } from '../lengthLimit';
+import { Tabs } from '../layout/Tabs';
 
 export type TranslatedValue = Partial<Record<'en' | 'ar' | 'ur', string>>;
 

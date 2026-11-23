@@ -1,7 +1,11 @@
 """The asset record (WP-049a session 2; parity 07 §3: REQ-AST-001, 002, 004, 007, 008).
 
 - **Who:** `assets.view` reads (scoped: all, or the assets at your sites); `assets.manage` adds,
-  changes and moves assets to the trash, within its scope.
+  changes and moves assets to the trash, within its scope. A technician without it may change
+  the location of an asset its own ticket links while the ticket's requester or department
+  holds it (D-157, `ticket_access`; also its state and fitted parts, in moves and ownership).
+- **Money (D-157):** price, tax, total and depreciation settings are read and written only with
+  `assets.view_financials`; the API shows others nulls and masks those history lines.
 - **Licence (REQ-AST-002, D-141):** an IT asset (an IT type of kind asset) that is not disposed
   uses a slot of the plan's asset limit. Adding one, or turning an asset into one (a product
   change, a restore), reserves the slot race-safely; the limit is only read through the
@@ -23,12 +27,12 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
 from app.modules.assets.domain.assets import (
     IDENTIFIER_MAX,
@@ -50,25 +54,33 @@ from app.modules.assets.domain.financials import (
 from app.modules.assets.events import AssetAction, AssetChanged
 from app.modules.assets.infra.models import (
     Asset,
+    AssetMerge,
     AssetProduct,
     AssetProductType,
     AssetSettings,
     AssetState,
 )
-from app.modules.assets.service import valuations
+from app.modules.assets.service import catalogue as catalogue_money
+from app.modules.assets.service import ticket_access, valuations
 from app.modules.assets.service.catalogue import TEXT_MAX, ensure_defaults
+from app.modules.assets.service.memo import memo
 from app.modules.assets.service.valuations import VALUED_FIELDS
 from app.modules.identity_access import (
     ResourceType,
     Subject,
     authorize_stored,
     scope_filter,
+    unrestricted,
 )
-from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
+from app.modules.licensing import LimitKey, reserve_capacity
 from app.modules.organization import existing_unit_ids
 from app.modules.procurement import vendor_problem
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
-from app.shared.db.display_ids import next_display_number
+from app.shared.db.display_ids import (
+    next_display_number,
+    reserve_display_numbers,
+    return_display_numbers,
+)
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.history.conflicts import stale_version
@@ -79,8 +91,11 @@ MANAGE = "assets.manage"
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 # WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
 # settings are set only by those who may see its money (and manage it).
-VIEW_FINANCIALS = "assets.view_financials"
+VIEW_FINANCIALS = catalogue_money.VIEW_FINANCIALS  # one name for the right (catalogue)
 DEPRECIATION_FIELDS = ("depreciation_method", "useful_life_years", "salvage_value")
+# D-157: the purchase price and tax are money too; with the depreciation settings, nobody
+# without `assets.view_financials` reads (API, list, history) or writes them.
+MONEY_FIELDS = ("purchase_price", "purchase_tax", "purchase_total", *DEPRECIATION_FIELDS)
 RECORD_TYPE = "asset"
 ENTITY = "asset"  # metadata.CustomFieldEntity.ASSET
 LIMIT_CODE = "asset_limit_reached"
@@ -97,6 +112,7 @@ ASSET_FIELDS = ResourceFields(
         "state_id": FilterField(Asset.state_id, FieldType.UUID),
         "vendor_id": FilterField(Asset.vendor_id, FieldType.UUID),
         "site_id": FilterField(Asset.site_id, FieldType.UUID),
+        "managed_by_group_id": FilterField(Asset.managed_by_group_id, FieldType.UUID),
         # Its holder (0111): what a person or department holds, an asset's components.
         "owner_user_id": FilterField(Asset.owner_user_id, FieldType.UUID),
         "department_id": FilterField(Asset.department_id, FieldType.UUID),
@@ -120,19 +136,28 @@ def _at_sites(site_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
     return Asset.site_id.in_(site_ids)
 
 
+def _in_groups(group_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
+    # The real `group` scope (0183, D-172): the assets the member's groups manage, every edition.
+    return Asset.managed_by_group_id.in_(group_ids)
+
+
 def _group_reach(subject: Subject) -> ColumnElement[bool] | None:
-    # Assets have no managing group yet (ownership, session 4, names people and departments):
-    # until they do, `group` scope reaches the assets at the member's sites and those at none,
-    # so a technician can keep the assets they add without a site.
+    # An asset no group manages yet keeps the reach `group` scope gave before 0183: the assets
+    # at the member's sites and those at none, so nobody loses the assets they had the day the
+    # managing group arrived; setting one moves the asset to that group's members.
+    unmanaged = Asset.managed_by_group_id.is_(None)
     unsited = Asset.site_id.is_(None)
-    return or_(Asset.site_id.in_(subject.site_ids), unsited) if subject.site_ids else unsited
+    sites = or_(Asset.site_id.in_(subject.site_ids), unsited) if subject.site_ids else unsited
+    return and_(unmanaged, sites)
 
 
 ASSETS = ResourceType(
     name="assets",
     fields=ASSET_FIELDS,
     site_scope=_at_sites,
+    group_scope=_in_groups,
     group_scope_extra=_group_reach,
+    narrowed_as="asset",  # fine-grained access (ADR-053): applied inside scope_filter
 )
 
 # The fields a person sets (state: through the life cycle; discovered serial: by discovery).
@@ -146,7 +171,35 @@ _TEXT_FIELDS = {
 _IDENTIFIERS = ("tag", "serial_number", "barcode")
 _AMOUNTS = ("purchase_price", "purchase_tax")
 _DATES = ("acquired_on", "warranty_expires_on", "expires_on")
-_IDS = ("product_id", "vendor_id", "site_id", "purchase_order_id")
+_IDS = ("product_id", "vendor_id", "site_id", "managed_by_group_id", "purchase_order_id")
+
+
+# The asset as it is saved is one the person may manage (their scope: site, or group's sites and
+# unsited assets). `assets.manage` in some scope is not enough: a site-scoped manager never
+# creates an asset at, nor moves one to, a site outside it (lane B, 2026-11-12).
+SITE_NOT_MANAGED = "asset_site_not_managed"
+
+
+async def _within_scope(session: AsyncSession, subject: Subject, row: Asset) -> None:
+    """Refuse (the transaction rolls back) when the saved asset falls outside the scope."""
+    await session.flush()
+    if unrestricted(subject, MANAGE):
+        return  # scope "all", no condition: the query could only say yes (an import, per row)
+    if not await authorize_stored(session, subject, MANAGE, ASSETS, Asset.id, row.id):
+        if subject.resource_access.get("asset") is not None:
+            # Fine-grained access (ADR-053): the values fall outside the person's rules, the
+            # same refusal as a CI written out of reach.
+            raise PermissionDenied(params={"permission": MANAGE, "reason": "out_of_scope"})
+        raise PermissionDenied(code=SITE_NOT_MANAGED, params={"permission": MANAGE})
+
+
+async def _site_change_within_scope(
+    session: AsyncSession, subject: Subject, row: Asset, changes: list[Change]
+) -> None:
+    """A change of site never moves the asset out of the person's reach."""
+    # The fields a scope or an ADR-053 rule reads: a change to any may move the asset out.
+    if any(c.field in ("site_id", "managed_by_group_id", "product_type_id") for c in changes):
+        await _within_scope(session, subject, row)
 
 
 def _require(subject: Subject, permission: str) -> None:
@@ -155,9 +208,14 @@ def _require(subject: Subject, permission: str) -> None:
 
 
 def _require_financials_for(subject: Subject, values: Mapping[str, Any]) -> None:
-    """Depreciation settings are money (REQ-AST-037): only with `assets.view_financials`."""
-    if any(name in values for name in DEPRECIATION_FIELDS):
+    """Price, tax and depreciation settings are money (REQ-AST-037, D-157): `view_financials`."""
+    if any(name in values for name in MONEY_FIELDS):
         _require(subject, VIEW_FINANCIALS)
+
+
+def sees_money(subject: Subject) -> bool:
+    """Whether the subject may read an asset's money (price, tax, total, depreciation)."""
+    return subject.holds(VIEW_FINANCIALS)
 
 
 def _tenant(session: AsyncSession) -> uuid.UUID:
@@ -289,15 +347,71 @@ async def _holder(
     return None if row is None else (row.tag or row.name)
 
 
+_UNIQUE: tuple[tuple[str, InstrumentedAttribute[str | None]], ...] = (
+    ("tag", Asset.tag),
+    ("serial_number", Asset.serial_number),
+)
+
+
 async def _unique_problems(
     session: AsyncSession, cleaned: Mapping[str, Any], other_than: uuid.UUID | None
 ) -> list[Problem]:
     problems: list[Problem] = []
-    for name, column in (("tag", Asset.tag), ("serial_number", Asset.serial_number)):
+    known = memo(session).get("unique") if other_than is None else None
+    for name, column in _UNIQUE:
         value = cleaned.get(name)
-        if value is not None and (held := await _holder(session, column, value, other_than)):
+        if value is None:
+            continue
+        if known is not None and (name, value.lower()) in known["checked"]:
+            held = known["held"].get((name, value.lower()))  # the batch's prefetch, below
+        else:
+            held = await _holder(session, column, value, other_than)
+        if held:
             problems.append(Problem(name, f"asset_{name}_taken", (("asset", held),)))
     return problems
+
+
+async def prefetch_unique(session: AsyncSession, creates: Sequence[Mapping[str, Any]]) -> None:
+    """Which tags and serial numbers of a batch of new assets are taken, in one query.
+
+    For an import's batch savepoint (WP-049b): each create checked both against the table, two
+    round trips a row. Kept in the savepoint's memo, so it ends with it, and every asset the
+    savepoint saves is added (`_note_unique`), so a second row naming the first one's serial is
+    refused as before. A value the prefetch did not ask about is still queried; an update always
+    is. Trash included, as `_holder`. The unique indexes stay the last word on a race.
+    """
+    wanted = {
+        name: {str(v).lower() for row in creates if (v := row.get(name))} for name, _ in _UNIQUE
+    }
+    known: dict[str, Any] = {
+        "checked": {(name, v) for name, values in wanted.items() for v in values},
+        "held": {},
+    }
+    clauses = [func.lower(column).in_(wanted[name]) for name, column in _UNIQUE if wanted[name]]
+    if clauses:
+        found = await session.execute(
+            select(
+                func.lower(Asset.tag), func.lower(Asset.serial_number), Asset.tag, Asset.name
+            ).where(or_(*clauses))
+        )
+        for tag, serial, shown_tag, name in found:
+            for field, value in (("tag", tag), ("serial_number", serial)):
+                if value is not None and value in wanted[field]:
+                    known["held"].setdefault((field, value), shown_tag or name)
+    memo(session)["unique"] = known
+
+
+def _note_unique(session: AsyncSession, row: Asset) -> None:
+    """A batch's new asset now holds its tag and serial number (see `prefetch_unique`)."""
+    known = memo(session).get("unique")
+    if known is None:
+        return
+    for name, _ in _UNIQUE:
+        value = getattr(row, name)
+        if value:
+            key = (name, str(value).lower())
+            known["checked"].add(key)
+            known["held"].setdefault(key, row.tag or row.name)
 
 
 async def _link_problems(
@@ -315,24 +429,50 @@ async def _link_problems(
     site = cleaned.get("site_id")
     if site is not None and site not in await existing_unit_ids(session, "site", [site]):
         problems.append(Problem("site_id", "site_not_found"))
+    group = cleaned.get("managed_by_group_id")
+    if group is not None and group not in await existing_unit_ids(session, "group", [group]):
+        problems.append(Problem("managed_by_group_id", "group_not_found"))
     return problems
 
 
 async def _product(session: AsyncSession, product_id: uuid.UUID) -> AssetProduct | None:
-    return await session.scalar(
-        select(AssetProduct).where(AssetProduct.id == product_id, AssetProduct.deleted_at.is_(None))
-    )
+    """A live product, kept for the (sub)transaction like the types.
+
+    An import names the same few products on thousands of rows (WP-049b). Within one batch a
+    product retired by someone else is still seen as live until the batch ends, about two
+    seconds, as a row already checked would have been.
+    """
+    products: dict[uuid.UUID, AssetProduct | None] = memo(session).setdefault("products", {})
+    if product_id not in products:
+        products[product_id] = await session.scalar(
+            select(AssetProduct).where(
+                AssetProduct.id == product_id, AssetProduct.deleted_at.is_(None)
+            )
+        )
+    return products[product_id]
 
 
 async def _type(session: AsyncSession, type_id: uuid.UUID) -> AssetProductType:
-    found = await session.get(AssetProductType, type_id)
+    found = await _held_type(session, type_id)
     if found is None:  # a foreign key holds it
         msg = f"asset product type {type_id} is missing"
         raise RuntimeError(msg)
     return found
 
 
+async def _held_type(session: AsyncSession, type_id: uuid.UUID) -> AssetProductType | None:
+    """A product type, kept for the transaction (the identity map alone forgets it: S4c)."""
+    types: dict[uuid.UUID, AssetProductType | None] = memo(session).setdefault("types", {})
+    if type_id not in types:
+        types[type_id] = await session.get(AssetProductType, type_id)
+    return types[type_id]
+
+
 async def _default_state(session: AsyncSession) -> AssetState:
+    known = memo(session)
+    if "default_state" in known:
+        state: AssetState = known["default_state"]
+        return state
     found = await session.scalar(
         select(AssetState).where(
             AssetState.category == AssetStateCategory.IN_STOCK,
@@ -343,6 +483,7 @@ async def _default_state(session: AsyncSession) -> AssetState:
     if found is None:  # ensure_defaults made one; an admin cannot remove a default
         msg = "no default in-stock state"
         raise RuntimeError(msg)
+    known["default_state"] = found
     return found
 
 
@@ -353,9 +494,55 @@ async def _counts(session: AsyncSession, type_id: uuid.UUID, state_id: uuid.UUID
 
 
 async def _reserve(session: AsyncSession) -> None:
-    """Take one managed-asset slot, or refuse (403 asset_limit_reached), race-safely."""
-    await hold_limit(session, LimitKey.ASSETS)
+    """Take one managed-asset slot, or refuse (403 asset_limit_reached), race-safely.
+
+    `reserve_capacity` takes the limit's lock itself before it counts (a second `hold_limit`
+    first was one more round trip per asset, S4c).
+    """
     await reserve_capacity(session, LimitKey.ASSETS, code=LIMIT_CODE)
+    known = memo(session)
+    if "slots" in known:  # memo.keep_slot_count: one more slot taken in this savepoint
+        known["slots"] += 1
+
+
+def use_tag_blocks(session: AsyncSession, creates: int) -> None:
+    """In this savepoint, take tag numbers in blocks: one counter upsert, not one per asset.
+
+    For an import's batch savepoint (WP-049b), with `creates` the batch's new assets without a
+    typed tag. A block is reserved when the first number is needed, sized to the creates still
+    to come, and `return_unused_tags` hands back what the batch did not use before the
+    savepoint is released, so only saved assets take numbers and no gap is left (the
+    coordinator's rule). A savepoint that rolls back (a dry run, a refused row) takes its
+    block with it; the row-by-row redo then numbers each row as before.
+    """
+    memo(session)["tag_blocks"] = {"size": max(creates, 1), "used": 0, "blocks": {}}
+
+
+async def return_unused_tags(session: AsyncSession) -> None:
+    """Hand back the numbers this savepoint reserved but did not use (see `use_tag_blocks`)."""
+    known = memo(session).get("tag_blocks")
+    if not known:
+        return
+    for key, block in known["blocks"].items():
+        await return_display_numbers(session, key, block["next"] - 1, block["last"])
+    known["blocks"] = {}
+
+
+async def _number(session: AsyncSession, key: str) -> int:
+    """The next number of a tag counter: from this savepoint's block, else one at a time."""
+    known = memo(session).get("tag_blocks")
+    if known is None:
+        return await next_display_number(session, key)
+    block = known["blocks"].get(key)
+    if block is None or block["next"] > block["last"]:
+        size = max(known["size"] - known["used"], 1)
+        first = await reserve_display_numbers(session, key, size)
+        block = {"next": first, "last": first + size - 1}
+        known["blocks"][key] = block
+    number: int = block["next"]
+    block["next"] += 1
+    known["used"] += 1
+    return number
 
 
 async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> str:
@@ -363,28 +550,42 @@ async def _next_tag(session: AsyncSession, product_type: AssetProductType) -> st
     node: AssetProductType | None = product_type
     while node is not None:
         if node.tag_pattern:
-            number = await next_display_number(session, tag_counter_key(str(node.id)))
+            number = await _number(session, tag_counter_key(str(node.id)))
             return format_tag(node.tag_pattern, number)
-        node = (
-            None if node.parent_id is None else await session.get(AssetProductType, node.parent_id)
-        )
-    settings = await session.get(AssetSettings, _tenant(session))
+        node = None if node.parent_id is None else await _held_type(session, node.parent_id)
+    known = memo(session)
+    if "settings" not in known:
+        known["settings"] = await session.get(AssetSettings, _tenant(session))
+    settings: AssetSettings | None = known["settings"]
     pattern = settings.tag_pattern if settings is not None else "AST-{n}"
-    return format_tag(pattern, await next_display_number(session, tag_counter_key(None)))
+    return format_tag(pattern, await _number(session, tag_counter_key(None)))
 
 
 async def _custom(
-    session: AsyncSession, sent: Mapping[str, Any] | None, current: Asset | None
+    session: AsyncSession,
+    sent: Mapping[str, Any] | None,
+    current: Asset | None,
+    type_id: uuid.UUID | None,
 ) -> tuple[dict[str, Any] | None, list[Problem]]:
-    """The asset's custom values after this save (None: untouched), checked by metadata."""
+    """The asset's custom values after this save (None: untouched), checked by metadata.
+
+    `type_id`: the asset's product type: fields scoped to another branch of the tree are
+    unknown to it (0175).
+    """
     creating = current is None
     if sent is None and not creating:
         return None, []
     before = {} if current is None else dict(current.custom)
     cleaned, found = await metadata.clean(
-        session, ENTITY, sent or {}, current=before, creating=creating, defaults=creating
+        session,
+        ENTITY,
+        sent or {},
+        current=before,
+        creating=creating,
+        defaults=creating,
+        type_id=type_id,
     )
-    params = await metadata.problem_params(session, ENTITY, found)
+    params = await metadata.problem_params(session, ENTITY, found) if found else {}
     problems = [Problem(path, code, tuple(params.get(path, {}).items())) for path, code in found]
     merged = {**before, **cleaned}
     return {k: v for k, v in merged.items() if v is not None}, problems
@@ -405,7 +606,8 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         row.version += 1
     row.updated_by = None if subject is None else subject.user_id
     await session.flush()
-    await session.refresh(row)  # the database's timestamps
+    if action != "created":  # a new asset's INSERT returned them (eager_defaults on Asset)
+        await session.refresh(row)  # the database's timestamps
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -430,7 +632,17 @@ async def _saved(  # noqa: PLR0913 - one save: what, who, the changes, how, wher
         aggregate_version=row.version,
     )
     if action == "created" or VALUED_FIELDS & {c.field for c in changes}:
-        await valuations.refresh(session, row)  # reports see the new figures at once
+        # Reports see the new figures at once. A new asset has no cost lines or disposal yet.
+        await valuations.refresh(session, row, new=action == "created")
+
+
+def visible_ids(subject: Subject, permission: str = VIEW) -> Select[uuid.UUID]:
+    """The ids of the assets the subject may see, trashed ones too.
+
+    For rows that name an asset (a booking, a loan line, an audit item), so they follow the
+    asset's own reach (ADR-053).
+    """
+    return select(Asset.id).where(scope_filter(subject, permission, ASSETS))
 
 
 def staff_rows(subject: Subject, *, trash: bool = False) -> Select[Asset]:
@@ -463,10 +675,56 @@ async def _visible(
     return row
 
 
+async def writable(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[Asset, bool]:
+    """The asset to change, locked, and whether only the narrower D-157 path allows it.
+
+    `assets.manage` on the asset: the full write (False). Otherwise a person who sees it may
+    still change a few fields when it is linked to their own ticket and held by that ticket's
+    requester or department (True, `ticket_access`). Otherwise 403 (seen) or 404.
+    """
+    if subject.holds(MANAGE):
+        try:
+            return await _visible(session, subject, asset_id, permission=MANAGE), False
+        except PermissionDenied:
+            pass  # sees it without managing it (another site): perhaps through a ticket
+    if not subject.holds(VIEW):
+        raise PermissionDenied(params={"permission": MANAGE})
+    row = await _visible(session, subject, asset_id)
+    if not await ticket_access.ticket_grants(session, subject, row):
+        raise PermissionDenied(params={"permission": MANAGE})
+    await session.refresh(row, with_for_update=True)  # as the full write locks it
+    return row, True
+
+
+async def _writable_with(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, values: Mapping[str, Any]
+) -> Asset:
+    """The asset for a save of `values`: the D-157 path changes the location only; money asks."""
+    row, limited = await writable(session, subject, asset_id)
+    if limited and (refused := sorted(set(values) - ticket_access.LIMITED_FIELDS)):
+        raise ticket_access.refuse_field(refused[0])
+    _require_financials_for(subject, values)
+    return row
+
+
 async def get_asset(session: AsyncSession, subject: Subject, asset_id: uuid.UUID) -> Asset:
     """One live asset the subject may see (404 otherwise: never a hint that it exists)."""
     _require(subject, VIEW)
     return await _visible(session, subject, asset_id)
+
+
+async def edit_reach(
+    session: AsyncSession, subject: Subject, asset_id: uuid.UUID
+) -> tuple[bool, bool]:
+    """(manages it, may change a few fields through its own ticket: D-157) for the record page."""
+    row = await get_asset(session, subject, asset_id)
+    if subject.holds(MANAGE) and await authorize_stored(
+        session, subject, MANAGE, ASSETS, Asset.id, asset_id
+    ):
+        return True, False
+    return False, await ticket_access.ticket_grants(session, subject, row)
 
 
 async def create_asset(
@@ -486,7 +744,9 @@ async def create_asset(
     elif (product := await _product(session, cleaned["product_id"])) is None:
         problems.append(Problem("product_id", "asset_product_not_found"))
     problems += await _link_problems(session, cleaned, None)
-    custom, custom_problems = await _custom(session, values.get("custom"), None)
+    custom, custom_problems = await _custom(
+        session, values.get("custom"), None, None if product is None else product.product_type_id
+    )
     problems += custom_problems
     problems += await _unique_problems(session, cleaned, None)
     _refuse(problems)
@@ -503,14 +763,17 @@ async def create_asset(
         id=new_id(),
         tenant_id=_tenant(session),
         created_by=subject.user_id,
+        updated_by=subject.user_id,  # as `_saved` sets it: no second UPDATE of the new row (S4c)
         product_type_id=product_type.id,
         state_id=state.id,
         custom=custom or {},
-        custom_text=await metadata.text_for_search(session, ENTITY, custom or {}),
+        # No custom values, no search text (S4c: skips reading the definitions for nothing).
+        custom_text=await metadata.text_for_search(session, ENTITY, custom) if custom else None,
         **cleaned,
     )
     session.add(row)
-    await session.flush()
+    await _within_scope(session, subject, row)  # flushes
+    _note_unique(session, row)
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     changes = [
@@ -563,9 +826,7 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     A disposed asset is read-only (REQ-AST-017 AC3): only `assets.edit_disposed` changes it,
     and each such change asks for a reason, kept in its history.
     """
-    _require(subject, MANAGE)
-    _require_financials_for(subject, values)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    row = await _writable_with(session, subject, asset_id, values)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,
@@ -586,7 +847,9 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
     if "tag" in cleaned and cleaned["tag"] is None:
         problems.append(Problem("tag", "required"))  # a tag, once given, stays (AST-008)
     problems += await _link_problems(session, cleaned, row)
-    custom, custom_problems = await _custom(session, values.get("custom"), row)
+    custom, custom_problems = await _custom(
+        session, values.get("custom"), row, cleaned.get("product_type_id", row.product_type_id)
+    )
     problems += custom_problems
     problems += await _unique_problems(session, cleaned, row.id)
     _refuse(problems)
@@ -600,9 +863,11 @@ async def update_asset(  # noqa: PLR0913 - the If-Match and the source
         changes += await _apply_custom(session, row, custom)
     if not changes:
         return row
+    await _site_change_within_scope(session, subject, row, changes)
     if not counted and await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)  # e.g. a non-IT asset's product became an IT one
     await _saved(session, subject, row, changes, action="updated", source=source, reason=text)
+    _note_unique(session, row)  # a later create in the batch may name its new tag or serial
     return row
 
 
@@ -628,9 +893,19 @@ async def delete_asset(
 
 
 async def restore_asset(
-    session: AsyncSession, subject: Subject, asset_id: uuid.UUID, *, source: Source
+    session: AsyncSession,
+    subject: Subject,
+    asset_id: uuid.UUID,
+    *,
+    source: Source,
+    confirm_merged: bool = False,
 ) -> Asset:
-    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached)."""
+    """Back from the trash, taking a slot again if it counts (403 asset_limit_reached).
+
+    An asset merged into another (REQ-AST-052) comes back only once the person has seen the
+    warning (409 `asset_restore_merged`, naming the survivor; then `confirm_merged`). It comes
+    back on its own: the alias ends, and what moved to the survivor stays there.
+    """
     _require(subject, MANAGE)
     in_trash = select(Asset).where(
         Asset.id == asset_id,
@@ -640,11 +915,28 @@ async def restore_asset(
     row = await session.scalar(in_trash.with_for_update())
     if row is None:
         raise NotFound(code="asset_not_found")
+    changes = [Change("deleted", old=True, new=False)]
+    merge = await session.scalar(
+        select(AssetMerge)
+        .where(
+            AssetMerge.merged_id == row.id,
+            AssetMerge.restored_at.is_(None),
+            AssetMerge.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if merge is not None:
+        survivor = await session.get(Asset, merge.survivor_id)
+        name = "" if survivor is None else (survivor.tag or survivor.name)
+        if not confirm_merged:
+            raise Conflict(code="asset_restore_merged", params={"asset": name})
+        merge.restored_at, merge.restored_by = datetime.now(UTC), subject.user_id
+        merge.version += 1
+        changes.append(Change("restored_after_merge", None, name))
     if await _counts(session, row.product_type_id, row.state_id):
         await _reserve(session)
     row.deleted_at = None
-    restored = Change("deleted", old=True, new=False)
-    await _saved(session, subject, row, [restored], action="restored", source=source)
+    await _saved(session, subject, row, changes, action="restored", source=source)
     return row
 
 
@@ -659,7 +951,14 @@ def purchase_total(row: Asset) -> Decimal | None:
 
 
 async def count_managed_assets(session: AsyncSession) -> int:
-    """Assets using a slot of the plan's asset limit (REQ-AST-002, D-141)."""
+    """Assets using a slot of the plan's asset limit (REQ-AST-002, D-141).
+
+    In an import's batch savepoint (`memo.keep_slot_count`) counted once, then kept up to date.
+    """
+    known = memo(session)
+    if known.get("keep_slot_count") and "slots" in known:
+        slots: int = known["slots"]
+        return slots
     found = await session.scalar(
         select(func.count())
         .select_from(Asset)
@@ -672,6 +971,8 @@ async def count_managed_assets(session: AsyncSession) -> int:
             AssetState.category != AssetStateCategory.DISPOSED,
         )
     )
+    if known.get("keep_slot_count"):
+        known["slots"] = int(found or 0)
     return int(found or 0)
 
 

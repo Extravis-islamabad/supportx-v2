@@ -29,6 +29,26 @@ export interface FlowDefinition {
   variables: unknown[];
 }
 
+/** What a workflow variable may hold (the server's VARIABLE_KINDS). */
+export const VARIABLE_KINDS = ['text', 'number', 'boolean', 'datetime'] as const;
+export type VariableKind = (typeof VARIABLE_KINDS)[number];
+
+/** A workflow's own variable: its name and what it holds (ADR-043 §1). */
+export interface WorkflowVariable {
+  name: string;
+  kind: VariableKind;
+}
+
+/** The variables of a definition, as the designer edits them; anything unreadable is left out. */
+export function readVariables(raw: readonly unknown[]): WorkflowVariable[] {
+  return raw.filter(isObject).map((v) => ({
+    name: text(v.name),
+    kind: (VARIABLE_KINDS as readonly string[]).includes(text(v.kind))
+      ? (text(v.kind) as VariableKind)
+      : 'text',
+  }));
+}
+
 /** An empty definition: a start and an end, not yet joined (the server names what is missing). */
 export function emptyDefinition(): FlowDefinition {
   return {

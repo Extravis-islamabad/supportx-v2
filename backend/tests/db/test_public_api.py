@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from app.core.modules import ModuleRegistry, discover_modules
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from conftest import create_tenant, make_settings
@@ -61,10 +62,15 @@ def test_req_int_017_ac1_every_record_action_has_an_operation() -> None:
     assert "delete" in paths["/api/v1/incidents/{record_id}"]  # the destructive action
 
 
+FRESH = SignInFreshness(interactive=True, recent=True)
+
+
 async def _admin_session(request: Request) -> TenantContext | None:
     tenant = request.headers.get("x-test-tenant")
     if tenant is None:
         return None
+    # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
+    record_freshness(request, FRESH)
     return TenantContext(uuid.UUID(tenant), uuid.UUID(request.headers["x-test-user"]))
 
 

@@ -83,6 +83,7 @@ class CustomFieldEntity(StrEnum):
     RELEASE = "release"  # WP-058a
     CHANGE = "change"  # WP-045a
     ASSET = "asset"  # WP-049a s2 (REQ-AST-004)
+    CI = "ci"  # WP-053 (0175): configuration items, scoped to a CI type subtree
 
 
 # entity → the permission that lets someone see the entity's fields (forms need them).
@@ -93,6 +94,7 @@ VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.RELEASE: "releases.view",
     CustomFieldEntity.CHANGE: "changes.view",
     CustomFieldEntity.ASSET: "assets.view",
+    CustomFieldEntity.CI: "cmdb.view",
 }
 # Where each entity's records (and their `custom` values) live: for the index worker (D-088).
 ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
@@ -102,7 +104,15 @@ ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {
     CustomFieldEntity.RELEASE: "work_items",
     CustomFieldEntity.CHANGE: "work_items",
     CustomFieldEntity.ASSET: "assets",
+    CustomFieldEntity.CI: "cmdb_cis",  # 0173's table (GIN on `custom`)
 }
+# Entities whose fields can never be marked sensitive: no seal port yet (lane A's 0175
+# condition a; refused by the server on create and on change, never only hidden in the UI).
+NEVER_SENSITIVE: frozenset[CustomFieldEntity] = frozenset(
+    {CustomFieldEntity.ASSET, CustomFieldEntity.CI}
+)
+# A type tree is at most this deep (the CMDB caps its tree; asset product types likewise).
+TYPE_TREE_DEPTH = 8
 
 
 class IndexState(StrEnum):
@@ -113,6 +123,15 @@ class IndexState(StrEnum):
     BUILDING = "building"
     ACTIVE = "active"
     FAILED = "failed"
+
+
+class SealState(StrEnum):
+    """Where a field's stored values stand while they follow `sensitive` (WP-057 S3b-2)."""
+
+    PLAIN = "plain"
+    SEALING = "sealing"
+    SEALED = "sealed"
+    OPENING = "opening"
 
 
 class IndexFailure(StrEnum):
@@ -510,3 +529,37 @@ FIELD_PROBLEMS = frozenset(
         "whole_number_required",
     }
 )
+
+
+# --- type-subtree scope (0175; plans/metadata-type-subtree-design-lane-b.md) ----------------------
+
+
+def in_scope(scope_type_id: uuid.UUID | None, lineage: Sequence[uuid.UUID]) -> bool:
+    """Whether a field scoped to `scope_type_id` applies to a record of a type.
+
+    `lineage` is the record's type itself first, then each parent up to the root; a field
+    scoped to None applies to the whole entity.
+    """
+    return scope_type_id is None or scope_type_id in lineage
+
+
+def scope_change_allowed(
+    current: uuid.UUID | None,
+    wanted: uuid.UUID | None,
+    current_lineage: Sequence[uuid.UUID],
+    *,
+    in_use: bool,
+) -> bool:
+    """Whether a field's scope may move from `current` to `wanted`.
+
+    Widening (to an ancestor of the current scope, or to the whole entity) always may; narrowing
+    or moving sideways only while no record holds a value (lane B, §3), so a stored value is
+    never stranded outside its field's scope.
+    """
+    if wanted == current:
+        return True
+    if wanted is None:
+        return True  # the whole entity: wider than any scope
+    if current is not None and wanted in current_lineage:
+        return True  # an ancestor of the current scope
+    return not in_use

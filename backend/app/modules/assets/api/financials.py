@@ -105,7 +105,9 @@ class DepreciationYearOut(BaseModel):
 class DepreciationOut(BaseModel):
     """The depreciation in effect, and where each setting came from (the asset or its product)."""
 
-    method: DepreciationChoice | None = Field(description="None: set nowhere (no depreciation).")
+    method: DepreciationChoice | None = Field(
+        description="Straight line when neither the asset nor its product names one (D-157)."
+    )
     method_from: TermsSource | None
     useful_life_years: int | None
     life_from: TermsSource | None

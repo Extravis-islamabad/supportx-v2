@@ -23,24 +23,47 @@ export const en = {
   'delivery_state.retrying': 'Trying again',
   'delivery_state.sent': 'Sent',
   'delivery_state.waiting': 'Waiting for mail to be set up',
+  'erasure_count.deliveries_deleted': 'Notification deliveries deleted',
+  'erasure_count.notifications_deleted': 'In-app notifications deleted',
+  'erasure_count.preferences_deleted': 'Notification preferences deleted',
   'event_delivery.stalled.body':
     'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
   'event_delivery.stalled.title': 'Event delivery is stalled',
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
+  'notice.custom_field.seal_opening': 'Opening values',
+  'notice.custom_field.seal_sealing': 'Sealing values',
+  'notice.sign_in_secret.days_1': 'runs out within a day',
+  'notice.sign_in_secret.days_30': 'runs out in 30 days',
+  'notice.sign_in_secret.days_7': 'runs out in 7 days',
+  'notice.sign_in_secret.expired': 'has run out',
+  'notice.sign_in_secret.item_certificate': 'signing certificate',
+  'notice.sign_in_secret.item_client_secret': 'client secret',
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
   'notification_area.asset': 'Assets',
+  'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
   'notification_area.connector': 'Connectors',
+  'notification_area.custom_field': 'Custom fields',
   'notification_area.incident': 'Incidents',
   'notification_area.kb_article': 'Knowledge',
   'notification_area.mailbox': 'Mail',
+  'notification_area.outgoing_mail': 'Outgoing mail',
   'notification_area.problem': 'Problems',
   'notification_area.problem_repeat': 'Problems',
   'notification_area.release': 'Releases',
+  'notification_area.reminder': 'Reminders',
+  'notification_area.report_schedule': 'Scheduled reports',
   'notification_area.rule_step': 'Rules and escalations',
+  'notification_area.security': 'Security notices',
+  'notification_area.service_account': 'Service accounts',
   'notification_area.service_request': 'Service requests',
+  'notification_area.sign_in_secret': 'Sign-in certificates and secrets',
+  'notification_area.support_grant': 'Vendor support access',
+  'notification_area.task': 'Tasks',
+  'notification_area.verified_domain': 'Verified domains',
+  'notification_area.work_item_view': 'Saved views',
   'notification_category.approval': 'Approvals',
   'notification_category.assignment': 'Assignments',
   'notification_category.conversation': 'Replies and notes',
@@ -57,20 +80,50 @@ export const en = {
   'notification_event.announcement.updated': 'An announcement you follow was updated',
   'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
+  'notification_event.asset.erased_holder_items': 'A person being erased still holds assets',
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
   'notification_event.asset.mentioned': 'Mentioned in an asset note',
   'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
+  'notification_event.break_glass.signed_in': 'An emergency administrator signed in',
+  'notification_event.change.approval_fallback': 'Change approval with nobody to decide',
+  'notification_event.change.approval_requested': 'Change approval needed',
+  'notification_event.change.approved': 'Change approved',
+  'notification_event.change.assigned': 'Change assigned to you',
+  'notification_event.change.backed_out': 'Change backed out',
+  'notification_event.change.board_empty': 'Change board has no members',
+  'notification_event.change.cab_reminder': 'Change waits for your CAB decision',
+  'notification_event.change.clarification': 'Change needs more information',
+  'notification_event.change.closed': 'Change closed',
+  'notification_event.change.implementation_failed': 'Change implementation failed',
+  'notification_event.change.implementation_overdue': 'Change implementation overdue',
+  'notification_event.change.implemented': 'Change implemented',
+  'notification_event.change.mentioned': 'Mentioned on a change',
+  'notification_event.change.note': 'Note on a change',
+  'notification_event.change.overridden': 'Emergency override used',
   'notification_event.change.public_reply': 'Reply to the requester',
+  'notification_event.change.rejected': 'Change rejected',
+  'notification_event.change.review_due': 'Change review due',
+  'notification_event.change.sent_back': 'Approved change needs approval again',
+  'notification_event.change.status_entered': 'Change entered a status',
+  'notification_event.change.submitted': 'Change submitted',
+  'notification_event.change.window_reminder': 'Change window starts soon',
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
+  'notification_event.custom_field.seal_paused': "Sealing a sensitive field's values has paused",
+  'notification_event.incident.approval_rejected': 'Approval rejected',
+  'notification_event.incident.approval_requested': 'Approval requested',
   'notification_event.incident.assigned': 'Incident assigned',
-  'notification_event.incident.canceled': 'Incident canceled',
+  'notification_event.incident.canceled': 'Incident cancelled',
+  'notification_event.incident.cancellation_to_managers':
+    'Cancellation ask passed to the service desk managers',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
   'notification_event.incident.follower_added': 'Added as a follower',
+  'notification_event.incident.major_declared': 'Major incident declared',
+  'notification_event.incident.major_ended': 'Major incident ended',
   'notification_event.incident.mentioned': 'Mentioned',
   'notification_event.incident.private_note': 'Private note',
   'notification_event.incident.public_note': 'Public note',
@@ -91,6 +144,7 @@ export const en = {
   'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
   'notification_event.mailbox.failing': 'Mailbox stopped working',
   'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_event.outgoing_mail.not_sent': 'E-mails never sent: mail is not set up',
   'notification_event.problem.assigned': 'Problem assigned',
   'notification_event.problem.closed': 'Problem closed',
   'notification_event.problem.created_in_group': 'Problem created in your group',
@@ -103,7 +157,15 @@ export const en = {
   'notification_event.problem.target_warning': 'Problem target date close',
   'notification_event.problem_repeat.detected': 'Repeated incidents found',
   'notification_event.release.public_reply': 'Reply to the requester',
+  'notification_event.reminder.due': 'Your reminder',
+  'notification_event.report_schedule.recipients_skipped': 'A scheduled report left people out',
   'notification_event.rule_step.assignee_unavailable': 'Rule could not assign its person',
+  'notification_event.security.locked_out': 'Your account was locked after failed sign-ins',
+  'notification_event.security.mfa_added': 'A sign-in check (MFA) was added to your account',
+  'notification_event.security.mfa_removed': 'A sign-in check (MFA) was removed from your account',
+  'notification_event.security.new_device': 'A sign-in from a new browser or device',
+  'notification_event.security.password_changed': 'Your password was changed',
+  'notification_event.service_account.needs_owner': 'A service account needs a new owner',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
@@ -113,6 +175,17 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.sign_in_secret.expiring': 'A sign-in certificate or secret is running out',
+  'notification_event.support_grant.ended': 'Vendor support access ended',
+  'notification_event.support_grant.extended': 'Vendor support access extended',
+  'notification_event.support_grant.first_used': 'A support engineer signed in for the first time',
+  'notification_event.support_grant.granted': 'Vendor support access granted',
+  'notification_event.support_grant.removal_stuck': 'A support account is still not removed',
+  'notification_event.task.assigned': 'A task is given to you',
+  'notification_event.task.overdue': 'Your task is overdue',
+  'notification_event.task.starts_soon': 'Your task starts soon',
+  'notification_event.verified_domain.lapsed': 'A verified domain is no longer verified',
+  'notification_event.work_item_view.unshared': 'A view you shared was made private',
   'notification_preferences.col.category': 'Kind',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
@@ -135,35 +208,54 @@ export const en = {
   'notification_recipient.assignee': 'Assigned technician',
   'notification_recipient.author': 'Author',
   'notification_recipient.borrower': 'The borrower',
+  'notification_recipient.cab': 'CAB members',
+  'notification_recipient.cab_member': 'The CAB member waiting to decide',
+  'notification_recipient.change_manager': 'Change manager',
+  'notification_recipient.change_owner': 'Change owner',
   'notification_recipient.connector_admins': 'People who set up this connector',
+  'notification_recipient.custom_field_admins': 'Those who manage custom fields',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
   'notification_recipient.group_head': 'Group lead and department head',
   'notification_recipient.holder': 'The person who holds it',
+  'notification_recipient.implementer': 'Implementer',
+  'notification_recipient.line_manager': 'Line manager',
   'notification_recipient.linked_incident_technicians': 'Technicians of the linked incidents',
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
+  'notification_recipient.major_team': 'Major incident team',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
   'notification_recipient.on_behalf_of': 'Person it is for',
+  'notification_recipient.other_tenant_admins': 'The other tenant administrators',
   'notification_recipient.owner': 'Article owner',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
+  'notification_recipient.reviewer': 'Reviewer',
+  'notification_recipient.schedule_owner': "The schedule's owner",
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
+  'notification_recipient.tenant_admins': 'The tenant administrators',
+  'notification_recipient.the_person': 'The person it is about',
   'notification_recipient.topic_owner': 'Topic owner',
+  'notification_recipient.view_owner': "The view's owner",
   'notification_recipient.workflow_audience': 'People the workflow names',
   'notification_rules.any_priority': 'Any priority',
+  'notification_rules.any_status': 'Any status',
   'notification_rules.changed': 'Changed {{when}}',
   'notification_rules.col.channels': 'How',
   'notification_rules.col.event': 'Event',
   'notification_rules.col.on': 'On',
   'notification_rules.col.priority': 'Only for priority',
   'notification_rules.col.recipients': 'Who',
+  'notification_rules.col.status': 'Only for status',
   'notification_rules.intro':
     'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
+  'notification_rules.locked': 'Fixed for security',
+  'notification_rules.locked_help':
+    'A security notice: always sent to the people it names. No one can switch it off or change who gets it.',
   'notification_rules.none': 'No event matches',
   'notification_rules.required': 'Required for people',
   'notification_rules.reset': 'Back to default',
@@ -194,6 +286,12 @@ export const en = {
     'Please acknowledge {{ record.display_id }}: {{ record.title }}',
   'notification_template.asset.ack_requested.subject':
     'Please acknowledge {{ record.display_id }} {{ record.title }}',
+  'notification_template.asset.erased_holder_items.body':
+    'Hello {{ recipient.name }},\nA person whose data is being erased on request still holds or has on loan these assets: {{ holdings.assets }}. Their assignments and loans stay open: please recover the assets and close them as usual. {{ record.link }}',
+  'notification_template.asset.erased_holder_items.in_app':
+    'A person being erased still holds: {{ holdings.assets }}',
+  'notification_template.asset.erased_holder_items.subject':
+    'Recover {{ holdings.count }} assets from a person being erased',
   'notification_template.asset.loan_due.body':
     'Hello {{ recipient.name }},\n\nThe assets loaned to {{ holder.name }} are due back tomorrow.',
   'notification_template.asset.loan_due.in_app': 'Loan to {{ holder.name }} is due tomorrow',
@@ -219,12 +317,143 @@ export const en = {
     'Warranty of {{ record.display_id }} ends on {{ warranty.ends_on }}',
   'notification_template.asset.warranty_expiring.subject':
     'Warranty ending: {{ record.display_id }} {{ record.title }}',
+  'notification_template.break_glass.signed_in.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} signed in with their emergency administrator account, which works even while single sign-on is required. If you did not expect this, check Sign-in and security now: {{ record.link }}',
+  'notification_template.break_glass.signed_in.in_app':
+    '{{ record.title }} signed in with their emergency administrator account',
+  'notification_template.break_glass.signed_in.subject': 'Emergency sign-in: {{ record.title }}',
+  'notification_template.change.approval_fallback.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has an approval that nobody holds. An approval administrator can decide it.',
+  'notification_template.change.approval_fallback.in_app':
+    '{{ record.display_id }} has an approval with no approver: {{ record.title }}',
+  'notification_template.change.approval_fallback.subject':
+    'No approver: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approval_requested.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" waits for your approval.\n\nApprove or reject: {{ approval_link }}\n\nThe link works once, for you only.',
+  'notification_template.change.approval_requested.in_app':
+    '{{ record.display_id }} waits for your approval: {{ record.title }}',
+  'notification_template.change.approval_requested.subject':
+    'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.approved.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was approved. It is now: {{ record.status }}.',
+  'notification_template.change.approved.in_app':
+    '{{ record.display_id }} was approved: {{ record.title }}',
+  'notification_template.change.approved.subject':
+    'Approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.assigned.body':
+    'Hello {{ recipient.name }},\n\nYou are now the change owner of {{ record.display_id }} "{{ record.title }}".',
+  'notification_template.change.assigned.in_app':
+    'You are the owner of {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.assigned.subject':
+    'You own {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.backed_out.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was backed out. It is now: {{ record.status }}.',
+  'notification_template.change.backed_out.in_app':
+    '{{ record.display_id }} was backed out: {{ record.title }}',
+  'notification_template.change.backed_out.subject':
+    'Backed out: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.board_empty.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" waits for a change board that has no members. Add members to the board, or choose another one.',
+  'notification_template.change.board_empty.in_app':
+    '{{ record.display_id }} waits for a board with no members: {{ record.title }}',
+  'notification_template.change.board_empty.subject':
+    'Board with no members: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.cab_reminder.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" starts at {{ window.start }} and still waits for your decision.\n\nApprove or reject: {{ approval_link }}',
+  'notification_template.change.cab_reminder.in_app':
+    '{{ record.display_id }} starts at {{ window.start }} and waits for you: {{ record.title }}',
+  'notification_template.change.cab_reminder.subject':
+    'Your decision, starts soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.clarification.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" needs more information before it can go on. Open it to see what is asked.',
+  'notification_template.change.clarification.in_app':
+    '{{ record.display_id }} needs more information: {{ record.title }}',
+  'notification_template.change.clarification.subject':
+    'More information needed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.closed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is closed.',
+  'notification_template.change.closed.in_app':
+    '{{ record.display_id }} was closed: {{ record.title }}',
+  'notification_template.change.closed.subject':
+    'Closed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_failed.body':
+    'Hello {{ recipient.name }},\n\nThe implementation of {{ record.display_id }} "{{ record.title }}" failed. It is now: {{ record.status }}.',
+  'notification_template.change.implementation_failed.in_app':
+    '{{ record.display_id }} failed in implementation: {{ record.title }}',
+  'notification_template.change.implementation_failed.subject':
+    'Implementation failed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implementation_overdue.body':
+    'Hello {{ recipient.name }},\n\nThe implementation window of {{ record.display_id }} "{{ record.title }}" has ended, and the change is not implemented yet.',
+  'notification_template.change.implementation_overdue.in_app':
+    'The window of {{ record.display_id }} has ended, and it is not implemented: {{ record.title }}',
+  'notification_template.change.implementation_overdue.subject':
+    'Implementation overdue: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.implemented.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was implemented. It is now: {{ record.status }}.',
+  'notification_template.change.implemented.in_app':
+    '{{ record.display_id }} was implemented: {{ record.title }}',
+  'notification_template.change.implemented.subject':
+    'Implemented: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.mentioned.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.change.mentioned.in_app':
+    '{{ conversation.author }} mentioned you on {{ record.display_id }}',
+  'notification_template.change.mentioned.subject':
+    'You were mentioned on {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.note.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} added a note on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.change.note.in_app':
+    '{{ conversation.author }} added a note on {{ record.display_id }}',
+  'notification_template.change.note.subject':
+    'New note: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.overridden.body':
+    'Hello {{ recipient.name }},\n\nThe emergency override was used on {{ record.display_id }} "{{ record.title }}". Its review is now required.',
+  'notification_template.change.overridden.in_app':
+    'The emergency override was used on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.overridden.subject':
+    'Emergency override: {{ record.display_id }} {{ record.title }}',
   'notification_template.change.public_reply.body':
     'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
   'notification_template.change.public_reply.in_app':
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.change.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.change.rejected.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was rejected. It is now: {{ record.status }}.',
+  'notification_template.change.rejected.in_app':
+    '{{ record.display_id }} was rejected: {{ record.title }}',
+  'notification_template.change.rejected.subject':
+    'Rejected: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.review_due.body':
+    'Hello {{ recipient.name }},\n\nThe post-implementation review of {{ record.display_id }} "{{ record.title }}" is due.',
+  'notification_template.change.review_due.in_app':
+    'The review of {{ record.display_id }} is due: {{ record.title }}',
+  'notification_template.change.review_due.subject':
+    'Review due: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.sent_back.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" changed after it was approved, so it needs approval again.',
+  'notification_template.change.sent_back.in_app':
+    '{{ record.display_id }} needs approval again: {{ record.title }}',
+  'notification_template.change.sent_back.subject':
+    'Needs approval again: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.status_entered.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now: {{ record.status }}.',
+  'notification_template.change.status_entered.in_app':
+    '{{ record.display_id }} is now {{ record.status }}: {{ record.title }}',
+  'notification_template.change.status_entered.subject':
+    '{{ record.status }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.submitted.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was submitted and waits for the change manager.',
+  'notification_template.change.submitted.in_app':
+    '{{ record.display_id }} was submitted: {{ record.title }}',
+  'notification_template.change.submitted.subject':
+    'Submitted: {{ record.display_id }} {{ record.title }}',
+  'notification_template.change.window_reminder.body':
+    'Hello {{ recipient.name }},\n\nThe implementation window of {{ record.display_id }} "{{ record.title }}" starts at {{ window.start }}.',
+  'notification_template.change.window_reminder.in_app':
+    '{{ record.display_id }} starts at {{ window.start }}: {{ record.title }}',
+  'notification_template.change.window_reminder.subject':
+    'Starts soon: {{ record.display_id }} {{ record.title }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
@@ -234,6 +463,24 @@ export const en = {
     'Hello {{ recipient.name }},\n\n{{ record.title }} works again. Nothing else is needed.',
   'notification_template.connector.recovered.in_app': '{{ record.title }} works again',
   'notification_template.connector.recovered.subject': '{{ record.title }} works again',
+  'notification_template.custom_field.seal_paused.body':
+    "Hello {{ recipient.name }},\n{{ notice.direction }} for the custom field {{ record.title }} has paused: the encryption keys are not available. The field's values stay as they are, and the job carries on by itself once the keys are back. Please check the key configuration. {{ record.link }}",
+  'notification_template.custom_field.seal_paused.in_app':
+    'Paused for want of keys: {{ notice.direction }} for {{ record.title }}',
+  'notification_template.custom_field.seal_paused.subject':
+    'Paused: {{ notice.direction }} for {{ record.title }}',
+  'notification_template.incident.approval_rejected.body':
+    'Hello {{ recipient.name }},\n\nThe approval asked for incident {{ record.display_id }} "{{ record.title }}" was rejected. Open the incident to see who decided and why: {{ record.link }}',
+  'notification_template.incident.approval_rejected.in_app':
+    'The approval of {{ record.display_id }} was rejected: {{ record.title }}',
+  'notification_template.incident.approval_rejected.subject':
+    'Approval rejected: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.approval_requested.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" waits for your approval.\n\nApprove or reject: {{ approval_link }}\n\nThe link works once, for you only.',
+  'notification_template.incident.approval_requested.in_app':
+    '{{ record.display_id }} waits for your approval: {{ record.title }}',
+  'notification_template.incident.approval_requested.subject':
+    'Your approval: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.assigned.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}\nRequester: {{ requester.name }}',
   'notification_template.incident.assigned.in_app':
@@ -241,10 +488,16 @@ export const en = {
   'notification_template.incident.assigned.subject':
     'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.canceled.body':
-    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
-  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was cancelled.',
+  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was cancelled',
   'notification_template.incident.canceled.subject':
-    'Canceled: {{ record.display_id }} {{ record.title }}',
+    'Cancelled: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.cancellation_to_managers.body':
+    'Hello {{ recipient.name }},\n\nNobody is assigned to {{ record.display_id }} "{{ record.title }}", so your request to cancel it has gone to the service desk managers. They will decide: {{ record.link }}',
+  'notification_template.incident.cancellation_to_managers.in_app':
+    'Your request to cancel {{ record.display_id }} is with the service desk managers',
+  'notification_template.incident.cancellation_to_managers.subject':
+    'Your request to cancel {{ record.display_id }}',
   'notification_template.incident.closed.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now closed.',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} was closed',
@@ -268,6 +521,18 @@ export const en = {
     'You now follow {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.subject':
     'You now follow {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.major_declared.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" was declared a major incident. You are on the major incident team: {{ record.link }}',
+  'notification_template.incident.major_declared.in_app':
+    '{{ record.display_id }} was declared a major incident: {{ record.title }}',
+  'notification_template.incident.major_declared.subject':
+    'Major incident: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.major_ended.body':
+    'Hello {{ recipient.name }},\n\nIncident {{ record.display_id }} "{{ record.title }}" is no longer a major incident: {{ record.link }}',
+  'notification_template.incident.major_ended.in_app':
+    '{{ record.display_id }} is no longer a major incident: {{ record.title }}',
+  'notification_template.incident.major_ended.subject':
+    'Major incident ended: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.mentioned.body':
     'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
   'notification_template.incident.mentioned.in_app':
@@ -382,6 +647,12 @@ export const en = {
     'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
   'notification_template.mailbox.mail_held.subject':
     'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.outgoing_mail.not_sent.body':
+    'Hello {{ recipient.name }},\n\n{{ mail.count }} e-mails were never sent, because outgoing mail was not set up within 7 days. The oldest was from {{ mail.oldest_at }}. They will not be sent late. Open Admin › Mail to set up outgoing mail.',
+  'notification_template.outgoing_mail.not_sent.in_app':
+    '{{ mail.count }} e-mails were never sent: outgoing mail was not set up within 7 days (the oldest from {{ mail.oldest_at }}). Set up mail so the next ones go.',
+  'notification_template.outgoing_mail.not_sent.subject':
+    '{{ mail.count }} e-mails were never sent',
   'notification_template.problem.assigned.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}',
   'notification_template.problem.assigned.in_app':
@@ -453,12 +724,57 @@ export const en = {
     '{{ conversation.author }} replied on {{ record.display_id }}',
   'notification_template.release.public_reply.subject':
     'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.reminder.due.body':
+    'Hello {{ recipient.name }},\n\nYour reminder on {{ record.display_id }} "{{ record.title }}" is at {{ reminder.at }}:\n\n{{ reminder.note }}',
+  'notification_template.reminder.due.in_app': 'Reminder at {{ reminder.at }}: {{ reminder.note }}',
+  'notification_template.reminder.due.subject':
+    'Reminder: {{ reminder.note }} ({{ record.display_id }})',
+  'notification_template.report_schedule.recipients_skipped.body':
+    'Hello {{ recipient.name }},\n\nThe last run of {{ record.title }} was not sent to some recipients, because their roles do not show a field the report uses.\n\nPeople left out: {{ skipped.count }}\nFields they may not see: {{ fields.labels }}\n\nThe others got it. To include everyone, take those fields out of the report, or ask an administrator to change the field access of their roles.',
+  'notification_template.report_schedule.recipients_skipped.in_app':
+    '{{ record.title }}: the last run did not reach everyone (left out: {{ skipped.count }}). Fields they may not see: {{ fields.labels }}',
+  'notification_template.report_schedule.recipients_skipped.subject':
+    '{{ record.title }} did not reach everyone',
   'notification_template.rule_step.assignee_unavailable.body':
     'Hello {{ recipient.name }},\n\nA rule or escalation was to assign {{ record.display_id }} "{{ record.title }}" to {{ unavailable.person }}, who {{ unavailable.reason }}. It went to the group with nobody on it. Please assign someone, or change the rule.',
   'notification_template.rule_step.assignee_unavailable.in_app':
     '{{ record.display_id }} went to its group with nobody on it: {{ unavailable.person }} {{ unavailable.reason }}',
   'notification_template.rule_step.assignee_unavailable.subject':
     'Nobody assigned: {{ record.display_id }} {{ record.title }}',
+  'notification_template.security.locked_out.body':
+    'Hello {{ recipient.name }},\n\nYour account was locked at {{ notice.when }} after several sign-ins with a wrong password ({{ notice.place }}).\n\nYou can try again after {{ notice.opens_at }} at the earliest. If more wrong passwords are tried, the wait grows.\n\nIf this was not you, someone may know your user name. Once you are in, change your password and check your account: {{ record.link }}',
+  'notification_template.security.locked_out.in_app':
+    'Your account was locked after failed sign-ins. Try again after {{ notice.opens_at }} at the earliest.',
+  'notification_template.security.locked_out.subject':
+    'Your account was locked after failed sign-ins',
+  'notification_template.security.mfa_added.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was added to your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_added.in_app':
+    'A sign-in check (MFA) was added to your account ({{ notice.when }})',
+  'notification_template.security.mfa_added.subject': 'A sign-in check was added to your account',
+  'notification_template.security.mfa_removed.body':
+    'Hello {{ recipient.name }},\n\nA sign-in check (an authenticator app, security key or recovery codes) was removed from your account at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, change your password and tell your administrator at once. Your account: {{ record.link }}',
+  'notification_template.security.mfa_removed.in_app':
+    'A sign-in check (MFA) was removed from your account ({{ notice.when }})',
+  'notification_template.security.mfa_removed.subject':
+    'A sign-in check was removed from your account',
+  'notification_template.security.new_device.body':
+    'Hello {{ recipient.name }},\n\nYour account was just signed in to from a browser or device you have not used before:\n\n{{ notice.device }}\n{{ notice.place }}\n{{ notice.when }}\n\nIf this was you, there is nothing to do. If it was not, change your password and use "Sign out everywhere else" in your account: {{ record.link }}',
+  'notification_template.security.new_device.in_app':
+    'New sign-in from {{ notice.device }} ({{ notice.place }})',
+  'notification_template.security.new_device.subject':
+    'New sign-in to your account: {{ notice.device }}',
+  'notification_template.security.password_changed.body':
+    'Hello {{ recipient.name }},\n\nThe password of your account was changed at {{ notice.when }} ({{ notice.place }}).\n\nIf this was you, there is nothing to do. If it was not, reset your password from the sign-in page at once and tell your administrator. Your account: {{ record.link }}',
+  'notification_template.security.password_changed.in_app':
+    'Your password was changed ({{ notice.when }})',
+  'notification_template.security.password_changed.subject': 'Your password was changed',
+  'notification_template.service_account.needs_owner.body':
+    'Hello {{ recipient.name }},\nThe person who answered for the service account {{ record.title }} has been deactivated. The account keeps working; please choose a new owner. {{ record.link }}',
+  'notification_template.service_account.needs_owner.in_app':
+    '{{ record.title }} needs a new owner',
+  'notification_template.service_account.needs_owner.subject':
+    '{{ record.title }} needs a new owner',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -513,6 +829,71 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.sign_in_secret.expiring.body':
+    'Hello {{ recipient.name }},\n\nThe {{ notice.item }} of the single sign-on "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). When it runs out, people cannot sign in through it. Renew it at the identity provider and update it in Sign-in and security: {{ record.link }}',
+  'notification_template.sign_in_secret.expiring.in_app':
+    '{{ record.title }}: the {{ notice.item }} {{ notice.left }} ({{ notice.expires }})',
+  'notification_template.sign_in_secret.expiring.subject':
+    'Single sign-on {{ record.title }}: the {{ notice.item }} {{ notice.left }}',
+  'notification_template.support_grant.ended.body':
+    'Hello {{ recipient.name }},\n\nThe Extravis support access of {{ record.title }} has ended and their account is being removed. See what was done during it: {{ record.link }}',
+  'notification_template.support_grant.ended.in_app':
+    'The support access of {{ record.title }} has ended',
+  'notification_template.support_grant.ended.subject': 'Vendor support ended: {{ record.title }}',
+  'notification_template.support_grant.extended.body':
+    'Hello {{ recipient.name }},\n\nThe Extravis support access of {{ record.title }} was extended. See the new end time: {{ record.link }}',
+  'notification_template.support_grant.extended.in_app':
+    'The support access of {{ record.title }} was extended',
+  'notification_template.support_grant.extended.subject':
+    'Vendor support extended: {{ record.title }}',
+  'notification_template.support_grant.first_used.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} has signed in with their Extravis support access for the first time. Their actions are in the audit log as Extravis support: {{ record.link }}',
+  'notification_template.support_grant.first_used.in_app':
+    '{{ record.title }} signed in with their support access for the first time',
+  'notification_template.support_grant.first_used.subject':
+    'Support engineer signed in: {{ record.title }}',
+  'notification_template.support_grant.granted.body':
+    'Hello {{ recipient.name }},\n\nTemporary Extravis support access was granted to {{ record.title }}. See who granted it, why and until when: {{ record.link }}',
+  'notification_template.support_grant.granted.in_app':
+    'Extravis support access was granted to {{ record.title }}',
+  'notification_template.support_grant.granted.subject':
+    'Vendor support granted: {{ record.title }}',
+  'notification_template.support_grant.removal_stuck.body':
+    'Hello {{ recipient.name }},\n\nThe access of {{ record.title }} ended over a day ago, but their sign-in account could not be removed yet. It cannot be used, and SupportX keeps trying. If this continues, check that sign-in is reachable: {{ record.link }}',
+  'notification_template.support_grant.removal_stuck.in_app':
+    'The support account of {{ record.title }} is still not removed a day after its access ended',
+  'notification_template.support_grant.removal_stuck.subject':
+    'Support account not removed: {{ record.title }}',
+  'notification_template.task.assigned.body':
+    'Hello {{ recipient.name }},\n\nThe task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" is now yours.',
+  'notification_template.task.assigned.in_app':
+    '{{ task.title }} on {{ record.display_id }} is yours',
+  'notification_template.task.assigned.subject':
+    'Task for you: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.overdue.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" was due at {{ task.due_at }} and is still open.',
+  'notification_template.task.overdue.in_app': '{{ task.title }} was due at {{ task.due_at }}',
+  'notification_template.task.overdue.subject':
+    'Overdue: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.task.starts_soon.body':
+    'Hello {{ recipient.name }},\n\nYour task "{{ task.title }}" on {{ record.display_id }} "{{ record.title }}" starts at {{ task.starts_at }}.',
+  'notification_template.task.starts_soon.in_app':
+    '{{ task.title }} starts at {{ task.starts_at }}',
+  'notification_template.task.starts_soon.subject':
+    'Starts soon: {{ task.title }} ({{ record.display_id }})',
+  'notification_template.verified_domain.lapsed.body':
+    'Hello {{ recipient.name }},\n\nSupportX could not find the verification record of {{ record.title }} for three days, so the domain is no longer verified and sign-ins in it are no longer sent to your single sign-on. Publish the record again and check it in Sign-in and security: {{ record.link }}',
+  'notification_template.verified_domain.lapsed.in_app':
+    '{{ record.title }} is no longer verified: its sign-in routing has stopped',
+  'notification_template.verified_domain.lapsed.subject':
+    'Domain {{ record.title }} is no longer verified',
+  'notification_template.work_item_view.unshared.body':
+    'Hello {{ recipient.name }},\nYour saved view {{ record.title }} filters on {{ view.field }}, which some of the people you shared it with may not see. It is private to you now; nothing else changed. To share it again, remove that condition and choose who sees it. {{ record.link }}',
+  'notification_template.work_item_view.unshared.in_app':
+    '{{ record.title }} is private now: it filters on {{ view.field }}',
+  'notification_template.work_item_view.unshared.subject':
+    'Your view {{ record.title }} is private now',
+  'notification_value.unnamed_requester': 'the requester',
   'notification_variable.acknowledgement.comment': 'Acknowledgement › Comment',
   'notification_variable.actor.name': 'Changed by › Name',
   'notification_variable.approval.comment': 'Approval › Comment',
@@ -520,14 +901,21 @@ export const en = {
   'notification_variable.article.reason': 'Article › Reason',
   'notification_variable.article.review_on': 'Article › Review date',
   'notification_variable.assignee.name': 'Technician › Name',
+  'notification_variable.break_glass.person': 'Emergency administrator › Name',
   'notification_variable.category.name': 'Category',
   'notification_variable.change.from_status': 'Change › Previous status',
   'notification_variable.connector.name': 'Connector › Name',
   'notification_variable.connector.reason': 'Connector › Reason',
   'notification_variable.conversation.author': 'Reply or note › Author',
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
+  'notification_variable.custom_field.direction': 'Custom field › What was running',
+  'notification_variable.custom_field.name': 'Custom field › Name',
   'notification_variable.holder.name': 'Holder › Name',
+  'notification_variable.holdings.assets': 'Holdings › Assets',
+  'notification_variable.holdings.count': 'Holdings › Count',
   'notification_variable.incident.count': 'Number of incidents',
+  'notification_variable.mail.count': 'Mail › E-mails not sent',
+  'notification_variable.mail.oldest_at': 'Mail › Oldest',
   'notification_variable.mailbox.address': 'Mailbox › Address',
   'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
   'notification_variable.mailbox.reason': 'Mailbox › Reason',
@@ -539,15 +927,37 @@ export const en = {
   'notification_variable.record.priority': 'Record › Priority',
   'notification_variable.record.status': 'Record › Status',
   'notification_variable.record.title': 'Record › Subject',
+  'notification_variable.reminder.at': 'Reminder time',
+  'notification_variable.reminder.note': 'Reminder note',
+  'notification_variable.report_schedule.fields': 'Schedule › Fields they may not see',
+  'notification_variable.report_schedule.name': 'Schedule › Name',
+  'notification_variable.report_schedule.skipped_count': 'Schedule › People left out',
   'notification_variable.requester.name': 'Requester › Name',
   'notification_variable.rule.name': 'Rule',
+  'notification_variable.saved_view.field': 'Saved view › Field it filters on',
+  'notification_variable.saved_view.name': 'Saved view › Name',
+  'notification_variable.security.device': 'Sign-in › Browser and device',
+  'notification_variable.security.opens_at': 'Lock-out › Earliest time to try again',
+  'notification_variable.security.place': 'Sign-in › Approximate place',
+  'notification_variable.security.when': 'Sign-in › Time',
+  'notification_variable.service_account.name': 'Service account › Name',
+  'notification_variable.sign_in_secret.expires': 'Single sign-on › Runs out on',
+  'notification_variable.sign_in_secret.item': 'Single sign-on › What runs out',
+  'notification_variable.sign_in_secret.left': 'Single sign-on › Time left',
+  'notification_variable.sign_in_secret.provider': 'Single sign-on › Name',
   'notification_variable.site.name': 'Site',
   'notification_variable.sla.target': 'SLA › Target',
   'notification_variable.stock.minimum': 'Stock › Minimum',
   'notification_variable.stock.quantity': 'Stock › Quantity',
+  'notification_variable.support_grant.engineer': 'Vendor support › Engineer',
+  'notification_variable.task.due_at': 'Task due time',
+  'notification_variable.task.starts_at': 'Task scheduled start',
+  'notification_variable.task.title': 'Task title',
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
+  'notification_variable.verified_domain.domain': 'Domain › Name',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
+  'notification_variable.window.start': 'Window start',
   'notifications.banner.no_mail_one':
     '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',
   'notifications.banner.no_mail_other':

@@ -2,6 +2,7 @@ import { Alert, Form, Input, Modal, Select } from 'antd';
 import { useState, type ReactNode } from 'react';
 
 import {
+  ApiError,
   useCustomFields,
   useStagedMove,
   useStagedRoleCandidates,
@@ -24,6 +25,7 @@ import { CustomFieldControl } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { labelled } from '../incidents/labels';
 import { listValueName, statusName } from '../staged/labels';
+import { ReleaseChangesClose } from '../releases/ReleaseChangesClose';
 
 const CUSTOM = 'custom.';
 // A plan section a stage needs (`plan.backout`): written on the Plan tab, with its own version
@@ -220,6 +222,9 @@ export function StagedMoveDialog({
   const settings = useStagedSettings(path);
   const moving = useStagedMove(path);
   const problem = useFormProblem();
+  // Open work the server listed (409 open_work_unconfirmed, REQ-REL-052, as REQ-INC-095): named
+  // here, and the move is sent again only with the user's explicit confirmation (in history).
+  const [openWork, setOpenWork] = useState<{ count: number; items: string } | null>(null);
   const [reason, setReason] = useState('');
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [closureCode, setClosureCode] = useState<string>();
@@ -259,7 +264,7 @@ export function StagedMoveDialog({
           to_status: move.to_status,
           reason_text: reason.trim() === '' ? null : reason.trim(),
           fields: missing.length > 0 ? fields : null,
-          confirm_open_work: false,
+          confirm_open_work: openWork !== null,
           closure_code: closing ? (closureCode ?? null) : null,
           ...(closing && path === 'changes' && closingText.trim() !== ''
             ? { resolution: closingText.trim() }
@@ -269,6 +274,13 @@ export function StagedMoveDialog({
       {
         onSuccess: onClose,
         onError: (error) => {
+          if (error instanceof ApiError && error.code === 'open_work_unconfirmed') {
+            setOpenWork({
+              count: Number(error.params.count ?? 0),
+              items: String(error.params.items ?? ''),
+            });
+            return;
+          }
           problem.show(error);
         },
       },
@@ -278,7 +290,9 @@ export function StagedMoveDialog({
     <Modal
       open
       title={t('staged.move.title', { status: statusName(t, move.to_status) })}
-      okText={t('staged.move.confirm')}
+      okText={
+        openWork === null ? t('staged.move.confirm') : t('incidents.closing.confirm_open_work')
+      }
       okButtonProps={{ disabled: !ready, loading: moving.isPending, 'data-testid': 'move-ok' }}
       onOk={submit}
       onCancel={onClose}
@@ -286,6 +300,29 @@ export function StagedMoveDialog({
     >
       <Form layout="vertical" data-testid="move-dialog">
         {notice}
+        {openWork !== null && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={t('incidents.closing.open_work_title', { count: openWork.count })}
+            description={
+              <>
+                <div>
+                  <bdi dir="auto">{openWork.items}</bdi>
+                </div>
+                {t('staged.move.open_work_confirm')}
+                {/* A release's changes: close the ones you may, here (REQ-REL-052). */}
+                {path === 'releases' && closing && (
+                  <div style={{ marginTop: 12 }}>
+                    <ReleaseChangesClose releaseId={recordId} />
+                  </div>
+                )}
+              </>
+            }
+            data-testid="move-open-work"
+          />
+        )}
         {plans.map((m) => (
           <Alert
             key={m.field}

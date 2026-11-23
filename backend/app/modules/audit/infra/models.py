@@ -21,11 +21,15 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
     CheckConstraint,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -34,7 +38,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantKeyed, TenantScoped, UuidPrimaryKey, utc_now
+from app.shared.db.models import (
+    Base,
+    TenantEntity,
+    TenantKeyed,
+    TenantScoped,
+    UuidPrimaryKey,
+    utc_now,
+)
 
 OUTCOMES = "('done', 'refused', 'failed')"
 ACTOR_TYPES = (
@@ -176,6 +187,52 @@ class AuditPersonal(TenantKeyed, Base):
     occurred_at: Mapped[datetime]
 
 
+ACCESS_KINDS = ("view", "export", "ai_masking")
+
+
+class PersonalDataAccess(TenantKeyed, Base):
+    """Who viewed or exported whose personal data (REQ-AUD-017; WP-057 S3b-1; 0163).
+
+    Never a value: field codes, and per-type counts for AI masking (REQ-AI-019). Append-only for
+    the app role; rows leave only through `audit_erase_access` and `audit_purge_access`. A view is
+    written once per accessor, record and 15 minutes (`dedupe_key`).
+    """
+
+    __tablename__ = "personal_data_access"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN (" + ", ".join(f"'{k}'" for k in ACCESS_KINDS) + ")", name="kind_code"
+        ),
+        CheckConstraint(
+            "subject_person_id IS NOT NULL OR record_id IS NOT NULL", name="names_whose"
+        ),
+        Index(
+            "uq_personal_data_access_once",
+            "tenant_id",
+            "dedupe_key",
+            unique=True,
+            postgresql_where=text("dedupe_key IS NOT NULL"),
+        ),
+        Index("ix_personal_data_access_subject", "tenant_id", "subject_person_id", "occurred_at"),
+        Index("ix_personal_data_access_time", "tenant_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    occurred_at: Mapped[datetime]
+    accessor_type: Mapped[str] = mapped_column(String(20))
+    accessor_id: Mapped[uuid.UUID | None]
+    subject_person_id: Mapped[uuid.UUID | None]
+    record_type: Mapped[str | None] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID | None]
+    kind: Mapped[str] = mapped_column(String(20))
+    purpose: Mapped[str] = mapped_column(String(60))
+    fields: Mapped[list[str]] = mapped_column(ARRAY(String(80)))
+    counts: Mapped[dict[str, int] | None] = mapped_column(JSONB)
+    client: Mapped[str | None] = mapped_column(String(20))
+    dedupe_key: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
 class AuditAnchor(TenantKeyed, Base):
     """A signed checkpoint of the chain (REQ-AUD-001: detects removal of the newest entries)."""
 
@@ -203,6 +260,9 @@ class AuditSettings(TenantKeyed, Base):
         CheckConstraint("read_window_minutes BETWEEN 1 AND 1440", name="read_window_range"),
         CheckConstraint("refusal_threshold BETWEEN 3 AND 1000", name="refusal_threshold_range"),
         CheckConstraint("refusal_window_minutes BETWEEN 1 AND 1440", name="refusal_window_range"),
+        CheckConstraint(
+            "system_log_retention_days BETWEEN 30 AND 730", name="system_log_retention_range"
+        ),
     )
 
     retention_days: Mapped[int] = mapped_column(Integer)
@@ -210,6 +270,10 @@ class AuditSettings(TenantKeyed, Base):
     refusal_threshold: Mapped[int] = mapped_column(Integer)
     refusal_window_minutes: Mapped[int] = mapped_column(Integer)
     read_categories: Mapped[list[str]] = mapped_column(JSONB)
+    # REQ-AUD-017 (WP-057 S3b-1; 0163): the personal data access log is on.
+    personal_data_log: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # REQ-AUD-016 (WP-057 S5b; 0187): how long the system log keeps entries.
+    system_log_retention_days: Mapped[int] = mapped_column(Integer, default=90, server_default="90")
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -241,6 +305,8 @@ class AuditVerificationRun(UuidPrimaryKey, TenantScoped, Base):
     fingerprints_verified: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprints_erased: Mapped[int] = mapped_column(Integer, server_default="0")
     fingerprint_mismatches: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Saves verified through digests kept at a signed history redaction (0167).
+    fingerprints_redacted: Mapped[int] = mapped_column(Integer, server_default="0")
 
 
 class AuditSubjectSalt(TenantKeyed, Base):
@@ -360,3 +426,159 @@ class AuditRestored(TenantKeyed, Base):
     prev_hash: Mapped[bytes] = mapped_column(LargeBinary)
     chain_hash: Mapped[bytes] = mapped_column(LargeBinary)
     expires_at: Mapped[datetime]
+
+
+class FieldChangeRedaction(TenantKeyed, Base):
+    """A signed history row blanked by a redaction, with its pre-blank digests (0167).
+
+    ADR-046 addendum: the digests are exactly what the save's fingerprint commits to for that
+    field (salted for a personal field), so the verifier can still recompute the fingerprint and
+    reports the save as `redacted_on_request`. Read-only for the app role; written only by the
+    migrator-owned `history_redact_signed()`.
+    """
+
+    __tablename__ = "field_change_redactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "mention_id"],
+            ["person_erasure_mentions.tenant_id", "person_erasure_mentions.id"],
+            name="fk_field_change_redactions_mention",
+        ),
+        UniqueConstraint("tenant_id", "field_change_id", name="uq_field_change_redactions_row"),
+        CheckConstraint(
+            "old_digest ~ '^[0-9a-f]{64}$' AND new_digest ~ '^[0-9a-f]{64}$'",
+            name="digest_form",
+        ),
+        Index("ix_field_change_redactions_change", "tenant_id", "change_id", "field_change_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    field_change_id: Mapped[uuid.UUID]
+    change_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(40))
+    record_id: Mapped[uuid.UUID]
+    field: Mapped[str] = mapped_column(String(80))
+    mention_id: Mapped[uuid.UUID]
+    old_digest: Mapped[str] = mapped_column(Text)
+    new_digest: Mapped[str] = mapped_column(Text)
+    # For auditors reading the table: whether the digests were salted (a personal field). The
+    # verifier never trusts it: it takes the field's half from the record type's own spec.
+    salted: Mapped[bool] = mapped_column(Boolean)
+    redacted_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SystemLogEntry(UuidPrimaryKey, TenantScoped, Base):
+    """What the platform did on its own, or what failed (WP-057 S5b, REQ-AUD-016; 0187).
+
+    Append-only by grants: the app role may INSERT and SELECT only. `system_log_purge()` (a
+    migrator-owned definer) is the one way rows leave, past the tenant's retention.
+    """
+
+    __tablename__ = "system_log_entries"
+    __table_args__ = (
+        CheckConstraint("severity IN ('info', 'warning', 'error')", name="severity_code"),
+        CheckConstraint("code ~ '^[a-z][a-z0-9_.]*$'", name="code_shape"),
+        CheckConstraint("module ~ '^[a-z][a-z0-9_]*$'", name="module_shape"),
+        CheckConstraint("jsonb_typeof(params) = 'object'", name="params_object"),
+        CheckConstraint("(object_type IS NULL) = (object_id IS NULL)", name="object_pair"),
+        Index("ix_system_log_entries_tenant_time", "tenant_id", "occurred_at", "id"),
+        Index("ix_system_log_entries_tenant_severity_time", "tenant_id", "severity", "occurred_at"),
+        Index(
+            "ix_system_log_entries_tenant_object",
+            "tenant_id",
+            "object_type",
+            "object_id",
+            postgresql_where=text("object_id IS NOT NULL"),
+        ),
+    )
+
+    occurred_at: Mapped[datetime]
+    severity: Mapped[str] = mapped_column(String(16))
+    module: Mapped[str] = mapped_column(String(64))
+    code: Mapped[str] = mapped_column(String(96))
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    object_type: Mapped[str | None] = mapped_column(String(64))
+    object_id: Mapped[uuid.UUID | None]
+    job_id: Mapped[str | None] = mapped_column(String(128))
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    created_by: Mapped[uuid.UUID | None]
+    updated_by: Mapped[uuid.UUID | None]
+
+
+SIEM_KINDS = "('syslog', 'webhook')"
+SIEM_FORMATS = "('json', 'cef')"
+
+
+class SiemDestination(TenantEntity):
+    """Where a tenant's audit and sign-in entries stream (REQ-AUD-011, WP-057 S5a; 0186).
+
+    `audit_seq_sent` and `sign_in_after_*` are the cursors: what the destination acknowledged.
+    Secrets are sealed text (field cipher); never read back to the API.
+    """
+
+    __tablename__ = "siem_destinations"
+    __table_args__ = (
+        Index(
+            "uq_siem_destinations_tenant_name",
+            "tenant_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_siem_destinations_tenant_due",
+            "tenant_id",
+            "next_attempt_at",
+            postgresql_where=text("deleted_at IS NULL AND enabled"),
+        ),
+        CheckConstraint(f"kind IN {SIEM_KINDS}", name="kind_code"),
+        CheckConstraint(f"format IN {SIEM_FORMATS}", name="format_code"),
+        CheckConstraint(
+            "streams <@ ARRAY['audit', 'sign_ins']::varchar[] AND cardinality(streams) > 0",
+            name="streams_codes",
+        ),
+        CheckConstraint(
+            "(kind = 'syslog' AND host IS NOT NULL AND port BETWEEN 1 AND 65535 AND url IS NULL)"
+            " OR (kind = 'webhook' AND url IS NOT NULL AND host IS NULL AND port IS NULL"
+            " AND format = 'json')",
+            name="kind_target",
+        ),
+        CheckConstraint("kind = 'syslog' OR secret_sealed IS NOT NULL", name="webhook_secret"),
+        # D-181 (0190): plain TCP or UDP only by an admin's choice, and never for a webhook.
+        CheckConstraint("transport IN ('tls', 'tcp', 'udp')", name="transport_code"),
+        CheckConstraint("kind = 'syslog' OR transport = 'tls'", name="webhook_tls"),
+        CheckConstraint("udp_max_bytes BETWEEN 480 AND 8192", name="udp_max_range"),
+        CheckConstraint(
+            "(sign_in_after_at IS NULL) = (sign_in_after_id IS NULL)", name="sign_in_cursor"
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(20), default="json", server_default="json")
+    transport: Mapped[str] = mapped_column(String(8), default="tls", server_default="tls")
+    udp_max_bytes: Mapped[int] = mapped_column(Integer, default=2048, server_default="2048")
+    host: Mapped[str | None] = mapped_column(String(253))
+    port: Mapped[int | None] = mapped_column(Integer)
+    url: Mapped[str | None] = mapped_column(String(2048))
+    streams: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), server_default=text("ARRAY['audit']::varchar[]")
+    )
+    enabled: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    secret_sealed: Mapped[str | None] = mapped_column(Text)
+    previous_secret_sealed: Mapped[str | None] = mapped_column(Text)
+    ca_pem_sealed: Mapped[str | None] = mapped_column(Text)
+    client_cert_sealed: Mapped[str | None] = mapped_column(Text)
+    client_key_sealed: Mapped[str | None] = mapped_column(Text)
+    audit_seq_sent: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    sign_in_after_at: Mapped[datetime | None]
+    sign_in_after_id: Mapped[uuid.UUID | None]
+    last_success_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(40))
+    last_error_at: Mapped[datetime | None]
+    failing_since: Mapped[datetime | None]
+    failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    next_attempt_at: Mapped[datetime | None]

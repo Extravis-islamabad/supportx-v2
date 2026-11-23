@@ -22,6 +22,7 @@ import {
   useDecideApproval,
   useMyApprovals,
   useMyDecidedApprovals,
+  useMyTypeApprovals,
   type PendingApproval,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
@@ -32,10 +33,14 @@ const COMMENT_MAX = 4000;
 const BULK_MAX = 20; // D-143: approve at most this many at once
 const MY_APPROVALS_CHANGED = 'work_items.my_approvals_changed';
 
+/** An approval in the list: a service request's, or a change's (WP-045d S4a). */
+type Waiting = PendingApproval & { type: 'service-requests' | 'changes' };
+
 /**
  * Approvals waiting for you, in the portal (WP-030 s2, REQ-PRT-008, REQ-SR-025): a
- * requester-only approver decides here (REQ-SR-022 AC2). Live from your personal channel; a
- * rejection needs a reason, an approval a comment when the item says so (REQ-SR-028).
+ * requester-only approver decides here (REQ-SR-022 AC2), a change's too (REQ-CHG-109 AC3). Live
+ * from your personal channel; a rejection needs a reason, an approval a comment when the item
+ * says so (REQ-SR-028). Bulk approval stays with service requests (D-143).
  */
 export function ApprovalsPage() {
   const t = useLabel();
@@ -43,6 +48,8 @@ export function ApprovalsPage() {
   const queryClient = useQueryClient();
   const listFormat = useListFormat();
   const mine = useMyApprovals();
+  // Optional: without changes on the plan it answers with an error and simply lists none.
+  const changes = useMyTypeApprovals('changes');
   const decided = useMyDecidedApprovals();
   const decide = useDecideApproval();
   const approveMany = useApproveMany();
@@ -51,7 +58,7 @@ export function ApprovalsPage() {
   const [confirming, setConfirming] = useState(false);
   const [bulkComment, setBulkComment] = useState('');
   const [skipped, setSkipped] = useState<string[]>([]);
-  const [open, setOpen] = useState<{ item: PendingApproval; decision: 'approve' | 'reject' }>();
+  const [open, setOpen] = useState<{ item: Waiting; decision: 'approve' | 'reject' }>();
   const [comment, setComment] = useState('');
   const [isPrivate, setPrivate] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
@@ -59,6 +66,7 @@ export function ApprovalsPage() {
     if (type === MY_APPROVALS_CHANGED) {
       // A request withdrawn meanwhile leaves the inbox live (AC3).
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
+      void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
     }
   };
   usePersonalChannel((event) => {
@@ -67,11 +75,14 @@ export function ApprovalsPage() {
   useTenantChannel((event) => {
     refresh(event.type);
   });
-  const items = mine.data?.items ?? [];
-  const people = mine.data?.people ?? {};
+  const items: Waiting[] = [
+    ...(mine.data?.items ?? []).map((a) => ({ ...a, type: 'service-requests' as const })),
+    ...(changes.data?.items ?? []).map((a) => ({ ...a, type: 'changes' as const })),
+  ];
+  const people = { ...(changes.data?.people ?? {}), ...(mine.data?.people ?? {}) };
   const chosen = items.filter((a) => picked.includes(a.approval_id));
   // Bulk approval never asks a comment an item requires of its own: those are decided one by one.
-  const bulkable = items.filter((a) => !a.comments_required);
+  const bulkable = items.filter((a) => a.type === 'service-requests' && !a.comments_required);
   const pastItems = decided.data?.items ?? [];
   const close = () => {
     setOpen(undefined);
@@ -130,7 +141,7 @@ export function ApprovalsPage() {
           <List.Item key={a.approval_id} data-testid={`portal-approval-${a.display_id}`}>
             <Space direction="vertical" size={4} style={{ width: '100%' }}>
               <Space>
-                {bulkable.length > 1 && !a.comments_required && (
+                {bulkable.length > 1 && bulkable.includes(a) && (
                   <Checkbox
                     aria-label={t('portal.approvals.pick', { id: a.display_id })}
                     checked={picked.includes(a.approval_id)}
@@ -145,15 +156,28 @@ export function ApprovalsPage() {
                     data-testid={`portal-approval-pick-${a.display_id}`}
                   />
                 )}
-                {/* What is asked opens read-only before deciding (QA10-P2-06). */}
-                <Link
-                  to={`/service-requests/${a.record_id}`}
-                  data-testid={`portal-approval-open-${a.display_id}`}
-                >
+                {/* What is asked opens read-only before deciding (QA10-P2-06); a change's
+                    approver decides from its summary here, as the portal shows a change to its
+                    requester only. */}
+                {a.type === 'service-requests' ? (
+                  <Link
+                    to={`/service-requests/${a.record_id}`}
+                    data-testid={`portal-approval-open-${a.display_id}`}
+                  >
+                    <Typography.Text strong>
+                      <span dir="ltr">{a.display_id}</span> · <bdi>{a.subject}</bdi>
+                    </Typography.Text>
+                  </Link>
+                ) : (
                   <Typography.Text strong>
                     <span dir="ltr">{a.display_id}</span> · <bdi>{a.subject}</bdi>
                   </Typography.Text>
-                </Link>
+                )}
+                {a.type === 'changes' && (
+                  <Tag data-testid={`portal-approval-change-${a.display_id}`}>
+                    {t('portal.approvals.change')}
+                  </Tag>
+                )}
                 {a.origin === 'backup' && (
                   <Tag data-testid={`portal-approval-delegated-${a.display_id}`}>
                     {t('portal.approvals.delegated')}
@@ -295,6 +319,7 @@ export function ApprovalsPage() {
                 recordId: open.item.record_id,
                 approvalId: open.item.approval_id,
                 version: open.item.approval_version,
+                type: open.item.type,
                 body: {
                   decision: open.decision,
                   comment: comment.trim() || null,

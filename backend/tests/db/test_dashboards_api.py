@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
+from app.modules.analytics.domain.builtin import BUILTIN
 from app.modules.analytics.domain.dashboard import ME, with_viewer
 from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS
 from app.shared.events import EventEnvelope
@@ -90,6 +91,14 @@ async def test_req_dsh_003_ac1_builtin_dashboards_run_for_every_viewer(reports: 
     for user in (a.admin, a.tech_a):
         for dashboard in builtin:
             for widget in dashboard["body"]["widgets"]:
+                if widget.get("report_ref"):  # a built-in report (the Changes dashboard)
+                    found = BUILTIN[widget["report_ref"].removeprefix("builtin:")]
+                    widget = {  # noqa: PLW2901 - the same widget, as its report
+                        **widget,
+                        "report": found.definition.model_dump(
+                            mode="json", by_alias=True, exclude_none=True
+                        ),
+                    }
                 if widget["report"] is None:  # a records list (D-114): the entity's own list
                     tree = with_viewer(widget["records"]["filter"], user)
                     query = {"limit": 5} | ({"filter": json.dumps(tree)} if tree else {})

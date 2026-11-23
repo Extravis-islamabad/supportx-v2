@@ -12,6 +12,9 @@ set -euo pipefail
 NAMESPACE="${1:-supportx}"
 APP_SECRET="supportx-app"
 KEYCLOAK_DB_SECRET="supportx-db-keycloak"
+# The HA SeaweedFS filers' database role (D-166, objectStorage.seaweedfs.ha): created everywhere,
+# read only with that on. CloudNativePG's managed role takes its password from it.
+FILER_DB_SECRET="supportx-db-seaweedfs-filer"
 
 rand() { openssl rand -hex "${1:-32}"; }
 # Audit anchor-signing key (WP-018, ADR-027): "<key id>:<base64 32-byte Ed25519 seed>".
@@ -47,8 +50,12 @@ if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
   add_missing files-keys "$(files_keys)"
   add_missing keycloak-identity-secret "$(rand 24)"
   add_missing keycloak-realm-secret "$(rand 24)"
+  add_missing keycloak-events-client-secret "$(rand 24)"  # supportx-events (view-events only)
   add_missing keycloak-federation-secret "$(rand 24)"  # used only with directory.ldap.enabled
   add_missing temporal-db-password "$(rand 24)"  # used only with temporal.bundled.enabled
+  # API keys' own HMAC key (audit row 26). Keys made before it move to it on their next call
+  # while session-secret stays (docs/api/keys.md).
+  add_missing api-key-secret "$(rand 32)"
   echo "secret $NAMESPACE/$APP_SECRET exists: existing values left unchanged"
 else
   kubectl -n "$NAMESPACE" create secret generic "$APP_SECRET" \
@@ -56,6 +63,7 @@ else
     --from-literal=migrator-db-password="$(rand 24)" \
     --from-literal=relay-db-password="$(rand 24)" \
     --from-literal=session-secret="$(rand 32)" \
+    --from-literal=api-key-secret="$(rand 32)" \
     --from-literal=centrifugo-token-secret="$(rand 32)" \
     --from-literal=centrifugo-api-key="$(rand 24)" \
     --from-literal=oidc-console-secret="$(rand 24)" \
@@ -63,6 +71,7 @@ else
     --from-literal=keycloak-admin-password="$(rand 16)" \
     --from-literal=keycloak-identity-secret="$(rand 24)" \
     --from-literal=keycloak-realm-secret="$(rand 24)" \
+    --from-literal=keycloak-events-client-secret="$(rand 24)" \
     --from-literal=keycloak-federation-secret="$(rand 24)" \
     --from-literal=temporal-db-password="$(rand 24)" \
     --from-literal=nats-password="$(rand 24)" \
@@ -83,4 +92,14 @@ else
     --from-literal=username=keycloak \
     --from-literal=password="$(rand 24)" >/dev/null
   echo "secret $NAMESPACE/$KEYCLOAK_DB_SECRET created"
+fi
+
+if kubectl -n "$NAMESPACE" get secret "$FILER_DB_SECRET" >/dev/null 2>&1; then
+  echo "secret $NAMESPACE/$FILER_DB_SECRET exists: left unchanged"
+else
+  kubectl -n "$NAMESPACE" create secret generic "$FILER_DB_SECRET" \
+    --type=kubernetes.io/basic-auth \
+    --from-literal=username=seaweedfs_filer \
+    --from-literal=password="$(rand 24)" >/dev/null
+  echo "secret $NAMESPACE/$FILER_DB_SECRET created"
 fi

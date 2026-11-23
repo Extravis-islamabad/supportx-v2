@@ -1,6 +1,6 @@
 import { BugOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Flex, Result, Select, Skeleton, Steps, Tabs, Typography } from 'antd';
+import { Button, Flex, Result, Select, Skeleton, Steps, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -10,6 +10,7 @@ import {
   useInvestigatorChange,
   useInvestigators,
   useProblem,
+  useProblemLinks,
   useProblemAction,
   useProblemCatalogue,
   useProblemPeople,
@@ -31,6 +32,7 @@ import {
   usePageCrumbs,
   type RecordAction,
   useAccess,
+  Tabs,
 } from '@supportx/ui';
 
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
@@ -42,7 +44,14 @@ import { IncidentHistory } from '../incidents/IncidentHistory';
 import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ProblemAnalysis, ProblemEvidence } from './ProblemAnalysis';
 import { KnownErrorTag } from './KnownErrors';
-import { CausedIncidents, MergeDialog, MergedBanner, RelatedProblems } from './ProblemLinks';
+import {
+  CausedIncidents,
+  MergeDialog,
+  MergedBanner,
+  ProblemReleases,
+  RelatedProblems,
+} from './ProblemLinks';
+import { RELEASE_RELATIONS } from './releaseLinks';
 import { useKnownErrorAction } from './useKnownErrorAction';
 import { FollowUpDialog } from './FollowUp';
 import { MessageRequestersDialog } from './MessageRequesters';
@@ -206,6 +215,9 @@ function ProblemView({
   const copy = useCopyProblem();
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const me = useSession().data?.user.id ?? '';
+  const hasReleases = (useProblemLinks(item.id).data ?? []).some((l) =>
+    RELEASE_RELATIONS.has(l.relation),
+  );
   const knownError = useKnownErrorAction(item);
   const reasonText = useActionReason();
   // The group and owner, the incident's dialog with the problems' rules (WP-044c S1).
@@ -409,6 +421,16 @@ function ProblemView({
                 title: t('problems.related.title'),
                 children: <RelatedProblems id={item.id} canEdit={canEdit} />,
               },
+              // Only when a release caused or started it (lane C's WP-058b): no empty section.
+              ...(hasReleases
+                ? [
+                    {
+                      key: 'releases',
+                      title: t('problems.releases.title'),
+                      children: <ProblemReleases id={item.id} />,
+                    },
+                  ]
+                : []),
             ]}
           />
         }

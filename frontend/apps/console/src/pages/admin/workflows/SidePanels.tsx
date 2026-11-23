@@ -2,7 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Alert, Button, Collapse, Descriptions, Flex, Form, Input, Select, Typography } from 'antd';
 import { useState } from 'react';
 
-import type { WorkflowEdge, WorkflowNode } from '@supportx/flow';
+import type { WorkflowEdge, WorkflowNode, WorkflowVariable } from '@supportx/flow';
 import { EmptyText, useLabel } from '@supportx/ui';
 
 import { NodeForm } from './NodeForms';
@@ -20,9 +20,20 @@ export interface NodeProblem {
  * text are one draft; nothing applies until "Apply" (one undo step), and text that is not
  * JSON never applies.
  */
+
+/** A step's name in words, numbered when its type repeats; never its internal id (QA F-07). */
+function nodeName(
+  t: (key: string, params?: Record<string, string | number>) => string,
+  node: WorkflowNode,
+): string {
+  const type = t(`workflow_node_type.${node.data.nodeType}`);
+  return node.data.n === undefined ? type : t('workflows.step_numbered', { type, n: node.data.n });
+}
+
 export function NodeDetails({
   node,
   recordType,
+  variables,
   problems,
   readOnly,
   onConfig,
@@ -30,6 +41,7 @@ export function NodeDetails({
 }: {
   node: WorkflowNode;
   recordType: string;
+  variables: WorkflowVariable[];
   problems: NodeProblem[];
   readOnly: boolean;
   onConfig: (config: Record<string, unknown>) => void;
@@ -71,11 +83,6 @@ export function NodeDetails({
             label: t('workflows.designer.type'),
             children: t(`workflow_node_type.${node.data.nodeType}`),
           },
-          {
-            key: 'id',
-            label: t('workflows.designer.node_id'),
-            children: <bdi dir="ltr">{node.id}</bdi>,
-          },
         ]}
       />
       {problems.length > 0 && (
@@ -101,6 +108,7 @@ export function NodeDetails({
               config={draft}
               onChange={fromForm}
               recordType={recordType}
+              variables={variables}
               readOnly={readOnly}
             />
           )}
@@ -237,10 +245,7 @@ export function Outline({
               onSelect(n.id);
             }}
           >
-            {t('workflows.designer.outline_node', {
-              type: t(`workflow_node_type.${n.data.nodeType}`),
-              id: n.id,
-            })}
+            {nodeName(t, n)}
           </Button>
           {n.data.ports.length > 0 && (
             <Flex vertical gap={4} style={{ marginTop: 4 }}>
@@ -271,10 +276,7 @@ export function Outline({
                           .filter((target) => target.id !== n.id)
                           .map((target) => ({
                             value: target.id,
-                            label: t('workflows.designer.outline_node', {
-                              type: t(`workflow_node_type.${target.data.nodeType}`),
-                              id: target.id,
-                            }),
+                            label: nodeName(t, target),
                           })),
                       ]}
                       data-testid={`outline-link-${n.id}-${port}`}

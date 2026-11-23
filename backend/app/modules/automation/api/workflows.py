@@ -17,8 +17,10 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 
 from app.core.authorization import require_permission
+from app.core.body_limit import body_limit
 from app.core.database import TenantSession
 from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
 from app.modules.automation.domain.workflows import (
@@ -26,6 +28,7 @@ from app.modules.automation.domain.workflows import (
     NodeType,
     Problem,
     WaitEvent,
+    masked,
     ports_of,
 )
 from app.modules.automation.infra.models import (
@@ -43,15 +46,44 @@ from app.modules.automation.service import (
     workflow_tests,
 )
 from app.modules.automation.service.registry import record_type as registered
-from app.modules.identity_access import Subject
+from app.modules.identity_access import (
+    PolicyService,
+    ServiceRolesOut,
+    Subject,
+    get_policy,
+    service_roles_out,
+)
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
+from app.shared.api.ratelimit import rate_limit
 
-router = APIRouter(prefix="/automation/workflows", tags=["automation"])
+# Every workflow route counts against its own budget (audit #14; architecture.md §10).
+router = APIRouter(
+    prefix="/automation/workflows",
+    tags=["automation"],
+    dependencies=[Depends(rate_limit("workflows"))],
+)
 Manage = Annotated[Subject, Depends(require_permission("workflows.manage"))]
+DRAFTS_ONLY = "vendor_support_drafts_only"
+
+
+def _beyond_drafts(subject: Manage) -> Subject:
+    """`workflows.manage` past a draft's save: what runs, switches or changes identity.
+
+    A vendor support account designs drafts only (D-173, WP-057 S4c-2): a tenant admin publishes,
+    switches on, deletes, bulk-runs, sets Runs-as, exports and test-runs (a test run reads a
+    real record in a worker, unmasked, and shows the result: lane B (b)).
+    """
+    if subject.is_vendor_support:
+        raise PermissionDenied(code=DRAFTS_ONLY)
+    return subject
+
+
+Publish = Annotated[Subject, Depends(_beyond_drafts)]
 Run = Annotated[Subject, Depends(require_permission("workflows.run"))]
+Policy = Annotated[PolicyService, Depends(get_policy)]
 
 
 class WorkflowIn(BaseModel):
@@ -176,7 +208,7 @@ def _out(workflow: Workflow, problems: list[Problem] | None = None) -> WorkflowO
         record_type=workflow.record_type,
         name=workflow.name,
         description=workflow.description,
-        draft=dict(workflow.draft),
+        draft=masked(workflow.draft),  # header values are write-only (#406)
         problems=_problems(problems or []),
         enabled=workflow.enabled,
         published_version=workflow.published_version,
@@ -198,6 +230,10 @@ class NodeTypeOut(BaseModel):
     why_not: str | None = Field(description="Why not, as a problem code with its label.")
     outputs: list[str] = Field(description="Its outputs with an empty config.")
     optional: list[str] = Field(description="Outputs it may leave unlinked.")
+    roles: list[str] = Field(
+        default_factory=list,
+        description="An approval's choice of the record's roles (empty for other types).",
+    )
 
 
 @router.get("/node-types", summary="The designer's palette for a record type")
@@ -216,6 +252,7 @@ async def node_types(
             why_not=o.why_not,
             outputs=list(o.outputs),
             optional=sorted(o.optional),
+            roles=list(o.roles),
         )
         for o in await workflow_admin.node_types(session, record_type)
     ]
@@ -353,7 +390,11 @@ async def _workflow_file(request: Request) -> WorkflowFileIn:
     summary="Import a workflow file as a new draft",
     status_code=status.HTTP_201_CREATED,
     response_model=WorkflowOut,
-    dependencies=[audited("automation.workflow_imported", object_type="workflow")],
+    # Room past its own 1 MB check, so an oversized file gets its own 422, not the cap's 413.
+    dependencies=[
+        Depends(body_limit(2 * 1024 * 1024)),
+        audited("automation.workflow_imported", object_type="workflow"),
+    ],
     # The body is read by `_workflow_file` (capped before parsing); its schema stays documented.
     openapi_extra={
         "requestBody": {
@@ -533,9 +574,8 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> WorkflowOut:
     """Saved whatever its problems; they come back for the canvas to mark (REQ-WF-019)."""
-    del subject
     saved, problems = await workflow_admin.save_draft(
-        session, workflow_id, expected_version=version, definition=body.definition
+        session, workflow_id, expected_version=version, definition=body.definition, author=subject
     )
     set_etag(response, saved.version)
     return _out(saved, problems)
@@ -543,10 +583,12 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
 @router.post("/{workflow_id}/publish", summary="Publish the draft as the next version")
 async def publish(
-    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Publish
 ) -> WorkflowOut:
     """Refused while the draft has problems (422 workflow_has_problems)."""
-    await workflow_admin.publish(session, workflow_id, expected_version=version, by=subject.user_id)
+    await workflow_admin.publish(
+        session, workflow_id, expected_version=version, by=subject.user_id, author=subject
+    )
     found = await session.get(Workflow, workflow_id)
     assert found is not None  # just published  # noqa: S101
     return _out(found)
@@ -559,7 +601,7 @@ async def set_start_templates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> WorkflowOut:
     """A record made from one of them starts the workflow, when it is on (REQ-WF-010 AC1)."""
     del subject
@@ -577,7 +619,7 @@ async def set_enabled(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> WorkflowOut:
     """Off: no new instances; running ones keep going (REQ-WF-010 AC3)."""
     del subject
@@ -949,7 +991,7 @@ async def queue_job(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     workflow_id: uuid.UUID,
     body: JobIn,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     idempotency: Idempotency,
     note: Annotated[
         AuditNote,
@@ -1136,7 +1178,7 @@ async def copy_workflow(
     ],
 )
 async def export_workflow(
-    workflow_id: uuid.UUID, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, session: TenantSession, subject: Publish
 ) -> Response:
     """Its draft and start templates, to import here again (REQ-WF-027 AC2)."""
     del subject
@@ -1157,11 +1199,78 @@ async def export_workflow(
     ],
 )
 async def delete_workflow(
-    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+    workflow_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Publish
 ) -> Response:
     """409 workflow_has_running_instances while runs are live: disable it instead (AC3)."""
     del subject
     await workflow_admin.delete_workflow(session, workflow_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- the run-as identity (ADR-043 §6; the coordinator's plan, 2026-11-11) -----------------------
+
+
+@router.get("/{workflow_id}/run-as", summary="Who the workflow acts as, and its roles")
+async def run_as(
+    workflow_id: uuid.UUID, session: TenantSession, subject: Manage, policy: Policy
+) -> ServiceRolesOut:
+    """Before the first publish there is no identity yet; its roles are none until given."""
+    identity = await workflow_admin.run_as_identity(session, workflow_id)
+    return await service_roles_out(session, policy, subject, identity)
+
+
+@router.put(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Give the run-as identity a role",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        RecentAuth,
+        audited(
+            "automation.workflow_run_as_role_added",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        ),
+    ],
+)
+async def add_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Publish,
+    policy: Policy,
+) -> Response:
+    """Idempotent, and only roles a run-as identity may hold.
+
+    Never tenant administration, a role managing identities, roles or API keys, or more than
+    your own rights (403 with the reason); 409 workflow_not_published before the first publish.
+    """
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{workflow_id}/run-as/roles/{role_id}",
+    summary="Take a role from the run-as identity",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "automation.workflow_run_as_role_removed",
+            object_type="workflow",
+            object_param="workflow_id",
+            detail_params=("role_id",),
+        )
+    ],
+)
+async def remove_run_as_role(
+    workflow_id: uuid.UUID,
+    role_id: uuid.UUID,
+    session: TenantSession,
+    subject: Publish,
+    policy: Policy,
+) -> Response:
+    """Idempotent; through the same guarded path."""
+    await workflow_admin.set_run_as_role(session, policy, subject, workflow_id, role_id, held=False)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1230,7 +1339,7 @@ async def start_test(
     workflow_id: uuid.UUID,
     body: TestRunIn,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     idempotency: Idempotency,
 ) -> Response:
     """Its commands are shown, never applied; it never writes to the record (REQ-WF-022 AC2)."""
@@ -1245,7 +1354,7 @@ async def start_test(
 
 
 @router.get("/test-runs/{run_id}", summary="A test run")
-async def get_test(run_id: uuid.UUID, session: TenantSession, subject: Manage) -> TestRunOut:
+async def get_test(run_id: uuid.UUID, session: TenantSession, subject: Publish) -> TestRunOut:
     """Its path so far, its variables and decisions, and what waits for an answer."""
     del subject
     run = await session.get(WorkflowTestRun, run_id)
@@ -1272,7 +1381,7 @@ async def answer_test(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
 ) -> TestRunOut:
     """One of: a command's answer (approved / rejected, done / failed), a change, time."""
     del subject
@@ -1317,7 +1426,7 @@ async def live_call(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
-    subject: Manage,
+    subject: Publish,
     note: Annotated[
         AuditNote,
         audited(

@@ -37,3 +37,18 @@ export function fromPicker(value: Dayjs | null, zone: string): string | null {
     zone,
   );
 }
+
+/**
+ * A time zone's name in the reader's language ("Pakistan Time", its Arabic), never its IANA
+ * code; the code itself when the browser has no name for it (QA-2026-11-11 F-10).
+ */
+export function zoneName(zone: string, locale: string): string {
+  try {
+    const part = new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: 'longGeneric' })
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName');
+    return part?.value ?? zone;
+  } catch {
+    return zone; // an unknown zone or an engine without `longGeneric`
+  }
+}

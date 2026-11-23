@@ -34,17 +34,17 @@ import {
   PageHeader,
   ToneTag,
   useAccess,
+  useColumnWidths,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
 import { SitePicker } from '../incidents/pickers';
-import { useLocalColumnWidths } from './columnWidths';
 import { okFooter } from './dialogOk';
 import { problemText } from './problemText';
 import { useConsumablesLive, useSiteNames } from './live';
-import { plainQuantity } from './quantity';
+import { plainQuantity, stockLevelKey } from './quantity';
 
 const COMMENT_MAX = 2000;
 /** A new consumable: a product of a consumable type; batch tracking is chosen now, for good. */
@@ -235,7 +235,12 @@ export function ConsumablesPage() {
     sites: t('assets.stock.by_site'),
     barcode: t('assets.stock.barcode'),
   };
-  const widths = useLocalColumnWidths({
+  // Each person's widths, kept in the shared list-settings store (WP-049b s4a).
+  const widths = useColumnWidths({
+    kind: 'asset_consumables',
+    viewKey: 'all',
+    enabled: allowed,
+    keys: Object.keys(titles),
     minWidths: { product: 180 },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
@@ -339,20 +344,28 @@ export function ConsumablesPage() {
             ...column('sites'),
             render: (_, row) => (
               <Flex vertical gap={2}>
-                {row.stocks.map((s) => (
-                  <Typography.Text key={s.id}>
-                    <bdi dir="auto">{siteName(s.site_id)}</bdi>
-                    {`: ${plainQuantity(s.quantity)}`}
-                    {s.low && (
-                      <>
-                        {' '}
-                        <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
-                          {t('assets.stock.low')}
-                        </ToneTag>
-                      </>
-                    )}
-                  </Typography.Text>
-                ))}
+                {row.stocks.map((s) => {
+                  const level = stockLevelKey(s);
+                  return (
+                    // One label with both values (QA 2026-11-12 V-14): the site and the amount
+                    // are isolated in it, so Arabic reads "<site>: 35" in order, never "35 :<site>".
+                    // The level is below or at minimum (F-15, polish 4).
+                    <Typography.Text key={s.id} data-testid={`consumable-stock-${s.id}`}>
+                      {t('assets.stock.site_quantity', {
+                        site: siteName(s.site_id),
+                        quantity: plainQuantity(s.quantity),
+                      })}
+                      {level !== null && (
+                        <>
+                          {' '}
+                          <ToneTag tone="warning" testId={`consumable-low-${s.id}`}>
+                            {t(level)}
+                          </ToneTag>
+                        </>
+                      )}
+                    </Typography.Text>
+                  );
+                })}
                 {row.stocks.length === 0 && <EmptyText>{t('assets.stock.no_stock')}</EmptyText>}
               </Flex>
             ),

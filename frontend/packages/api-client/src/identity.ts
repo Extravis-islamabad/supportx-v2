@@ -12,11 +12,25 @@ export type IdentitySettingsInput = components['schemas']['IdentitySettingsBody'
 export type SsoProvider = components['schemas']['SsoOut'];
 export type SsoInput = components['schemas']['SsoBody'];
 export type SsoTestResult = components['schemas']['SsoTestResultOut'];
+/** The security overview (WP-057 S4d): each area's numbers and the weak choices to look at. */
+export type SecurityOverview = components['schemas']['SecurityOverviewOut'];
+export type SecurityFlag = components['schemas']['FlagOut'];
 export type Invitation = components['schemas']['InvitationOut'];
 export type MfaRole = components['schemas']['MfaRoleOut'];
 export type MfaMode = MfaRole['mode'];
 export type AccountSecurity = components['schemas']['AccountSecurityOut'];
 export type AccountAction = 'password' | 'mfa' | 'recovery_codes';
+export type NetworkRules = components['schemas']['NetworkRulesOut'];
+export type NetworkRulesInput = components['schemas']['NetworkRulesBody'];
+export type SignInEvent = components['schemas']['SignInEventOut'];
+export type SsoPolicy = components['schemas']['SsoPolicyOut'];
+export type SsoPolicyInput = components['schemas']['SsoPolicyBody'];
+export type SsoRequired = components['schemas']['SsoRequired'];
+export type TenantAdmin = components['schemas']['TenantAdminOut'];
+export type BreakGlassInput = components['schemas']['BreakGlassBody'];
+export type SignInLogPage = components['schemas']['SignInLogPage'];
+export type SignInOutcome = SignInEvent['outcome'];
+export type SignInMethod = SignInEvent['method'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -246,6 +260,47 @@ export function useInvitationAction() {
   });
 }
 
+/**
+ * No outgoing mail (REQ-SEC-021): a new single-use link to pass on another way. The token is in
+ * the link's fragment only and is shown once; each copy ends the last.
+ */
+export function useCopyInviteLink() {
+  const changed = useInvitationsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/identity/invitations/{invitation_id}/link', {
+          params: { path: { invitation_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: changed,
+    onError: onConflict(changed),
+  });
+}
+
+/** A copied invite link (REQ-SEC-021), no sign-in: whether it works, which app, the rules. */
+export function usePeekInviteLink(token: string | undefined, tenant: string | null) {
+  return useQuery({
+    queryKey: ['invite-links', 'peek', token ?? '', tenant ?? ''],
+    queryFn: () =>
+      call(api.POST('/api/v1/public/invite-links/peek', { body: { token: token ?? '', tenant } })),
+    enabled: token !== undefined && token !== '',
+    retry: false,
+    staleTime: Infinity,
+    meta: { silent: true }, // the page says why a link does nothing
+  });
+}
+
+/** Set the first password from a copied invite link, once. */
+export function useAcceptInviteLink() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: { token: string; tenant: string | null; password: string }) =>
+      call(api.POST('/api/v1/public/invite-links/accept', { body })),
+  });
+}
+
 /** Keycloak asks the person for a new password at their next sign-in; their sessions end. */
 export function useRequireNewPassword() {
   return useMutation({
@@ -275,6 +330,14 @@ export function useMfaPolicy() {
   return useQuery({
     queryKey: queryKeys.identity.mfa,
     queryFn: () => call(api.GET('/api/v1/identity/mfa')),
+  });
+}
+
+/** The security overview (WP-057 S4d); refreshed with the rest of the identity screens. */
+export function useSecurityOverview() {
+  return useQuery({
+    queryKey: queryKeys.identity.overview,
+    queryFn: () => call(api.GET('/api/v1/identity/security-overview')),
   });
 }
 
@@ -335,6 +398,19 @@ export function useEndMySession() {
   });
 }
 
+/**
+ * Sign out of every other browser and device of yours (REQ-SEC-030); this one stays signed in.
+ * Answers how many were signed out.
+ */
+export function useEndOtherSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: () => call(api.POST('/api/v1/auth/sessions/end-others')),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.identity.mySessions }),
+  });
+}
+
 /** A person's signed-in browsers and devices (people admins, users.manage). */
 export function usePersonSessions(userId: string | undefined) {
   return useQuery({
@@ -382,4 +458,133 @@ export function useAccountSecurity() {
 export function accountActionUrl(action: AccountAction, returnTo: string): string {
   const params = new URLSearchParams({ action, returnTo });
   return `${API_BASE}/auth/account-action?${params.toString()}`;
+}
+
+// WP-057 S1a: IP allow-lists (REQ-SEC-034) and the sign-in log (REQ-AUD-015).
+
+/** The tenant's IP allow-lists per app, and the address this browser comes from. */
+export function useNetworkRules() {
+  return useQuery({
+    queryKey: queryKeys.identity.networkRules,
+    queryFn: () => call(api.GET('/api/v1/identity/network-rules')),
+    staleTime: 0,
+  });
+}
+
+/** Save all three lists; a list that would shut you out comes back at its field. */
+export function useSaveNetworkRules() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, version }: { body: NetworkRulesInput; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/network-rules', { params: { header: ifMatch(version) }, body }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.networkRules, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.networkRules }),
+    ),
+  });
+}
+
+export type SiteNetworks = components['schemas']['SiteNetworksOut'];
+export type SiteNetworkEntry = components['schemas']['SiteNetworkIn'];
+
+/** The address ranges mapped to sites (D-170), and the place database's build date. */
+export function useSiteNetworks() {
+  return useQuery({
+    queryKey: queryKeys.identity.siteNetworks,
+    queryFn: () => call(api.GET('/api/v1/identity/site-networks')),
+    staleTime: 0,
+  });
+}
+
+/** Replace the whole list; a wrong entry comes back at `entries.<n>`. */
+export function useSaveSiteNetworks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ entries, version }: { entries: SiteNetworkEntry[]; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/site-networks', {
+          params: { header: ifMatch(version) },
+          body: { entries },
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.siteNetworks, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.siteNetworks }),
+    ),
+  });
+}
+
+export interface SignInFilters {
+  outcome?: SignInOutcome[];
+  method?: SignInMethod[];
+  user_id?: string;
+  since?: string;
+  until?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/** A page of the sign-in log, newest first (each read is audited server-side). */
+export function useSignIns(filters: SignInFilters) {
+  return useQuery({
+    queryKey: queryKeys.identity.signIns({ ...filters }),
+    queryFn: () => call(api.GET('/api/v1/identity/sign-ins', { params: { query: filters } })),
+  });
+}
+
+/** Single sign-on required, MFA after it, and the tenant's admins with their break-glass marks. */
+export function useSsoPolicy() {
+  return useQuery({
+    queryKey: queryKeys.identity.ssoPolicy,
+    queryFn: () => call(api.GET('/api/v1/identity/sso-policy')),
+    staleTime: 0,
+  });
+}
+
+/** Save the policy; turning it on without an emergency administrator is refused (409). */
+export function useSaveSsoPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, version }: { body: SsoPolicyInput; version: number }) =>
+      call(api.PUT('/api/v1/identity/sso-policy', { params: { header: ifMatch(version) }, body })),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.ssoPolicy, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy }),
+    ),
+  });
+}
+
+/** Name or remove an emergency (break-glass) administrator; the policy is fetched again. */
+export function useSetBreakGlass() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      userId,
+      body,
+      version,
+    }: {
+      userId: string;
+      body: BreakGlassInput;
+      version: number;
+    }) =>
+      call(
+        api.PUT('/api/v1/identity/break-glass/{user_id}', {
+          params: { path: { user_id: userId }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy }),
+  });
 }

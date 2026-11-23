@@ -39,22 +39,34 @@ from app.modules.work_items.domain.conversation import (
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
 from app.modules.work_items.domain.portal import portal_status
-from app.modules.work_items.domain.types import INCIDENT
+from app.modules.work_items.domain.requester_rules import CancellationDeciders
+from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemTypeCode
 from app.modules.work_items.events import (
+    WorkItemApprovalChanged,
     WorkItemAssigned,
+    WorkItemCancellationRequested,
     WorkItemConversationAdded,
     WorkItemConversationDeliveryChanged,
     WorkItemCreated,
     WorkItemFollowerAdded,
+    WorkItemMajorChanged,
     WorkItemStatusChanged,
     WorkItemWorkflowNotice,
 )
-from app.modules.work_items.infra.models import WorkItem, WorkItemConversation, WorkItemFollower
-from app.modules.work_items.service import catalogue, escalations
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemApproval,
+    WorkItemConversation,
+    WorkItemFollower,
+)
+from app.modules.work_items.service import approvals, catalogue, escalations
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.closing import resolution_notified
 from app.modules.work_items.service.file_access import sees_private
+from app.modules.work_items.service.followers import current as current_follow
 from app.modules.work_items.service.realtime import RECORD_KIND
+from app.modules.work_items.service.requester_names import requester_name_for
+from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope, record_event
 from app.shared.notifications.ports import (
     EventDefault,
@@ -73,6 +85,18 @@ from app.shared.notifications.ports import (
 IN_APP = (NotificationChannel.IN_APP,)
 BOTH = (NotificationChannel.IN_APP, NotificationChannel.EMAIL)
 EXCERPT = 500  # characters of a reply or note shown in a notification
+
+# WP-046b S1 (REQ-INC-083): an approver asked (in the app and by e-mail, with their own one-time
+# link, D-132 as for service requests) and the technician told when the approval is rejected.
+APPROVAL_REQUESTED = "incident.approval_requested"
+APPROVAL_REJECTED = "incident.approval_rejected"
+# WP-046b S4 (REQ-INC-141): the major incident team hears a declaration and its end.
+MAJOR_DECLARED = "incident.major_declared"
+# WP-046b S5: an unassigned ask to cancel went to the service desk managers; the requester is told.
+CANCELLATION_TO_MANAGERS = "incident.cancellation_to_managers"
+MAJOR_ENDED = "incident.major_ended"
+MAJOR_TEAM = "major_team"
+APPROVER = "approver"
 
 # A workflow's notice (WP-048b S2): its audience is the node's, resolved at send time.
 WORKFLOW_AUDIENCE = "workflow_audience"
@@ -215,6 +239,33 @@ EVENTS: tuple[NotificationEvent, ...] = (
         EventDefault(enabled=True, recipients=(ESCALATION_RECIPIENTS,)),
         variables=_SLA,
     ),
+    NotificationEvent(
+        APPROVAL_REQUESTED,
+        NotificationCategory.APPROVAL,
+        EventDefault(enabled=True, recipients=(APPROVER,)),
+        required=True,
+        variables=(Variable("approval_link", "notification_variable.approval_link"),),
+    ),
+    NotificationEvent(
+        MAJOR_DECLARED,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=(MAJOR_TEAM,)),
+    ),
+    NotificationEvent(
+        MAJOR_ENDED,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=(MAJOR_TEAM,)),
+    ),
+    NotificationEvent(
+        APPROVAL_REJECTED,
+        NotificationCategory.APPROVAL,
+        EventDefault(enabled=True, recipients=("assignee",)),
+    ),
+    NotificationEvent(
+        CANCELLATION_TO_MANAGERS,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("requester",)),
+    ),
 )
 
 RECIPIENT_KINDS = (
@@ -229,6 +280,8 @@ RECIPIENT_KINDS = (
     "mentioned",
     "new_follower",
     ESCALATION_RECIPIENTS,
+    APPROVER,
+    MAJOR_TEAM,
 )
 
 VARIABLES = (
@@ -242,6 +295,45 @@ VARIABLES = (
     Variable("actor.name", "notification_variable.actor.name"),
     Variable("recipient.name", "notification_variable.recipient.name"),
 )
+
+
+def status_variable(cat: catalogue.Catalogue, code: str | None) -> VariableValue:
+    """A status as a variable: the tenant's own name, else the shipped label."""
+    if code is None:
+        return None
+    found = next((s for s in cat.statuses if s.code == code), None)
+    return Localised(found.labels or {} if found else {}, fallback=f"work_item_status.{code}")
+
+
+# The console page of a record: its type's API path, except requests (the console's /requests).
+_CONSOLE_PATHS = {WorkItemTypeCode.SERVICE_REQUEST.value: "requests"}
+
+
+def record_link(record: WorkItem) -> str:
+    """The record's console link, by its type (lane B: never /incidents for a request)."""
+    code = WorkItemTypeCode(record.type)
+    return f"/{_CONSOLE_PATHS.get(code.value, TYPES[code].path)}/{record.id}"
+
+
+async def record_values(
+    session: AsyncSession, record: WorkItem, cat: catalogue.Catalogue, actor: uuid.UUID | None
+) -> dict[str, VariableValue]:
+    """The record's own variables (VARIABLES), for notices and for templates (REQ-INC-041).
+
+    One catalogue: a reply template and a notification name the same things the same way.
+    """
+    people = [p for p in (record.requester_id, record.technician_id, actor) if p is not None]
+    names = await user_names(session, [str(p) for p in people])
+    return {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.priority": LabelRef(f"priority.{record.priority}"),
+        "record.status": status_variable(cat, record.status),
+        "record.link": record_link(record),
+        "requester.name": names.get(str(record.requester_id)),
+        "assignee.name": names.get(str(record.technician_id)) if record.technician_id else None,
+        "actor.name": names.get(str(actor)) if actor else None,
+    }
 
 
 def _uuid(value: object) -> uuid.UUID | None:
@@ -338,7 +430,16 @@ async def _named_people(
     return {}
 
 
-async def _relatives(
+async def _major_team(session: AsyncSession) -> frozenset[uuid.UUID]:
+    """The major incident team as set now; the engine checks each one's access at send time."""
+    major = (await catalogue.load(session, INCIDENT)).major
+    team = set(major.user_ids)
+    if major.group_id is not None:
+        team |= set(await session.scalars(users_in_groups(frozenset({major.group_id}))))
+    return frozenset(team)
+
+
+async def _relatives(  # noqa: C901 - one block per event family, flat
     session: AsyncSession, record: WorkItem, event_code: str, envelope: EventEnvelope
 ) -> dict[str, frozenset[uuid.UUID]] | None:
     """The people relative to the incident for this event (None: the level's run is gone)."""
@@ -370,6 +471,14 @@ async def _relatives(
     if envelope.event_type == WorkItemFollowerAdded.event_type:
         relatives["new_follower"] = frozenset({uuid.UUID(str(payload["user_id"]))})
     relatives.update(await _named_people(session, relatives, event_code, payload))
+    if envelope.event_type == WorkItemApprovalChanged.event_type:
+        approver = _uuid(payload.get("approver_id"))
+        relatives[APPROVER] = frozenset({approver} if approver is not None else ())
+        # Told once the incident's rule has rejected it, not at every single rejection.
+        if event_code == APPROVAL_REJECTED and record.approval_status != "rejected":
+            return None
+    if event_code in {MAJOR_DECLARED, MAJOR_ENDED}:
+        relatives[MAJOR_TEAM] = await _major_team(session)
     if event_code == "incident.sla_escalated":
         found = await sla.escalation_run(session, uuid.UUID(str(payload["run_id"])))
         if found is None:
@@ -378,6 +487,17 @@ async def _relatives(
             session, record, found[1]
         )
     return relatives
+
+
+def _approval_events(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    """An incident's approval opened for a named person, or one of them rejected it."""
+    if payload.get("type") != INCIDENT.code.value:
+        return ()
+    if payload.get("change") == "opened" and payload.get("state") == "pending":
+        return (APPROVAL_REQUESTED,) if payload.get("approver_id") else ()
+    if payload.get("change") == "decided" and payload.get("state") == "rejected":
+        return (APPROVAL_REJECTED,)
+    return ()
 
 
 # Events that are one notification each, of their own code.
@@ -454,10 +574,13 @@ class IncidentNotifications:
         WorkItemStatusChanged.event_type,
         WorkItemFollowerAdded.event_type,
         WorkItemWorkflowNotice.event_type,
+        WorkItemApprovalChanged.event_type,
+        WorkItemMajorChanged.event_type,
+        WorkItemCancellationRequested.event_type,
         *_SLA_EVENTS,
     )
 
-    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
+    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: C901, PLR0911 - one return per event family, flat
         """Notification events of one committed work item event (incidents only)."""
         payload = envelope.payload
         kind = envelope.event_type
@@ -469,6 +592,14 @@ class IncidentNotifications:
             return (_SLA_EVENTS[kind],)
         if kind in _TYPED and payload.get("type") != INCIDENT.code.value:
             return ()
+        if kind == WorkItemApprovalChanged.event_type:
+            return _approval_events(payload)
+        if kind == WorkItemCancellationRequested.event_type:
+            # Only when it fell to the service desk managers (S5 condition 1); IDs only.
+            to_managers = payload.get("deciders") == CancellationDeciders.MANAGERS.value
+            return (CANCELLATION_TO_MANAGERS,) if to_managers else ()
+        if kind == WorkItemMajorChanged.event_type:  # incidents only (`context` checks the type)
+            return (MAJOR_DECLARED if payload.get("major") else MAJOR_ENDED,)
         if kind in _ONE_NOTICE:  # a workflow's notice, an assignee left out (incidents only)
             return (_ONE_NOTICE[kind],) if payload.get("type") == INCIDENT.code.value else ()
         if kind == WorkItemCreated.event_type:
@@ -486,6 +617,34 @@ class IncidentNotifications:
         if kind == WorkItemFollowerAdded.event_type:
             return ("incident.follower_added",)
         return _conversation_events(payload)
+
+    async def recipient_links(
+        self,
+        session: AsyncSession,
+        envelope: EventEnvelope,
+        recipient_id: uuid.UUID,
+        channel: NotificationChannel,
+    ) -> Mapping[str, LinkRequest]:
+        """The approver's own one-time decision link, made at send (D-132, as for requests)."""
+        payload = envelope.payload
+        if (
+            channel is not NotificationChannel.EMAIL
+            or envelope.event_type != WorkItemApprovalChanged.event_type
+            or _approval_events(payload) != (APPROVAL_REQUESTED,)
+        ):
+            return {}
+        row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
+        if row is None or row.approver_id != recipient_id:
+            return {}  # only the approval's own approver, never anyone else on the message
+        return {
+            "approval_link": LinkRequest(
+                recipient_id=recipient_id,
+                action=approvals.LINK_ACTION,
+                object_type=approvals.LINK_OBJECT,
+                object_id=row.id,
+                object_version=row.version,
+            )
+        }
 
     async def context(  # noqa: C901 - one block per event family, flat
         self, session: AsyncSession, event_code: str, envelope: EventEnvelope
@@ -507,29 +666,12 @@ class IncidentNotifications:
         relatives = await _relatives(session, record, event_code, envelope)
         if relatives is None:
             return None
-        people = [p for p in (record.requester_id, record.technician_id, actor) if p is not None]
-        names = await user_names(session, [str(p) for p in people])
         cat = await catalogue.load(session, INCIDENT)
-        status = next((s for s in cat.statuses if s.code == record.status), None)
 
         def status_value(code: str | None) -> VariableValue:
-            found = next((s for s in cat.statuses if s.code == code), None)
-            if code is None:
-                return None
-            return Localised(
-                found.labels or {} if found else {}, fallback=f"work_item_status.{code}"
-            )
+            return status_variable(cat, code)
 
-        shared: dict[str, VariableValue] = {
-            "record.display_id": record.display_id,
-            "record.title": record.subject,
-            "record.priority": LabelRef(f"priority.{record.priority}"),
-            "record.status": status_value(status.code if status else record.status),
-            "record.link": f"/incidents/{record.id}",
-            "requester.name": names.get(str(record.requester_id)),
-            "assignee.name": names.get(str(record.technician_id)) if record.technician_id else None,
-            "actor.name": names.get(str(actor)) if actor else None,
-        }
+        shared = await record_values(session, record, cat, actor)
         if envelope.event_type == WorkItemStatusChanged.event_type:
             shared["change.from_status"] = status_value(payload.get("from_status"))
         if envelope.event_type in _SLA_EVENTS:
@@ -591,7 +733,7 @@ class IncidentNotifications:
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
-        """FULL for staff who may see the incident, PUBLIC for requesters, NONE otherwise.
+        """FULL for staff who may see the incident, PUBLIC for requesters and its approvers.
 
         The incident's own requester (and the person it is for) always sees its public side,
         as the portal will show it (WP-028), even without a console permission.
@@ -609,8 +751,42 @@ class IncidentNotifications:
                 )
             ).first()
             own = people is not None and user_id in (people.requester_id, people.on_behalf_of_id)
-            return RecordAccess.PUBLIC if own else RecordAccess.NONE
+            if own:
+                return RecordAccess.PUBLIC
+            # A follower who may not open it (the duplicate's requester after a merge, WP-046b
+            # S2) hears its public side by e-mail: following grants no portal or console reach.
+            if await current_follow(session, record_id, user_id) is not None:
+                return RecordAccess.PUBLIC
+            # A named approver need not see the incident (the engine's rule, as for service
+            # requests): they get its public side, enough to decide (WP-046b S1).
+            approver = await session.scalar(
+                select(WorkItemApproval.id)
+                .where(
+                    WorkItemApproval.work_item_id == record_id,
+                    WorkItemApproval.deleted_at.is_(None),
+                    WorkItemApproval.approver_id == user_id,
+                )
+                .limit(1)
+            )
+            return RecordAccess.PUBLIC if approver is not None else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
+
+    async def recipient_variables(
+        self,
+        session: AsyncSession,
+        context: RecordContext,
+        recipient_id: uuid.UUID,
+        access: RecordAccess,
+    ) -> Mapping[str, VariableValue]:
+        """The requester's name only to readers near them (requester_names, one rule)."""
+        if access is not RecordAccess.PUBLIC:  # FULL reads everything; NONE gets nothing
+            return {}
+        record = await session.get(WorkItem, context.record_id)
+        if record is None:  # pragma: no cover - the context was just read
+            return {}
+        name = context.public_variables.get("requester.name")
+        shown = await requester_name_for(session, record, recipient_id, access, name)
+        return {} if shown is name else {"requester.name": shown}
 
     async def delivered(  # noqa: PLR0913 - the delivery's facts, explicit
         self,

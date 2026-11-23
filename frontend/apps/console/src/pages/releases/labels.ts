@@ -13,3 +13,16 @@ export function templateName(t: Translate, locale: string, template: ReleaseTemp
 
 /** The emergency path is the release's emergency flag (REQ-REL-012 AC3). */
 export const EMERGENCY_PATH = 'emergency';
+
+/** A release's stages in their order (ADR-041: fixed per type), for its rail, plan and board. */
+export const RELEASE_STAGES: readonly string[] = [
+  'submission',
+  'planning',
+  'build',
+  'testing',
+  'acceptance_testing',
+  'deployment',
+  'training',
+  'review',
+  'closure',
+];

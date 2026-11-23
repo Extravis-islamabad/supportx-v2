@@ -69,8 +69,11 @@ def test_only_the_installation_opens_private_ranges_and_never_link_local() -> No
     assert allowed(ipaddress.ip_address("10.21.5.5"), "x", opened) is False
     assert allowed(ipaddress.ip_address("192.168.9.9"), "ERP.internal.", opened) is True
     assert allowed(ipaddress.ip_address("169.254.169.254"), "x", opened) is False  # never
+    assert opened.ports is not None
     assert 8443 in opened.ports
     assert {80, 443} <= opened.ports
+    assert opened.any_port().ports is None  # the same networks and hosts, any port
+    assert opened.any_port().networks == opened.networks
 
 
 class Resolver:
@@ -395,5 +398,9 @@ def test_the_settings_refuse_a_wide_entry_and_production_loopback_at_load() -> N
     with pytest.raises(ValidationError, match="wider than"):
         make_settings(egress_allow=["0.0.0.0/0"])
     with pytest.raises(ValidationError, match="opens loopback"):
-        make_settings(profile="production", egress_allow=["127.0.0.0/8"])
+        make_settings(
+            profile="production",
+            mobile_redirect_uri="https://sx.example.com/mobile/auth",
+            egress_allow=["127.0.0.0/8"],
+        )
     assert make_settings(egress_allow=["10.20.0.0/16", "erp.internal"]).egress_allow

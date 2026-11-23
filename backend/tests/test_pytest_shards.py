@@ -93,3 +93,116 @@ def test_unweighted_keycloak_files_keep_the_chain_aware_placement() -> None:
     # Placed as heavy files by finish time: two Keycloak chains go to different shards.
     assert placed["kc_new1.py"] != placed["kc_new2.py"]
     assert placed == assign(list(reversed(files)), WEIGHTS, 3, serial=serial, workers=4)
+
+
+# --- SUPPORTX_TEST_SELECT (tooling/test_select.py): only the selected files, then the split ---
+
+
+class _Item:
+    def __init__(self, nodeid: str) -> None:
+        self.nodeid = nodeid
+        self.fixturenames: tuple[str, ...] = ()
+
+
+class _Hook:
+    def __init__(self) -> None:
+        self.deselected: list[_Item] = []
+
+    def pytest_deselected(self, items: list[_Item]) -> None:
+        self.deselected.extend(items)
+
+
+class _Config:
+    def __init__(self) -> None:
+        self.hook = _Hook()
+        self.stash = pytest.Stash()
+        self.option = type("Option", (), {"numprocesses": 4})()
+
+
+def _collect(items: list[_Item]) -> tuple[list[str], _Config]:
+    config = _Config()
+    kept: list[pytest.Item] = items  # type: ignore[assignment]  # stand-ins with the used attributes
+    pytest_shards.pytest_collection_modifyitems(config, kept)  # type: ignore[arg-type]  # same
+    return [item.nodeid for item in kept], config
+
+
+ITEMS = [
+    "tests/db/test_a.py::t1",
+    "tests/db/test_a.py::t2",
+    "tests/db/test_b.py::t",
+    "tests/test_c.py::t",
+]
+
+
+def test_a_selection_keeps_only_its_files_before_the_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps({"all": False, "files": ["tests/db/test_a.py", "tests/test_c.py"]})
+    )
+    monkeypatch.setenv("SUPPORTX_TEST_SELECT", str(selection))
+    monkeypatch.delenv("SUPPORTX_TEST_SHARD", raising=False)
+    kept, config = _collect([_Item(n) for n in ITEMS])
+    assert kept == ["tests/db/test_a.py::t1", "tests/db/test_a.py::t2", "tests/test_c.py::t"]
+    assert [i.nodeid for i in config.hook.deselected] == ["tests/db/test_b.py::t"]
+    # Then the shards split only the kept files: together they run exactly those.
+    together: list[str] = []
+    for shard in (1, 2):
+        monkeypatch.setenv("SUPPORTX_TEST_SHARD", f"{shard}/2")
+        together += _collect([_Item(n) for n in ITEMS])[0]
+    assert sorted(together) == kept
+
+
+def test_a_selection_of_everything_or_none_given_keeps_every_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SUPPORTX_TEST_SHARD", raising=False)
+    monkeypatch.delenv("SUPPORTX_TEST_SELECT", raising=False)
+    assert _collect([_Item(n) for n in ITEMS])[0] == ITEMS
+    everything = tmp_path / "all.json"
+    everything.write_text(json.dumps({"all": True, "files": []}))
+    monkeypatch.setenv("SUPPORTX_TEST_SELECT", str(everything))
+    kept, config = _collect([_Item(n) for n in ITEMS])
+    assert kept == ITEMS
+    assert config.stash.get(pytest_shards._SELECT_WARNING, None) is None  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        None,
+        "not json",
+        '{"files": []}',
+        '{"all": false, "files": []}',
+        '{"all": "no", "files": ["x"]}',
+    ],
+)
+def test_a_missing_or_bad_selection_runs_everything_with_a_warning(
+    content: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Never silently nothing: a selection that cannot be used runs every test, and says so."""
+    selection = tmp_path / "selection.json"
+    if content is not None:
+        selection.write_text(content)
+    monkeypatch.setenv("SUPPORTX_TEST_SELECT", str(selection))
+    monkeypatch.delenv("SUPPORTX_TEST_SHARD", raising=False)
+    kept, config = _collect([_Item(n) for n in ITEMS])
+    assert kept == ITEMS
+    warning = config.stash[pytest_shards._SELECT_WARNING]  # noqa: SLF001
+    assert "running every test" in warning
+
+
+def test_the_selection_warning_reaches_the_summary_and_the_job_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lines: list[str] = []
+    reporter = type("Reporter", (), {"write_line": lambda _self, line, **_: lines.append(line)})()
+    config = _Config()
+    config.stash[pytest_shards._SELECT_WARNING] = "selection unusable"  # noqa: SLF001
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    pytest_shards.pytest_terminal_summary(reporter, config)  # type: ignore[arg-type]  # stand-ins
+    assert lines == [
+        "WARNING: selection unusable",
+        "::warning title=Test selection ignored::selection unusable",
+    ]

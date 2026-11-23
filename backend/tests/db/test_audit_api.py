@@ -525,6 +525,29 @@ async def test_req_aud_007_ac1_filter_by_actor_and_last_seven_days(world: World)
     assert old_entry["id"] not in {e["id"] for e in found}
 
 
+async def test_req_aud_007_a_retried_save_makes_one_saved_search(world: World) -> None:
+    """Idempotency-Key on the create (architecture.md §10): the same 201, never a second row."""
+    a = world.a
+    headers = {**CONSOLE, "Idempotency-Key": str(uuid.uuid4())}
+    body = {"name": "Admins this week", "query": {"actor_id": str(a.admin)}}
+    first = await world.call(
+        "POST", "/audit/saved-searches", a, a.admin, json=body, headers=headers
+    )
+    again = await world.call(
+        "POST", "/audit/saved-searches", a, a.admin, json=body, headers=headers
+    )
+    assert (first.status_code, again.status_code) == (201, 201), first.text
+    assert again.json() == first.json()
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    other = {**body, "name": "Something else"}
+    reused = await world.call(
+        "POST", "/audit/saved-searches", a, a.admin, json=other, headers=headers
+    )
+    assert problem(reused) == (422, "idempotency_key_reused")
+    listed = await world.call("GET", "/audit/saved-searches", a, a.admin)
+    assert [s["id"] for s in listed.json()] == [first.json()["id"]]
+
+
 # --- REQ-AUD-008: who may read; separation of duties --------------------------------------------
 
 

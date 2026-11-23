@@ -38,6 +38,8 @@ const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
     feature: 'service_request',
   },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
+  // WP-045d S4a: the changes a requester raised (REQ-CHG-109).
+  { path: '/changes', labelKey: 'portal.changes.title', feature: 'change' },
   { path: '/catalog', labelKey: 'nav.catalog' },
   { path: '/my-assets', labelKey: 'my_assets.title', feature: 'assets' },
 ];

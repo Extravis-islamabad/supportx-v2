@@ -13,3 +13,19 @@ export function plainQuantity(value: string | number): string {
 export function unsignedQuantity(value: string): string {
   return plainQuantity(value.replace(/^-/, ''));
 }
+
+/**
+ * A stock's level against its minimum, as the label key to show (QA 2026-11-11 F-15): the server
+ * flags `low` at or below the minimum; below it says so, never "At minimum". Null when not low.
+ */
+export function stockLevelKey(stock: {
+  low: boolean;
+  quantity: string;
+  minimum: string | null;
+}): 'assets.stock.below_minimum' | 'assets.stock.low' | null {
+  if (!stock.low) return null;
+  // Exact decimals of three places at most: a double compares them correctly.
+  return stock.minimum !== null && Number(stock.quantity) < Number(stock.minimum)
+    ? 'assets.stock.below_minimum'
+    : 'assets.stock.low';
+}

@@ -38,7 +38,7 @@ from app.modules.work_items.infra.models import (
     WorkItemStage,
     WorkItemStageEntry,
 )
-from app.modules.work_items.service import catalogue, change_boards
+from app.modules.work_items.service import catalogue, change_boards, record_roles
 from app.modules.work_items.service import stages as stage_service
 from app.modules.work_items.service.approval_stage import approval_event
 from app.shared.history import Source
@@ -88,19 +88,11 @@ async def _candidates(
     groups = set(level.group_ids)
     unheld = False
     if level.roles:
-        held = (
-            await session.execute(
-                select(
-                    WorkItemRoleHolder.role, WorkItemRoleHolder.user_id, WorkItemRoleHolder.group_id
-                ).where(
-                    WorkItemRoleHolder.work_item_id == record.id,
-                    WorkItemRoleHolder.role.in_(level.roles),
-                )
-            )
-        ).all()
-        unheld = {r.role for r in held} != set(level.roles)
-        people += [r.user_id for r in held if r.user_id]
-        groups |= {r.group_id for r in held if r.group_id}
+        # Through the record-roles overlay: a change's owner is its technician (F-02).
+        held = await record_roles.role_holders(session, record, level.roles)
+        unheld = any(held.get(r, ([], [])) == ([], []) for r in level.roles)
+        people += [u for users, _ in held.values() for u in users]
+        groups |= {g for _, grps in held.values() for g in grps}
     if groups:
         people += list(await session.scalars(users_in_groups(frozenset(groups))))
     return list(dict.fromkeys(people)), unheld
@@ -501,8 +493,24 @@ async def _move_on_without_approvers(
     )
 
 
+class ReleaseGuard(StagedApprovalGuard):
+    """The approvals guard, and a stage's open tasks holding the move out (REQ-REL-048 AC1)."""
+
+    async def check(
+        self, session: AsyncSession, record: WorkItem, move: Move
+    ) -> list[stage_service.Refusal]:
+        """The approvals' refusals, then the open tasks' (unless the release setting is off)."""
+        from app.modules.work_items.service import stage_tasks  # noqa: PLC0415 - cycle
+
+        refusals = await super().check(session, record, move)
+        if not (await catalogue.load(session, self.wtype)).open_stage_tasks_block:
+            return refusals
+        held = await stage_tasks.refusal(session, record, move)
+        return [*refusals, held] if held is not None else refusals
+
+
 def register(types: Sequence[WorkItemType]) -> None:
     """Register the guard for every staged type with approvals (releases)."""
     for wtype in types:
         if wtype.stages is not None and wtype.code is WorkItemTypeCode.RELEASE:
-            stage_service.register_guard(wtype.code, StagedApprovalGuard(wtype))
+            stage_service.register_guard(wtype.code, ReleaseGuard(wtype))

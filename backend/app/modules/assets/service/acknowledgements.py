@@ -5,6 +5,8 @@
   (AC2, AC3), recorded with when and through which channel. A dispute never touches the holding
   or its history; the assigning technician hears of it (the `asset.ack_disputed` notification).
 - It works without mail: the person answers in the portal (AC4).
+- Self-audits (WP-049b s3) ask again through the same acknowledgement, one per audit: the
+  answer marks the person's asset in the audit (accepted: found; disputed: missing).
 - "My assets" (024): what the person holds, and their department's when the tenant allows it
   (`portal_own_assets_only` off), each with its acknowledgement. A person needs no asset
   permission to see what they hold.
@@ -24,6 +26,7 @@ from app.modules.assets.infra.models import (
     Asset,
     AssetAcknowledgement,
     AssetAssignment,
+    AssetAudit,
     AssetProductType,
     AssetSettings,
 )
@@ -115,6 +118,12 @@ async def answer(  # noqa: PLR0913 - which, who, the answer, why and where from
     ack.updated_by = subject.user_id
     ack.version += 1
     await session.flush()
+    if ack.audit_id is not None:
+        # A self-audit question (WP-049b s3, REQ-AST-042 AC2): the answer marks the audit item.
+        # Imported here: audits builds on this module (it asks through `_changed`).
+        from app.modules.assets.service.audits import self_answered  # noqa: PLC0415
+
+        await self_answered(session, ack)
     await _changed(session, ack)
     return ack
 
@@ -151,3 +160,16 @@ async def mine(session: AsyncSession, subject: Subject) -> list[MyAsset]:
         MyAsset(row, acks.get(row.id), through_department=row.owner_user_id != subject.user_id)
         for row in rows
     ]
+
+
+async def audit_names(
+    session: AsyncSession, audit_ids: list[uuid.UUID | None]
+) -> dict[uuid.UUID, str]:
+    """The names of the self-audits that asked (shown with the question, nothing else)."""
+    wanted = sorted({a for a in audit_ids if a is not None})
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(AssetAudit.id, AssetAudit.name).where(AssetAudit.id.in_(wanted))
+    )
+    return dict(rows.tuples().all())

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Index, Integer, String, text
+from sqlalchemy import Boolean, CheckConstraint, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +40,9 @@ class CustomField(TenantEntity):
             "index_error IS NULL OR " + _codes("index_error", IndexFailure), name="index_error_code"
         ),
         CheckConstraint("key ~ '^[a-z][a-z0-9_]{1,39}$'", name="key_format"),
+        CheckConstraint(
+            "seal_state IN ('plain', 'sealing', 'sealed', 'opening')", name="seal_state_code"
+        ),
         CheckConstraint("currency IS NULL OR currency ~ '^[A-Z]{3}$'", name="currency_format"),
         Index(
             "uq_custom_fields_tenant_entity_key",
@@ -50,9 +53,21 @@ class CustomField(TenantEntity):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("ix_custom_fields_tenant_entity_order", "tenant_id", "entity", "sort_order"),
+        # Fields scoped to a type and its subtypes (0175; plans/metadata-type-subtree-design).
+        Index(
+            "ix_custom_fields_tenant_entity_scope",
+            "tenant_id",
+            "entity",
+            "scope_type_id",
+            postgresql_where=text("scope_type_id IS NOT NULL"),
+        ),
     )
 
     entity: Mapped[str] = mapped_column(String(30))
+    # A type of the owning module (and every type below it), or None for the whole entity
+    # (0175). No foreign key: the type tables are another module's; checked through its
+    # type-tree port (metadata.register_type_tree).
+    scope_type_id: Mapped[uuid.UUID | None]
     key: Mapped[str] = mapped_column(String(40))
     field_type: Mapped[str] = mapped_column(String(20))
     labels: Mapped[dict[str, str]] = mapped_column(JSONB)
@@ -72,3 +87,11 @@ class CustomField(TenantEntity):
     index_state: Mapped[str] = mapped_column(String(10), server_default="none")
     index_error: Mapped[str | None] = mapped_column(String(20))
     index_requested_by: Mapped[uuid.UUID | None]
+    # An admin's marks (REQ-ADM-026 AC2, D-171; migration 0162). Marking creates no field access
+    # rule; personal data erasure and export read them (lane B).
+    personal_data: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    sensitive: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Where the stored values stand while the re-seal job follows `sensitive` (WP-057 S3b-2;
+    # 0171): plain, sealing, sealed or opening. Filters on a field in between are refused.
+    seal_state: Mapped[str] = mapped_column(String(10), server_default="plain")
+    seal_cursor: Mapped[uuid.UUID | None]

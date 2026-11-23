@@ -26,6 +26,9 @@ const DEFAULTS: IdentitySettings = {
   people_edit_contact: false,
   people_may_create_keys: false,
   allow_non_expiring_keys: false,
+  key_max_lifetime_days: 366,
+  keys_require_ip_range: false,
+  key_unused_days: 90,
   invitation_valid_days: 7,
   password_min_length: 12,
   password_upper: true,
@@ -362,6 +365,40 @@ describe('invitations (WP-039 session 2, REQ-SEC-018..020)', () => {
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/identity/invitations/i1/revoke')).toHaveLength(1);
     });
+  });
+
+  it('without outgoing mail, a link is copied once and shown in a dialog (REQ-SEC-021)', async () => {
+    const link = 'https://acme.example/portal/invite?t=acme#abc';
+    const fake = api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/invitations': {
+            body: {
+              items: [
+                invitation({ delivery: 'link' }),
+                invitation({ id: 'i2', email: 'sam@acme.test' }),
+              ],
+            },
+          },
+          'POST /api/v1/identity/invitations/i1/link': {
+            body: { link, expires_at: '2026-11-03T10:00:00Z' },
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const list = await screen.findByTestId('security-invitations-list');
+    await within(list).findByText('ina@acme.test');
+    expect(within(list).getAllByTestId('invitation-copy-link')).toHaveLength(1); // not the e-mailed
+    fireEvent.click(within(list).getByTestId('invitation-copy-link'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/identity/invitations/i1/link')).toHaveLength(1);
+    });
+    expect(
+      fake.find('POST', '/api/v1/identity/invitations/i1/link')[0]?.headers.get('If-Match'),
+    ).toBe('"1"');
+    const shown = await screen.findAllByTestId('invitation-link'); // antd's Typography may clone it
+    expect(shown[0]?.textContent).toContain(link);
   });
 
   it('with a read-only licence, sending again and withdrawing are disabled (§17 item 3)', async () => {

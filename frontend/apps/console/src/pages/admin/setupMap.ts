@@ -93,6 +93,19 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_api_keys',
     permission: 'api_keys.manage',
   },
+  // ADR-052 (D-171): people's erasures, for those who may erase (people.erase).
+  {
+    key: 'erasures',
+    group: 'people_access',
+    labelKey: 'nav.admin_erasures',
+    permission: 'people.erase',
+  },
+  {
+    key: 'service-accounts',
+    group: 'people_access',
+    labelKey: 'nav.admin_service_accounts',
+    permission: 'api_keys.manage',
+  },
   {
     key: 'incidents',
     group: 'service_desk',
@@ -113,6 +126,14 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     key: 'portal',
     group: 'service_desk',
     labelKey: 'nav.admin_portal',
+    permission: 'config.service_desk',
+    also: 'settings.manage',
+  },
+  // WP-058b S4: how releases close and what their stages hold; the release settings API's gate.
+  {
+    key: 'releases',
+    group: 'service_desk',
+    labelKey: 'nav.admin_releases',
     permission: 'config.service_desk',
     also: 'settings.manage',
   },
@@ -154,6 +175,13 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     labelKey: 'nav.admin_assets',
     permission: 'config.assets',
     also: 'settings.manage',
+  },
+  // The CMDB's types, states and settings (WP-053 S1).
+  {
+    key: 'cmdb',
+    group: 'assets',
+    labelKey: 'nav.admin_cmdb',
+    permission: 'cmdb.configure',
   },
   {
     key: 'automation',
@@ -210,7 +238,15 @@ export const SETUP_PAGES: readonly SetupPage[] = [
   },
   { key: 'files', group: 'organisation', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'licence', group: 'licence', labelKey: 'nav.admin_licence', permission: 'licence.manage' },
-  { key: 'audit', group: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
+  {
+    key: 'audit',
+    group: 'audit',
+    labelKey: 'nav.audit',
+    permission: 'audit.view',
+    // The sign-in log's own right opens the page too, on its one tab (WP-057 S1a), and so does
+    // the personal data access log's (WP-057 S3b-1, REQ-AUD-017: a DPO may hold only that).
+    also: ['identity.view_sign_ins', 'audit.view_personal_data_access'],
+  },
 ];
 
 /**

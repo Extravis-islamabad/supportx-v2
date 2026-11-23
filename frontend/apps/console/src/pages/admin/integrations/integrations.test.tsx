@@ -89,6 +89,28 @@ describe('Admin › Integrations', () => {
     expect(within(email).getByText('it@acme.test').tagName).toBe('BDI');
   });
 
+  it('each kind\'s "Set up" is a default button: no row of primaries (QA 2026-11-12 V-11)', async () => {
+    window.history.pushState({}, '', '/admin/integrations');
+    api({
+      me: ADMIN,
+      routes: {
+        [`GET ${CATALOGUE}`]: {
+          body: [
+            mailboxKind(),
+            mailboxKind({ code: 'entra_id', category: 'identity', instances: [] }),
+          ],
+        },
+      },
+    });
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId('connector-set-up')).toHaveLength(2);
+    });
+    for (const button of screen.getAllByTestId('connector-set-up')) {
+      expect(button.className).not.toContain('ant-btn-primary');
+    }
+  });
+
   it('is read-only with the reason for someone without set-up rights', async () => {
     window.history.pushState({}, '', '/admin/integrations');
     api({

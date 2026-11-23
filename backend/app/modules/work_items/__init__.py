@@ -14,7 +14,10 @@ service's access questions for records, replies and notes (`service/file_access.
 at startup.
 """
 
+import uuid
+
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
@@ -22,10 +25,12 @@ from app.modules.ai import (
     register_conversation_source,
     register_embedding_source,
     register_record_access,
+    register_requested_records,
     unregister_conversation_source,
     unregister_embedding_source,
     unregister_record_access,
 )
+from app.modules.assets import register_linked_records, register_ticket_requesters
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -36,7 +41,18 @@ from app.modules.work_items.api.change_window_routes import (
 from app.modules.work_items.api.change_window_routes import (
     change_router as change_window_change_router,
 )
+from app.modules.work_items.api.change_window_routes import (
+    release_calendar_router,
+)
+from app.modules.work_items.api.change_window_routes import (
+    release_router as release_window_router,
+)
 from app.modules.work_items.api.change_window_routes import router as change_window_router
+from app.modules.work_items.api.checklist_routes import my_reminders_router
+from app.modules.work_items.api.draft_routes import router as draft_router
+from app.modules.work_items.api.notify_links import public_router as notify_links_router
+from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
+from app.modules.work_items.api.portal_change_routes import router as portal_change_router
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
@@ -48,30 +64,48 @@ from app.modules.work_items.domain.types import (
     INCIDENT,
     PERMISSION_TYPES,
     PROBLEM,
+    RELEASE,
     SERVICE_REQUEST,
     TYPES,
 )
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    asset_links,
     audit_subtype,
     bulk,
+    change_notifications,
+    change_reminders,
+    checklists,
+    drafts,
+    field_catalogue,
     inbound_mail,
     notifications,
     parts,
+    person_data,
+    person_mentions,
     portal,
     problem_notifications,
     record_facts,
+    release_closing,
     release_duties,
+    reminder_notifications,
+    reminders,
     repeat_rules,
     report_names,
     request_notifications,
     resolution,
     rule_step_notifications,
+    sealing_job,
+    search_rebuild,
     staff_reply_notifications,
+    task_notifications,
+    task_reminders,
+    view_audit,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
+from app.modules.work_items.service.asset_link_port import PORT as ASSET_LINK_PORT
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.change_guard import register as register_change_guard
@@ -83,12 +117,17 @@ from app.modules.work_items.service.closing import (
     unregister_requester_channel,
 )
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
+from app.modules.work_items.service.custom_values import HIDDEN_LINE as SEALED_HIDDEN_LINE
+from app.modules.work_items.service.custom_values import open_sealed_changes
 from app.modules.work_items.service.file_access import FILE_ACCESS
+from app.modules.work_items.service.kept_informed import KEPT_INFORMED
+from app.modules.work_items.service.person_records import records_requested_by
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.sla import register_sla
 from app.modules.work_items.service.stage_approvals import register as register_stage_approvals
 from app.modules.work_items.service.usage import register_record_usage
+from app.modules.work_items.service.work_items import labels_of
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
 
@@ -100,9 +139,26 @@ def _register_parts() -> None:
     test unregistered it).
     """
     register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+    # A release's open changes and sub-releases (WP-058b S4): listed, never closed for the user
+    # by the "complete open work" setting (each closes through its own rules).
+    register_open_work(OpenWorkKind.LINKED_CHANGES, release_closing.open_linked_changes, None)
+    register_open_work(OpenWorkKind.CHILD_RELEASES, release_closing.open_sub_releases, None)
+    # WP-046a S2 (REQ-INC-077): unticked checklist items are open work too.
+    register_open_work(OpenWorkKind.CHECKLISTS, checklists.open_work, checklists.complete_work)
 
 
 _register_parts()
+
+
+async def _requested_records(
+    session: AsyncSession, person_id: uuid.UUID, cursor: str | None
+) -> tuple[list[tuple[str, uuid.UUID]], str | None]:
+    return await records_requested_by(session, person_id, cursor=cursor)
+
+
+# At import too, not only at start: the erasure job runs in the consumers worker, which may never
+# run the API's startup hooks (lane A, #502).
+register_requested_records(_requested_records)
 
 
 def _register_ai() -> None:
@@ -110,12 +166,19 @@ def _register_ai() -> None:
     register_record_access(INCIDENT.code, ai_sources.may_view_incident)
     register_conversation_source(INCIDENT.code, ai_sources.conversation_for)
     register_embedding_source(INCIDENT.code, ai_sources.incident_texts, ai_sources.incident_ids)
+    # GDPR erasure (ADR-052, lane C's ai port): the records whose vectors go with the requester.
+    register_requested_records(_requested_records)
 
 
 async def _startup(app: FastAPI) -> None:
     del app
     _register_parts()
     register_owner_access(FILE_ACCESS)
+    field_catalogue.register()
+    search_rebuild.register()
+    sealing_job.register()
+    person_data.register()
+    person_mentions.register()
     register_sources()  # again after a shutdown (tests start and stop the app)
     _register_ai()
 
@@ -127,9 +190,14 @@ async def _shutdown(app: FastAPI) -> None:
     unregister_record_access(INCIDENT.code)
     unregister_conversation_source(INCIDENT.code)
     unregister_embedding_source(INCIDENT.code)
+    # The requested-records lister stays: it is registered at import, and a process that stops an
+    # app may still run the erasure job (lane B, #502).
 
 
 register_record_usage()
+# The asset page's linked records (REQ-AST-044, lane B's WP-049b s4a; lane A agreed, rule 8):
+# assets ask through their port, answered by this module's visible-only queries.
+register_linked_records(ASSET_LINK_PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
@@ -150,20 +218,35 @@ request_notifications.register()
 problem_notifications.register()  # WP-044c D15
 rule_step_notifications.register()  # D-154 rules: every type's rule-step notice
 staff_reply_notifications.register()  # change and release replies settle (lane B's #359)
+change_notifications.register()  # WP-045d S3: replaces the change reply-only source
+view_audit.register()  # D-176: an owner hears their shared view was made private
+task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
+reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
 audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# D-157 (lane B; lane A reviews): the requesters of a technician's tickets that link an asset, for
+# the assets module's narrower technician write. At import, as above.
+register_ticket_requesters(asset_links.linked_requester_ids_select)
 # Who may reach work item files: at import too, since mail attachments upload in the worker.
 register_owner_access(FILE_ACCESS)
+# Fields an admin may restrict per role (ADR-047, identity_access's port): at import, as above.
+field_catalogue.register()
+search_rebuild.register()  # ADR-047 §6: the search mark commits with the rule
+# Work items' slice of a person's erasure (ADR-052): at import, as above.
+person_data.register()
+person_mentions.register()
 
 module = ModuleSpec(
     name="work_items",
     routers=[
         *(build_router(wtype) for wtype in TYPES.values()),
         portal_router,
+        draft_router,  # REQ-INC-019: kept drafts of unsent create forms
+        notify_links_router,  # WP-046a S6: stop mails to an address kept informed
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
@@ -173,10 +256,18 @@ module = ModuleSpec(
         change_window_change_router,  # WP-045c: a change's conflicts and freeze override
         change_child_router,  # WP-045d S1: child changes and releases
         change_calendar_router,  # WP-045c S3: the change calendar
+        release_calendar_router,  # WP-058b S1: the release calendar (same query)
+        release_window_router,  # WP-058b S2: a release's freeze override
+        portal_change_router,  # WP-045d S4a: requesters' changes in the portal
+        my_tasks_router,  # WP-046a S1: your tasks on every type (REQ-INC-076)
+        my_reminders_router,  # WP-046a S2: your personal reminders (REQ-INC-082)
+        my_timers_router,  # WP-046a S3: your running timers (REQ-INC-069)
     ],
     router_features=[
         *(wtype.feature for wtype in TYPES.values()),
-        INCIDENT.feature,
+        INCIDENT.feature,  # the portal
+        INCIDENT.feature,  # kept drafts (incident-new)
+        INCIDENT.feature,  # stopping mails to people kept informed (WP-046a S6)
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
@@ -186,6 +277,12 @@ module = ModuleSpec(
         CHANGE.feature,  # a change's conflicts and freeze override
         CHANGE.feature,  # child changes and releases
         CHANGE.feature,  # the change calendar
+        RELEASE.feature,  # the release calendar
+        RELEASE.feature,  # a release's freeze override
+        CHANGE.feature,  # requesters' changes in the portal
+        None,  # your tasks: each type's own licence is checked per type in the service
+        None,  # your reminders: each record's own view rule decides what shows
+        None,  # your timers: each record's own view rule decides what shows
     ],
     events=EVENTS,
     permissions=(
@@ -200,11 +297,27 @@ module = ModuleSpec(
     channels=CHANNELS,
     realtime=ROUTES,
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
-    consumers=[APPROVER_LEFT],
+    consumers=[
+        APPROVER_LEFT,
+        KEPT_INFORMED,
+        drafts.OWNER_LEFT,
+        search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
+        view_audit.VIEW_AUDIT,  # D-176: shared views naming a restricted field go private
+    ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
     schedules=[
+        # REQ-INC-019: kept drafts untouched for 30 days go (lane B).
+        ScheduleSpec("work_items__drafts_purge", 86400, drafts.purge_schedule),
+        # D-176: shared views whose filter names a restricted or sealed field go private.
+        ScheduleSpec(
+            "work_items__view_audit", view_audit.AUDIT_EVERY_SECONDS, view_audit.audit_schedule
+        ),
+        # ADR-047 §6: types marked by a custom field's rule change get their search text rebuilt.
+        ScheduleSpec("work_items__search_text_rebuild", 60, search_rebuild.rebuild_schedule),
+        # Sensitive custom fields: stored values follow the mark (WP-057 S3b-2b).
+        ScheduleSpec("work_items__custom_field_seal", 30, sealing_job.seal_schedule),
         ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
         # REQ-SR-023 AC3: daily, no approval waits on someone no longer active.
         ScheduleSpec("work_items__inactive_approvers", 86400, inactive_approvers_schedule),
@@ -212,16 +325,38 @@ module = ModuleSpec(
         ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
         # WP-044c D16 (REQ-PRB-068): repeat incident rules, every 15 minutes, without AI.
         ScheduleSpec("work_items__repeat_incidents", 900, repeat_rules.repeat_schedule),
+        # WP-045d S3 (REQ-CHG-091, -105): change reminders, each raised once.
+        ScheduleSpec(
+            "work_items__change_reminders",
+            change_reminders.EVERY_SECONDS,
+            change_reminders.reminders_schedule,
+        ),
+        # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
+        ScheduleSpec(
+            "work_items__task_reminders",
+            task_reminders.EVERY_SECONDS,
+            task_reminders.reminders_schedule,
+        ),
+        # WP-046a S2 (REQ-INC-082 AC1): personal reminders, each alert raised once.
+        ScheduleSpec(
+            "work_items__personal_reminders", reminders.EVERY_SECONDS, reminders.reminders_schedule
+        ),
     ],
 )
 
 # Ports for other modules (WP-020f): open work on a record, and channels that tell requesters.
 __all__ = [
+    "SEALED_HIDDEN_LINE",
     "OpenItem",
     "OpenWorkKind",
     "RequesterReply",
     "add_requester_reply",
+    # Display IDs and subjects of records another module already checked (lane B's asset history,
+    # WP-049b S4a; the workflow overview).
+    "labels_of",
     "module",
+    "open_sealed_changes",
+    "records_requested_by",
     "register_open_work",
     "register_requester_channel",
     "resolution_notified",

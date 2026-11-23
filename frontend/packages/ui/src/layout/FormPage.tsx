@@ -1,9 +1,10 @@
 import { Flex, Typography, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 import { SPACE, TYPE } from '../density';
 
 import { PageColumn } from './PageColumn';
+import { useClearOfBar } from './useClearOfBar';
 import { useMinWidth } from './useMinWidth';
 import { PageHeader, type PageHeaderProps } from './PageHeader';
 
@@ -81,9 +82,15 @@ export function FormFooter({
 }) {
   const { token } = theme.useToken();
   const wide = useMinWidth(576);
+  const bar = useRef<HTMLDivElement>(null);
+  useClearOfBar(bar);
   return (
     <div
+      ref={bar}
       data-testid={testId}
+      // Marks the bar for full-page screenshots, which cannot show a sticky bar at the window's
+      // foot and drew it over the fields instead (the visual matrix draws it in place, QA V-01).
+      data-sticky-footer=""
       style={{
         position: 'sticky',
         bottom: 0,

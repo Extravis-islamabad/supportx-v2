@@ -87,9 +87,22 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec("profile.edit", scopes=OWN_ONLY),
     # Sign-in and security settings: SSO, sessions, people creation (WP-039, D-089 D7).
     PermissionSpec("identity.manage"),
+    # The sign-in log (REQ-AUD-015; WP-057 S1a): addresses and devices are personal data, so
+    # its own right (lane B). No built-in role but the tenant admin holds it; grantable to custom
+    # roles (the coordinator, as D-164's cost-rate rights). Every read of it is audited.
+    PermissionSpec("identity.view_sign_ins"),
     # API keys for service identities and every key of the tenant (WP-041, D-128). The key
     # screens are for the browser only: no key ever reaches them, whatever its scopes.
     PermissionSpec("api_keys.manage"),
+    # A person's cost per hour (REQ-INC-068, for worklog costs): money, so no built-in role but
+    # the tenant admin holds them (no defaults). Names pending Haider's naming (PROGRESS.md).
+    PermissionSpec("users.view_cost_rates"),
+    PermissionSpec("users.manage_cost_rates"),
+    # GDPR (D-171, ADR-052): erasing a person (two admins: one requests, another approves) and
+    # exporting their data (the export job comes with S3). No built-in role but the tenant
+    # admin holds them (no defaults); a custom role may, with a warning in the role editor.
+    PermissionSpec("people.erase"),
+    PermissionSpec("people.export"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
@@ -98,9 +111,7 @@ RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
     # (WP-045a: the same key names, so saved grants need no mapping) moved to work_items'
     # ModuleSpec (lane B reviews; 0077 and 0091 map saved manage grants to the engine's
     # actions), and assets.* to the assets module (WP-049a); the system-role grants below still
-    # name them, unchanged.
-    PermissionSpec("cmdb.view", "cmdb", NOT_OWN),
-    PermissionSpec("cmdb.manage", "cmdb"),
+    # name them, unchanged. cmdb.view and cmdb.manage moved to the cmdb module (WP-053 S1).
 )
 
 # The technician and requester system roles, as (permission, scope), for the permissions of this
@@ -122,9 +133,11 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("changes.create", "all"),
             ("releases.view", "all"),
             ("assets.view", "all"),
-            # D-153: a technician updates only the assets linked to its own tickets. Records
-            # can't link assets yet (REQ-AST-025, the asset picker on incident and request
-            # forms), so for now it only views them; full management is the asset manager's.
+            # D-153, D-157: no assets.manage. A technician changes only an asset linked to its
+            # own ticket still being worked and held by that ticket's requester or department,
+            # and then only its state, location, notes and fitted components: the assets
+            # module's narrower write (assets/service/ticket_access.py), not a grant here.
+            # Full management is the asset manager's.
             ("cmdb.view", "all"),
         ),
         REQUESTER: (

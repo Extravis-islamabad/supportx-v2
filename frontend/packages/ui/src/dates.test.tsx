@@ -14,6 +14,7 @@ import {
   useDateTime,
   wallTimeIn,
 } from './dates';
+import { zoneName } from './dates/time';
 import { renderUi } from './test/render';
 
 describe('time zone conversion', () => {
@@ -92,7 +93,11 @@ describe('DateTimeField', () => {
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).not.toBe('Pacific/Kiritimati');
     const changed = vi.fn();
     renderUi(<Harness initial="2026-11-02T04:00:00Z" onChange={changed} />);
-    expect(await screen.findByText('Times are in Pacific/Kiritimati.')).toBeDefined();
+    // The zone by its name in the reader's language (QA-2026-11-11 F-10), never its code.
+    expect(
+      await screen.findByText(`Times are in ${zoneName('Pacific/Kiritimati', 'en')}.`),
+    ).toBeDefined();
+    expect(screen.getByTestId('time-zone-note').getAttribute('title')).toBe('Pacific/Kiritimati');
     const input = document.getElementById('when') as HTMLInputElement;
     await waitFor(() => {
       expect(input.value).toBe('2 Nov 2026 18:00'); // the default written out, 24 hours (D-155)
@@ -111,14 +116,19 @@ describe('DateTimeField', () => {
     session('Mars/Base');
     renderUi(<Harness initial={null} onChange={vi.fn()} />);
     const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(await screen.findByText(`Times are in ${browser}.`)).toBeDefined();
+    expect(await screen.findByText(`Times are in ${zoneName(browser, 'en')}.`)).toBeDefined();
   });
 
   it('labels the zone in Arabic too', async () => {
     session('Asia/Dubai');
     renderUi(<Harness initial={null} onChange={vi.fn()} />, { locale: 'ar' });
-    // A Latin zone name in Arabic text is isolated (the isolation rule, packages/labels).
-    expect(await screen.findByText('الأوقات بتوقيت \u2068Asia/Dubai\u2069.')).toBeDefined();
+    // Its Arabic name; a name is isolated in the sentence (the isolation rule, packages/labels).
+    await waitFor(() => {
+      const note = screen.getByTestId('time-zone-note');
+      expect(note.textContent.replace(/[\u2068\u2069]/g, '')).toBe(
+        `الأوقات حسب ${zoneName('Asia/Dubai', 'ar')}.`,
+      );
+    });
   });
 
   it('a range shows both ends in the zone and the zone once', async () => {

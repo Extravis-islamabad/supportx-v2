@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.audit import AuditNote, audited
+from app.modules.audit import AuditNote, audited, record_access
 from app.modules.identity_access.domain.identity import (
     DateFormat,
     Digits,
@@ -208,6 +208,10 @@ async def list_users(
     )
 
 
+# The person's own fields that are personal data (REQ-AUD-017): codes only are logged.
+PERSONAL_FIELDS = ("email", "phone", "mobile", "employee_id", "job_title", "manager_id")
+
+
 @router.get(
     "/{user_id}",
     summary="Get a user",
@@ -222,6 +226,16 @@ async def get_user(
 ) -> UserDetail:
     """One user, with its ETag. Yourself always; others with `users.view` in scope."""
     user = await directory.get_user(session, subject, user_id)
+    if user.id != subject.user_id:
+        # REQ-AUD-017 AC1: viewing someone's profile with personal data in it is one access entry
+        # (when the tenant's log is on; once per 15 minutes per viewer).
+        await record_access(
+            session,
+            kind="view",
+            purpose="person_profile",
+            subject_person_id=user.id,
+            fields=[f for f in PERSONAL_FIELDS if getattr(user, f, None)],
+        )
     cached = not_modified(request, user.version)
     if cached is not None:
         return cached  # type: ignore[return-value]  # 304 without a body

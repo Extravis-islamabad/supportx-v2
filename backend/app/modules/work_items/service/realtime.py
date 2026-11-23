@@ -27,18 +27,26 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity_access import authorize_stored
+from app.modules.identity_access import authorize_stored, restricted_fields
 from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import DEFAULT_STATUSES, StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
-from app.modules.work_items.domain.portal import portal_changes
-from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.portal import PLANNED_STAGE, portal_changes
+from app.modules.work_items.domain.types import (
+    CHANGE,
+    INCIDENT,
+    TYPES,
+    WorkItemType,
+    WorkItemTypeCode,
+)
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemFollower,
     WorkItemLink,
+    WorkItemReminder,
     WorkItemRoleHolder,
     WorkItemTask,
+    WorkItemTimer,
 )
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
@@ -79,6 +87,8 @@ REPEATS_CHANGED = "work_items.problem_repeats_changed"
 APPROVALS_CHANGED = "work_items.approvals_changed"
 MY_APPROVALS_CHANGED = "work_items.my_approvals_changed"
 MY_TASKS_CHANGED = "work_items.my_tasks_changed"
+MY_REMINDERS_CHANGED = "work_items.my_reminders_changed"  # WP-046a S2: personal reminders
+MY_TIMERS_CHANGED = "work_items.my_timers_changed"  # WP-046a S3: personal timers
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -150,6 +160,11 @@ def _portal(envelope: EventEnvelope, row: WorkItem, fields: tuple[str, ...]) -> 
         )
         if after and after_category is None:  # unknown now: say it changed, the API decides
             heard = tuple(sorted({*heard, "portal_status"}))
+        if row.type == CHANGE.code:  # its requester follows the stage and status (REQ-CHG-109)
+            shown = {f for f in fields if f in {"stage", "status"}}
+            if after:
+                shown.add("status")
+            heard = tuple(sorted({*heard, *shown}))
     if not heard:
         return []
     return [
@@ -169,6 +184,16 @@ def _actor(envelope: EventEnvelope) -> str | None:
 
 def _uuid(value: object) -> uuid.UUID | None:
     return uuid.UUID(str(value)) if value else None
+
+
+async def _staff_fields(
+    session: AsyncSession, record_type: str, fields: tuple[str, ...]
+) -> tuple[str, ...]:
+    """The changed fields as staff channels name them: restricted ones as "restricted"."""
+    restricted = await restricted_fields(session, record_type)
+    if not restricted or not set(fields) & restricted:
+        return fields
+    return tuple(dict.fromkeys("restricted" if f in restricted else f for f in fields))
 
 
 async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -227,6 +252,10 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         fields = ("status",)
     elif "technician_id" in payload and "changed_fields" not in payload:
         fields = ("group_id", "technician_id")
+    portal = _portal(envelope, row, fields)  # the requester's own allowlist (templates)
+    # Shared channels cannot differ per viewer: a field any role restricts is named only as
+    # "restricted" (ADR-047 §7); screens refetch the record and get what they may see.
+    fields = await _staff_fields(session, str(payload.get("type") or row.type), fields)
     own = Publication(
         record(tenant, RECORD_KIND, record_id),
         CHANGED,
@@ -235,7 +264,6 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         version=envelope.aggregate_version,
         actor_id=_actor(envelope),
     )
-    portal = _portal(envelope, row, fields)
     if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
         return RealtimeEffects(publications=[own, *portal])
     # A sub-release moved: its parent's screens refresh too (REQ-REL-037 AC3).
@@ -559,6 +587,41 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     payload = envelope.payload
     record_id = uuid.UUID(str(payload["work_item_id"]))
     part_id = uuid.UUID(str(payload["part_id"]))
+    if payload["part"] == "timer":
+        # A personal timer (WP-046a S3, REQ-INC-069): its owner's channel only, as reminders.
+        timer_owner = await session.scalar(
+            select(WorkItemTimer.user_id).where(WorkItemTimer.id == part_id)
+        )
+        if timer_owner is None:
+            return RealtimeEffects()
+        return RealtimeEffects(
+            publications=[
+                Publication(
+                    personal(envelope.tenant_id, timer_owner),
+                    MY_TIMERS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            ]
+        )
+    if payload["part"] == "reminder":
+        # A personal reminder (WP-046a S2, REQ-INC-082 AC2): its owner's channel only, never the
+        # record's, so nobody else even hears that one exists.
+        owner = await session.scalar(
+            select(WorkItemReminder.user_id).where(WorkItemReminder.id == part_id)
+        )
+        if owner is None:
+            return RealtimeEffects()
+        return RealtimeEffects(
+            publications=[
+                Publication(
+                    personal(envelope.tenant_id, owner),
+                    MY_REMINDERS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            ]
+        )
     publications = [
         Publication(
             record(envelope.tenant_id, RECORD_KIND, record_id),
@@ -568,6 +631,19 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
             actor_id=_actor(envelope),
         )
     ]
+    if payload["part"] == "stage_schedule" and part_id == uuid.uuid5(record_id, PLANNED_STAGE):
+        # A change's planned window, which its requester sees (REQ-CHG-109); other stages not.
+        publications.append(
+            Publication(
+                record(envelope.tenant_id, PORTAL_KIND, record_id),
+                PORTAL_CHANGED,
+                ids=(str(record_id),),
+                fields=(
+                    "planned_end",
+                    "planned_start",
+                ),
+            )
+        )
     if payload["part"] == "task":
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
@@ -612,7 +688,27 @@ async def _approval_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     return RealtimeEffects(publications=publications)
 
 
+DRAFT_CHANGED = "work_items.draft_changed"
+
+
+async def _draft_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A person's kept draft changed: their own other tabs refresh (form key and version only)."""
+    del session
+    payload = envelope.payload
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, uuid.UUID(str(payload["owner_id"]))),
+                DRAFT_CHANGED,
+                ids=(str(payload["form_key"]),),
+                version=int(payload["version"]),
+            )
+        ]
+    )
+
+
 ROUTES = [
+    RealtimeRoute(("work_items.draft.changed",), _draft_changed),
     RealtimeRoute(
         (
             "work_items.work_item.created",
@@ -635,6 +731,7 @@ ROUTES = [
             "work_items.conversation.added",
             "work_items.conversation.visibility_changed",
             "work_items.conversation.delivery_changed",
+            "work_items.conversation.redacted",
         ),
         _conversation_changed,
     ),

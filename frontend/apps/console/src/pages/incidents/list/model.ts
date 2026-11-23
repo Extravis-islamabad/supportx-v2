@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import {
   allOf,
+  bulkJobKey,
   queryKeys,
   type BulkAction,
   type BulkResult,
@@ -10,6 +11,7 @@ import {
   type IncidentListField,
   type IncidentViewFilter,
   type SavedView,
+  type Unit,
 } from '@supportx/api-client';
 import {
   fromDsl,
@@ -17,7 +19,7 @@ import {
   type FilterModel,
   type FilterValueType,
 } from '@supportx/forms';
-import { usePersonalChannel } from '@supportx/realtime';
+import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { instantOf, wallTimeIn } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
@@ -216,6 +218,8 @@ export interface ViewDraft {
   visibility: SavedView['visibility'];
   groupIds: string[];
   filter: FilterModel;
+  /** The saved filter holds a condition on a field they cannot see now: kept as it is. */
+  withheld?: boolean;
 }
 
 export function draftOf(view: SavedView | undefined): ViewDraft {
@@ -227,13 +231,59 @@ export function draftOf(view: SavedView | undefined): ViewDraft {
         name: view.name,
         visibility: view.visibility,
         groupIds: view.group_ids,
-        filter: fromDsl(view.filter) ?? { join: 'and', rows: [] },
+        filter: fromDsl(withoutWithheld(view.filter)) ?? { join: 'and', rows: [] },
+        withheld: hasWithheld(view.filter),
       };
+}
+
+// --- conditions they cannot see (lane C, #551) ---
+
+type Node = Record<string, unknown>;
+const isNode = (value: unknown): value is Node => typeof value === 'object' && value !== null;
+
+/** Whether a saved filter holds a condition the server withheld (a field they cannot see now). */
+export function hasWithheld(tree: unknown): boolean {
+  if (!isNode(tree)) return false;
+  if (tree.withheld === true) return true;
+  return ['and', 'or'].some((join) => {
+    const children = tree[join];
+    return Array.isArray(children) && children.some(hasWithheld);
+  });
+}
+
+/**
+ * The filter to run: withheld conditions left out (the list cannot use a value it was not
+ * given), emptied groups dropped, a group of one unwrapped.
+ */
+export function withoutWithheld(tree: unknown): FilterExpression | undefined {
+  if (!isNode(tree) || tree.withheld === true) return undefined;
+  for (const join of ['and', 'or'] as const) {
+    const children = tree[join];
+    if (Array.isArray(children)) {
+      const kept = children
+        .map(withoutWithheld)
+        .filter((c): c is FilterExpression => c !== undefined);
+      if (kept.length === 0) return undefined;
+      if (kept.length === 1) return kept[0];
+      return { [join]: kept } as unknown as FilterExpression;
+    }
+  }
+  return tree as unknown as FilterExpression;
 }
 
 // --- bulk (REQ-INC-119, 120) ---
 
-export const BULK_ACTIONS: readonly BulkAction[] = ['edit', 'assign', 'take', 'resolve', 'close'];
+// cancel and delete are the change list's own (REQ-CHG-101): other lists never offer them.
+export const BULK_ACTIONS: readonly BulkAction[] = [
+  'edit',
+  'assign',
+  'assign_role', // releases (WP-058b S5a)
+  'take',
+  'resolve',
+  'close',
+  'cancel',
+  'delete',
+];
 export const BULK_MAX = 1000;
 const PROGRESS = 'work_items.bulk_progress';
 
@@ -258,16 +308,36 @@ export function skipReason(
       problem: t(`errors.field.${result.code ?? 'invalid'}`, params),
     });
   }
+  // A staged record's guard names its first reason (a change's open children or tasks): say that.
+  if (result.code === 'stage_move_refused' && params.reason) {
+    return t(`action_reason.${params.reason}`, params);
+  }
   return t(`errors.${result.code ?? 'internal_error'}`, params);
 }
 
 /** Keeps every job you look at live: progress refetches when your channel says it moved. */
+const LISTS_CHANGED = 'work_items.lists_changed';
+
+/**
+ * Every screen that starts or shows a bulk job of `type` (incident, change, release) refreshes
+ * through here (QA 2026-11-12 F-01). A job's records never reach list channels one by one: the
+ * job says once per batch which type's lists changed (`work_items.lists_changed`, its type in
+ * `ids`). `refresh` runs on that; the job's own progress drawer follows the job.
+ */
+export function useBulkRefresh(type: string, refresh: () => void) {
+  useTenantChannel((message) => {
+    if (message.type === LISTS_CHANGED && message.ids.includes(type)) refresh();
+  });
+  useBulkLive();
+}
+
 export function useBulkLive() {
   const queryClient = useQueryClient();
   usePersonalChannel((message) => {
     if (message.type !== PROGRESS) return;
     for (const id of message.ids) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJob(id) });
+      void queryClient.invalidateQueries({ queryKey: bulkJobKey('changes', id) });
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
   });
@@ -285,4 +355,80 @@ export function exportFilter(
   const found = viewFilters?.find((v) => v.view === view);
   if (!found?.expressible) return null;
   return allOf((found.filter ?? undefined) as FilterExpression | undefined, filter);
+}
+
+/** A held permission as the session lists it (key and broadest scope). */
+export interface HeldPermission {
+  key: string;
+  scope: 'all' | 'site' | 'group' | 'own';
+}
+
+/** Who a person may share a saved view with (D-176); the server checks it again on save. */
+export interface ShareAudiences {
+  everyone: boolean;
+  groupIds: Set<string>;
+}
+
+/**
+ * D-176: `<type>.share_views` gives the groups they are in; `<type>.share_views_wide` at `all`
+ * gives every group and everyone, at `group` only the groups they lead. Requesters hold neither.
+ */
+export function shareAudiences(
+  permissions: readonly HeldPermission[],
+  typePath: string,
+  userId: string,
+  groups: readonly Unit[],
+): ShareAudiences {
+  const scopeOf = (action: string) =>
+    permissions.find((p) => p.key === `${typePath}.${action}`)?.scope;
+  const own = scopeOf('share_views') !== undefined;
+  const wide = scopeOf('share_views_wide');
+  const live = groups.filter((g) => !g.disabled);
+  const groupIds = new Set(
+    live
+      .filter(
+        (g) =>
+          wide === 'all' ||
+          (own && g.member_ids.includes(userId)) ||
+          (wide === 'group' && g.lead_id === userId),
+      )
+      .map((g) => g.id),
+  );
+  return { everyone: wide === 'all', groupIds };
+}
+
+/** Row colouring (REQ-INC-115 AC1): non-text marks need 3:1 against the row (WCAG 2.2 1.4.11). */
+export const MARK_CONTRAST = 3;
+
+function channels(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (m === null) return null;
+  const n = Number.parseInt(m[1] ?? '', 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mix(hex: string, toward: [number, number, number], amount: number): string {
+  const from = channels(hex);
+  if (from === null) return hex;
+  const out = from.map((c, i) => Math.round(c + ((toward[i] ?? c) - c) * amount));
+  return `#${out.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The stored colour if it reads against the row; otherwise the nearest darker shade (lighter in
+ * dark mode) that does; none for a colour that is not `#rrggbb` (lane C). `contrast` is the shared WCAG ratio (`@supportx/ui`).
+ */
+export function readableMark(
+  colour: string,
+  background: string,
+  contrast: (a: string, b: string) => number,
+  dark = false,
+): string | undefined {
+  if (channels(colour) === null) return undefined; // not #rrggbb: no mark rather than a guess
+  const toward: [number, number, number] = dark ? [255, 255, 255] : [0, 0, 0];
+  for (let step = 0; step <= 10; step += 1) {
+    const shade = mix(colour, toward, step / 10);
+    if (contrast(shade, background) >= MARK_CONTRAST) return shade;
+  }
+  return mix(colour, toward, 1);
 }

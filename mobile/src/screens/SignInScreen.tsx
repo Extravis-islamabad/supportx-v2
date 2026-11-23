@@ -29,7 +29,7 @@ export function SignInScreen({
   onChangeServer: () => void;
   /** Replaced in tests: the browser step cannot run there. */
   start?: typeof signIn;
-  /** The dev-only quick sign-in (D-163): debug builds only, never in a release build. */
+  /** The dev-only quick sign-in (D-183): debug builds only, never in a release build. */
   quickSignIn?: boolean;
 }) {
   const t = useLabels();

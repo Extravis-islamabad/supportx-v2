@@ -32,7 +32,6 @@ from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
     BODY_MAX,
     RECIPIENTS_MAX,
-    TEMPLATE_NAME_MAX,
     EntryKind,
     FollowReason,
     ReplyMode,
@@ -43,18 +42,18 @@ from app.modules.work_items.domain.conversation import (
     stamps_first_response,
     unmention,
 )
-from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.domain.parts import LinkKind
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import (
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
-    WorkItemReplyTemplatesChanged,
     WorkItemUpdated,
 )
 from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemFollower,
-    WorkItemReplyTemplate,
+    WorkItemLink,
 )
 from app.modules.work_items.service import followers
 from app.modules.work_items.service import work_items as items
@@ -90,12 +89,6 @@ class ConversationRepository(Repository[WorkItemConversation]):
     model = WorkItemConversation
 
 
-class TemplateRepository(Repository[WorkItemReplyTemplate]):
-    """Reply templates of the session's tenant."""
-
-    model = WorkItemReplyTemplate
-
-
 async def email_channel_configured(session: AsyncSession) -> bool:
     """Whether outgoing mail is set up (WP-024): a reply is then queued, else it waits.
 
@@ -118,27 +111,60 @@ class Timeline:
     entries: list[WorkItemConversation]
     truncated: bool
     names: dict[str, tuple[str, str]] = field(default_factory=dict)
+    # WP-046b S2: entries of incidents merged into this one, by reference: record ID -> display ID
+    # (only those the reader may view; each entry keeps its own visibility).
+    merged_from: dict[uuid.UUID, str] = field(default_factory=dict)
 
 
-async def timeline(
+async def merged_from(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
+) -> dict[uuid.UUID, str]:
+    """The records merged or converted into this one that the reader may view: ID -> display ID.
+
+    A converted record is the other type: each is checked under its own type's permissions.
+    """
+    del wtype  # each source record is checked as its own type
+    rows = await session.execute(
+        select(WorkItem.id, WorkItem.display_id, WorkItem.type)
+        .join(WorkItemLink, WorkItemLink.source_id == WorkItem.id)
+        .where(
+            WorkItemLink.target_id == record.id,
+            WorkItemLink.kind.in_([LinkKind.MERGED_INTO.value, LinkKind.CONVERTED_TO.value]),
+            WorkItemLink.deleted_at.is_(None),
+        )
+    )
+    return {
+        row_id: display
+        for row_id, display, code in rows.all()
+        if await items.may(session, subject, TYPES[WorkItemTypeCode(code)], "view", row_id)
+    }
+
+
+async def timeline(  # noqa: PLR0913 - the record and two optional filters, keyword-only
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
     record_id: uuid.UUID,
     *,
     kind: EntryKind | None = None,
+    visibility: Visibility | None = None,
 ) -> Timeline:
     """Replies and notes (public and private: staff see both), oldest first.
 
-    At most TIMELINE_MAX entries (the newest ones; `truncated` says so).
+    At most TIMELINE_MAX entries (the newest ones; `truncated` says so). `visibility` narrows
+    them on the server: a printout of public entries only never carries a private note (lane B,
+    REQ-INC-126 AC1).
     """
     record = await items.visible_record(session, subject, wtype, record_id)
+    sources = await merged_from(session, subject, wtype, record)
     query = select(WorkItemConversation).where(
-        WorkItemConversation.work_item_id == record.id,
+        WorkItemConversation.work_item_id.in_([record.id, *sources]),
         WorkItemConversation.deleted_at.is_(None),
     )
     if kind is not None:
         query = query.where(WorkItemConversation.kind == kind)
+    if visibility is not None:
+        query = query.where(WorkItemConversation.visibility == visibility.value)
     rows = list(
         await session.scalars(
             query.order_by(
@@ -153,7 +179,8 @@ async def timeline(
     if record.created_by is not None:
         people.add(str(record.created_by))
     people.add(str(record.requester_id))
-    return Timeline(record, entries, truncated, await user_contacts(session, sorted(people)))
+    names = await user_contacts(session, sorted(people))
+    return Timeline(record, entries, truncated, names, sources)
 
 
 # --- adding ---------------------------------------------------------------------------------------
@@ -727,7 +754,7 @@ async def counters(
     predicates = await items.views_for(session, subject, zone=zone)
     base = items.staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
-    for code in items.COUNTERS:
+    for code in items.counter_codes(wtype):
         limited = (
             base.where(predicates[code]).with_only_columns(WorkItem.id).limit(items.COUNT_CAP + 1)
         )
@@ -736,138 +763,7 @@ async def counters(
     return found
 
 
-# --- reply templates ------------------------------------------------------------------------------
-
-
-async def templates(session: AsyncSession, wtype: WorkItemType) -> list[WorkItemReplyTemplate]:
-    """The tenant's reply templates of the type, by name."""
-    rows = await session.scalars(
-        select(WorkItemReplyTemplate)
-        .where(WorkItemReplyTemplate.type == wtype.code, WorkItemReplyTemplate.deleted_at.is_(None))
-        .order_by(func.lower(WorkItemReplyTemplate.name), WorkItemReplyTemplate.id)
-    )
-    return list(rows)
-
-
-async def _check_template(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    name: str,
-    body: str,
-    *,
-    except_id: uuid.UUID | None = None,
-) -> tuple[str, str]:
-    problems: list[tuple[str, str]] = []
-    clean_name = " ".join(name.split())
-    if not clean_name:
-        problems.append(("name", "required"))
-    elif len(clean_name) > TEMPLATE_NAME_MAX:
-        problems.append(("name", "value_too_long"))
-    else:
-        same = select(WorkItemReplyTemplate.id).where(
-            WorkItemReplyTemplate.type == wtype.code,
-            WorkItemReplyTemplate.deleted_at.is_(None),
-            func.lower(WorkItemReplyTemplate.name) == clean_name.lower(),
-        )
-        if except_id is not None:
-            same = same.where(WorkItemReplyTemplate.id != except_id)
-        if await session.scalar(same) is not None:
-            problems.append(("name", "duplicate_name"))
-    clean_body = sanitize_html(body)
-    if is_blank(clean_body):
-        problems.append(("body", "required"))
-    elif len(clean_body) > BODY_MAX:
-        problems.append(("body", "value_too_long"))
-    if problems:
-        raise items.field_errors(problems)
-    return clean_name, clean_body
-
-
-async def _template_changed(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    row: WorkItemReplyTemplate,
-    kind: str,
-    source: Source,
-) -> None:
-    await record_changes(
-        session,
-        record_type="work_item_reply_template",
-        record_id=row.id,
-        version=row.version,
-        kind="deleted" if kind == "deleted" else ("created" if kind == "created" else "updated"),
-        changes=[] if kind == "deleted" else [Change("name", None, row.name)],
-        source=source,
-    )
-    await record_event(
-        session,
-        WorkItemReplyTemplatesChanged(type=wtype.code, template_id=row.id),
-        aggregate_id=row.id,
-        aggregate_version=row.version,
-    )
-
-
-async def create_template(
-    session: AsyncSession, wtype: WorkItemType, *, name: str, body: str, source: Source
-) -> WorkItemReplyTemplate:
-    """A new reply template (settings.manage)."""
-    clean_name, clean_body = await _check_template(session, wtype, name, body)
-    row = await TemplateRepository(session).add(
-        WorkItemReplyTemplate(type=wtype.code, name=clean_name, body=clean_body)
-    )
-    await _template_changed(session, wtype, row, "created", source)
-    return row
-
-
-async def _template(
-    session: AsyncSession, wtype: WorkItemType, template_id: uuid.UUID
-) -> WorkItemReplyTemplate:
-    row: WorkItemReplyTemplate | None = await session.scalar(
-        select(WorkItemReplyTemplate).where(
-            WorkItemReplyTemplate.id == template_id,
-            WorkItemReplyTemplate.type == wtype.code,
-            WorkItemReplyTemplate.deleted_at.is_(None),
-        )
-    )
-    if row is None:
-        raise NotFound(code="reply_template_not_found")
-    return row
-
-
-async def update_template(  # noqa: PLR0913 - the template, its version and the change, explicit
-    session: AsyncSession,
-    wtype: WorkItemType,
-    template_id: uuid.UUID,
-    *,
-    expected_version: int,
-    name: str,
-    body: str,
-    source: Source,
-) -> WorkItemReplyTemplate:
-    """Rename or rewrite a template (If-Match)."""
-    row = await _template(session, wtype, template_id)
-    clean_name, clean_body = await _check_template(session, wtype, name, body, except_id=row.id)
-    updated = await TemplateRepository(session).update(
-        row.id, expected_version=expected_version, changes={"name": clean_name, "body": clean_body}
-    )
-    await _template_changed(session, wtype, updated, "updated", source)
-    return updated
-
-
-async def delete_template(
-    session: AsyncSession,
-    wtype: WorkItemType,
-    template_id: uuid.UUID,
-    *,
-    expected_version: int,
-    source: Source,
-) -> None:
-    """Remove a template (soft delete); text already inserted into replies stays."""
-    row = await _template(session, wtype, template_id)
-    removed = await TemplateRepository(session).soft_delete(
-        row.id, expected_version=expected_version
-    )
-    await _template_changed(session, wtype, removed, "deleted", source)
+# --- reply templates: service/text_templates.py (WP-046a S5a) -------------------------------------
 
 
 def require_view(subject: Subject, wtype: WorkItemType) -> None:

@@ -24,6 +24,12 @@ async def test_req_wf_009_ac3_the_palette_is_the_record_type_s(world: World) -> 
     assert {"start", "end", "if", "approval", "webhook"} <= set(palette)
     assert (palette["if"]["category"], palette["if"]["outputs"]) == ("logic", ["yes", "no"])
     assert palette["approval"]["available"] is True  # releases open approvals
+    # The approval's form offers the record's roles by name, sorted (QA F-05: no JSON); other
+    # types have none.
+    roles = palette["approval"]["roles"]
+    assert roles
+    assert roles == sorted(roles)
+    assert palette["if"]["roles"] == []
     function = palette["function"]
     assert (function["available"], function["why_not"]) == (False, "function_not_offered")
 

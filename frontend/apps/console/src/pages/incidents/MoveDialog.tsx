@@ -3,7 +3,10 @@ import { useState } from 'react';
 
 import {
   ApiError,
+  fillReplyTemplate,
+  useReplyTemplates,
   useSession,
+  type ConversationBase,
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
@@ -65,6 +68,7 @@ export function MoveDialog({
   state,
   current,
   catalogue,
+  templates,
   pending,
   error,
   problem,
@@ -79,6 +83,11 @@ export function MoveDialog({
    */
   current: { resolution: string | null; closure_code: string | null; previous?: string | null };
   catalogue: IncidentCatalogue | undefined;
+  /**
+   * The record whose resolution templates the editor offers, its category's first (REQ-INC-042);
+   * each is filled by the server for this record. None offered without it.
+   */
+  templates?: { recordId: string; categoryId: string | null; base: ConversationBase };
   pending: boolean;
   error: unknown;
   problem: FormProblemState;
@@ -96,6 +105,12 @@ export function MoveDialog({
   const [code, setCode] = useState<string>();
   const [text, setText] = useState('');
   const [resolution, setResolution] = useState('');
+  const resolutionTemplates = useReplyTemplates(
+    templates !== undefined,
+    'resolution',
+    templates?.categoryId,
+    templates?.base,
+  );
   const [closureCode, setClosureCode] = useState<string>();
   const [touched, setTouched] = useState(false);
   const action = state.action;
@@ -252,6 +267,22 @@ export function MoveDialog({
               testId="inc-resolution-editor"
               imageOwnerId={me}
               extraTools={knowledgeTools}
+              templates={
+                templates === undefined
+                  ? undefined
+                  : resolutionTemplates.data?.map((template) => ({
+                      id: template.id,
+                      name: template.name,
+                      body: template.body,
+                      fill: () =>
+                        fillReplyTemplate(
+                          templates.recordId,
+                          template.id,
+                          null,
+                          templates.base,
+                        ).then((filled) => filled.body),
+                    }))
+              }
               autoFocus
             />
             {resolutionError.length > 0 && (

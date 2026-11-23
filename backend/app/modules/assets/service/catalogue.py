@@ -49,6 +49,7 @@ from app.modules.assets.domain.catalogue import (
     tag_pattern_problems,
     would_cycle,
 )
+from app.modules.assets.domain.financials import DEFAULT_FACTOR, factor_problems
 from app.modules.assets.events import (
     CatalogueAction,
     CatalogueChanged,
@@ -63,6 +64,7 @@ from app.modules.assets.infra.models import (
     AssetSettings,
     AssetState,
 )
+from app.modules.assets.service.memo import memo
 from app.modules.identity_access import Subject
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.db.models import TenantEntity
@@ -219,6 +221,9 @@ async def ensure_defaults(session: AsyncSession) -> None:
     The settings row is the marker: only the transaction that inserts it seeds the rest. A
     parallel first request waits on the row's key until that transaction ends, then finds it.
     """
+    known = memo(session)
+    if known.get("defaults"):
+        return  # found earlier in this (sub)transaction (S4c: an import's many saves)
     tenant = _tenant(session)
     inserted = await session.execute(
         insert(AssetSettings)
@@ -227,6 +232,7 @@ async def ensure_defaults(session: AsyncSession) -> None:
         .returning(AssetSettings.tenant_id)
     )
     if inserted.scalar() is None:
+        known["defaults"] = True  # there before: never a row this savepoint may still undo
         return
     states: dict[str, uuid.UUID] = {}
     for sort, seed in enumerate(SEED_STATES):
@@ -761,7 +767,11 @@ async def list_product_types(session: AsyncSession) -> Sequence[AssetProductType
     ).all()
 
 
-async def _type_problems(
+def _factor(raw: object) -> Decimal | None:
+    return None if raw is None else Decimal(str(raw))
+
+
+async def _type_problems(  # noqa: C901 - one rule per field
     session: AsyncSession,
     values: Mapping[str, Any],
     types: Sequence[AssetProductType],
@@ -769,6 +779,8 @@ async def _type_problems(
     type_id: uuid.UUID | None,
 ) -> list[Problem]:
     problems = tag_pattern_problems("tag_pattern", values.get("tag_pattern"))
+    if "depreciation_factor" in values:  # D-157: declining balance's, 0 to 10
+        problems += factor_problems(_factor(values["depreciation_factor"]))
     by_id = {t.id: t for t in types}
     parents = {str(t.id): (str(t.parent_id) if t.parent_id else None) for t in types}
     if "parent_id" in values and values["parent_id"] is not None:
@@ -847,6 +859,7 @@ async def create_product_type(
         life_cycle_id=values.get("life_cycle_id"),
         tag_pattern=values.get("tag_pattern"),
         ack_required=bool(values.get("ack_required", False)),
+        depreciation_factor=_factor(values.get("depreciation_factor")) or DEFAULT_FACTOR,
         sort=max(
             (t.sort for t in types if t.parent_id == (parent.id if parent else None)), default=-1
         )
@@ -866,7 +879,7 @@ async def create_product_type(
     return row
 
 
-async def update_product_type(  # noqa: PLR0913, C901 - the If-Match and the source; one rule per field
+async def update_product_type(  # noqa: PLR0912, PLR0913, C901 - the If-Match and the source; one rule per field
     session: AsyncSession,
     subject: Subject,
     type_id: uuid.UUID,
@@ -889,6 +902,8 @@ async def update_product_type(  # noqa: PLR0913, C901 - the If-Match and the sou
     for field in ("icon", "description", "life_cycle_id", "tag_pattern", "ack_required", "sort"):
         if field in values:
             wanted[field] = values[field]
+    if "depreciation_factor" in values:
+        wanted["depreciation_factor"] = _factor(values["depreciation_factor"])
     new_parent = values.get("parent_id", row.parent_id)
     parent = next((t for t in types if t.id == new_parent), None)
     if "parent_id" in values:
@@ -1074,11 +1089,24 @@ async def get_product(session: AsyncSession, product_id: uuid.UUID) -> AssetProd
     return row
 
 
+# D-157 2b (the coordinator for Haider): a product's list price, tax and default depreciation
+# are money, read and written only with assets.view_financials (named here: assets.py, which
+# defines VIEW_FINANCIALS, imports this module).
+VIEW_FINANCIALS = "assets.view_financials"
+PRODUCT_MONEY = ("price", "tax", "depreciation_method", "useful_life_years", "salvage_value")
+
+
+def _require_money_for(subject: Subject, values: Mapping[str, Any]) -> None:
+    if any(name in values for name in PRODUCT_MONEY) and not subject.holds(VIEW_FINANCIALS):
+        raise PermissionDenied(params={"permission": VIEW_FINANCIALS})
+
+
 async def create_product(
     session: AsyncSession, subject: Subject, values: Mapping[str, Any], *, source: Source
 ) -> AssetProduct:
-    """A new product of a type."""
+    """A new product of a type; its money fields need assets.view_financials (D-157 2b)."""
     require_configure(subject)
+    _require_money_for(subject, values)
     await ensure_defaults(session)
     cleaned = _clean_product(values)
     problems = await _product_problems(session, cleaned)
@@ -1109,6 +1137,7 @@ async def update_product(  # noqa: PLR0913 - the If-Match and the source
 ) -> AssetProduct:
     """Change the fields sent. Assets keep the cost they were bought at (REQ-AST-005 AC2)."""
     require_configure(subject)
+    _require_money_for(subject, values)
     row = await _locked(session, AssetProduct, product_id, "asset_product_not_found")
     await _fresh(session, row, expected_version, "asset_product")
     cleaned = _clean_product(values)

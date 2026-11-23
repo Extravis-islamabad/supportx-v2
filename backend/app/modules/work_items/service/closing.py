@@ -29,14 +29,17 @@ from app.modules import metadata
 from app.modules.work_items.domain.closure import (
     CLOSURE_CODE,
     MOVE_FIELDS,
+    RELEASE_CONDITIONS,
     RESOLUTION,
+    REVIEW_COMPLETED,
     OpenItem,
     OpenWorkKind,
     decide_open_work,
     missing_fields,
     open_work_modes,
 )
-from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
+from app.modules.work_items.domain.lifecycle import StatusCategory, TransitionDef, WorkItemAction
+from app.modules.work_items.domain.releases import EMERGENCY_PATH
 from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
 from app.modules.work_items.domain.types import GUIDED_ANALYSIS, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
@@ -113,6 +116,9 @@ class MoveInput:
     # The requester's confirmation, or auto-close standing in for it: the only moves that may set
     # "confirmed_by_requester", so reports tell it from a technician's closure (D-107, QA BUG-04).
     requester_confirmation: bool = False
+    # A stage move's target before any automatic advance (completing a release's review closes
+    # it in the same move): the status the move passes through (REQ-REL-051).
+    passes_through: str | None = None
 
 
 @dataclass
@@ -199,6 +205,23 @@ def _review_missing(cat: Catalogue, record: WorkItem) -> bool:
     return review_required(cat, record) and is_blank(record.review_summary or "")
 
 
+# The status a release's review ends in (domain/releases.py STATUSES).
+RELEASE_REVIEW_DONE = "review_completed"
+
+
+def review_open(record: WorkItem, given: MoveInput, required: Sequence[str]) -> bool:
+    """A release closing before its review is completed, when the rules or its path need it.
+
+    The closure rules list it per tenant; an emergency release always needs its review
+    (REQ-REL-012 AC2), whatever the rules say. Done: it is completed, or this move completes it.
+    """
+    if record.type != WorkItemTypeCode.RELEASE:
+        return False
+    if RELEASE_REVIEW_DONE in {record.status, given.passes_through}:
+        return False
+    return REVIEW_COMPLETED in required or record.stage_path == EMERGENCY_PATH
+
+
 def _live_known_error(record: WorkItem) -> bool:
     return (
         record.type == WorkItemTypeCode.PROBLEM
@@ -235,6 +258,10 @@ def _check_rules(  # noqa: PLR0913 - the move and its context, explicit
         else:
             problems.append((CLOSURE_CODE, "invalid_choice", {}))
     required = _required(cat, action, custom_keys)
+    if action == CLOSE and review_open(record, given, required):
+        # REQ-REL-051 AC1: the release's review is not completed; the message says so.
+        problems.append((REVIEW_COMPLETED, "review_required_to_close", {}))
+    required = [name for name in required if name not in RELEASE_CONDITIONS]
     record_code = "required_to_resolve" if action == RESOLVE else "required_to_close"
     named = {name for name, _, _ in problems}
     for name in missing_fields(required, values, record.custom or {}):
@@ -305,6 +332,29 @@ def _required(cat: Catalogue, action: WorkItemAction, custom_keys: frozenset[str
         for name in listed
         if not name.startswith("custom.") or name.removeprefix("custom.") in custom_keys
     ]
+
+
+def move_missing(record: WorkItem, step: TransitionDef) -> list[str]:
+    """The fields the record's life cycle version requires for this move that it lacks.
+
+    ADR-049 §4: per version, on top of the closure rules; the offer lists them and the move
+    refuses while any is empty.
+    """
+    if not step.required_fields:
+        return []
+    values = {
+        name: getattr(record, name, None)
+        for name in step.required_fields
+        if not name.startswith("custom.")
+    }
+    return missing_fields(step.required_fields, values, record.custom or {})
+
+
+def check_move_fields(record: WorkItem, step: TransitionDef) -> None:
+    """422 `closure_rules` naming each field the move still needs (`required_for_move`)."""
+    missing = move_missing(record, step)
+    if missing:
+        raise _refused([(name, "required_for_move", {}) for name in missing])
 
 
 async def missing_for(

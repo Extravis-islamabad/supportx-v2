@@ -18,7 +18,7 @@ from app.main import create_app
 from app.modules.audit.domain.catalogue import ACTIONS
 from app.modules.audit.service.recording import AUDIT_ATTR, AuditRouteSpec
 from conftest import make_settings
-from tests.test_route_permissions import _dependencies, api_routes
+from tooling.route_permissions import api_routes, route_dependencies
 
 # Permissions that make a write administrative (users, roles, organisation, settings, audit).
 ADMIN_PERMISSIONS = frozenset(
@@ -36,18 +36,26 @@ ADMIN_PERMISSIONS = frozenset(
 # Record actions of REQ-WI-021 that are privileged whoever holds the permission.
 RECORD_ACTIONS = (("DELETE", "/{record_id}"), ("POST", "/{record_id}/restore"))
 # POSTs with an administrative permission that are deliberately not audited: the role editor's
-# duty previews (REQ-REL-024 AC2) only read, so nothing changes to record. The change the
-# admin then saves is audited on its own route.
+# duty previews (REQ-REL-024 AC2) and the overdue-scan rule's preview count (REQ-AST-056 AC2)
+# only read, so nothing changes to record. The change the admin then saves is audited on its
+# own route.
 NOT_AUDITED: frozenset[str] = frozenset(
     {
         "POST /api/v1/roles/{role_id}/change-preview",
         "POST /api/v1/users/{user_id}/role-preview",
+        "POST /api/v1/assets/overdue-rule/preview",
+        # WP-046a S2: a CSV read into items for the admin to review; nothing is saved.
+        "POST /api/v1/incidents/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/service-requests/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/problems/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/changes/checklist-library/import",  # reads a CSV, saves nothing
+        "POST /api/v1/releases/checklist-library/import",  # reads a CSV, saves nothing
     }
 )
 
 
 def _audit_spec(dependant: Any) -> AuditRouteSpec | None:  # noqa: ANN401 - FastAPI Dependant
-    for call in _dependencies(dependant):
+    for call in route_dependencies(dependant):
         spec = getattr(call, AUDIT_ATTR, None)
         if isinstance(spec, AuditRouteSpec):
             return spec
@@ -67,7 +75,7 @@ def _privileged(method: str, path: str, access: str) -> bool:
 
 def privileged_routes(app: FastAPI) -> Iterator[tuple[str, AuditRouteSpec | None]]:
     for method, path, dependant, endpoint in api_routes(app):
-        access = str(declared_access(list(_dependencies(dependant)), endpoint))
+        access = str(declared_access(list(route_dependencies(dependant)), endpoint))
         if _privileged(method, path, access):
             yield f"{method} {path}", _audit_spec(dependant)
 
@@ -117,12 +125,18 @@ def test_no_route_changes_or_deletes_audit_entries(app: FastAPI) -> None:
         if path.startswith("/api/v1/audit") and method != "GET"
     )
     # The only writes: ask for a verification, an export or a restored copy of an archive,
-    # change settings, keep or drop your own saved searches. Never an entry.
+    # change settings, keep or drop your own saved searches, and the SIEM destinations entries
+    # stream to (WP-057 S5a: a destination's own row). Never an entry.
     assert writes == [
         "DELETE /api/v1/audit/saved-searches/{search_id}",
+        "DELETE /api/v1/audit/siem/destinations/{destination_id}",
+        "PATCH /api/v1/audit/siem/destinations/{destination_id}",
         "POST /api/v1/audit/archives/{archive_id}/restore",
         "POST /api/v1/audit/exports",
         "POST /api/v1/audit/saved-searches",
+        "POST /api/v1/audit/siem/destinations",
+        "POST /api/v1/audit/siem/destinations/{destination_id}/rotate-secret",
+        "POST /api/v1/audit/siem/destinations/{destination_id}/test",
         "POST /api/v1/audit/verification-runs",
         "PUT /api/v1/audit/settings",
     ]

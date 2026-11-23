@@ -20,12 +20,16 @@ log = get_logger(__name__)
 
 TRIGGERS = (
     "identity_access.role.changed",
+    "identity_access.field_access.changed",  # ADR-047: a rule reaches the next request
+    "identity_access.resource_access.changed",  # ADR-053: the same for asset and CI rules
     "identity_access.user_role.changed",
     "identity_access.user.updated",
     "identity_access.user.status_changed",
     "identity_access.access_settings.changed",
     "organization.membership.changed",
     "licensing.entitlement.changed",
+    # WP-057 S4c-2, lane B (2): a support grant made, changed or ended reaches the next request.
+    "identity_access.support_grant.changed",
 )
 
 

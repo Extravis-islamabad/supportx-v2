@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import PERMISSION_ATTR, require_permission
@@ -25,6 +25,7 @@ from app.core.errors import (
     ProblemDetail,
     ValidationFailed,
 )
+from app.core.recent_auth import RecentAuth
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
@@ -35,11 +36,12 @@ from app.modules.audit.domain.catalogue import (
 from app.modules.audit.domain.fingerprint import FingerprintStatus
 from app.modules.audit.events import AuditVerificationRequested
 from app.modules.audit.infra.models import AuditVerificationRun
-from app.modules.audit.service import exports, queries, retention, saved
+from app.modules.audit.service import access_log, exports, queries, retention, saved
 from app.modules.audit.service.jobs import signer_from, storage_or_none
 from app.modules.audit.service.recording import AuditNote, audit_read, audited
 from app.modules.audit.service.settings import AuditSettingsView, load_settings, update_settings
 from app.shared.api.concurrency import ExpectedVersion, set_etag
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.ratelimit import rate_limit
 from app.shared.clock import system_clock
@@ -65,6 +67,8 @@ VIEW = "audit.view"
 EXPORT = "audit.export"
 VERIFY = "audit.verify"
 MANAGE = "audit.manage"
+# REQ-AUD-017: who accessed whose personal data; narrower than the log (a DPO may hold only this).
+VIEW_PERSONAL_ACCESS = "audit.view_personal_data_access"
 
 router = APIRouter(
     prefix="/audit",
@@ -99,6 +103,7 @@ View = Annotated[Any, Depends(_hidden(VIEW))]
 Verify = Annotated[Any, Depends(_hidden(VERIFY))]
 Manage = Annotated[Any, Depends(_hidden(MANAGE))]
 Export = Annotated[Any, Depends(_hidden(EXPORT))]
+ViewPersonalAccess = Annotated[Any, Depends(_hidden(VIEW_PERSONAL_ACCESS))]
 EntriesQuery = Annotated[ListQuery, Depends(list_query(queries.ENTRY_FIELDS))]
 
 
@@ -117,7 +122,10 @@ class AuditEntryOut(BaseModel):
     reason_code: str | None
     actor_type: AuditActorType
     actor_id: uuid.UUID | None
-    actor_name: str | None = Field(description="Null for system actors and erased people.")
+    actor_name: str | None = Field(
+        description="A person's, service account's or API key's name; null for system actors "
+        "and erased people."
+    )
     on_behalf_id: uuid.UUID | None
     object_type: str | None
     object_id: str | None
@@ -179,6 +187,9 @@ class AuditRunOut(BaseModel):
     finished_at: datetime | None
     fingerprints_verified: int = Field(description="Saves whose record history still matches.")
     fingerprints_erased: int = Field(description="Saves with personal values erased on request.")
+    fingerprints_redacted: int = Field(
+        description="Saves with values redacted on request, checked through their kept digests."
+    )
     fingerprint_mismatches: int = Field(
         description="Saves whose record history no longer matches (the run fails)."
     )
@@ -216,6 +227,12 @@ class AuditSettingsOut(BaseModel):
     refusal_threshold: int
     refusal_window_minutes: int
     read_categories: list[ReadCategory]
+    personal_data_log: bool = Field(
+        description="REQ-AUD-017: views and exports of personal data are logged."
+    )
+    system_log_retention_days: int = Field(
+        description="REQ-AUD-016: how many days the system log keeps entries (30 to 730)."
+    )
     version: int
     limits: dict[str, list[int]] = Field(description="Allowed [min, max] per number.")
 
@@ -230,15 +247,20 @@ class AuditSettingsIn(BaseModel):
     refusal_threshold: int | None = None
     refusal_window_minutes: int | None = None
     read_categories: list[ReadCategory] | None = None
+    personal_data_log: bool | None = None
+    system_log_retention_days: int | None = None
 
 
 async def _names(session: TenantSession, ids: list[uuid.UUID | None]) -> dict[str, str]:
     """Names of people, looked up now (entries hold IDs only)."""
     # Imported here: identity_access imports this package at load time.
-    from app.modules.identity_access import user_names  # noqa: PLC0415
+    from app.modules.identity_access import api_key_names, user_names  # noqa: PLC0415
 
     wanted = sorted({str(i) for i in ids if i is not None})
-    return await user_names(session, wanted) if wanted else {}
+    if not wanted:
+        return {}
+    # A key acting for its owner is named by the key's name (WP-057 S4b); IDs never collide.
+    return await api_key_names(session, wanted) | await user_names(session, wanted)
 
 
 class AuditExportIn(BaseModel):
@@ -352,6 +374,8 @@ def _settings(view: AuditSettingsView) -> AuditSettingsOut:
         refusal_threshold=view.refusal_threshold,
         refusal_window_minutes=view.refusal_window_minutes,
         read_categories=[ReadCategory(c) for c in view.read_categories],
+        personal_data_log=view.personal_data_log,
+        system_log_retention_days=view.system_log_retention_days,
         version=view.version,
         limits={name: list(bounds) for name, bounds in LIMITS.items()},
     )
@@ -535,7 +559,12 @@ def _seconds(value: int) -> Any:  # noqa: ANN401 - timedelta
 # --- exports (REQ-AUD-009) -------------------------------------------------------------------
 
 
-@router.post("/exports", summary="Export the audit log", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/exports",
+    summary="Export the audit log",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[RecentAuth],
+)
 async def start_export(
     request: Request,
     body: AuditExportIn,
@@ -737,13 +766,25 @@ async def list_saved(session: TenantSession, subject: View) -> list[AuditSavedSe
     return [AuditSavedSearchOut.model_validate(r, from_attributes=True) for r in rows]
 
 
-@router.post("/saved-searches", summary="Save an audit search", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/saved-searches",
+    summary="Save an audit search",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AuditSavedSearchOut,
+)
 async def create_saved(
-    body: AuditSavedSearchIn, session: TenantSession, subject: View
-) -> AuditSavedSearchOut:
-    """Keep the current filters under a name (at most 50 per person)."""
-    row = await saved.create_saved(session, subject.user_id, body.name, body.query)
-    return AuditSavedSearchOut.model_validate(row, from_attributes=True)
+    body: AuditSavedSearchIn, session: TenantSession, subject: View, idempotency: Idempotency
+) -> Response:
+    """Keep the current filters under a name (at most 50 per person).
+
+    Send an Idempotency-Key: a retried save returns the same 201, never a second search.
+    """
+
+    async def run() -> Created:
+        row = await saved.create_saved(session, subject.user_id, body.name, body.query)
+        return Created(body=AuditSavedSearchOut.model_validate(row, from_attributes=True))
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 @router.delete(
@@ -755,3 +796,80 @@ async def delete_saved(search_id: uuid.UUID, session: TenantSession, subject: Vi
     """Only your own; someone else's is 404."""
     await saved.delete_saved(session, subject.user_id, search_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- The personal data access log (REQ-AUD-017; WP-057 S3b-1) ------------------------------------
+
+
+class PersonalDataAccessOut(BaseModel):
+    """One access: who, when, how and which fields; never a value."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    occurred_at: datetime
+    accessor_type: str
+    accessor_id: uuid.UUID | None
+    accessor_name: str | None = Field(description="Looked up now; null when gone or not a person.")
+    record_type: str | None
+    record_id: uuid.UUID | None
+    kind: Literal["view", "export", "ai_masking"]
+    purpose: str = Field(description="A code naming the screen or job (labels: access_purpose.*).")
+    fields: list[str]
+    counts: dict[str, int] | None
+    client: str | None
+
+
+class PersonalDataAccessPage(BaseModel):
+    """A page of one person's access entries, newest first."""
+
+    items: list[PersonalDataAccessOut]
+    next_before: datetime | None = Field(description="Pass as `before` for the next page.")
+
+
+_ACCESS_COLUMNS = tuple(c for c in PersonalDataAccessOut.model_fields if c != "accessor_name")
+
+
+@router.get("/personal-data-access", summary="Who accessed one person's personal data")
+async def list_personal_data_access(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    session: TenantSession,
+    subject: ViewPersonalAccess,
+    note: Annotated[AuditNote, audited("audit.personal_data_access_viewed", object_type="user")],
+    person: Annotated[uuid.UUID, Query(description="The person whose data was accessed.")],
+    since: Annotated[datetime | None, Query()] = None,
+    until: Annotated[datetime | None, Query()] = None,
+    before: Annotated[datetime | None, Query(description="From a previous page.")] = None,
+) -> PersonalDataAccessPage:
+    """Each accessor with time and screen (REQ-AUD-017 AC2).
+
+    The query itself is audited (lane B): the person's ID and which filters were set, never a name.
+    """
+    del subject
+    note.object_id = str(person)
+    note.details = {
+        "since": since is not None,
+        "until": until is not None,
+        "next_page": before is not None,
+    }
+    rows = await access_log.entries(
+        session, person=person, since=since, until=until, before=before, limit=access_log.PAGE + 1
+    )
+    more = len(rows) > access_log.PAGE
+    rows = rows[: access_log.PAGE]
+    names = await _names(session, [r.accessor_id for r in rows if r.accessor_type == "person"])
+    return PersonalDataAccessPage(
+        items=[
+            PersonalDataAccessOut.model_validate(
+                {
+                    **{
+                        c: getattr(r, c)
+                        for c in PersonalDataAccessOut.model_fields
+                        if hasattr(r, c)
+                    },
+                    "accessor_name": names.get(str(r.accessor_id)) if r.accessor_id else None,
+                }
+            )
+            for r in rows
+        ],
+        next_before=rows[-1].occurred_at if more and rows else None,
+    )

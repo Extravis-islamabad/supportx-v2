@@ -39,7 +39,7 @@ from app.modules.organization.service import branding, hosts
 from app.modules.organization.service.file_access import MANAGE
 from app.modules.organization.service.tenants import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 from app.shared.files.service.core import FileServices
 
 FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
@@ -323,7 +323,16 @@ async def check_colours(body: ColoursIn, subject: Manage) -> ColourReportOut:
 
 
 # No rate limit here: the limiter keys on a tenant, and these reads are cached by browsers.
-public_router = APIRouter(prefix="/public/branding", tags=["organization"])
+# Per client address (audit row 14): nobody is signed in. Each sign-in page loads the brand, its
+# stylesheet and a few images, and offices sign in behind one address, so the budget is wide; it
+# only stops a flood of database lookups. Fails open like every other route: a brand is no secret,
+# and a sign-in page without its colours would be worse than an unlimited minute.
+PUBLIC_BRANDING_PER_ADDRESS = 300  # a minute
+public_router = APIRouter(
+    prefix="/public/branding",
+    tags=["organization"],
+    dependencies=[Depends(ip_rate_limit("public_branding", PUBLIC_BRANDING_PER_ADDRESS))],
+)
 
 DatabaseDep = Annotated[Database, Depends(get_database)]
 

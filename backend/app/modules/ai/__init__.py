@@ -37,6 +37,11 @@ from app.modules.ai.service.embeddings import (
 )
 from app.modules.ai.service.erasure import PERSON_ERASED
 from app.modules.ai.service.gateway import AI_FEATURE, AiAnswer, Gateway, Record
+from app.modules.ai.service.person_data import (
+    RequestedRecords,
+    register_requested_records,
+    unregister_requested_records,
+)
 from app.modules.ai.service.providers import Message, provider_from
 from app.modules.ai.service.realtime import ROUTES
 from app.modules.ai.service.records import (
@@ -119,12 +124,20 @@ __all__ = [
     "Message",
     "Record",
     "RecordAccess",
+    "RequestedRecords",
     "TextSource",
     "module",
     "register_conversation_source",
     "register_embedding_source",
     "register_record_access",
+    "register_requested_records",
     "unregister_conversation_source",
     "unregister_embedding_source",
     "unregister_record_access",
+    "unregister_requested_records",
 ]
+
+# GDPR erasure (ADR-052): this module's port; the job refuses to run without it.
+from app.modules.ai.service import person_data as _person_data  # noqa: E402
+
+_person_data.register()

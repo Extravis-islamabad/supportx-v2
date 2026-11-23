@@ -7,32 +7,52 @@ technician only through `/assign` and `/take`.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.core.recent_auth import RecentAuth
 from app.modules.ai import GATEWAY_STATE, Gateway
 from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_changes
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
+from app.modules.work_items.api.announce_routes import add_announce_routes
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
+from app.modules.work_items.api.checklist_routes import (
+    add_checklist_collection_routes,
+    add_checklist_routes,
+)
+from app.modules.work_items.api.children_routes import add_children_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
-from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.convert_routes import add_convert_routes
+from app.modules.work_items.api.lifecycle_routes import add_lifecycle_routes
+from app.modules.work_items.api.list_routes import (
+    add_list_routes,
+    list_body_dependency,
+    list_dependency,
+)
+from app.modules.work_items.api.major_routes import add_major_routes
+from app.modules.work_items.api.merge_routes import add_incident_merge_routes
 from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
-from app.modules.work_items.api.problem_routes import add_problem_routes
+from app.modules.work_items.api.problem_routes import (
+    add_approval_request_route,
+    add_problem_routes,
+)
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain import change_risk as risk_rules
+from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.approvals import RouteReason
 from app.modules.work_items.domain.change_risk import RiskLevel
@@ -54,6 +74,8 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.lists import BoardGroupBy
+from app.modules.work_items.domain.mail_commands import CommandField
 from app.modules.work_items.domain.reapproval import OnChange, Watched
 from app.modules.work_items.domain.releases import (
     BUILD_REF_MAX,
@@ -63,6 +85,7 @@ from app.modules.work_items.domain.releases import (
     ReleaseRisk,
     StageOutcome,
 )
+from app.modules.work_items.domain.requester_rules import CancellationDeciders, RequesterCancel
 from app.modules.work_items.domain.service_requests import ApprovalStatus, OnBehalfScope
 from app.modules.work_items.domain.stages import RailState
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
@@ -80,7 +103,12 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    custom_values,
+    drafts,
+    reads,
+    record_copies,
     release_links,
+    requester_requests,
     resolution,
     stage_approvals,
 )
@@ -94,10 +122,12 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channel_states
+from app.modules.work_items.service.record_copies import RecordCopyPart
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
+from app.shared.files.service.core import FileServices
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 from app.shared.labels import strip_isolates
 
@@ -152,6 +182,11 @@ class WorkItemIn(BaseModel):
     impact: Impact | None = None
     impact_details: str | None = Field(
         default=None, max_length=IMPACT_DETAILS_MAX * 2, description="Plain text."
+    )
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
     )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
@@ -241,6 +276,11 @@ class WorkItemIn(BaseModel):
         default=None,
         description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
     )
+    draft_form_key: str | None = Field(
+        default=None,
+        max_length=40,
+        description="The form whose kept draft goes with this save (yours only; REQ-INC-019).",
+    )
 
 
 class WorkItemPatch(BaseModel):
@@ -258,6 +298,11 @@ class WorkItemPatch(BaseModel):
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
+    notify_emails: list[str] | None = Field(
+        default=None,
+        max_length=40,
+        description="Incidents: addresses that get public replies, never notes (20 kept at most).",
+    )
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
     # Problems only (WP-044a s2, REQ-PRB-005, -006); refused on other types.
@@ -308,6 +353,17 @@ class WorkItemPatch(BaseModel):
         description="A value sets it by hand (with a reason); null: back to the matrix.",
     )
     priority_reason: str | None = Field(default=None, max_length=PRIORITY_REASON_MAX)
+    first_contact_resolution: StrictBool | None = Field(
+        default=None, description="Resolved at first contact (REQ-INC-102); suggested at resolve."
+    )
+    edit_reason: str | None = Field(
+        default=None,
+        max_length=1000,
+        description=(
+            "Why (REQ-INC-124), kept in history. Required to edit a closed incident (with"
+            " incidents.edit_closed) and for the fields the tenant names."
+        ),
+    )
     tags: list[str] | None = Field(default=None, max_length=TAGS_MAX * 2)
     confirm_lose_access: bool = False
     keep_following: bool | None = Field(
@@ -599,6 +655,9 @@ class WorkItemOut(BaseModel):
     category_id: uuid.UUID | None
     impact: Impact | None
     impact_details: str | None
+    notify_emails: list[str] = Field(
+        default_factory=list, description="People kept informed by e-mail (REQ-INC-066)."
+    )
     urgency: Urgency | None
     priority: Priority
     priority_source: PrioritySource
@@ -675,6 +734,17 @@ class WorkItemOut(BaseModel):
     last_reopened_at: datetime | None
     reopen_count: int
     resolution: str | None = Field(description="The fix, sanitised rich text (REQ-INC-090).")
+    first_contact_resolution: bool | None = Field(
+        default=None,
+        description="Resolved at first contact (REQ-INC-102): suggested at resolve, confirmed or"
+        " changed by the technician; null until resolved.",
+    )
+    major: bool = Field(default=False, description="Declared a major incident (REQ-INC-141).")
+    major_declared_at: datetime | None = Field(default=None, description="When it was declared.")
+    major_declared_by: uuid.UUID | None = Field(default=None, description="Who declared it.")
+    major_reason: str | None = Field(
+        default=None, description="Why it was declared major (staff who may see the record)."
+    )
     closure_code: str | None = Field(description="A closure_code pick-list code (REQ-INC-093).")
     resolution_notified_at: datetime | None = Field(
         description="When the requester was told of the resolution; auto-close counts from it."
@@ -716,14 +786,47 @@ class WorkItemOut(BaseModel):
     )
     following: bool = Field(description="You follow this record.")
     conversation_count: int = Field(description="Replies and notes.")
+    hidden_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields not shown to you (null here); custom ones as custom.<key> (ADR-047).",
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields shown to you as masked (null here, shown as masked; ADR-047).",
+    )
+    read_only_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Fields you may not change (ADR-047): every restricted field, hidden and masked"
+            " ones included; custom ones as custom.<key>."
+        ),
+    )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Custom fields whose value is sealed at rest and did not open (WP-057, ADR-050):"
+            " shown as unreadable, never as empty; as custom.<key>."
+        ),
+    )
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
-        """From the service view."""
+        """From the service view: withheld fields null, their custom values left out (ADR-047)."""
         r = view.record
+        withheld = view.hidden | view.masked
+        values: dict[str, Any] = {
+            name: None if name in withheld else getattr(r, name) for name in _RECORD_FIELDS
+        }
+        # Opened and stripped by the service (custom_values.visible_custom, WP-057 S3b-2); a view
+        # built without it shows no custom values rather than raw stored ones.
+        values["custom"] = view.custom if view.custom is not None else {}
         return cls(
-            **{name: getattr(r, name) for name in _RECORD_FIELDS},
-            root_cause=None if "root_cause" in view.hidden else r.root_cause,
+            **values,
+            hidden_fields=sorted(view.hidden),
+            masked_fields=sorted(view.masked),
+            read_only_fields=sorted(view.read_only),
+            unreadable_fields=sorted(f"custom.{k}" for k in view.unreadable),
+            root_cause=None if "root_cause" in withheld else r.root_cause,
             root_cause_hidden="root_cause" in view.hidden,
             review_required=view.review_required,
             analysis_changes=[
@@ -746,6 +849,11 @@ class WorkItemOut(BaseModel):
 
 
 _RECORD_FIELDS = (
+    "first_contact_resolution",
+    "major",  # WP-046b S4 (REQ-INC-141)
+    "major_declared_at",
+    "major_declared_by",
+    "major_reason",
     "catalog_item_id",
     "answers",
     "approval_status",
@@ -765,6 +873,7 @@ _RECORD_FIELDS = (
     "category_id",
     "impact",
     "impact_details",
+    "notify_emails",
     "urgency",
     "priority",
     "priority_source",
@@ -863,6 +972,7 @@ class WorkItemListItem(BaseModel):
     priority: Priority
     priority_source: PrioritySource
     level: str | None
+    major: bool = Field(default=False, description="A major incident: the marker (REQ-INC-141).")
     stage: str | None = Field(default=None, description="Staged types: the current stage.")
     stage_path: str | None = Field(
         default=None, description="Staged types: the path (releases: `emergency` is the flag)."
@@ -894,12 +1004,53 @@ class WorkItemListItem(BaseModel):
     resolved_at: datetime | None
     closed_at: datetime | None
     custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
+    hidden_fields: list[str] = Field(
+        default_factory=list, description="Fields not shown to you (ADR-047): custom.<key>."
+    )
+    masked_fields: list[str] = Field(
+        default_factory=list, description="Fields shown to you as masked (ADR-047)."
+    )
+    unreadable_fields: list[str] = Field(
+        default_factory=list,
+        description="Sealed custom values that did not open (WP-057, ADR-050): custom.<key>.",
+    )
+
+
+class ListChangeFactsOut(BaseModel):
+    """A change's type and risk for its list row (REQ-CHG-098)."""
+
+    change_type: str | None
+    risk: RiskLevel | None
+
+
+class ListReleaseFactsOut(BaseModel):
+    """A release's own columns for its list row (REQ-REL-055)."""
+
+    release_type: str | None
+    release_version: str | None
+    scheduled_end: datetime | None
+    release_manager_id: uuid.UUID | None
+    release_engineer_id: uuid.UUID | None
+    tasks_done: int
+    tasks_total: int = Field(description="Its tasks, canceled ones not counted.")
 
 
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
     people: dict[str, PersonOut] = Field(default_factory=dict)
+    changes: dict[str, ListChangeFactsOut] = Field(
+        default_factory=dict,
+        description="Changes only: each row's type and risk (the effective one), by record ID.",
+    )
+    releases: dict[str, ListReleaseFactsOut] = Field(
+        default_factory=dict,
+        description="Releases only: each row's own columns, by record ID.",
+    )
+    unread: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="The rows changed by someone else since you last opened them (REQ-INC-115).",
+    )
 
 
 class CausingProblemOut(BaseModel):
@@ -1016,6 +1167,37 @@ class WorkItemClosureOut(BaseModel):
     task_owner_access: bool = Field(
         description="A task's owner may work on it without access to the record (D-112)."
     )
+    worklog_block_closed: bool = Field(
+        default=False, description="No worklog on a closed record (REQ-INC-070)."
+    )
+    worklog_count_nonworking: bool = Field(
+        default=True, description="Non-working hours count in worklogs and time (REQ-INC-070)."
+    )
+    timer_auto_start: bool = Field(
+        default=False, description="Opening a record you own starts your timer, once."
+    )
+    task_dependency_mode: Literal["block", "warn"] = Field(
+        default="block",
+        description="An open predecessor refuses a task's start or completion, or only warns.",
+    )
+    checklist_item_max: int = Field(
+        default=100, description="Checklist items per record, all its checklists (1 to 1000)."
+    )
+    copy_limit: int = Field(
+        default=20, description="How many copies one request may make (1 to 100)."
+    )
+    # WP-046b S1 (0169): REQ-INC-101, -124, -102.
+    closed_edit_locked: bool = Field(
+        default=False,
+        description="Closed records locked fully: no one edits their fields (PUT .../lock).",
+    )
+    edit_reason_fields: list[str] = Field(
+        default_factory=list, description="Fields whose change needs a reason (REQ-INC-124)."
+    )
+    first_contact_minutes: int = Field(
+        default=30,
+        description="Resolved by its creator this soon, never reassigned: first contact (0-1440).",
+    )
     requester_channels: list[str] = Field(
         description="Channels that reach this tenant's requesters now; auto-close needs one."
     )
@@ -1029,6 +1211,39 @@ class RequesterChannelOut(BaseModel):
 
     channel: str
     reason: str | None = Field(description="Null: it reaches; else why not (a labelled code).")
+
+
+class WorkItemBoardColumnOut(BaseModel):
+    """One board column (REQ-INC-111): its key, and how many records you see in it."""
+
+    key: str | None = Field(description="A status, priority, person or group ID; null: none.")
+    count: int
+
+
+class CancellationRequestOut(BaseModel):
+    """A requester's waiting ask to cancel (WP-046b S5): the reason is theirs, for the decider."""
+
+    id: uuid.UUID
+    reason: str
+    requested_by: uuid.UUID
+    asked_at: datetime
+    may_decide: bool
+    # Who decides it now: assignee, group, managers, or none (nobody can yet; it stays open).
+    deciders: CancellationDeciders
+
+
+class CancellationDecisionIn(BaseModel):
+    """Approve or decline a requester's ask to cancel (WP-046b S5; REQ-INC-148)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    approve: bool
+    note: str | None = Field(
+        default=None, max_length=2000, description="Required to decline: why, for the requester."
+    )
+    reason_code: str | None = Field(
+        default=None, max_length=40, description="When the cancel's reason list asks for a code."
+    )
 
 
 class WorkItemTransitionOut(BaseModel):
@@ -1142,10 +1357,30 @@ class WorkItemCatalogueOut(BaseModel):
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
+    requester_cancel: RequesterCancel = Field(
+        default=RequesterCancel.OFF,
+        description="Requesters cancel their own record: off, directly or by asking (INC-148).",
+    )
+    requester_edit_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields a requester may still edit after submitting; none: read-only.",
+    )
     first_task_starts_work: bool = Field(
         default=True,
         description="Requests: ticking the first fulfilment task moves a New or Assigned request "
         "to In progress, when ticked by its technician or group (D-154c).",
+    )
+    mail_commands: bool = Field(
+        default=False,
+        description="Incidents: commands at the top of a mail (priority = p1) are applied, as the"
+        " sender, when the mailbox's trusted server vouched for them (REQ-INC-025). Off.",
+    )
+    mail_command_fields: list[CommandField] = Field(
+        default_factory=list, description="Incidents: the fields a mail may set."
+    )
+    cc_from_first_mail: bool = Field(
+        default=True,
+        description="Incidents: the first mail's Cc join the people kept informed (REQ-INC-066).",
     )
     first_response_on: list[FirstResponseAction] = Field(
         description="Which actions stamp the first response (REQ-INC-065)."
@@ -1157,6 +1392,14 @@ class WorkItemCatalogueOut(BaseModel):
     segregation_strict: bool = Field(
         default=False,
         description="Changes: implementing groups' members may not approve either (REQ-CHG-039).",
+    )
+    outside_maintenance_blocks: bool = Field(
+        default=False,
+        description="Changes: outside every maintenance window blocks instead of warns (D-156).",
+    )
+    open_stage_tasks_block: bool = Field(
+        default=True,
+        description="Releases: a stage with open tasks cannot be left (REQ-REL-048).",
     )
     cab_every_match: bool = Field(
         default=False,
@@ -1203,9 +1446,16 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             portal_show_due_time=cat.portal_show_due_time,
+            requester_cancel=RequesterCancel(cat.requester_cancel),
+            requester_edit_fields=sorted(cat.requester_edit_fields),
             first_task_starts_work=cat.first_task_starts_work,
+            mail_commands=cat.mail_commands,
+            mail_command_fields=[CommandField(f) for f in cat.mail_command_fields],
+            cc_from_first_mail=cat.cc_from_first_mail,
             review_required_priorities=[Priority(p) for p in cat.review_required_priorities],
             segregation_strict=cat.segregation_strict,
+            outside_maintenance_blocks=cat.outside_maintenance_blocks,
+            open_stage_tasks_block=cat.open_stage_tasks_block,
             cab_every_match=cat.cab_every_match,
             reapproval=ReapprovalPolicyIO.model_validate(
                 reapproval_rules.policy_json(reapproval_rules.policy_from(cat.reapproval))
@@ -1288,6 +1538,17 @@ class WorkItemCatalogueOut(BaseModel):
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
                 task_owner_access=cat.closure.task_owner_access,
+                worklog_block_closed=cat.closure.worklog_block_closed,
+                worklog_count_nonworking=cat.closure.worklog_count_nonworking,
+                timer_auto_start=cat.closure.timer_auto_start,
+                task_dependency_mode=cast(
+                    'Literal["block", "warn"]', cat.closure.task_dependency_mode
+                ),
+                checklist_item_max=cat.closure.checklist_item_max,
+                copy_limit=cat.closure.copy_limit,
+                closed_edit_locked=cat.closure.closed_edit_locked,
+                edit_reason_fields=sorted(cat.closure.edit_reason_fields),
+                first_contact_minutes=cat.closure.first_contact_minutes,
                 requester_channels=sorted(n for n, reason in channels.items() if reason is None),
                 requester_channel_states=[
                     RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
@@ -1311,6 +1572,15 @@ class WorkItemClosurePatch(BaseModel):
     )
     reopen_window_days: int | None = None
     task_owner_access: bool | None = None
+    # Strict: a JSON true or false only, never "yes" or 1 read as true.
+    worklog_block_closed: StrictBool | None = None
+    worklog_count_nonworking: StrictBool | None = None
+    timer_auto_start: StrictBool | None = None
+    task_dependency_mode: Literal["block", "warn"] | None = None
+    checklist_item_max: int | None = Field(default=None, description="1 to 1000.")
+    copy_limit: int | None = Field(default=None, description="1 to 100.")
+    edit_reason_fields: list[str] | None = Field(default=None, max_length=50)
+    first_contact_minutes: int | None = Field(default=None, description="0 to 1440.")
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1335,9 +1605,18 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     portal_show_due_time: bool | None = None
+    requester_cancel: RequesterCancel | None = None
+    requester_edit_fields: list[str] | None = Field(default=None, max_length=40)
     first_task_starts_work: bool | None = None
+    mail_commands: bool | None = Field(default=None, description="Incidents only.")
+    mail_command_fields: list[CommandField] | None = Field(
+        default=None, max_length=5, description="Incidents only."
+    )
+    cc_from_first_mail: bool | None = Field(default=None, description="Incidents only.")
     review_required_priorities: list[Priority] | None = Field(default=None, max_length=4)
     segregation_strict: bool | None = Field(default=None, description="Changes only.")
+    outside_maintenance_blocks: bool | None = Field(default=None, description="Changes only.")
+    open_stage_tasks_block: bool | None = Field(default=None, description="Releases only.")
     cab_every_match: bool | None = Field(default=None, description="Changes only.")
     reapproval: ReapprovalPolicyIO | None = Field(
         default=None, description="Changes only. Null: the shipped policy."
@@ -1402,6 +1681,25 @@ class WorkItemFieldChangeOut(BaseModel):
     field: str
     old: Any = None
     new: Any = None
+    # Additive and only where it applies (#398 CI): an ordinary line stays exactly {field, old,
+    # new} for every reader that compares or stores it; only a masked line says hidden.
+    hidden: bool = Field(
+        default=False,
+        exclude_if=lambda value: not value,
+        description=(
+            "Present (true) only when the values are not yours to see (a task's extra cost): "
+            "only that it changed. Absent on every other line, which keeps its old shape."
+        ),
+    )
+
+    @classmethod
+    def of(cls, change: Any) -> "WorkItemFieldChangeOut":  # noqa: ANN401 - a history Change
+        """One change, masked values as `hidden` with no old or new."""
+        if change.old == service.MASKED and change.new == service.MASKED:
+            return cls(field=change.field, hidden=True)
+        if custom_values.is_sealed(change.old) or custom_values.is_sealed(change.new):
+            return cls(field=change.field, hidden=True)  # never sx2: text (rule 5d; S3b-2)
+        return cls(field=change.field, old=change.old, new=change.new)
 
 
 class WorkItemHistoryEntryOut(BaseModel):
@@ -1448,9 +1746,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             reason=entry.reason,
             automation=entry.automation_ref if isinstance(entry.automation_ref, dict) else None,
             bulk_job_id=entry.batch_id,
-            changes=[
-                WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
-            ],
+            changes=[WorkItemFieldChangeOut.of(c) for c in entry.changes],
             audit_entry_id=(audit or {}).get(entry.change_id),
         )
 
@@ -1465,8 +1761,42 @@ class WorkItemHistoryOut(BaseModel):
     )
 
 
-def _item(row: WorkItem) -> WorkItemListItem:
-    return WorkItemListItem.model_validate(row, from_attributes=True)
+def _item(
+    row: WorkItem, unseen: field_rules.Unseen, shown: custom_values.Visible
+) -> WorkItemListItem:
+    """A list row with only the custom values this person may read, sealed ones opened.
+
+    `shown` comes from `custom_values.visible_custom_many` (ADR-047 §4, WP-057 S3b-2): the raw
+    stored values never leave in a row.
+    """
+    item = WorkItemListItem.model_validate(row, from_attributes=True)
+    return item.model_copy(
+        update={
+            "custom": shown.values,
+            "hidden_fields": sorted(unseen.hidden),
+            "masked_fields": sorted(unseen.masked),
+            "unreadable_fields": sorted(f"custom.{k}" for k in shown.unreadable),
+        }
+    )
+
+
+async def _items(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, rows: Sequence[WorkItem]
+) -> list[WorkItemListItem]:
+    """A page of rows, their custom values opened once for the page."""
+    unseen = _unseen(subject, wtype)
+    shown = await custom_values.visible_custom_many(
+        session, [(r.id, r.custom) for r in rows], unseen=unseen
+    )
+    return [_item(r, unseen, shown[r.id]) for r in rows]
+
+
+def _unseen(subject: Subject, wtype: WorkItemType) -> field_rules.Unseen:
+    """What the person may not read on any record of the type (role rules only).
+
+    List rows carry no field behind a per-record permission gate, so the type's rules suffice.
+    """
+    return field_rules.unseen(subject.field_access, wtype.code.value)
 
 
 def _cursor(value: str | None) -> tuple[datetime, uuid.UUID] | None:
@@ -1564,6 +1894,31 @@ class ChangeCopyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parts: list[Literal["plans", "roles"]] = Field(default_factory=list, max_length=2)
+
+
+class RecordCopiesIn(BaseModel):
+    """How many copies, and what comes with their fields (REQ-INC-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=100, description="The type's limit applies (AC3).")
+    parts: list[RecordCopyPart] = Field(default_factory=list, max_length=len(RecordCopyPart))
+
+
+class FileLeftOutOut(BaseModel):
+    """One of the original's files that did not come with the copies, and why (lane B)."""
+
+    file_id: uuid.UUID
+    reason: str = Field(
+        description="The file's state (e.g. scanning, infected), too_large or blocked."
+    )
+
+
+class RecordCopiesOut(BaseModel):
+    """The copies made, in order, and the original's files that did not come."""
+
+    items: list[WorkItemOut]
+    files_not_copied: list[FileLeftOutOut]
 
 
 class ChangePrefillOut(BaseModel):
@@ -1774,6 +2129,10 @@ class RoleHoldingOut(BaseModel):
     disabled: bool
     user_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
+    from_record: bool = Field(
+        default=False,
+        description="Held by the record's own field (a change's requester or owner): set there.",
+    )
 
 
 class RolesOut(BaseModel):
@@ -1797,6 +2156,7 @@ class RolesOut(BaseModel):
                     disabled=r.definition.disabled_at is not None,
                     user_ids=list(r.user_ids),
                     group_ids=list(r.group_ids),
+                    from_record=r.from_record,
                 )
                 for r in view.roles
             ],
@@ -1923,12 +2283,74 @@ class SubReleaseOut(BaseModel):
     status: str | None
 
 
+class ReleaseChangeOut(BaseModel):
+    """A change in a release (REQ-REL-033); one you may not see shows only that it exists."""
+
+    id: uuid.UUID
+    visible: bool
+    display_id: str | None
+    subject: str | None
+    stage: str | None
+    status: str | None
+    status_category: str | None
+
+
+class ReleaseChangeIn(BaseModel):
+    """The change to put in the release."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    change_id: uuid.UUID
+
+
 class ParentIn(BaseModel):
     """The release's parent (null: none)."""
 
     model_config = ConfigDict(extra="forbid")
 
     parent_id: uuid.UUID | None
+
+
+class CloseLinkedChangesIn(BaseModel):
+    """The closure code the release's changes close with (WP-058b S5a; REQ-REL-052)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    closure_code: str = Field(min_length=1, max_length=40)
+
+
+class LinkedChangeClosedOut(BaseModel):
+    """One linked change: closed, or skipped and why (a code the UI words).
+
+    A change you may not see has no ID, number or title (`not_visible`).
+    """
+
+    id: uuid.UUID | None
+    display_id: str | None
+    closed: bool
+    code: str | None = None
+    params: dict[str, Any] | None = None
+    field: str | None = Field(default=None, description="A field problem's field, if any.")
+
+
+class ReleaseFollowUpIn(BaseModel):
+    """What to make after a failed deployment (REQ-REL-053 AC2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["problem", "release"]
+    subject: str = Field(min_length=1, max_length=200)
+
+
+class ReleaseFollowUpOut(BaseModel):
+    """A problem the release caused, or a release that follows it up."""
+
+    id: uuid.UUID
+    display_id: str
+    subject: str
+    type: str
+    relation: Literal["caused_problem", "follow_up_release"]
+    status_category: str
 
 
 class ParentOut(BaseModel):
@@ -1977,6 +2399,8 @@ class RailStageOut(BaseModel):
     state: RailState
     optional: bool
     entries: list[StageEntryOut]
+    tasks_done: int = Field(default=0, description="This stage's tasks done (WP-058b S3).")
+    tasks_total: int = Field(default=0, description="This stage's tasks, canceled ones left out.")
 
 
 class MissingFieldOut(BaseModel):
@@ -2031,6 +2455,8 @@ class StagePanelOut(BaseModel):
                     entries=[
                         StageEntryOut(entered_at=e.entered_at, left_at=e.left_at) for e in s.entries
                     ],
+                    tasks_done=panel.tasks.get(s.stage, (0, 0))[0],
+                    tasks_total=panel.tasks.get(s.stage, (0, 0))[1],
                 )
                 for s in panel.rail
             ],
@@ -2068,7 +2494,56 @@ async def _audit_reapproval(
         )
 
 
-def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
+async def _change_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListChangeFactsOut]:
+    """A change list's type and risk per row: one read for the page (REQ-CHG-098)."""
+    if wtype.code is not WorkItemTypeCode.CHANGE or not ids:
+        return {}
+    facts = await service.change_list_facts(session, ids)
+    return {
+        str(i): ListChangeFactsOut(change_type=t, risk=RiskLevel(r) if r else None)
+        for i, (t, r) in facts.items()
+    }
+
+
+async def _release_facts(
+    session: AsyncSession, wtype: WorkItemType, ids: list[uuid.UUID]
+) -> dict[str, ListReleaseFactsOut]:
+    """A release list's own columns per row: a few reads for the page (REQ-REL-055)."""
+    if wtype.code is not WorkItemTypeCode.RELEASE or not ids:
+        return {}
+    facts = await service.release_list_facts(session, ids)
+    return {
+        str(i): ListReleaseFactsOut(
+            release_type=f.release_type,
+            release_version=f.release_version,
+            scheduled_end=f.scheduled_end,
+            release_manager_id=f.release_manager_id,
+            release_engineer_id=f.release_engineer_id,
+            tasks_done=f.tasks_done,
+            tasks_total=f.tasks_total,
+        )
+        for i, f in facts.items()
+    }
+
+
+FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
+
+
+def _copy_files(request: Request) -> FileServices:
+    """The API's file services, for copying a record's files (as knowledge's links do)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
+
+
+CopyFiles = Annotated[FileServices, Depends(_copy_files)]
+
+
+def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0915 - one route per operation
     """Every route of one work item type."""
     router = APIRouter(
         prefix=f"/{wtype.path}",
@@ -2091,23 +2566,38 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     # The record's own requester (no console permission): the service checks it is theirs.
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
+    BodyQuery = Annotated[ListQuery, Depends(list_body_dependency(wtype))]  # noqa: N806 - alias
     location = f"/api/v1/{wtype.path}"
     name = wtype.code.replace("_", " ")
     audit = wtype.code.value  # audit codes: "incident.deleted", "service_request.deleted"
 
     async def _page(
         session: Any,  # noqa: ANN401 - TenantSession (an AsyncSession) from the route
+        subject: Subject,
         page: PageResult[WorkItem],
     ) -> WorkItemPage:
+        ids = [r.id for r in page.rows]
+        releases = await _release_facts(session, wtype, ids)
+        # A release's manager and engineer are named on its row too.
+        named = {
+            str(u)
+            for f in releases.values()
+            for u in (f.release_manager_id, f.release_engineer_id)
+            if u is not None
+        }
         people = sorted(
             {str(u) for r in page.rows for u in (r.requester_id, r.technician_id) if u is not None}
+            | named
         )
         return WorkItemPage(
-            items=[_item(r) for r in page.rows],
+            items=await _items(session, subject, wtype, page.rows),
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
             people=_people(await user_contacts(session, people)),
+            changes=await _change_facts(session, wtype, ids),
+            releases=releases,
+            unread=await reads.unread_ids(session, subject, page.rows),
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -2123,7 +2613,90 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         page = await service.list_page(
             session, subject, wtype, query, view=view, zone=request_zone(request), tag=tag
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
+
+    @router.post("/list", summary=f"List {wtype.path} (options in the body)")
+    async def list_items_by_body(
+        session: TenantSession,
+        query: BodyQuery,
+        subject: View,
+        request: Request,
+        response: Response,
+    ) -> WorkItemPage:
+        """The same page as the GET, with its options in a JSON body.
+
+        A read, not a create (no Idempotency-Key). A filter on a sealed field comes this way, so
+        its value is in no URL; the answer is not stored by caches.
+        """
+        sent = await request.json()
+        params = sent.get("params", {}) if isinstance(sent, dict) else {}
+
+        def first(name: str) -> str | None:
+            values = params.get(name) if isinstance(params, dict) else None
+            return str(values[0]) if isinstance(values, list) and values else None
+
+        page = await service.list_page(
+            session,
+            subject,
+            wtype,
+            query,
+            view=first("view"),
+            zone=request_zone(request),
+            tag=first("tag"),
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return await _page(session, subject, page)
+
+    @router.post("/board", summary=f"Board column counts for {wtype.path}")
+    async def board(
+        session: TenantSession,
+        query: BodyQuery,
+        subject: View,
+        request: Request,
+        response: Response,
+    ) -> list[WorkItemBoardColumnOut]:
+        """Each column's count, by the list's own query (REQ-INC-111; WP-046b S3b).
+
+        The same body as `POST /list` (filter, simple, `params.view`, `params.tag`), plus
+        `params.group_by`: status (default), priority, technician or group. Only records you may
+        see are counted (lane C). Columns keep a stable order, never by count: statuses in their
+        workflow order and priorities by rank, every one even when empty; technicians and groups
+        by ID, with "none" (key null) last. Each column's cards are `POST /list` with the
+        column's own condition added.
+        """
+        sent = await request.json()
+        params = sent.get("params", {}) if isinstance(sent, dict) else {}
+
+        def first(name: str) -> str | None:
+            values = params.get(name) if isinstance(params, dict) else None
+            return str(values[0]) if isinstance(values, list) and values else None
+
+        try:
+            group_by = BoardGroupBy(first("group_by") or BoardGroupBy.STATUS)
+        except ValueError:
+            raise service.field_errors([("params.group_by", "invalid_choice")]) from None
+        found = await service.board_counts(
+            session,
+            subject,
+            wtype,
+            query,
+            group_by=group_by,
+            view=first("view"),
+            zone=request_zone(request),
+            tag=first("tag"),
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return [WorkItemBoardColumnOut(key=k, count=n) for k, n in found]
+
+    @router.post(
+        "/{record_id}/read",
+        summary="Mark as read",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def mark_read(record_id: uuid.UUID, session: TenantSession, subject: View) -> Response:
+        """The record page calls this on opening it (and when a change arrives while open)."""
+        await reads.mark_read(session, subject, wtype, record_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get("/views", summary=f"Built-in {name} views with counts")
     async def views(
@@ -2141,7 +2714,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         page = await service.list_page(
             session, subject, wtype, query, view=None, zone=request_zone(request), trash=True
         )
-        return await _page(session, page)
+        return await _page(session, subject, page)
 
     @router.get("/assignees", summary="People who can be assigned")
     async def assignees(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
@@ -2205,7 +2778,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
         return WorkItemSearchOut(
-            items=[_item(r) for r in rows],
+            items=await _items(session, subject, wtype, rows),
             people=_people(await user_contacts(session, people)),
         )
 
@@ -2257,10 +2830,15 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                     if u
                 }
             )
+            shown = await _items(session, subject, wtype, [c.record for c in found])
             return DuplicatesOut(
                 items=[
-                    DuplicateOut(item=_item(c.record), score=c.score, reasons=list(c.reasons))
-                    for c in found
+                    DuplicateOut(
+                        item=item,
+                        score=c.score,
+                        reasons=list(c.reasons),
+                    )
+                    for c, item in zip(found, shown, strict=True)
                 ],
                 method=method,
                 people=_people(await user_contacts(session, people)),
@@ -2342,6 +2920,47 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         set_etag(response, cat.settings_version)
         return await WorkItemCatalogueOut.of(session, cat)
 
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+
+        class ClosedEditLockIn(BaseModel):
+            """Lock closed incidents fully, or not (REQ-INC-101)."""
+
+            model_config = ConfigDict(extra="forbid")
+
+            locked: StrictBool
+
+        @router.put(
+            "/settings/closed-edit-lock",
+            summary="Lock closed incidents fully",
+            responses=CONFLICT,
+            # Outranks a right, administrators' included: as sensitive as role changes (lane B).
+            dependencies=[RecentAuth],
+        )
+        async def put_closed_edit_lock(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            body: ClosedEditLockIn,
+            session: TenantSession,
+            subject: Admin,
+            version: ExpectedVersion,
+            response: Response,
+            request: Request,
+            note: Annotated[
+                AuditNote,
+                audited("incident.closed_edit_lock_changed", object_type="incident_settings"),
+            ],
+        ) -> WorkItemCatalogueOut:
+            """While on, no one edits a closed incident's fields; notes and replies go on."""
+            note.details = {"locked": body.locked}
+            cat = await settings_service.update_closure_settings(
+                session,
+                wtype,
+                expected_version=version,
+                values={"closed_edit_locked": body.locked},
+                source=source_of(request),
+                user_id=subject.user_id,
+            )
+            set_etag(response, cat.settings_version)
+            return await WorkItemCatalogueOut.of(session, cat)
+
     @router.get("/categories", summary="Category tree")
     async def categories(session: TenantSession, subject: View) -> list[WorkItemCategoryOut]:
         """Every node, parents first; disabled nodes are marked, not hidden."""
@@ -2351,8 +2970,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             for n in await settings_service.list_categories(session, wtype)
         ]
 
-    @router.post("/categories", summary="Add a category", status_code=status.HTTP_201_CREATED)
-    async def create_category(
+    @router.post(
+        "/categories",
+        summary="Add a category",
+        status_code=status.HTTP_201_CREATED,
+        response_model=WorkItemCategoryOut,
+    )
+    async def create_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         body: WorkItemCategoryIn,
         session: TenantSession,
         subject: Admin,
@@ -2360,21 +2984,26 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         note: Annotated[
             AuditNote, audited(f"{audit}.category_created", object_type=f"{audit}_category")
         ],
-    ) -> WorkItemCategoryOut:
+        idempotency: Idempotency,
+    ) -> Response:
         """A new node (at most three levels)."""
         del subject
-        node = await settings_service.create_category(
-            session,
-            wtype,
-            parent_id=body.parent_id,
-            labels=body.labels,
-            default_group_id=body.default_group_id,
-            source=source_of(request),
-        )
-        out = WorkItemCategoryOut.of(node)
-        note.object_id = str(out.id)
-        note.details = {"parent_id": body.parent_id}
-        return out
+
+        async def run() -> Created:
+            node = await settings_service.create_category(
+                session,
+                wtype,
+                parent_id=body.parent_id,
+                labels=body.labels,
+                default_group_id=body.default_group_id,
+                source=source_of(request),
+            )
+            out = WorkItemCategoryOut.of(node)
+            note.object_id = str(out.id)
+            note.details = {"parent_id": body.parent_id}
+            return Created(body=out)
+
+        return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
     @router.patch("/categories/{category_id}", summary="Change a category", responses=CONFLICT)
     async def patch_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -2413,10 +3042,15 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,
         WorkItemTypeCode.CHANGE,
+        WorkItemTypeCode.INCIDENT,
     }:
-        # Release and change stage approvals (WP-058a s5, WP-045a) and problem approvals asked
-        # ad hoc (WP-044b s4): none has a requester's withdrawal (a change is canceled instead).
+        # Release and change stage approvals (WP-058a s5, WP-045a) and problem and incident
+        # approvals asked ad hoc (WP-044b s4, WP-046b S1): none has a requester's withdrawal (a
+        # change is canceled instead).
         add_approval_routes(router, wtype, withdraw=False)
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        add_major_routes(router, wtype)  # WP-046b S4: before the /{record_id} routes (/majors)
+        add_announce_routes(router, wtype)  # WP-046b S4 (REQ-INC-129)
     if wtype.code is WorkItemTypeCode.CHANGE:
         # WP-045a D6 (REQ-CHG-002): before the /{record_id} routes.
 
@@ -2430,9 +3064,16 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     if wtype.code is WorkItemTypeCode.PROBLEM:
         # WP-044a s3: before the /{record_id} routes
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046b S1 (REQ-INC-083): asked ad hoc
+        add_approval_request_route(router, wtype, WorkItemOut)
     add_parts_collection_routes(router, wtype)
+    add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
+    if wtype.stages is None:
+        # ADR-049: life cycle versions of the action-based types; staged types version with
+        # their stages (S4c, lane C), so changes and releases get none of these routes yet.
+        add_lifecycle_routes(router, wtype)
 
     @router.post(
         "",
@@ -2456,6 +3097,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             from_record = values.pop("from_record_id", None)
             if from_record is not None and wtype.code is not WorkItemTypeCode.CHANGE:
                 raise service.field_errors([("from_record_id", "not_allowed")])
+            draft_form_key = values.pop("draft_form_key", None)
             asset_ids = values.pop("asset_ids", None) or []
             if asset_ids and wtype.code not in _WITH_ASSETS:
                 raise service.field_errors([("asset_ids", "not_allowed")])
@@ -2475,6 +3117,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 await asset_links.link_new(
                     session, subject, view.record, asset_ids, source=source_of(request)
                 )
+            # REQ-INC-019: the sender's own kept draft of the form goes with the save (lane B 8).
+            await drafts.saved(session, subject.user_id, draft_form_key)
             out = WorkItemOut.of(view)
             return Created(
                 body=out, headers={"Location": f"{location}/{out.id}", "ETag": f'"{out.version}"'}
@@ -2502,17 +3146,71 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         request: Request,
     ) -> WorkItemOut:
         """Change the fields you send. Needs If-Match. Priority by hand needs a reason."""
+        values = body.model_dump(include=body.model_fields_set)
+        reason = values.pop("edit_reason", None)
         view = await service.update(
             session,
             subject,
             wtype,
             record_id,
             expected_version=version,
-            values=body.model_dump(include=body.model_fields_set),
+            values=values,
             source=source_of(request),
+            reason=reason,
+            facts=RequestFacts.of(request),
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    @router.get(
+        "/{record_id}/cancellation-request", summary="The requester's waiting ask to cancel"
+    )
+    async def cancellation_request(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> CancellationRequestOut:
+        """What the requester asked and when, and whether you decide it; 404 when none waits."""
+        found = await requester_requests.waiting_ask(session, subject, wtype, record_id)
+        return CancellationRequestOut(
+            id=found.ask.id,
+            reason=found.ask.reason,
+            requested_by=found.ask.requested_by,
+            asked_at=found.ask.created_at,
+            may_decide=found.may_decide,
+            deciders=found.deciders,
+        )
+
+    @router.post(
+        "/{record_id}/cancellation-request/decide",
+        summary="Decide a requester's ask to cancel",
+        status_code=status.HTTP_204_NO_CONTENT,
+        responses=CONFLICT,
+    )
+    async def decide_cancellation(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        body: CancellationDecisionIn,
+        session: TenantSession,
+        subject: View,
+        request: Request,
+        policy: Policy,
+    ) -> Response:
+        """Approve or decline a requester's ask to cancel (WP-046b S5, REQ-INC-148 AC1).
+
+        Approving cancels the record as you, with the requester's reason; declining sends your
+        note to the requester. The assignee decides; with none, whoever may edit it. 404 when
+        nothing is waiting.
+        """
+        await requester_requests.decide(
+            session,
+            subject,
+            wtype,
+            record_id,
+            approve=body.approve,
+            note=body.note,
+            reason_code=body.reason_code,
+            source=source_of(request),
+            policy=policy,
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.post("/{record_id}/actions/{action}", summary="Run a status action", responses=CONFLICT)
     async def act(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -2895,6 +3593,142 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             )
             return ParentOut(parent_id=parent)
 
+        @router.post(
+            "/{record_id}/changes/close",
+            summary="Close the release's changes you may close",
+            responses=CONFLICT,
+        )
+        async def close_release_changes(
+            record_id: uuid.UUID,
+            body: CloseLinkedChangesIn,
+            session: TenantSession,
+            subject: View,
+            request: Request,
+        ) -> list[LinkedChangeClosedOut]:
+            """REQ-REL-052: each change not closed yet closes by its own close, with this code.
+
+            As you: one you may not close (your right, its life cycle, its rules or open work) is
+            skipped with why, never forced. Nothing on the release itself changes.
+            """
+            found = await release_links.close_linked_changes(
+                session,
+                subject,
+                wtype,
+                record_id,
+                closure_code=body.closure_code,
+                source=source_of(request),
+            )
+            return [LinkedChangeClosedOut(**vars(f)) for f in found]
+
+        @router.get("/{record_id}/follow-ups", summary="What was made after the release failed")
+        async def get_follow_ups(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseFollowUpOut]:
+            """The problems it caused and the releases that follow it up, those you may see."""
+            found = await release_links.follow_ups(session, subject, record_id)
+            return [ReleaseFollowUpOut(**vars(f)) for f in found]
+
+        @router.post(
+            "/{record_id}/follow-ups",
+            summary="Make a problem or a follow-up release after a failed deployment",
+            status_code=status.HTTP_201_CREATED,
+            response_model=ReleaseFollowUpOut,
+            responses=CONFLICT,
+        )
+        async def post_follow_up(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: ReleaseFollowUpIn,
+            session: TenantSession,
+            subject: View,
+            policy: Policy,
+            idempotency: Idempotency,
+            request: Request,
+        ) -> Response:
+            """Only on a failed or rolled-back release (409 release_not_failed, REQ-REL-053 AC2).
+
+            Needs the new record's create permission. The problem is linked as caused by the
+            release, the release as following it, and both records keep the link in history.
+            """
+
+            async def run() -> Created:
+                made = await release_links.create_follow_up(
+                    session,
+                    subject,
+                    record_id,
+                    kind=body.kind,
+                    title=body.subject.strip(),
+                    holders=policy,
+                    source=source_of(request),
+                )
+                return Created(
+                    body=ReleaseFollowUpOut(
+                        id=made.id,
+                        display_id=made.display_id,
+                        subject=made.subject,
+                        type=made.type,
+                        relation="caused_problem"
+                        if body.kind == "problem"
+                        else "follow_up_release",
+                        status_category=made.status_category,
+                    )
+                )
+
+            return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+        # WP-058b S1 (REQ-REL-033): the changes in the release, live on both records.
+        @router.get("/{record_id}/changes", summary="The changes in the release")
+        async def get_release_changes(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[ReleaseChangeOut]:
+            """With their stage and status; one you may not see shows only that it exists (AC3)."""
+            found = await release_links.release_changes(session, subject, wtype, record_id)
+            return [
+                ReleaseChangeOut(
+                    id=c.id,
+                    visible=c.seen,
+                    display_id=c.display_id,
+                    subject=c.subject,
+                    stage=c.stage,
+                    status=c.status,
+                    status_category=c.status_category,
+                )
+                for c in found
+            ]
+
+        @router.post(
+            "/{record_id}/changes",
+            summary="Put a change in the release",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def post_release_change(
+            record_id: uuid.UUID,
+            body: ReleaseChangeIn,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> None:
+            """A change is in one open release at most: another is refused, naming it (AC2)."""
+            await release_links.add_change(
+                session, subject, wtype, record_id, body.change_id, source=source_of(request)
+            )
+
+        @router.delete(
+            "/{record_id}/changes/{change_id}",
+            summary="Take a change out of the release",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def delete_release_change(
+            record_id: uuid.UUID,
+            change_id: uuid.UUID,
+            session: TenantSession,
+            subject: Edit,
+            request: Request,
+        ) -> None:
+            """History on both records."""
+            await release_links.remove_change(
+                session, subject, wtype, record_id, change_id, source=source_of(request)
+            )
+
     if wtype.code is WorkItemTypeCode.RELEASE:  # REQ-REL-002..005: a release's own fields
 
         @router.get("/{record_id}/details", summary="The release's own fields")
@@ -2949,8 +3783,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             subject: Edit,
             response: Response,
             request: Request,
+            policy: Policy,
         ) -> ReleaseDetailsOut:
-            """Needs If-Match (the release's version). A risk change needs `risk_reason`."""
+            """Needs If-Match (the release's version). A risk change needs `risk_reason`.
+
+            The manager and engineer are the release's roles too: only eligible people.
+            """
             sent = body.model_dump(include=body.model_fields_set - {"risk_reason"})
             view = await service.update_release_details(
                 session,
@@ -2961,6 +3799,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
                 values=sent,
                 source=source_of(request),
                 risk_reason=body.risk_reason,
+                holders=policy,
             )
             set_etag(response, view.record.version)
             return ReleaseDetailsOut.of(view)
@@ -3369,8 +4208,64 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             people=_people(people),
         )
 
+    if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046a S5c: copy N times (REQ-INC-033)
+
+        @router.post(
+            "/{record_id}/copies",
+            summary=f"Copy the {name} one or more times",
+            status_code=status.HTTP_201_CREATED,
+            response_model=RecordCopiesOut,
+        )
+        async def copy_records(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            body: RecordCopiesIn,
+            session: TenantSession,
+            subject: Create,
+            idempotency: Idempotency,
+            request: Request,
+            policy: Policy,
+            files: CopyFiles,
+        ) -> Response:
+            """New records from this one's fields, each naming it in its history.
+
+            Never its conversation, worklogs, history or assignment to a person. Send an
+            Idempotency-Key: a retry returns the same 201.
+            """
+
+            async def run() -> Created:
+                made = await record_copies.copy_record(
+                    session,
+                    subject,
+                    wtype,
+                    record_id,
+                    count=body.count,
+                    parts_chosen=frozenset(body.parts),
+                    source=source_of(request),
+                    holders=policy,
+                    files=files,
+                    facts=RequestFacts.of(request),
+                )
+                views = [await service.get(session, subject, wtype, r.id) for r in made.records]
+                return Created(
+                    body=RecordCopiesOut(
+                        items=[WorkItemOut.of(v) for v in views],
+                        files_not_copied=[
+                            FileLeftOutOut(file_id=n.file_id, reason=n.reason)
+                            for n in made.not_copied
+                        ],
+                    )
+                )
+
+            return await idempotency.run({"copy_of": str(record_id), **body.model_dump()}, run)
+
     add_record_routes(router, wtype)
     add_parts_routes(router, wtype)
+    add_checklist_routes(router, wtype)  # WP-046a S2: checklists and personal reminders
+    if wtype.code in {WorkItemTypeCode.INCIDENT, WorkItemTypeCode.SERVICE_REQUEST}:
+        add_convert_routes(router, wtype)  # WP-046b S2: into the other type, and old numbers
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        add_children_routes(router, wtype)  # WP-046b S2: parent and child incidents
+        add_incident_merge_routes(router, wtype)  # WP-046b S2: merge with preview, and undo
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)

@@ -19,6 +19,7 @@ import pytest
 from app.core.modules import discover_modules
 from app.modules.identity_access.domain.permissions import (
     CHANGE_MANAGER,
+    RELEASE_MANAGER,
     SERVICE_DESK_MANAGER,
     SYSTEM_ROLES,
     TEAM_LEAD,
@@ -113,6 +114,7 @@ TENANT_WIDE = frozenset(
         "changes.emergency_override",
         "changes.manage_windows",  # change windows and the freeze override (WP-045c)
         "changes.override_freeze",
+        "releases.override_freeze",  # a release's freeze override (WP-058b S2)
     }
 )
 
@@ -157,6 +159,19 @@ def test_change_windows_and_the_freeze_override_belong_to_the_change_manager_and
                 role,
                 technician_scope,
             )
+
+
+def test_a_releases_freeze_override_belongs_to_the_release_manager_and_admins() -> None:
+    """WP-058b S2 (the coordinator; lane B's review): as a change's, the release manager and
+    administrators hold it; no technician, team lead or service desk manager does.
+    """
+    catalogue = _catalogue()
+    assert dict(catalogue.system_grants(RELEASE_MANAGER)).get("releases.override_freeze") == "all"
+    assert "releases.override_freeze" in dict(catalogue.system_grants(TENANT_ADMIN))
+    for role in (TEAM_LEAD, TECHNICIAN, SERVICE_DESK_MANAGER):
+        for technician_scope in ("group", "all"):
+            held = dict(catalogue.system_grants(role, technician_scope=technician_scope))
+            assert "releases.override_freeze" not in held, (role, technician_scope)
 
 
 def test_no_role_assigns_outside_a_records_group() -> None:

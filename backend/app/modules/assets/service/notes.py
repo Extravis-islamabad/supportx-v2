@@ -17,6 +17,7 @@
 """
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -44,6 +45,7 @@ from app.shared.richtext import (
 )
 
 NOTE_RECORD_TYPE = "asset_note"
+ERASE_RIGHT = "people.erase"  # identity_access's (ADR-052); a code, not an import
 BODY_MAX = 100_000  # as the migration's check
 NOTES_MAX = 500  # per page: the newest; an asset with more shows the newest 500
 
@@ -112,6 +114,7 @@ async def _saved(  # noqa: PLR0913 - one save of a note: who, what, how, whom it
     action: PartAction,
     source: Source,
     told: list[uuid.UUID],
+    reason: str | None = None,
 ) -> None:
     await session.flush()
     await session.refresh(note)
@@ -123,6 +126,7 @@ async def _saved(  # noqa: PLR0913 - one save of a note: who, what, how, whom it
         kind=OWN_KIND[action],
         changes=changes,
         source=source,
+        reason=reason,
     )
     part = str(note.id)
     await record_changes(
@@ -133,6 +137,7 @@ async def _saved(  # noqa: PLR0913 - one save of a note: who, what, how, whom it
         kind=PART_KIND[action],
         changes=[Change("note", None if action == "created" else part, part)],
         source=source,
+        reason=reason,
     )
     await record_event(
         session,
@@ -295,3 +300,65 @@ async def note_history(
         raise NotFound(code="asset_note_not_found")
     entries, _ = await history_page(session, NOTE_RECORD_TYPE, note_id, limit=100)
     return entries
+
+
+# --- GDPR mentions (ADR-052 S1b) -----------------------------------------------------------------
+
+
+async def redact_note(
+    session: AsyncSession, note_id: uuid.UUID, rewrite: Callable[[str], str], reason: str
+) -> bool:
+    """A note's text as `rewrite` makes it (a person's erasure redaction; no rights checked here).
+
+    The caller (the erasure's mentions port) is reached only through `people.erase`. The note's
+    history names the field only (old and new None: the old text is what is being removed),
+    the asset's history lists the note as changed, and the page refreshes live. False when the
+    text stays the same or the note is gone.
+    """
+    note = await session.scalar(select(AssetNote).where(AssetNote.id == note_id).with_for_update())
+    if note is None:
+        return False
+    new_body = rewrite(note.body)
+    if new_body == note.body:
+        return False
+    asset = await session.scalar(select(Asset).where(Asset.id == note.asset_id))
+    if asset is None:  # a foreign key keeps the asset; unreachable
+        return False
+    note.body = new_body[:BODY_MAX]
+    note.version += 1
+    await _saved(
+        session,
+        asset,
+        note,
+        [Change("body", None, None)],
+        action="updated",
+        source="system",
+        told=[],
+        reason=reason,
+    )
+    return True
+
+
+async def readable_note_body(
+    session: AsyncSession, subject: Subject, note_id: uuid.UUID
+) -> str | None:
+    """A live note's text, when the subject may see its asset (as the notes list).
+
+    A trashed note (or a note of a trashed asset) still names people: for a subject who may
+    erase (`people.erase`) only, the same rule as lane A's ports (#514).
+    """
+    note = await session.scalar(select(AssetNote).where(AssetNote.id == note_id))
+    if note is None:
+        return None
+    asset_gone = await session.scalar(
+        select(Asset.deleted_at.is_not(None)).where(Asset.id == note.asset_id)
+    )
+    if note.deleted_at is not None or asset_gone:
+        return note.body if subject.holds(ERASE_RIGHT) else None
+    if not subject.holds(VIEW):
+        return None
+    try:
+        await _visible(session, subject, note.asset_id)
+    except (NotFound, PermissionDenied):
+        return None
+    return note.body

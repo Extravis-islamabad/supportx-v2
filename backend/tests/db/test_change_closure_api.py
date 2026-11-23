@@ -6,13 +6,19 @@ changes and releases; a closed change is locked, every write refused with a labe
 """
 
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
+from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.service import change_close
+from app.shared.labels import has_label
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
-from tests.db.test_changes_api import CHG, _approve_pending, a_change, move
+from tests.db.test_changes_api import CHG, _approve_pending, a_change, move, new_change
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 
 pytestmark = MODULE_LOOP
@@ -342,3 +348,294 @@ async def test_req_chg_097_a_closed_change_is_locked_with_a_labelled_code(world:
         headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
     )
     assert problem(late) == (409, "record_closed"), late.text
+
+
+async def _bulk(
+    world: World,
+    org: Org,
+    action: str,
+    records: list[dict[str, Any]],
+    *,
+    user: uuid.UUID | None = None,
+    **changes: str,
+) -> dict[str, Any]:
+    from app.modules.work_items.service.bulk import run_bulk_jobs  # noqa: PLC0415 - the runner
+
+    started = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        org,
+        user or org.admin,
+        json={"action": action, "changes": changes, "record_ids": [r["id"] for r in records]},
+    )
+    assert started.status_code == 202, started.text
+    await run_bulk_jobs(world.app.state.db, world.app.state.settings)
+    done = await world.call(
+        "GET", f"{CHG}/bulk-jobs/{started.json()['id']}", org, user or org.admin
+    )
+    assert done.status_code == 200, done.text
+    return dict(done.json())
+
+
+async def _in_review(world: World, org: Org) -> dict[str, Any]:
+    made = await world.call(
+        "POST",
+        CHG,
+        org,
+        org.admin,
+        json={"subject": "Bulk", "requester_id": str(org.requester), "change_type": "standard"},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    item = made.json()
+    item = (await move(world, org, item, "implementation_in_progress")).json()
+    rows = (await world.call("GET", f"{CHG}/{item['id']}/schedule", org, org.admin)).json()
+    row = next(r for r in rows if r["stage"] == "implementation")
+    await world.call(
+        "PATCH",
+        f"{CHG}/{item['id']}/schedule/implementation",
+        org,
+        org.admin,
+        json={"outcome": "successful"},
+        headers={"If-Match": f'"{row["version"]}"', **CONSOLE},
+    )
+    return dict(
+        (await move(world, org, await fresh(world, org, item), "implementation_implemented")).json()
+    )
+
+
+async def test_req_chg_101_bulk_close_closes_what_may_close_and_says_why_the_rest_did_not(
+    world: World,
+) -> None:
+    """AC1: of three changes in review, the one with an open child is skipped, with why; a change
+    still in submission has no move to closed and is skipped too. Nothing leaves its life cycle.
+    """
+    a = world.a
+    ready = [await _in_review(world, a), await _in_review(world, a)]
+    held = await _in_review(world, a)
+    child = await a_change(world, a)
+    added = await world.call(
+        "POST",
+        f"{CHG}/{held['id']}/children",
+        a,
+        a.admin,
+        json={"child_id": child["id"]},
+        headers=CONSOLE,
+    )
+    assert added.status_code == 201, added.text
+    early = await a_change(world, a)
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    job = await _bulk(world, a, "close", [*ready, held, early], closure_code=codes[0]["code"])
+    outcomes = {r["id"]: (r["outcome"], r["code"]) for r in job["results"]}
+    for r in ready:
+        assert outcomes[r["id"]][0] == "done", outcomes
+        assert (await fresh(world, a, r))["status"] == "closure_closed"
+    assert outcomes[held["id"]][0] == "skipped", outcomes
+    assert outcomes[early["id"]] == ("skipped", "not_closable_from_here"), outcomes
+    assert (await fresh(world, a, held))["stage"] == "review"
+    assert (await fresh(world, a, early))["stage"] == "submission"
+
+
+async def _listed(world: World, org: Org, view: str) -> set[str]:
+    page = await world.call("GET", CHG, org, org.admin, params={"view": view})
+    assert page.status_code == 200, page.text
+    return {i["id"] for i in page.json()["items"]}
+
+
+async def test_req_chg_098_the_change_list_has_its_own_views(world: World) -> None:
+    """In implementation now, emergency changes and due for review list exactly theirs; the CAB's
+    own view is offered too, and those with no filter equivalent say so for export.
+    """
+    a = world.a
+    planned = await a_change(world, a)
+    standard = await new_change(world, a, a.admin, change_type="standard")
+    assert standard.status_code == 201, standard.text
+    moved = await move(world, a, standard.json(), "implementation_in_progress")
+    assert moved.status_code == 200, moved.text
+    implementing = moved.json()
+    made = await new_change(world, a, a.admin, change_type="emergency")
+    assert made.status_code == 201, made.text
+    emergency = made.json()
+    reviewing = await _in_review(world, a)
+    later = await _in_review(world, a)
+    for item, days in ((reviewing, -1), (later, 7)):
+        current = (await world.call("GET", f"{CHG}/{item['id']}/details", a, a.admin)).json()
+        due = (datetime.now(UTC) + timedelta(days=days)).replace(microsecond=0)
+        saved = await world.call(
+            "PATCH",
+            f"{CHG}/{item['id']}/details",
+            a,
+            a.admin,
+            json={"review_due_at": due.isoformat()},
+            headers={"If-Match": f'"{current["version"]}"', **CONSOLE},
+        )
+        assert saved.status_code == 200, saved.text
+    views = [v["view"] for v in (await world.call("GET", f"{CHG}/views", a, a.admin)).json()]
+    for code in ("awaiting_cab", "in_implementation", "emergency", "due_for_review"):
+        assert code in views, views
+    now_implementing = await _listed(world, a, "in_implementation")
+    assert implementing["id"] in now_implementing
+    assert planned["id"] not in now_implementing
+    emergencies = await _listed(world, a, "emergency")
+    assert emergency["id"] in emergencies
+    assert planned["id"] not in emergencies
+    due_now = await _listed(world, a, "due_for_review")
+    assert reviewing["id"] in due_now
+    assert later["id"] not in due_now
+    assert planned["id"] not in await _listed(world, a, "awaiting_cab")
+    filters = {
+        f["view"]: f for f in (await world.call("GET", f"{CHG}/view-filters", a, a.admin)).json()
+    }
+    assert filters["awaiting_cab"]["expressible"] is True
+    assert filters["in_implementation"]["expressible"] is False
+
+
+async def test_req_chg_101_bulk_assign_and_take_follow_the_group_rule(world: World) -> None:
+    """Assign sets the group and owner where the owner is in it, and skips the rest with why
+    (D-154a); take makes the technician the owner of each change they may take.
+    """
+    a = world.a
+    first, second, third = [await a_change(world, a) for _ in range(3)]
+    job = await _bulk(
+        world, a, "assign", [first, second], group_id=str(a.ga), technician_id=str(a.tech_a)
+    )
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["group_id"], now["technician_id"]) == (str(a.ga), str(a.tech_a))
+    outside = await _bulk(
+        world, a, "assign", [third], group_id=str(a.ga), technician_id=str(a.tech_b)
+    )
+    result = outside["results"][0]
+    assert (result["outcome"], result["code"]) == ("skipped", "technician_not_in_group"), result
+    assert (await fresh(world, a, third))["technician_id"] is None
+    taken = await _bulk(world, a, "take", [third], user=a.tech_a)
+    assert taken["done_count"] == 1, taken
+    assert (await fresh(world, a, third))["technician_id"] == str(a.tech_a)
+
+
+async def test_req_chg_101_bulk_cancel_with_a_reason_and_bulk_delete(world: World) -> None:
+    """WP-046a S1 PR 2: cancel takes each change's own listed cancel move with the reason;
+    one past the point a cancel is offered is skipped and says why; delete moves to the trash.
+    """
+    a = world.a
+    first, second, gone = [await a_change(world, a) for _ in range(3)]
+    without = await world.call(
+        "POST",
+        f"{CHG}/bulk",
+        a,
+        a.admin,
+        json={"action": "cancel", "changes": {}, "record_ids": [first["id"]]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert without.status_code == 422, without.text  # a cancel says why
+    job = await _bulk(world, a, "cancel", [first, second], reason_text="Superseded by CHG-9")
+    assert job["done_count"] == 2, job
+    for item in (first, second):
+        now = await fresh(world, a, item)
+        assert (now["status"], now["status_category"]) == ("closure_canceled", "canceled")
+    again = await _bulk(world, a, "cancel", [first], reason_text="Twice")
+    assert again["results"][0]["outcome"] == "skipped", again
+    removed = await _bulk(world, a, "delete", [gone])
+    assert removed["done_count"] == 1, removed
+    shown = await world.call("GET", f"{CHG}/{gone['id']}", a, a.admin)
+    assert shown.status_code == 404, shown.text
+    # Incidents cancel through their own life cycle, never this action.
+    refused = await world.call(
+        "POST",
+        "/incidents/bulk",
+        a,
+        a.admin,
+        json={"action": "delete", "changes": {}, "record_ids": [str(uuid.uuid4())]},
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert refused.status_code == 422, refused.text
+
+
+# --- close_change: one change's close for other flows (lane C's REQ-REL-052) ---------------------
+
+
+async def _close(
+    world: World,
+    org: Org,
+    user: uuid.UUID,
+    item: dict[str, Any],
+    without: frozenset[str] = frozenset(),
+    **values: Any,  # noqa: ANN401 - the call's keywords
+) -> Any:  # noqa: ANN401 - the view or the refusal
+    """close_change as a closing release calls it: one savepoint per change, refusals returned."""
+    async with world.app.state.db.tenant_session(
+        TenantContext(org.tenant, user_id=user)
+    ) as session:
+        subject = await subject_for(session, org.tenant, user)
+        if without:  # the same person, short of these rights (a view-only role, in effect)
+            grants = {k: v for k, v in subject.grants.items() if k not in without}
+            subject = replace(subject, grants=grants, is_tenant_admin=False)
+        try:
+            async with session.begin_nested():
+                return await change_close.close_change(
+                    session,
+                    subject,
+                    uuid.UUID(item["id"]),
+                    expected_version=values.pop("version", item["version"]),
+                    source="api",
+                    **values,
+                )
+        except AppError as refused:
+            return refused
+
+
+async def test_close_change_closes_by_the_change_s_own_close_and_raises_its_refusals(
+    world: World,
+) -> None:
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    code = codes[0]["code"]
+    ready = await _in_review(world, a)
+    # The closing rules: the code is asked for, as on the change screen.
+    missing = await _close(world, a, a.admin, ready, closure_code=None)
+    assert isinstance(missing, AppError)
+    assert (await fresh(world, a, ready))["stage"] == "review"
+    stale = await _close(world, a, a.admin, ready, closure_code=code, version=ready["version"] - 1)
+    assert isinstance(stale, Conflict)
+    closed = await _close(world, a, a.admin, ready, closure_code=code)
+    assert not isinstance(closed, AppError), closed
+    after = await fresh(world, a, ready)
+    assert (after["status"], after["closure_code"]) == ("closure_closed", code)
+    # History records it as any close (one saved change, by the person).
+    assert "status" in {
+        c["field"]
+        for e in (await world.call("GET", f"{CHG}/{ready['id']}/history", a, a.admin)).json()[
+            "items"
+        ]
+        for c in e["changes"]
+    }
+    # Not at its review: no close is listed from here.
+    early = await a_change(world, a)
+    refused = await _close(world, a, a.admin, early, closure_code=code)
+    assert isinstance(refused, Conflict)
+    assert (refused.instance_code, refused.params) == (
+        "not_closable_from_here",
+        {"status": early["status"]},
+    )
+    # Someone who cannot see the change hears nothing about it.
+    hidden = await _close(world, a, a.requester, await _in_review(world, a), closure_code=code)
+    assert isinstance(hidden, NotFound)
+
+
+async def test_close_change_a_listed_close_you_may_not_run_says_why(world: World) -> None:
+    """Lane C's #429 review: the skip bulk close and a closing release show most. The close is
+    listed (the change is at its review), but this person may not run it: the code, and a
+    reason that has its own label."""
+    a = world.a
+    codes = (await world.call("GET", f"{CHG}/settings", a, a.admin)).json()["closure_codes"]
+    ready = await _in_review(world, a)
+    # The admin sees the change; without changes.edit the close is listed but not theirs to run.
+    refused = await _close(
+        world, a, a.admin, ready, without=frozenset({"changes.edit"}), closure_code=codes[0]["code"]
+    )
+    assert isinstance(refused, PermissionDenied), refused
+    assert refused.instance_code == "transition_not_allowed"
+    reason = refused.params["reason"]
+    assert isinstance(reason, str)
+    assert has_label(f"action_reason.{reason}"), reason
+    assert (await fresh(world, a, ready))["stage"] == "review"  # nothing moved

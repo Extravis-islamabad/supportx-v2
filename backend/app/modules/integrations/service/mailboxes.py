@@ -21,6 +21,7 @@ from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.integrations.domain.mailboxes import (
     CONNECTOR_KIND,
+    IMAP_PORTS,
     WAITING,
     AfterFetch,
     AuthModel,
@@ -32,8 +33,10 @@ from app.modules.integrations.domain.mailboxes import (
     Outcome,
     UnknownSenders,
     check_security,
+    host_name,
     oauth_problems,
     releasable,
+    trust_problems,
 )
 from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import MailboxUnavailableError
@@ -51,6 +54,8 @@ from app.modules.integrations.service.connections import (
     start_consent,
 )
 from app.modules.integrations.service.fetching import own_addresses
+from app.shared.egress import EgressError, installation_allowance
+from app.shared.egress.sockets import NOT_ALLOWED, pinned_address
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
@@ -92,7 +97,12 @@ FIELDS = (
     "unknown_senders",
     "allowed_domains",
     "enabled",
+    "trusted_servers",
+    "trust_provider_results",
+    "quarantine_days",
 )
+# Security settings: their before and after go in the audit entry (lane B's condition 6).
+TRUST_FIELDS = ("trusted_servers", "trust_provider_results")
 
 
 class KeyRingMissing(ServiceUnavailable):
@@ -121,6 +131,9 @@ FIELD_PROBLEMS = frozenset(
         "mailbox_address_invalid",
         "mailbox_auth_model_unsupported",
         "oauth_certificate_invalid",
+        "trusted_servers_too_many",
+        "host_name_invalid",
+        "mailbox_provider_results_graph_only",
     }
 )
 
@@ -144,6 +157,8 @@ def _problems(values: Mapping[str, Any], *, has_secret: bool) -> list[FieldError
             for name in ("host", "port", "username")
             if not values.get(name)
         ]
+        if values.get("port") and values["port"] not in IMAP_PORTS:  # audit #3: no port scanner
+            errors.append(_field_error("port", "port_not_allowed"))
         if not has_secret:
             errors.append(_field_error("password", "required"))
     auth_model, kind = values.get("auth_model"), values.get("credential_kind")
@@ -162,6 +177,14 @@ def _problems(values: Mapping[str, Any], *, has_secret: bool) -> list[FieldError
         errors.append(
             FieldError(field="body.move_to", code="required", message_key="errors.field.required")
         )
+    errors += [
+        _field_error(name, code)
+        for name, code in trust_problems(
+            protocol,
+            list(values.get("trusted_servers") or ()),
+            trust_provider=bool(values.get("trust_provider_results")),
+        )
+    ]
     if "@" not in str(values.get("address", "@")):
         errors.append(
             FieldError(
@@ -227,7 +250,26 @@ def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
     for name in FIELDS:
         if name in values:
             value = values[name]
-            setattr(row, name, value.lower() if name == "address" else value)
+            if name == "address":
+                value = value.lower()
+            elif name == "trusted_servers":
+                value = list(dict.fromkeys(host_name(v) or v for v in value))
+            setattr(row, name, value)
+
+
+def trust_changes(row: Mailbox, values: Mapping[str, Any]) -> dict[str, Any]:
+    """The trust settings a change moves, before and after, for the audit entry."""
+    details: dict[str, Any] = {}
+    for name in TRUST_FIELDS:
+        if name not in values:
+            continue
+        after = values[name]
+        if name == "trusted_servers":
+            after = list(dict.fromkeys(host_name(v) or v for v in after))
+        before = list(getattr(row, name)) if name == "trusted_servers" else getattr(row, name)
+        if before != after:
+            details[f"{name}.before"], details[f"{name}.after"] = before, after
+    return details
 
 
 async def _store_secret(session: AsyncSession, row: Mailbox, ring: KeyRing, secret: str) -> None:
@@ -242,6 +284,26 @@ async def _store_secret(session: AsyncSession, row: Mailbox, ring: KeyRing, secr
     await secrets.put(session, row, ring, secrets.SecretRole.CREDENTIAL, secret)
 
 
+async def _host_problems(values: Mapping[str, Any], settings: Settings) -> list[FieldError]:
+    """Audit #3: a tenant's IMAP host must resolve only to addresses a tenant may reach.
+
+    Saved names are checked here and again at every connection (DNS may change since). A name
+    that does not resolve yet is not refused here: the connection test reports it. The error
+    says only `address_not_allowed`, never which address or range.
+    """
+    host, port = values.get("host"), values.get("port")
+    if MailboxProtocol(values.get("protocol") or MailboxProtocol.IMAP) is not MailboxProtocol.IMAP:
+        return []
+    if not host or not port or port not in IMAP_PORTS:
+        return []  # required and port problems are _problems'
+    try:
+        await pinned_address(str(host), int(port), installation_allowance(settings))
+    except EgressError as exc:
+        if exc.code == NOT_ALLOWED:
+            return [_field_error("host", NOT_ALLOWED)]
+    return []
+
+
 async def create_mailbox(
     session: AsyncSession,
     settings: Settings,
@@ -251,7 +313,9 @@ async def create_mailbox(
     password: str | None,
 ) -> MailboxView:
     """A new mailbox; fetched at the next poll once its connection works (or its consent)."""
-    if errors := _problems(values, has_secret=bool(password)):
+    if errors := _problems(values, has_secret=bool(password)) or await _host_problems(
+        values, settings
+    ):
         raise ValidationFailed(errors=errors)
     ring = key_ring(settings)
     if ring is None:
@@ -285,8 +349,12 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
     *,
     password: str | None,
     expected_version: int,
+    audit_details: dict[str, Any] | None = None,
 ) -> MailboxView:
-    """Change a mailbox (If-Match); a new password replaces the stored one."""
+    """Change a mailbox (If-Match); a new password replaces the stored one.
+
+    `audit_details` receives the trust settings' before and after when they change.
+    """
     row = (await get_mailbox(session, mailbox_id)).row
     if row.version != expected_version:
         raise Conflict(
@@ -294,8 +362,12 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
             params={"expected_version": expected_version, "current_version": row.version},
         )
     merged = {name: getattr(row, name) for name in FIELDS} | dict(values)
-    if errors := _problems(merged, has_secret=bool(password) or row.secret_sealed is not None):
+    if errors := _problems(
+        merged, has_secret=bool(password) or row.secret_sealed is not None
+    ) or await _host_problems(merged, settings):
         raise ValidationFailed(errors=errors)
+    if audit_details is not None:
+        audit_details.update(trust_changes(row, values))
     signed_in = {"protocol", "auth_model", "client_id", "directory_id", "address"}
     if any(name in values and values[name] != getattr(row, name) for name in signed_in):
         # Another app, model or mailbox: the earlier sign-in no longer applies.

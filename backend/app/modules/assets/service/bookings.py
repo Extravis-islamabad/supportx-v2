@@ -30,10 +30,12 @@ from app.modules.assets.infra.models import (
     AssetBooking,
     AssetLoan,
     AssetLoanItem,
+    AssetProduct,
     AssetSettings,
     AssetState,
 )
 from app.modules.assets.service.assets import (
+    ASSETS,
     MANAGE,
     VIEW,
     _refuse,
@@ -43,7 +45,7 @@ from app.modules.assets.service.assets import (
 )
 from app.modules.assets.service.loans import COMMENT_MAX, create_loan
 from app.modules.assets.service.refs import ASSET_SEARCH
-from app.modules.identity_access import Subject, active_user_ids
+from app.modules.identity_access import Subject, active_user_ids, scope_filter
 from app.modules.organization import existing_departments
 from app.shared.clock import system_clock
 from app.shared.events import record_event
@@ -150,6 +152,10 @@ async def _event(session: AsyncSession, row: AssetBooking, change: BookingChange
     )  # fmt: skip
 
 
+# The booking's ordinary change event, for another part of the module (the erasure port).
+record_booking_change = _event
+
+
 async def create_booking(  # noqa: PLR0913 - which asset, for whom, when, why, from where
     session: AsyncSession,
     subject: Subject,
@@ -204,12 +210,24 @@ async def create_booking(  # noqa: PLR0913 - which asset, for whom, when, why, f
     return booking
 
 
-async def _live(session: AsyncSession, booking_id: uuid.UUID) -> AssetBooking:
-    row = await session.scalar(
-        select(AssetBooking)
-        .where(AssetBooking.id == booking_id, AssetBooking.deleted_at.is_(None))
-        .with_for_update()
+async def _live(
+    session: AsyncSession, booking_id: uuid.UUID, staff: Subject | None = None
+) -> AssetBooking:
+    """A live booking, locked.
+
+    `staff`: only a booking of an asset that person may manage (the right every staff booking
+    write needs), so a booking of an asset outside their reach reads as no booking at all, the
+    same 404 as an unknown ID; checked before the version and the status, so a 409 never names
+    anything about it (lane B's write walk, lane C's re-check on main, 2026-11-20).
+    """
+    query = select(AssetBooking).where(
+        AssetBooking.id == booking_id, AssetBooking.deleted_at.is_(None)
     )
+    if staff is not None:
+        query = query.where(
+            AssetBooking.asset_id.in_(select(Asset.id).where(scope_filter(staff, MANAGE, ASSETS)))
+        )
+    row = await session.scalar(query.with_for_update())
     if row is None:
         raise NotFound(code="asset_booking_not_found")
     return row
@@ -226,7 +244,7 @@ async def cancel_booking(
     """Cancel a booking not yet handed over (If-Match). `own_only`: the portal's, one's own."""
     if not own_only:
         _require(subject, MANAGE)
-    row = await _live(session, booking_id)
+    row = await _live(session, booking_id, None if own_only else subject)
     if own_only and row.borrower_id != subject.user_id:
         raise NotFound(code="asset_booking_not_found")
     if row.version != expected_version:
@@ -254,7 +272,7 @@ async def hand_over(
 ) -> tuple[AssetBooking, AssetLoan]:
     """The booked asset is handed over: a loan with the booking's dates (AC2)."""
     _require(subject, MANAGE)
-    row = await _live(session, booking_id)
+    row = await _live(session, booking_id, subject)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,
@@ -312,6 +330,11 @@ async def list_bookings(  # noqa: PLR0913 - the calendar's filters
             assets = assets.where(Asset.site_id == site_id)
         asset_ids = list(await session.scalars(assets))
     query = _listing(asset_ids=asset_ids, start=start, end=end)
+    # Only bookings of assets the person may see (the asset scope, #423), whatever the filters:
+    # never through the site argument (lane B and lane C, 2026-11-20).
+    query = query.where(
+        AssetBooking.asset_id.in_(select(Asset.id).where(scope_filter(subject, VIEW, ASSETS)))
+    )
     if not include_closed:
         query = query.where(AssetBooking.status == "booked")
     return list(
@@ -344,6 +367,20 @@ class Availability:
 
     asset: Asset
     held: list[Period]
+
+
+async def product_names(
+    session: AsyncSession, product_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """Products' names by ID (the shared pool names the product, never the asset)."""
+    if not product_ids:
+        return {}
+    rows = await session.execute(
+        select(AssetProduct.id, AssetProduct.name).where(
+            AssetProduct.id.in_(list(dict.fromkeys(product_ids)))
+        )
+    )
+    return dict(rows.tuples().all())
 
 
 async def availability(

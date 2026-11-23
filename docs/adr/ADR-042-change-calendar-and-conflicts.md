@@ -86,3 +86,42 @@ Intervals are half-open, so a change may start the moment a freeze ends.
 - CI- and service-scoped windows wait for the CMDB. Their IDs are already stored, so no
   migration is needed then.
 - The maintenance reach (a week) is a v1 rule of thumb. It is one constant, `MAINTENANCE_REACH`.
+
+## Addendum A (WP-058b S2): releases, by planned stage
+
+*Proposed by lane C; agreed in principle by lane A on 2026-11-11, before the code. Lane A gives
+the blocking review of this text in the S2 PR. The coordinator's answers (a)-(c) of 2026-11-11.*
+
+1. **Planned stage per type.** `domain/change_windows.PLANNED_STAGE`: a change plans its
+   implementation, a release its deployment. A record's planned time is that stage's window and
+   its planned downtimes. The calendar (WP-058b S1) and the guard read the same map.
+2. **The same pure check.** A release is in a window's scope by the same rule as a change. Monthly
+   windows use the tenant's zone through `window_of(row, zone)`, so a release's freeze check uses
+   the tenant's local days too. Every deployment is guarded; per-environment guarding waits for
+   WP-053 (coordinator (b)).
+3. **Outside maintenance.** D-156's `outside_maintenance_blocks` is the change type's setting
+   only. A release always warns outside maintenance, unless a new decision gives releases their own
+   setting (and column).
+4. **Overlap across types** (coordinator (a)). Open changes and releases planned at an overlapping
+   time meet on the same group or site, or when their planned downtimes name the same service or
+   CI (stored IDs only). An overlap only warns, and names the other record by ID and type, never
+   its subject. `_others` is one query per type, under the tenant's RLS.
+5. **Booked twice** (`role_booked`, REQ-REL-041). A release manager or engineer (the release's
+   details or its role holders) on two releases whose deployments overlap. Releases only, warn
+   only.
+6. **Guard.** It runs for both types on every path that moves the planned time. The 409 stays
+   `change_window_blocked` with the same params (kind, window_id, window_ids, count); its text
+   no longer says "change".
+   - **Changes, unchanged:** what passes is the override's freezes (and, for the move into
+     implementation, the emergency CAB's); an emergency change's window is marked, not refused.
+   - **Releases:** only the release's own override (`releases.override_freeze`, 0139: the
+     release manager and administrators, a reason, SECURITY audit, history, refused on a closed
+     release). There is no CAB path, and a release on its emergency path is refused like any
+     other; a release emergency route would be a new decision.
+   - Both are bound to window IDs; a blanket pass never exists.
+7. **Acknowledging a warning** (releases only, REQ-REL-041 AC3). A conflict's key is its kind,
+   what it is with (a window, a record, or the maintenance windows in force) and both sides'
+   versions of their planned times. An ack (who, when, why) holds for its key: it lapses when
+   either side moves, and a new conflict never inherits it. A block is never acknowledged; it goes
+   through the override. Changes have no acknowledge step (lane A).
+8. **Live.** Conflicts refetch on both types' list channels and on the windows broadcast.

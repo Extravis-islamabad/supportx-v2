@@ -19,6 +19,7 @@ NULL never equals anything, so without a tenant every policy is false: zero rows
 """
 
 import re
+from collections.abc import Sequence
 
 APP_ROLE = "supportx_app"
 MIGRATOR_ROLE = "supportx_migrator"
@@ -89,6 +90,23 @@ def report_grant_statements(table: str) -> list[str]:
     return [f"REVOKE ALL ON {t} FROM {REPORT_ROLE}", f"GRANT SELECT ON {t} TO {REPORT_ROLE}"]
 
 
+def report_column_grant_statements(table: str, columns: Sequence[str]) -> list[str]:
+    """Let the reporting role read only `columns` of `table` (SELECT; RLS still filters).
+
+    For a table that also holds free text or people's words (an approval's comment): the grant
+    is the boundary, so a later report can never read a column nobody granted.
+    """
+    t = _check(table)
+    if not columns:
+        msg = "a column grant needs at least one column"
+        raise ValueError(msg)
+    listed = ", ".join(_check(c) for c in columns)
+    return [
+        f"REVOKE ALL ON {t} FROM {REPORT_ROLE}",
+        f"GRANT SELECT ({listed}) ON {t} TO {REPORT_ROLE}",
+    ]
+
+
 def report_revoke_statements(table: str) -> list[str]:
     """Reverse of `report_grant_statements` (downgrades)."""
     return [f"REVOKE ALL ON {_check(table)} FROM {REPORT_ROLE}"]
@@ -124,3 +142,62 @@ def actor_audit_statements(table: str) -> list[str]:
             "FOR EACH ROW EXECUTE FUNCTION supportx_stamp_actor()"
         )
     ]
+
+
+# --- SECURITY DEFINER functions (D-168, #476) -----------------------------------------------------
+# The only way a migration creates one. Each is owned by the migrator (the migration runs as it),
+# runs with a fixed search_path, is closed to PUBLIC and open to supportx_app alone. The body is
+# the caller's; nothing in it may grant, alter roles or switch row-level security (the policy
+# guard scans migrations' strings, and these words are refused there).
+_SIGNATURE = re.compile(
+    r"^[a-z_][a-z0-9_]{0,62}\((?:[a-z_ ]+(?:\[\])?(?:, ?[a-z_ ]+(?:\[\])?)*)?\)$"
+)
+_VOLATILITY = {"STABLE", "VOLATILE"}
+_LANGUAGES = {"sql", "plpgsql"}
+
+
+def _check_signature(signature: str) -> str:
+    if not _SIGNATURE.match(signature):
+        msg = f"not a function signature: {signature!r}"
+        raise ValueError(msg)
+    return signature
+
+
+def definer_function_statements(  # noqa: PLR0913 - one statement's parts, explicit
+    name: str,
+    arguments: str,
+    returns: str,
+    body: str,
+    *,
+    language: str = "sql",
+    volatility: str = "STABLE",
+) -> list[str]:
+    """CREATE a migrator-owned SECURITY DEFINER function, closed to PUBLIC, for supportx_app.
+
+    `arguments` are named (`p_subject uuid`); the signature for the grants is derived from
+    their types.
+    """
+    if language not in _LANGUAGES or volatility not in _VOLATILITY:
+        msg = f"language {language!r} / volatility {volatility!r} not allowed"
+        raise ValueError(msg)
+    if "$$" in body:
+        msg = "the body may not close its own quoting"
+        raise ValueError(msg)
+    types = ", ".join(
+        part.strip().split(" ", 1)[1] for part in arguments.split(",") if part.strip()
+    )
+    signature = _check_signature(f"{_check(name)}({types})")
+    return [
+        (
+            f"CREATE FUNCTION {_check(name)}({arguments}) RETURNS {returns} "
+            f"LANGUAGE {language} {volatility} SECURITY DEFINER "
+            f"SET search_path = pg_catalog, public AS $${body}$$"
+        ),
+        f"REVOKE ALL ON FUNCTION {signature} FROM PUBLIC",
+        f"GRANT EXECUTE ON FUNCTION {signature} TO {APP_ROLE}",
+    ]
+
+
+def drop_definer_function_statements(signature: str) -> list[str]:
+    """Reverse of `definer_function_statements` (downgrades)."""
+    return [f"DROP FUNCTION {_check_signature(signature)}"]

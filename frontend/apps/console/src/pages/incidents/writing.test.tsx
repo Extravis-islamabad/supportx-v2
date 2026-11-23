@@ -65,6 +65,10 @@ function api(off: string[] = []) {
 describe('writing help', () => {
   it('turns HTML into text and text into safe paragraphs', () => {
     expect(plainText('<p>Hello <b>there</b></p>')).toBe('Hello there');
+    // QA-2026-11-11 V-16: paragraphs and list items never run together ("device.Still").
+    expect(
+      plainText('<p>New MFA device.</p><p>Still stuck?</p><ul><li>One</li><li>Two</li></ul>'),
+    ).toBe('New MFA device. Still stuck? One Two');
     expect(asParagraphs('One <b>\nline\n\nTwo')).toBe('<p>One &lt;b&gt;<br>line</p><p>Two</p>');
   });
 

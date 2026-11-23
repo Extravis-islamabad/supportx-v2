@@ -2,7 +2,7 @@
 Egress allow-list (WP-014b), opt-in: networkPolicies.egress.enabled, off by default.
 
 On, every pod in the release namespace may reach only:
-  - DNS (kube-dns in kube-system);
+  - DNS (kube-dns in kube-system, and networkPolicies.egress.dnsAddresses: NodeLocal DNSCache);
   - other pods in this namespace (the database, PgBouncer, NATS, Valkey, Keycloak, SeaweedFS,
     clamd: their own ingress policies still decide who gets in);
   - the rules in networkPolicies.egress.extra (every pod) and
@@ -35,6 +35,9 @@ spec:
           podSelector:
             matchLabels:
               k8s-app: kube-dns
+        {{- range $egress.dnsAddresses }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
@@ -61,6 +64,27 @@ spec:
   egress:
     {{- toYaml $rules | nindent 4 }}
 {{- end }}
+{{- end }}
+{{- with $egress.database }}
+---
+# The database's own pods only: an external backup target and its port, least privilege (D-166;
+# the audit's rule against opening an address to every pod). CloudNativePG's pods carry
+# cnpg.io/cluster (not app.kubernetes.io/component); only this release's clusters are selected,
+# the chart's <release>-pg and the restore runbook's <release>-pg-restore (docs/runbooks/restore.md),
+# never another release's or another team's CloudNativePG cluster in the namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-database-egress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: cnpg.io/cluster, operator: In, values: [{{ $rel }}-pg, {{ $rel }}-pg-restore]}
+  policyTypes: [Egress]
+  egress:
+    {{- toYaml . | nindent 4 }}
 {{- end }}
 {{- $kubeApiUsers := list
   (dict "name" "cluster" "match" (list (dict "key" "cnpg.io/cluster" "operator" "Exists")))

@@ -30,6 +30,7 @@ export {
 export { EditableValue, PropertyList, type PropertyItem } from './PropertyList';
 export { FieldRow, FormFooter, FormPage, FormSection, type FormPageProps } from './FormPage';
 export { useMinWidth } from './useMinWidth';
+export { Tabs, type TabsProps } from './Tabs';
 export {
   LIBRARY_ALL,
   LibraryPage,
@@ -45,3 +46,5 @@ export {
 } from './ResizableHeader';
 export { useColumnWidths } from './useColumnWidths';
 export { CellText } from './CellText';
+export { RestrictedValue } from './RestrictedValue';
+export { restrictionOf, type RestrictionKind } from './restriction';

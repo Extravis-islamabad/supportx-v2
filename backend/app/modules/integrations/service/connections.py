@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.integrations.domain.mailboxes import (
+    IMAP_PORTS,
     AuthModel,
     ConnectionSecurity,
     CredentialKind,
@@ -33,6 +34,7 @@ from app.modules.integrations.domain.mailboxes import (
     scopes_for,
 )
 from app.modules.integrations.infra.imap import (
+    IMAP_UNREACHABLE,
     ImapReader,
     ImapSettings,
     MailboxReader,
@@ -49,6 +51,8 @@ from app.modules.integrations.infra.oauth import (
     load_certificate,
     pkce_pair,
 )
+from app.shared.egress import EgressError, installation_allowance
+from app.shared.egress.sockets import NOT_ALLOWED, pinned_address
 from app.shared.files.keyring import KeyRing, KeyRingError
 
 SECRET_PURPOSE = "mailbox"  # noqa: S105 - the sealing context, not a password
@@ -64,6 +68,9 @@ CONSENT_NOT_YOURS = "oauth_consent_not_yours"
 CONSENT_DECLINED = "oauth_consent_declined"
 
 _TRANSPORT: list[httpx.AsyncBaseTransport] = []
+
+
+PORT_NOT_ALLOWED = "port_not_allowed"  # a tenant IMAP port outside IMAP_PORTS (audit #3)
 
 
 def use_transport(transport: httpx.AsyncBaseTransport | None) -> None:
@@ -186,11 +193,23 @@ async def open_reader(
     """
     protocol = MailboxProtocol(mailbox.protocol)
     if protocol is MailboxProtocol.IMAP:
+        host, port = mailbox.host or "", mailbox.port or 993
+        # Audit #3: a tenant-typed host, checked and pinned at every connection (DNS may have
+        # changed since it was saved); the reason says only that the address is not allowed.
+        if port not in IMAP_PORTS:
+            raise MailboxUnavailableError(PORT_NOT_ALLOWED)
+        try:
+            pinned = await pinned_address(host, port, installation_allowance(settings))
+        except EgressError as exc:
+            raise MailboxUnavailableError(
+                NOT_ALLOWED if exc.code == NOT_ALLOWED else IMAP_UNREACHABLE
+            ) from None
         return Opened(
             ImapReader(
                 ImapSettings(
-                    host=mailbox.host or "",
-                    port=mailbox.port or 993,
+                    host=host,
+                    port=port,
+                    pinned=str(pinned),
                     security=ConnectionSecurity(mailbox.security),
                     username=mailbox.username or "",
                     password=_secret_of(mailbox, ring, secret, stored),

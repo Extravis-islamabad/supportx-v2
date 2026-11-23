@@ -10,20 +10,22 @@ import {
   Select,
   Skeleton,
   Space,
-  Tabs,
   Tooltip,
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   ApiError,
+  checklistKeys,
   queryKeys,
   useCausingProblem,
   useDeleteIncident,
   useIncident,
+  useMarkIncidentRead,
   useIncidentTasks,
+  useAutoStartTimer,
   useIncidentCatalogue,
   useIncidentCategories,
   attachDrafts,
@@ -55,6 +57,7 @@ import {
   PresenceAvatars,
   PropertiesPanel,
   PropertyList,
+  restrictionOf,
   PropertyRow,
   type RecordAction,
   RecordHeader,
@@ -72,8 +75,18 @@ import {
   useLicence,
   usePageCrumbs,
   WriteButton,
+  Tabs,
 } from '@supportx/ui';
 
+import { CopyDialog } from './CopyDialog';
+import { AttachSimilarDialog, MajorDialog, MajorTag } from './MajorIncident';
+import { PrintDialog } from './IncidentPrint';
+import {
+  AnnounceDialog,
+  EndAnnouncementsPrompt,
+  IncidentAnnouncements,
+} from './IncidentAnnouncements';
+import { ConvertDialog, MergeIncidentDialog, MovedBanner } from './MergeConvert';
 import { RecordWorkflows } from '../workflows/RecordWorkflows';
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
@@ -84,7 +97,8 @@ import { useIncidentFieldName } from './conflict';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
 import { rememberIncident } from './recent';
-import { DEFAULT_TAB, lastTab, rememberTab } from './tabs';
+import { AskApprovalDialog, IncidentApprovals } from './IncidentApprovals';
+import { DEFAULT_TAB, lastTab, RECORD_TABS, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
@@ -93,10 +107,13 @@ import { KnowledgePicker } from '../knowledge/KnowledgePicker';
 import { KnownErrorTool } from '../problems/KnownErrorTool';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
-import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
+import { IncidentLinks, IncidentTasks, IncidentTime, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
+import { RecordAllFiles } from './RecordAllFiles';
+import { RecordChecklists } from './RecordChecklists';
+import { RecordReminders } from './RecordReminders';
 import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
@@ -116,6 +133,7 @@ import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 import { CausingProblemCard } from './CausingProblemCard';
 import { RecordAssets } from './RecordAssets';
+import { CancellationAsk } from './CancellationAsk';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -173,6 +191,22 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [changedBy, setChangedBy] = useState<string | null>(null);
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [majorOpen, setMajorOpen] = useState(false); // WP-046b S4 (REQ-INC-141)
+  const [attaching, setAttaching] = useState(false); // REQ-INC-141 AC2
+  const [announcing, setAnnouncing] = useState(false); // WP-046b S4 (REQ-INC-129)
+  const [printing, setPrinting] = useState(false); // WP-046b S4 (REQ-INC-126)
+  // Resolving offers to end the announcements made from it; nothing ends by itself (AC2).
+  const [endPrompt, setEndPrompt] = useState(false);
+  const wasResolved = useRef(item.status_category === 'resolved');
+  useEffect(() => {
+    const resolved = item.status_category === 'resolved';
+    if (resolved && !wasResolved.current) setEndPrompt(true);
+    wasResolved.current = resolved;
+  }, [item.status_category]);
+  const [merging, setMerging] = useState(false); // WP-046b S2 (REQ-INC-088)
+  const [converting, setConverting] = useState(false); // WP-046b S2 (REQ-INC-089)
+  const [asking, setAsking] = useState(false); // WP-046b S1 (REQ-INC-083)
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
@@ -185,8 +219,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   });
   // A record just made opens on Conversation, whatever tab was used last (QA6-INC-04).
   const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
-  const [tab, setTab] = useState<string>(() => (justMade ? DEFAULT_TAB : lastTab(me)));
+  // A link to a tab (`?tab=tasks`) opens on it, as changes do (QA 2026-11-12 F-10); then a
+  // record just made opens on Conversation; otherwise the tab this user used last.
+  const [params] = useSearchParams();
+  const asked = params.get('tab');
+  const known = asked !== null && (RECORD_TABS as readonly string[]).includes(asked);
+  const [tab, setTab] = useState<string>(() =>
+    known ? asked : justMade ? DEFAULT_TAB : lastTab(me),
+  );
   const [replyRequest, setReplyRequest] = useState(0);
+  // A composer is open: its Send is the one primary action, so the header's buttons go quiet.
+  const [composing, setComposing] = useState(false);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   // Tasks, worklogs and links follow the record's edit permission (WP-020e).
   const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
@@ -195,6 +238,19 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   useEffect(() => {
     rememberIncident(me, item.id);
   }, [me, item.id]);
+  // REQ-INC-115 AC2: opening it marks it read; so does a live change seen while it is open.
+  const { mutate: markRead } = useMarkIncidentRead();
+  useEffect(() => {
+    markRead(item.id);
+  }, [markRead, item.id, item.version]);
+  // WP-046a S3 (REQ-INC-069): with the type's auto-start on, opening your own record starts
+  // your timer, once ever (the server decides and keeps it to once).
+  const { mutate: autoStartTimer } = useAutoStartTimer(item.id);
+  const autoStart = catalogue.data?.closure.timer_auto_start === true;
+  const mine = me !== null && item.technician_id === me && canEditParts;
+  useEffect(() => {
+    if (autoStart && mine) autoStartTimer();
+  }, [autoStart, mine, item.id, autoStartTimer]);
   const stopTyping = (userId: string) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);
@@ -237,6 +293,15 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', item.id],
     });
+    // An approver was asked or decided (WP-046b S1): the Approvals tab refetches; the record
+    // too, as its approval status may have changed.
+    if (event.type === 'work_items.approvals_changed') {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.incidents.detail(item.id), 'approvals'],
+      });
+      if (editing.current === 0) void reload();
+      return;
+    }
     // A reply or note was added or changed visibility: refetch the timeline (and the record's
     // counts), never interrupting someone editing a field.
     if (event.type === 'work_items.conversation_changed') {
@@ -252,6 +317,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
       } else if (part === 'worklog') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      } else if (part === 'checklist') {
+        // WP-046a S2: a checklist added, ticked or removed.
+        void queryClient.invalidateQueries({ queryKey: checklistKeys.of('incidents', item.id) });
       } else if (part === 'asset') {
         // REQ-AST-025: an asset linked or unlinked.
         void queryClient.invalidateQueries({
@@ -403,6 +471,107 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           onClick: () => void navigate(`/problems/new?incident=${item.id}`),
         }
       : null,
+    // WP-046b S1 (REQ-INC-083): ask named people to approve, with the rule they decide by.
+    {
+      key: 'ask_approval',
+      label: t('problems.approvals.ask'),
+      allowed:
+        item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+        item.status_category !== 'closed' &&
+        item.approval_status !== 'pending',
+      testId: 'inc-op-ask-approval',
+      onClick: () => {
+        setAsking(true);
+      },
+    },
+    // WP-046a S5c (REQ-INC-033): copy it one or more times.
+    can('incidents.create')
+      ? {
+          key: 'copy',
+          label: t('incidents.copy.open'),
+          allowed: true,
+          testId: 'inc-op-copy',
+          onClick: () => {
+            setCopying(true);
+          },
+        }
+      : null,
+    // WP-046b S4 (REQ-INC-141): declare major on an open incident, or end it; its own right.
+    can('incidents.declare_major') &&
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    (item.major || item.status_category === 'open' || item.status_category === 'paused')
+      ? {
+          key: 'major',
+          label: t(item.major ? 'incidents.major.end' : 'incidents.major.declare'),
+          allowed: true,
+          testId: item.major ? 'inc-op-end-major' : 'inc-op-declare-major',
+          onClick: () => {
+            setMajorOpen(true);
+          },
+        }
+      : null,
+    // REQ-INC-141 AC2: a major incident gathers similar open incidents as its children.
+    item.major && item.operations.find((o) => o.action === 'edit')?.allowed === true
+      ? {
+          key: 'attach_similar',
+          label: t('incidents.major.attach'),
+          allowed: true,
+          testId: 'inc-op-attach-similar',
+          onClick: () => {
+            setAttaching(true);
+          },
+        }
+      : null,
+    // WP-046b S4 (REQ-INC-126): print or save as PDF, sections chosen.
+    {
+      key: 'print',
+      label: t('incidents.print.action'),
+      allowed: true,
+      testId: 'inc-op-print',
+      onClick: () => {
+        setPrinting(true);
+      },
+    },
+    // WP-046b S4 (REQ-INC-129): announce from an incident (announcements' own right).
+    can('announcements.manage') &&
+    item.operations.find((o) => o.action === 'edit')?.allowed === true
+      ? {
+          key: 'announce',
+          label: t('incidents.announce.open'),
+          allowed: true,
+          testId: 'inc-op-announce',
+          onClick: () => {
+            setAnnouncing(true);
+          },
+        }
+      : null,
+    // WP-046b S2: merge into another incident (REQ-INC-088), convert to a request (-089).
+    // Open records only; the server checks edit here and on the other side, and refuses.
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open'
+      ? {
+          key: 'merge',
+          label: t('incidents.merge.action'),
+          allowed: true,
+          testId: 'inc-op-merge',
+          onClick: () => {
+            setMerging(true);
+          },
+        }
+      : null,
+    item.operations.find((o) => o.action === 'edit')?.allowed === true &&
+    item.status_category === 'open' &&
+    can('requests.create')
+      ? {
+          key: 'convert',
+          label: t('incidents.convert.action_to_request'),
+          allowed: true,
+          testId: 'inc-op-convert',
+          onClick: () => {
+            setConverting(true);
+          },
+        }
+      : null,
     deleteOp !== undefined && deleteOp.reason !== 'no_permission'
       ? {
           key: 'delete',
@@ -487,6 +656,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             }
             tags={
               <>
+                <MajorTag major={item.major} />
                 <StatusTag status={item.status} catalogue={catalogue.data} />
                 <PriorityTag priority={item.priority} source={item.priority_source} />
                 <SlaTag
@@ -516,6 +686,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           <ActionBar
             actions={actions}
             max={3}
+            quiet={composing}
             testId="inc-operations"
             lead={
               <>
@@ -557,6 +728,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               }
             />
             <LoopWarning id={item.id} />
+            <MovedBanner item={item} kind="incidents" />
+            <CancellationAsk item={item} />
           </>
         }
         panel={
@@ -639,6 +812,19 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                     },
                   ]
                 : []),
+              // Your own reminders on it (WP-046a S2, REQ-INC-082): yours only.
+              {
+                key: 'reminders',
+                title: t('reminders.title'),
+                bare: true,
+                children: <RecordReminders recordId={item.id} />,
+              },
+              // WP-046b S4 (REQ-INC-129): announcements made from it, live.
+              {
+                key: 'announcements',
+                title: t('incidents.announce.panel'),
+                children: <IncidentAnnouncements item={item} />,
+              },
               {
                 key: 'followers',
                 title: t('incidents.panel.followers'),
@@ -665,6 +851,71 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         }
       >
         <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <AskApprovalDialog
+          item={item}
+          open={asking}
+          onClose={() => {
+            setAsking(false);
+          }}
+        />
+        <PrintDialog
+          item={item}
+          open={printing}
+          onClose={() => {
+            setPrinting(false);
+          }}
+        />
+        <AnnounceDialog
+          item={item}
+          open={announcing}
+          onClose={() => {
+            setAnnouncing(false);
+          }}
+        />
+        <EndAnnouncementsPrompt
+          item={item}
+          open={endPrompt}
+          onClose={() => {
+            setEndPrompt(false);
+          }}
+        />
+        <AttachSimilarDialog
+          item={item}
+          open={attaching}
+          onClose={() => {
+            setAttaching(false);
+          }}
+        />
+        <MajorDialog
+          item={item}
+          open={majorOpen}
+          onClose={() => {
+            setMajorOpen(false);
+          }}
+        />
+        <MergeIncidentDialog
+          item={item}
+          open={merging}
+          onClose={() => {
+            setMerging(false);
+          }}
+        />
+        <ConvertDialog
+          kind="incidents"
+          record={item}
+          open={converting}
+          onClose={() => {
+            setConverting(false);
+          }}
+        />
+        <CopyDialog
+          open={copying}
+          recordId={item.id}
+          displayId={item.display_id}
+          onClose={() => {
+            setCopying(false);
+          }}
+        />
         <AssignDialog
           item={item}
           open={assigning}
@@ -697,6 +948,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   typing={typing}
                   replyRequest={replyRequest}
                   replyMode={replyMode}
+                  onComposingChange={setComposing}
                 />
               ),
             },
@@ -726,6 +978,16 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               children: <IncidentTasks item={item} canEdit={canEditParts} />,
             },
             {
+              key: 'checklists',
+              label: t('checklists.tab'),
+              children: <RecordChecklists recordId={item.id} canEdit={canEditParts} />,
+            },
+            {
+              key: 'files',
+              label: t('files.all.tab'),
+              children: <RecordAllFiles recordType="incident" recordId={item.id} />,
+            },
+            {
               key: 'worklogs',
               label: t('incidents.tab.worklogs'),
               children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
@@ -745,6 +1007,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                   },
                 ]
               : []),
+            // WP-046b S1 (REQ-INC-083): its approvers and their decisions, live.
+            {
+              key: 'approvals',
+              label: t('problems.approvals.title'),
+              children: <IncidentApprovals item={item} />,
+            },
+            // WP-046a S3 (REQ-INC-071): where the time went.
+            {
+              key: 'time',
+              label: t('incidents.tab.time'),
+              children: <IncidentTime item={item} />,
+            },
             {
               key: 'history',
               label: t('incidents.tab.history', { count: item.history_count }),
@@ -950,6 +1224,15 @@ function Details({
       edit: { kind: 'tags', value: item.tags },
       filled: item.tags.length > 0,
     },
+    {
+      // WP-046a S6 (REQ-INC-066): addresses that get public replies by e-mail, never notes.
+      key: 'notify_emails',
+      label: t('work_item.field.notify_emails'),
+      // Each address isolated left to right; the list's joiners follow the page (lane C).
+      view: listFormat((item.notify_emails ?? []).map((address) => `\u2066${address}\u2069`)),
+      edit: { kind: 'tags', value: item.notify_emails ?? [] },
+      filled: (item.notify_emails ?? []).length > 0,
+    },
     // Custom fields (WP-026): the ones the template shows, and any other holding a value
     // (retired ones read-only, marked).
     ...(customFields.data ?? [])
@@ -1003,6 +1286,25 @@ function Details({
             filled: true,
           },
         ]),
+    // WP-046b S1 (REQ-INC-102): suggested at resolve; the technician confirms or changes it.
+    ...(item.first_contact_resolution == null
+      ? []
+      : [
+          {
+            key: 'first_contact_resolution',
+            label: t('work_item.field.first_contact_resolution'),
+            view: t(item.first_contact_resolution ? 'filter.yes' : 'filter.no'),
+            edit: {
+              kind: 'choice',
+              value: item.first_contact_resolution ? 'yes' : 'no',
+              options: [
+                { value: 'yes', label: t('filter.yes') },
+                { value: 'no', label: t('filter.no') },
+              ],
+            } satisfies EditorSpec,
+            filled: true,
+          },
+        ]),
     {
       key: 'reopen_count',
       label: t('work_item.field.reopen_count'),
@@ -1028,11 +1330,22 @@ function Details({
       <PropertyList
         testId="inc-properties"
         items={rows
-          .filter((row) => row.filled || (row.edit !== undefined && canEdit))
+          // A field the person's roles make read only has no editor (ADR-047: no 403 to meet).
+          .map((row) => ({
+            ...row,
+            restricted: restrictionOf(item, row.key),
+            edit: (item.read_only_fields ?? []).includes(row.key) ? undefined : row.edit,
+          }))
+          // A withheld field still shows its row, saying so (ADR-047 §4; never editable).
+          .filter(
+            (row) =>
+              row.filled || row.restricted !== undefined || (row.edit !== undefined && canEdit),
+          )
           .map((row) => ({
             key: row.key,
             label: row.label,
             filled: row.filled,
+            restricted: row.restricted,
             content:
               row.edit !== undefined && canEdit ? (
                 <InlineEdit
@@ -1148,6 +1461,12 @@ function InlineEdit({
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState<unknown>(spec.value);
   const [reason, setReason] = useState('');
+  // WP-046b S1: why (kept in history); asked on a closed incident (REQ-INC-101) and for the
+  // fields the tenant names (REQ-INC-124). The server checks both; this only asks.
+  const [why, setWhy] = useState('');
+  const needsWhy =
+    item.operations.find((o) => o.action === 'edit')?.reason_mode === 'required' ||
+    (catalogue.data?.closure.edit_reason_fields ?? []).includes(field);
   const [error, setError] = useState<string | null>(null);
   // A refusal with no field to point at (a rule, a limit), shown here (QA WP-029 BUG-02).
   const problem = useFormProblem();
@@ -1166,7 +1485,10 @@ function InlineEdit({
           : { priority: value, priority_reason: reason }
         : spec.kind === 'custom'
           ? { custom: { [spec.field.key]: value } }
-          : { [field]: value };
+          : field === 'first_contact_resolution'
+            ? { first_contact_resolution: value === 'yes' } // a yes/no choice on screen
+            : { [field]: value };
+    if (needsWhy) changes.edit_reason = why;
     problem.clear();
     update.mutate(
       { changes: changes, version },
@@ -1204,6 +1526,7 @@ function InlineEdit({
         onEdit={() => {
           setValue(spec.value);
           setReason('');
+          setWhy('');
           setOpen(true);
           onEditing(1);
         }}
@@ -1371,6 +1694,22 @@ function InlineEdit({
       }}
     >
       {control}
+      {needsWhy && (
+        <label htmlFor={`inc-why-input-${field}`}>
+          <Typography.Text type="secondary">{t('incidents.edit_reason')}</Typography.Text>
+        </label>
+      )}
+      {needsWhy && (
+        <Input
+          id={`inc-why-input-${field}`}
+          value={why}
+          count={lengthLimit(500)}
+          onChange={(event) => {
+            setWhy(event.target.value);
+          }}
+          data-testid={`inc-why-${field}`}
+        />
+      )}
       {error !== null && (
         <Typography.Text type="danger" role="alert" data-testid={`inc-error-${field}`}>
           {error}

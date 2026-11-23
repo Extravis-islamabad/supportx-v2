@@ -415,7 +415,17 @@ export function RolesPart({ id }: { id: string }) {
                   : undefined
               }
             />
-            {r.single ? (
+            {r.from_record ? (
+              // The record's own field holds it (QA-2026-11-11 F-02): shown, changed in the panel.
+              <Typography.Text data-testid={`change-role-${r.code}-holder`}>
+                {r.user_ids[0] !== undefined
+                  ? (view.people[r.user_ids[0]] ?? '')
+                  : t('staged.roles.nobody')}{' '}
+                <Typography.Text type="secondary">
+                  ({t('staged.roles.from_record')})
+                </Typography.Text>
+              </Typography.Text>
+            ) : r.single ? (
               <RolePicker
                 id={id}
                 role={r.code}

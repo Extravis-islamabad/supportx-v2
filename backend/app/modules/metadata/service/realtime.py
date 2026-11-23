@@ -16,4 +16,6 @@ async def _changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEf
     return RealtimeEffects(publications=[Publication(broadcast(envelope.tenant_id), CHANGED)])
 
 
-ROUTES = [RealtimeRoute(("metadata.custom_field.changed",), _changed)]
+ROUTES = [
+    RealtimeRoute(("metadata.custom_field.changed", "metadata.custom_field.seal_changed"), _changed)
+]

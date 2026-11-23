@@ -170,6 +170,10 @@ def oidc_config(discovery: dict[str, Any], *, client_id: str, scopes: str) -> di
         "pkceEnabled": "true",
         "pkceMethod": "S256",
         "syncMode": "IMPORT",
+        # A confirmation (REQ-SEC-027) reaches the provider: Keycloak passes the client's
+        # `max_age` on, and its `prompt` too as no fixed `prompt` is set here, so the person
+        # really authenticates again there (lane B A4).
+        "passMaxAge": "true",
     }
     if discovery.get("userinfo_endpoint"):
         config["userInfoUrl"] = str(discovery["userinfo_endpoint"])
@@ -233,6 +237,10 @@ def route_domains(
     return found
 
 
+# REQ-SEC-026 (WP-057 S1b): the flow the identity step makes (tooling/keycloak_identity.py).
+POST_BROKER_FLOW = "supportx-otp-after-broker"
+
+
 def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
     *,
     alias: str,
@@ -241,8 +249,13 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
     config: dict[str, str],
     state: State,
     client_secret: str | None = None,
+    post_broker_flow: str | None = None,
 ) -> dict[str, Any]:
-    """The Keycloak identity provider for a set-up in `state` (secret only when given)."""
+    """The Keycloak identity provider for a set-up in `state` (secret only when given).
+
+    `post_broker_flow`: SupportX's code-after-sign-in flow while the tenant also requires its
+    own MFA after single sign-on (REQ-SEC-026); empty otherwise, so a PUT clears it.
+    """
     if client_secret is not None:
         config = config | {"clientSecret": client_secret}
     return {
@@ -252,10 +265,14 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
         # Enabled in every state but off: the admin's test sign-in needs it. Hidden until on.
         "enabled": state != "off",
         "hideOnLogin": state != "on",
-        "trustEmail": True,
+        # D-177: a provider's e-mail is never trusted. Keycloak's "first broker login" then asks an
+        # account that already exists to prove itself (its own sign-in, or a confirmation mailed
+        # to it) before linking; a matching e-mail alone never signs anyone in as that account.
+        "trustEmail": False,
         "storeToken": False,
         "linkOnly": False,
         "firstBrokerLoginFlowAlias": "first broker login",
+        "postBrokerLoginFlowAlias": post_broker_flow or "",
         "config": config,
     }
 

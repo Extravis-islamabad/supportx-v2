@@ -1,7 +1,7 @@
-import { Space, Tabs } from 'antd';
+import { Space } from 'antd';
 import { useSearchParams } from 'react-router';
 
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, useAccess, useLabel, Tabs } from '@supportx/ui';
 
 import { ArchivesTab } from './ArchivesTab';
 import { AuditAlertBanner } from './AuditAlertBanner';
@@ -9,8 +9,22 @@ import { AuditLogTab } from './AuditLogTab';
 import { AuditSettingsTab } from './AuditSettingsTab';
 import { ExportsTab } from './ExportsTab';
 import { IntegrityTab } from './IntegrityTab';
+import { PersonalDataAccessTab } from './PersonalDataAccessTab';
+import { SiemTab } from './SiemTab';
+import { SignInsTab } from './SignInsTab';
+import { SystemLogTab } from './SystemLogTab';
 
-const TABS = ['log', 'integrity', 'exports', 'archives', 'settings'] as const;
+const TABS = [
+  'log',
+  'sign_ins',
+  'personal_access',
+  'system_log',
+  'integrity',
+  'exports',
+  'archives',
+  'siem',
+  'settings',
+] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -22,10 +36,23 @@ export function AuditPage() {
   const t = useLabel();
   const { can } = useAccess();
   const [params, setParams] = useSearchParams();
-  if (!can('audit.view')) return <NoAccess titleKey="nav.audit" />;
-  const visible = TABS.filter((tab) => tab !== 'exports' || can('audit.export'));
+  // The sign-in log has its own right (WP-057 S1a): someone may hold it without audit.view.
+  const signIns = can('identity.view_sign_ins');
+  // Who accessed personal data (REQ-AUD-017) has its own right too: a DPO may hold only it.
+  const personalAccess = can('audit.view_personal_data_access');
+  if (!can('audit.view') && !signIns && !personalAccess) {
+    return <NoAccess titleKey="nav.audit" />;
+  }
+  const visible = TABS.filter((tab) => {
+    if (tab === 'sign_ins') return signIns;
+    if (tab === 'personal_access') return personalAccess;
+    // Where entries stream (WP-057 S5a): the audit's managers only.
+    if (tab === 'siem') return can('audit.manage');
+    return can('audit.view') && (tab !== 'exports' || can('audit.export'));
+  });
   const requested = params.get('tab') as Tab | null;
-  const active: Tab = requested !== null && visible.includes(requested) ? requested : 'log';
+  const fallback: Tab = visible[0] ?? 'log';
+  const active: Tab = requested !== null && visible.includes(requested) ? requested : fallback;
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <AuditAlertBanner showLink={false} />
@@ -41,9 +68,13 @@ export function AuditPage() {
         data-testid="audit-tabs"
       />
       {active === 'log' && <AuditLogTab />}
+      {active === 'sign_ins' && <SignInsTab />}
+      {active === 'personal_access' && <PersonalDataAccessTab />}
+      {active === 'system_log' && <SystemLogTab />}
       {active === 'integrity' && <IntegrityTab />}
       {active === 'exports' && <ExportsTab />}
       {active === 'archives' && <ArchivesTab />}
+      {active === 'siem' && <SiemTab />}
       {active === 'settings' && <AuditSettingsTab />}
     </Space>
   );

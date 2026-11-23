@@ -23,13 +23,20 @@ from functools import partial
 from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.database import Database
+from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import (
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogSeverity,
+    record_system_coalesced,
+)
 from app.modules.identity_access import NotifiablePerson, notifiable_people
 from app.modules.notifications.domain.rules import (
     Condition,
@@ -43,17 +50,29 @@ from app.modules.notifications.domain.rules import (
     recipients,
 )
 from app.modules.notifications.domain.templates import Rendered, html_body, render
-from app.modules.notifications.events import DeliveryRecorded, NotificationCreated
+from app.modules.notifications.events import (
+    DeliveryRecorded,
+    MailNotSentSummary,
+    NotificationCreated,
+)
 from app.modules.notifications.infra.models import (
     Notification,
     NotificationDelivery,
     NotificationPreference,
     NotificationRule,
 )
+from app.modules.notifications.service import mail_summary
 from app.modules.organization import email_branding, site_defaults, users_in_groups
 from app.shared import action_links
 from app.shared.action_links import LinkRequest
-from app.shared.events import Actor, ConsumerSpec, EventEnvelope, Handler, record_event
+from app.shared.events import (
+    Actor,
+    ConsumerSpec,
+    EventEnvelope,
+    Handler,
+    ProcessedEvent,
+    record_event,
+)
 from app.shared.labels import label
 from app.shared.mail import (
     Language,
@@ -78,6 +97,7 @@ from app.shared.notifications.ports import (
     NotificationChannel,
     NotificationEvent,
     RecipientLinks,
+    RecipientVariables,
     RecordAccess,
     RecordContext,
     RecordSource,
@@ -121,7 +141,12 @@ def rule_of(row: NotificationRule) -> Rule:
 
 
 async def rule_for(session: AsyncSession, event: NotificationEvent) -> Rule:
-    """The tenant's rule for the event, else its shipped default (no set-up step)."""
+    """The tenant's rule for the event, else its shipped default (no set-up step).
+
+    A locked event always uses its default, even over a rule saved before it was locked.
+    """
+    if event.locked:
+        return Rule.from_default(event.default)
     row = await session.scalar(
         select(NotificationRule).where(
             NotificationRule.event_code == event.code, NotificationRule.deleted_at.is_(None)
@@ -210,13 +235,16 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     origin: Callable[[RecordAccess], str],
     offered: frozenset[str] = frozenset(),
     email_links: Mapping[str, str] | None = None,
+    own: Mapping[str, VariableValue] | None = None,
 ) -> Message:
     """The message in the person's language, from the content they may see (REQ-NTF-010).
 
     `email_links`: where the recipient's own one-time links go in the e-mail (markers: the mail
     sender makes the links at send, D-132), never in the in-app text; elsewhere a placeholder.
+    `own`: this recipient's own values over the context's (the source's RecipientVariables).
     """
     chosen = context.variables if access is RecordAccess.FULL else context.public_variables
+    chosen = {**chosen, **(own or {})}
     # Every offered variable exists, empty when this reader may not see it or it has no value.
     values: dict[str, str | None] = dict.fromkeys(offered)
     values.update({name: localise(value, language, zone) for name, value in chosen.items()})
@@ -377,9 +405,27 @@ async def _email(  # noqa: PLR0913, PLR0917 - the delivery, its message and its 
         )
     except MailRefused as refused:
         log.warning("notification_mail_refused", code=refused.code, event_code=code)
+        await _log_refused(session, refused)
         await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.MAIL_REFUSED)
         return
     await _record(*common, DeliveryState.QUEUED, language=message.language, mail_id=mail_id)
+
+
+async def _log_refused(session: AsyncSession, refused: MailRefused) -> None:
+    """The system log hears of a refused e-mail once per reason per hour (lane A (1), REQ-AUD-016).
+
+    The refusal's code only: never the address, subject or text (lane A (2)). A savepoint that
+    never raises, so the delivery goes on exactly as before (lane A (3)).
+    """
+    await record_system_coalesced(
+        session,
+        SystemLogEntryIn(
+            module="notifications",
+            code=SystemLogCode.NOTIFICATION_MAIL_REFUSED,
+            severity=SystemLogSeverity.WARNING,
+            params={"reason": refused.code},
+        ),
+    )
 
 
 def _entry_state(state: DeliveryState, reason: str | None) -> tuple[str, str | None] | None:
@@ -581,6 +627,19 @@ async def _emailed_before(session: AsyncSession, target: Target) -> bool:
     return found is not None
 
 
+async def _recipient_variables(
+    session: AsyncSession,
+    source: RecordSource,
+    context: RecordContext,
+    user_id: uuid.UUID,
+    access: RecordAccess,
+) -> Mapping[str, VariableValue]:
+    """The values this person reads differently, if the source has any."""
+    if not isinstance(source, RecipientVariables):
+        return {}
+    return await source.recipient_variables(session, context, user_id, access)
+
+
 async def _recipient_links(
     session: AsyncSession, source: RecordSource, envelope: EventEnvelope, user_id: uuid.UUID
 ) -> Mapping[str, LinkRequest]:
@@ -698,6 +757,7 @@ async def notify(  # noqa: C901, PLR0913, PLR0915 - the pipeline of one event, i
                 zone=_zone(person.time_zone or defaults.time_zone),
                 origin=await origin_for(language),
                 offered=frozenset(v.name for v in (*source.variables, *event.variables)),
+                own=await _recipient_variables(session, source, context, recipient.user_id, access),
             )
             message = message or writer()
             if channel is NotificationChannel.IN_APP:
@@ -799,7 +859,8 @@ async def send_waiting(session: AsyncSession, settings: Settings) -> int:
                 )
                 row.state = DeliveryState.QUEUED.value
                 sent += 1
-            except MailRefused:
+            except MailRefused as refused:
+                await _log_refused(session, refused)
                 row.state = DeliveryState.SUPPRESSED.value
                 row.reason = SuppressedReason.MAIL_REFUSED
         row.subject = row.text_body = row.html_body = None
@@ -849,7 +910,68 @@ async def expire_waiting(
                 reason=NOT_SENT_IN_TIME,
                 at=moment,
             )
+    # D-157: one summary for the people who set mail up, at most once a day per tenant (never one
+    # per e-mail or per run), in this transaction. The summary's own e-mails never count.
+    counted = [r for r in rows if r.event_code != mail_summary.SUMMARY_EVENT]
+    if counted and await _claim_summary(session, moment):
+        summary_id = _summary_key(session, moment)
+        given_up_today = await _given_up_since(session, _day_start(moment))
+        await record_event(
+            session,
+            MailNotSentSummary(
+                summary_id=summary_id,
+                count=max(given_up_today, len(counted)),  # "N so far today"
+                oldest_at=min(r.created_at for r in counted),
+            ),
+            aggregate_id=summary_id,
+        )
     return len(rows)
+
+
+SUMMARY_CLAIM = "notifications__mail_not_sent_summary"  # the processed_events consumer name
+
+
+def _day_start(moment: datetime) -> datetime:
+    """The start of the moment's day (UTC): the summary's period."""
+    return moment.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _summary_key(session: AsyncSession, moment: datetime) -> uuid.UUID:
+    """One key per tenant and day (UTC): every run of that day, and every retry, shares it."""
+    tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
+    day = _day_start(moment)
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"supportx:{SUMMARY_CLAIM}:{tenant}:{day:%Y%m%d}")
+
+
+async def _given_up_since(session: AsyncSession, since: datetime) -> int:
+    """How many e-mails were given up for want of mail since `since` (the summary's own aside)."""
+    found = await session.scalar(
+        select(func.count()).where(
+            NotificationDelivery.state == DeliveryState.FAILED.value,
+            NotificationDelivery.reason == NOT_SENT_IN_TIME,
+            NotificationDelivery.updated_at >= since,
+            NotificationDelivery.event_code != mail_summary.SUMMARY_EVENT,
+        )
+    )
+    return int(found or 0)
+
+
+async def _claim_summary(session: AsyncSession, moment: datetime) -> bool:
+    """Claim the day's summary once (processed_events, as consumers do); False: told already.
+
+    Lane A's review of #390: the schedule runs every minute, so a steady trickle of e-mails
+    reaching 7 days would tell the admins every minute if keyed per run. The claim is keyed by
+    tenant and day and inserted with ON CONFLICT DO NOTHING in the run's transaction: the first
+    run of the day that gives any up sends one notice ("N so far"); later runs and retries that
+    day send none. processed_events keeps claims 7 days, longer than the day they cover.
+    """
+    tenant: uuid.UUID = session.info[SESSION_TENANT_KEY].tenant_id
+    result = await session.execute(
+        insert(ProcessedEvent)
+        .values(tenant_id=tenant, consumer=SUMMARY_CLAIM, event_id=_summary_key(session, moment))
+        .on_conflict_do_nothing()
+    )
+    return bool(getattr(result, "rowcount", 0))
 
 
 async def waiting_schedule(database: Database, settings: Settings) -> None:
@@ -869,8 +991,6 @@ async def waiting_schedule(database: Database, settings: Settings) -> None:
 
 async def waiting_count(session: AsyncSession) -> int:
     """E-mails waiting for outgoing mail (the admins' banner, REQ-NTF-020 AC3)."""
-    from sqlalchemy import func  # noqa: PLC0415 - one query, kept beside its use
-
     return int(
         await session.scalar(
             select(func.count())

@@ -25,7 +25,7 @@ from app.modules.organization.service.file_access import MANAGE
 from app.modules.organization.service.tenants import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.ratelimit import rate_limit
+from app.shared.api.ratelimit import ip_rate_limit, rate_limit
 
 Manage = Annotated[Any, Depends(require_permission(MANAGE))]
 
@@ -89,8 +89,12 @@ def _out(view: domains.DomainView) -> DomainOut:
     )
 
 
-def _secret(request: Request) -> bytes:
-    secret = request.app.state.settings.session_secret
+def domain_secret(request: Request) -> bytes:
+    """The installation's domain-proof key (D-162): never the session key ring."""
+    # Its own key, else the legacy session secret as before D-162; never the session key ring,
+    # so rotating sign-in keys never changes a proof.
+    settings = request.app.state.settings
+    secret = settings.domain_proof_secret or settings.session_secret
     if secret is None:
         raise ServiceUnavailable(code="domains_not_configured")
     return bytes(secret.get_secret_value(), "utf-8")
@@ -166,7 +170,7 @@ async def verify_domain(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     view = await domains.verify_domain(
         session,
         domain_id,
-        secret=_secret(request),
+        secret=domain_secret(request),
         fetch=fetch_answer,
         certificates_managed=request.app.state.settings.domain_certificates_managed,
     )
@@ -227,7 +231,14 @@ async def remove_domain(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-public_router = APIRouter(prefix="/public/domain-check", tags=["organization"])
+# Per client address (audit row 14). The verifier asks once per check; anyone else asking only
+# learns proofs for tokens they already hold. Fails open: the proof is a hash, no lookup, cheap.
+DOMAIN_CHECKS_PER_ADDRESS = 30  # a minute
+public_router = APIRouter(
+    prefix="/public/domain-check",
+    tags=["organization"],
+    dependencies=[Depends(ip_rate_limit("public_domain_check", DOMAIN_CHECKS_PER_ADDRESS))],
+)
 
 
 @public_router.get(
@@ -243,7 +254,7 @@ async def domain_proof(token: str, request: Request) -> Response:
     if len(token) > 64:  # noqa: PLR2004 - tokens are 32 characters
         token = token[:64]
     return Response(
-        proof(_secret(request), token),
+        proof(domain_secret(request), token),
         media_type="text/plain",
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )

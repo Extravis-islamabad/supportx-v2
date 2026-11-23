@@ -68,8 +68,12 @@ SLA_TYPES = frozenset(
         WorkItemTypeCode.INCIDENT.value,
         WorkItemTypeCode.SERVICE_REQUEST.value,
         WorkItemTypeCode.PROBLEM.value,
+        WorkItemTypeCode.CHANGE.value,  # WP-045d S3 (REQ-CHG-107)
     }
 )
+# Changes have no SLA until an admin gives a policy targets: Appendix A sets none, so their
+# fallback policy has no targets (the coordinator, 2026-11-11: never seed one).
+CHANGE_TARGETS: tuple[tuple[str, str, int, str, str], ...] = ()
 # Problems (WP-044a, REQ-PRB-008, Appendix A): a target date only, in business days from
 # creation (P1 5, P2 10, P3 20, P4 40), on the site's calendar; no first response.
 PROBLEM_TARGETS: tuple[tuple[str, str, int, str, str], ...] = tuple(
@@ -79,7 +83,7 @@ PROBLEM_TARGETS: tuple[tuple[str, str, int, str, str], ...] = tuple(
 
 
 def register_sla() -> None:
-    """Incidents, service requests and problems have SLAs (called at import; idempotent).
+    """Incidents, service requests, problems and changes have SLAs (at import; idempotent).
 
     Service requests (WP-030) take the same policies, conditions and firing; the item's own SLA
     and the clock waiting for approval (REQ-SR-006, -007) come with the approval engine.
@@ -88,6 +92,7 @@ def register_sla() -> None:
         WorkItemTypeCode.INCIDENT,
         WorkItemTypeCode.SERVICE_REQUEST,
         WorkItemTypeCode.PROBLEM,
+        WorkItemTypeCode.CHANGE,
     ):
         sla.register_record_type(
             sla.SlaRecordType(
@@ -99,10 +104,16 @@ def register_sla() -> None:
                 run_actions=_run_actions,
                 record_state=record_state,
                 preferred_policy=_item_policy,
-                default_targets=PROBLEM_TARGETS if code is WorkItemTypeCode.PROBLEM else None,
+                default_targets=_DEFAULT_TARGETS.get(code),
                 target_dates_only=code is WorkItemTypeCode.PROBLEM,
             )
         )
+
+
+_DEFAULT_TARGETS = {
+    WorkItemTypeCode.PROBLEM: PROBLEM_TARGETS,
+    WorkItemTypeCode.CHANGE: CHANGE_TARGETS,
+}
 
 
 def _item_policy(values: Mapping[str, Any]) -> uuid.UUID | None:

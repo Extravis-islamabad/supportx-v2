@@ -2,7 +2,6 @@ import {
   App,
   Alert,
   Button,
-  Drawer,
   Flex,
   Input,
   Popconfirm,
@@ -16,6 +15,7 @@ import { useState } from 'react';
 
 import {
   useSavedViewChange,
+  useSession,
   useUnits,
   type FilterExpression,
   type IncidentListField,
@@ -23,10 +23,10 @@ import {
   type SavedView,
 } from '@supportx/api-client';
 import { FilterBuilder, rowProblems, toDsl } from '@supportx/forms';
-import { lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { Drawer, lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 import type { ReportWords } from '../../reports/names';
-import { builderFields, type ViewDraft } from './model';
+import { builderFields, shareAudiences, type ViewDraft } from './model';
 
 // Custom views (REQ-INC-106): built with the shared filter builder (lane C, packages/forms), so a
 // view is the same filter the list API, reports and rules take. "Apply" only changes this screen
@@ -101,7 +101,20 @@ function EditorBody({
   const { message } = App.useApp();
   const change = useSavedViewChange();
   const groups = useUnits('groups');
+  const session = useSession();
   const [draft, setDraft] = useState(initial);
+  // D-176: only the audiences their rights allow (the server checks again). Groups the view is
+  // already shared with stay listed: an existing share is kept as it is.
+  const audiences = shareAudiences(
+    session.data?.permissions ?? [],
+    'incidents',
+    session.data?.user.id ?? '',
+    groups.data ?? [],
+  );
+  const groupOptions = (groups.data ?? []).filter(
+    (g) => audiences.groupIds.has(g.id) || initial.groupIds.includes(g.id),
+  );
+  const keepsEveryone = initial.visibility === 'everyone';
   const problems = rowProblems(draft.filter);
   const nameMissing = draft.name.trim() === '';
   const groupsMissing = draft.visibility === 'groups' && draft.groupIds.length === 0;
@@ -112,7 +125,10 @@ function EditorBody({
       name: draft.name.trim(),
       visibility: draft.visibility,
       group_ids: draft.visibility === 'groups' ? draft.groupIds : [],
-      filter: (filter ?? null) as Record<string, unknown> | null,
+      // A filter holding a condition they cannot see is never sent back: the server keeps it.
+      ...(draft.withheld === true
+        ? {}
+        : { filter: (filter ?? null) as Record<string, unknown> | null }),
       columns,
       sort,
     };
@@ -156,8 +172,12 @@ function EditorBody({
         data-testid="inc-view-visibility"
       >
         <Radio value="private">{t('incidents.views.private')}</Radio>
-        <Radio value="groups">{t('incidents.views.groups')}</Radio>
-        <Radio value="everyone">{t('incidents.views.shared')}</Radio>
+        <Radio value="groups" disabled={groupOptions.length === 0}>
+          {t('incidents.views.groups')}
+        </Radio>
+        <Radio value="everyone" disabled={!audiences.everyone && !keepsEveryone}>
+          {t('incidents.views.shared')}
+        </Radio>
       </Radio.Group>
       {draft.visibility === 'groups' && (
         <Select<string[]>
@@ -168,20 +188,31 @@ function EditorBody({
           onChange={(groupIds) => {
             setDraft({ ...draft, groupIds });
           }}
-          options={(groups.data ?? []).map((g) => ({ value: g.id, label: g.name }))}
+          options={groupOptions.map((g) => ({ value: g.id, label: g.name }))}
           optionFilterProp="label"
           status={groupsMissing ? 'warning' : undefined}
           data-testid="inc-view-groups"
         />
       )}
-      <FilterBuilder
-        fields={builderFields(fields, words)}
-        value={draft.filter}
-        onChange={(next) => {
-          setDraft({ ...draft, filter: next });
-        }}
-        testId="inc-view-filter"
-      />
+      {draft.withheld === true ? (
+        // Rewriting around a condition they cannot see could change what it means (an "or"):
+        // the filter stays as saved; its name, columns and sharing still change.
+        <Alert
+          type="info"
+          showIcon
+          message={t('incidents.views.withheld_edit')}
+          data-testid="inc-view-filter-withheld"
+        />
+      ) : (
+        <FilterBuilder
+          fields={builderFields(fields, words)}
+          value={draft.filter}
+          onChange={(next) => {
+            setDraft({ ...draft, filter: next });
+          }}
+          testId="inc-view-filter"
+        />
+      )}
       {problems.size > 0 && (
         <Alert type="warning" showIcon message={t('incidents.views.fix_filter')} />
       )}

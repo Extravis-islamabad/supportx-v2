@@ -1,0 +1,12 @@
+# Paths Semgrep skips (.semgrep.yml). Written out, so a new Semgrep version's defaults never
+# change what CI scans. Product code only: test code builds SQL and HTML on purpose.
+node_modules/
+build/
+dist/
+vendor/
+.venv/
+*.min.js
+test/
+tests/
+e2e/
+.semgrep_logs/

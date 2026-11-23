@@ -1,5 +1,6 @@
 // sla labels (see ../README.md). English is the reference.
 export const en = {
+  'erasure_count.nothing_held': 'Nothing of the person’s own held',
   'sla.calendar.field.holiday_list_ids': 'Holiday lists',
   'sla.calendar.field.labels': 'Name in other languages',
   'sla.calendar.field.name': 'Name',
@@ -90,7 +91,9 @@ export const en = {
   'sla.policies.move_down': 'Move down',
   'sla.policies.move_up': 'Move up',
   'sla.policies.never_matches': 'Never applies: an earlier policy always matches first',
+  'sla.policies.no_targets': 'No {{type}} has an SLA yet: give a policy targets to start one.',
   'sla.policies.off': 'Off',
+  'sla.policies.record_type': 'Record type',
   'sla.policies.running_records_keep':
     'Changes apply to new incidents and to incidents whose fields change. Incidents already running keep their current targets.',
   'sla.policies.targets_explain':

@@ -92,3 +92,20 @@ async def tenant_for_slug(database: Database, slug: str) -> HostTenant | None:
             )
         ).first()
     return HostTenant(row.tenant_id, row.slug) if row is not None else None
+
+
+async def link_tenant(
+    database: Database, host: str | None, base_domain: str | None, slug: str | None
+) -> uuid.UUID | None:
+    """The tenant a public link's page names: its address's, else the link's `?t=` slug.
+
+    The address (subdomain or verified domain) wins, and a slug naming another tenant is None.
+    Moved here from the action-link routes (lane B's rules) for every public link to share.
+    """
+    found = await tenant_for_host(database, host, base_domain)
+    if found is not None:
+        return found.tenant_id if slug is None or slug == found.slug else None
+    if slug is None:
+        return None
+    by_slug = await tenant_for_slug(database, slug)  # a bad pattern: None, before any query
+    return by_slug.tenant_id if by_slug is not None else None

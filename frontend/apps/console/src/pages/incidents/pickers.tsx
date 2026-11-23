@@ -100,10 +100,11 @@ export function UserPicker({
     });
   }
   // A chosen person not on the loaded page (or before it loads) is fetched by id; until then
-  // the field says it is loading, never the raw id (rule 5d, QA10-P4-16).
+  // the field says it is loading, never the raw id (rule 5d, QA10-P4-16). If that fails (gone,
+  // or no users.view), it names them neutrally and raises no error toast (lane C's #325).
   const known = options.find((o) => o.value === value);
   const missing = value !== null && known === undefined;
-  const person = useUser(missing ? value : undefined);
+  const person = useUser(missing ? value : undefined, { silent: true });
   return (
     <Select
       id={id}
@@ -112,7 +113,9 @@ export function UserPicker({
       filterOption={false}
       value={value}
       labelRender={() =>
-        known?.name ?? (person.data === undefined ? t('shell.loading') : person.data.display_name)
+        known?.name ??
+        person.data?.display_name ??
+        (person.isError ? t('incidents.person_unseen') : t('shell.loading'))
       }
       disabled={disabled}
       aria-label={ariaLabel}

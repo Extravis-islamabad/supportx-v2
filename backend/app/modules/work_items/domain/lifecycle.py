@@ -67,6 +67,8 @@ class WorkItemAction(StrEnum):
     # system, problems (WP-044b, REQ-PRB-046): merged into another problem, and its undo
     MERGE = "merge"
     UNDO_MERGE = "undo_merge"
+    # system, incidents and requests (WP-046b S2, REQ-INC-089): became a record of the other type
+    CONVERT = "convert"
 
 
 # Transitions that may return to an earlier status instead of naming one (to_status None).
@@ -79,6 +81,7 @@ SYSTEM_ACTIONS = frozenset(
         WorkItemAction.REJECT,
         WorkItemAction.MERGE,
         WorkItemAction.UNDO_MERGE,
+        WorkItemAction.CONVERT,
     }
 )
 USER_ACTIONS: tuple[WorkItemAction, ...] = tuple(
@@ -123,6 +126,10 @@ class TransitionDef:
     to_status: str | None
     reason_mode: ReasonMode = ReasonMode.NONE
     reason_list: ReasonList | None = None
+    # Per life cycle version (ADR-049 §4): an extra right the move needs, and fields that must
+    # have a value before it runs.
+    permission: str | None = None
+    required_fields: tuple[str, ...] = ()
 
 
 class LifecycleError(ValueError):
@@ -234,6 +241,7 @@ class DefaultStatus(StrEnum):
     CLOSED = "closed"
     CANCELED = "canceled"
     MERGED = "merged"
+    CONVERTED = "converted"  # WP-046b S2: became a record of another type (read only, linked)
 
 
 S = DefaultStatus
@@ -248,6 +256,7 @@ DEFAULT_STATUSES: tuple[StatusDef, ...] = (
     StatusDef(S.CLOSED, StatusCategory.CLOSED, "#8c8c8c"),
     StatusDef(S.CANCELED, StatusCategory.CANCELED, "#bfbfbf"),
     StatusDef(S.MERGED, StatusCategory.CLOSED, "#bfbfbf", system=True),
+    StatusDef(S.CONVERTED, StatusCategory.CLOSED, "#bfbfbf", system=True),
 )
 
 _PAUSE = (ReasonMode.REQUIRED, ReasonList.PAUSE)
@@ -335,6 +344,7 @@ SERVICE_REQUEST_STATUSES: tuple[StatusDef, ...] = (
     StatusDef(SR.REJECTED, StatusCategory.CLOSED, "#cf1322", system=True),
     StatusDef(S.CANCELED, StatusCategory.CANCELED, "#bfbfbf"),
     StatusDef(S.MERGED, StatusCategory.CLOSED, "#bfbfbf", system=True),
+    StatusDef(S.CONVERTED, StatusCategory.CLOSED, "#bfbfbf", system=True),  # WP-046b S2
 )
 
 

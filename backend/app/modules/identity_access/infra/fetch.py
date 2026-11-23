@@ -1,25 +1,31 @@
-"""Fetch an identity provider's discovery document or SAML metadata (WP-039, D-094).
+"""Fetch an identity provider's discovery document or SAML metadata (WP-039, D-094; WP-057 S1).
 
 The address is typed by a tenant admin, so this is a server-side request forgery risk (as the
-custom domain check, WP-017). Limits: the host must resolve, and to no link-local (cloud
-metadata), multicast, unspecified or reserved address, nor loopback unless the installation
-allows it (`sso_fetch_allow_loopback`, dev and CI only: their test identity provider runs on
-the same machine); no redirects; five seconds; at most 1 MB read. Private networks are allowed
-(on-prem identity providers live there).
+custom domain check, WP-017). Every call goes through the one guarded client (`app.shared.egress`,
+ADR-043 §8): the host is resolved ONCE, every answer is checked, and the connection goes to the
+checked address (a DNS answer that changes between check and connect is never used); no
+redirects; five seconds to connect; at most 1 MB read.
+
+Never contacted (audit #3): link-local (cloud metadata), multicast and unspecified addresses,
+whatever the configuration says; private ranges, CGNAT and loopback unless the installation lists
+them (`SUPPORTX_EGRESS_ALLOW`: an on-prem identity provider on a private network is listed there;
+loopback only in the dev and test profiles, `sso_fetch_allow_loopback`, where the test identity
+provider runs on the same machine). Any port: providers often listen on 8443, and the address
+rules are what keep a call off internal services.
 """
 
-import asyncio
-import ipaddress
-import socket
-from urllib.parse import urlsplit
+import json
+import uuid
+from urllib.parse import urlencode
 
-import httpx
+from app.shared.egress import Allowance, EgressError, OutboundRequest, send
+from app.shared.egress.client import Resolver, system_resolver
 
-TIMEOUT_SECONDS = 5.0
 MAX_BYTES = 1 << 20
-
+MODULE = "identity_access"
 
 INVALID, BLOCKED, UNREACHABLE = "invalid", "blocked", "unreachable"
+_TOKEN_ANSWERS = frozenset({400, 401, 403})  # a refusal's body says whether the client was wrong
 
 
 class FetchError(Exception):
@@ -30,56 +36,37 @@ class FetchError(Exception):
         self.code = code
 
 
-def blocked(address: str, *, allow_loopback: bool) -> bool:
-    """Addresses never contacted on a tenant admin's behalf."""
-    ip = ipaddress.ip_address(address)
-    if ip.is_loopback:
-        return not allow_loopback
-    return ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved
-
-
-async def _addresses(host: str, port: int) -> list[str]:
-    loop = asyncio.get_running_loop()
-    try:
-        found = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    except socket.gaierror:
-        raise FetchError(UNREACHABLE) from None
-    return sorted({str(info[4][0]) for info in found})
+def _fetch_error(error: EgressError) -> FetchError:
+    if error.code == BLOCKED:
+        return FetchError(BLOCKED)
+    if error.code in {INVALID, "too_large"}:
+        return FetchError(INVALID)
+    return FetchError(UNREACHABLE)  # unreachable, timeout, tls, redirect, http_status
 
 
 async def fetch_document(
     url: str,
     *,
-    allow_loopback: bool = False,
-    transport: httpx.AsyncBaseTransport | None = None,
+    allowance: Allowance,
+    tenant_id: uuid.UUID | None = None,
+    resolver: Resolver = system_resolver,
 ) -> str:
     """The text at `url` (bounded), or FetchError("unreachable" | "blocked" | "invalid")."""
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise FetchError(INVALID)
-    port = parts.port or (443 if parts.scheme == "https" else 80)
-    addresses = await _addresses(parts.hostname, port)
-    if not addresses or any(blocked(a, allow_loopback=allow_loopback) for a in addresses):
-        raise FetchError(BLOCKED)
+    request = OutboundRequest("GET", url, headers={"Accept": "application/json, application/xml"})
     try:
-        async with (
-            httpx.AsyncClient(
-                timeout=TIMEOUT_SECONDS, follow_redirects=False, transport=transport
-            ) as client,
-            client.stream(
-                "GET", url, headers={"Accept": "application/json, application/xml"}
-            ) as response,
-        ):
-            if response.status_code != httpx.codes.OK:
-                raise FetchError(UNREACHABLE)
-            body = b""
-            async for chunk in response.aiter_bytes():
-                body += chunk
-                if len(body) > MAX_BYTES:
-                    raise FetchError(INVALID)
-    except httpx.HTTPError:
-        raise FetchError(UNREACHABLE) from None
-    return body.decode("utf-8", errors="replace")
+        response = await send(
+            request,
+            allowance=allowance.any_port(),
+            module=MODULE,
+            tenant_id=tenant_id,
+            max_bytes=MAX_BYTES,
+            resolver=resolver,
+        )
+    except EgressError as error:
+        raise _fetch_error(error) from None
+    if response.status != 200:  # noqa: PLR2004 - a document is only ever a 200
+        raise FetchError(UNREACHABLE)
+    return response.body.decode("utf-8", errors="replace")
 
 
 async def client_accepted(
@@ -87,43 +74,46 @@ async def client_accepted(
     client_id: str,
     client_secret: str,
     *,
-    allow_loopback: bool = False,
-    transport: httpx.AsyncBaseTransport | None = None,
+    allowance: Allowance,
+    tenant_id: uuid.UUID | None = None,
 ) -> bool:
     """Whether the provider accepts the client ID and secret (same address limits).
 
     A client-credentials request: providers check the client before the grant, so only a
     refusal of the client itself (`rejected`) means the ID or secret is wrong; any other answer
-    (the grant not allowed, a missing scope) means they were accepted. Nothing is kept.
+    (the grant not allowed, a missing scope) means they were accepted. Nothing is kept; the
+    secret travels in the body, which the guarded client never logs.
     """
-    parts = urlsplit(token_url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise FetchError(INVALID)
-    port = parts.port or (443 if parts.scheme == "https" else 80)
-    addresses = await _addresses(parts.hostname, port)
-    if not addresses or any(blocked(a, allow_loopback=allow_loopback) for a in addresses):
-        raise FetchError(BLOCKED)
+    body = urlencode(
+        {
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+    ).encode()
+    request = OutboundRequest(
+        "POST",
+        token_url,
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        body=body,
+    )
     try:
-        async with httpx.AsyncClient(
-            timeout=TIMEOUT_SECONDS, follow_redirects=False, transport=transport
-        ) as client:
-            response = await client.post(
-                token_url,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
-            )
-    except httpx.HTTPError:
-        raise FetchError(UNREACHABLE) from None
+        response = await send(
+            request,
+            allowance=allowance.any_port(),
+            module=MODULE,
+            tenant_id=tenant_id,
+            accept_statuses=_TOKEN_ANSWERS,
+        )
+    except EgressError as error:
+        raise _fetch_error(error) from None
     try:
-        body = response.json() if response.content else {}
+        answer = json.loads(response.body) if response.body else {}
     except ValueError:
-        body = {}
-    if not isinstance(body, dict):
-        body = {}
-    return not rejected(response.status_code, body)
+        answer = {}
+    if not isinstance(answer, dict):
+        answer = {}
+    return not rejected(response.status, answer)
 
 
 def rejected(status: int, body: dict[str, object]) -> bool:
@@ -138,4 +128,4 @@ def rejected(status: int, body: dict[str, object]) -> bool:
     description = str(body.get("error_description") or "").lower()
     if error == "invalid_client" or "invalid client" in description:
         return True
-    return status == httpx.codes.UNAUTHORIZED and error is None
+    return status == 401 and error is None  # noqa: PLR2004 - Unauthorized

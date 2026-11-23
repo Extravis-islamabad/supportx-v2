@@ -3,10 +3,6 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { PortalLayout } from './PortalLayout';
 
-const comingSoon = async () => ({
-  Component: (await import('./pages/ComingSoonPage')).ComingSoonPage,
-});
-
 /** Lazy, route-level chunks as in the console. */
 export const routes: RouteObject[] = [
   {
@@ -82,6 +78,28 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        // WP-045d S4a: the requester's changes, one change, and the form to raise one.
+        path: 'changes',
+        handle: { titleKey: 'portal.changes.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/ChangesPage')).ChangesPage,
+        }),
+      },
+      {
+        path: 'changes/new',
+        handle: { titleKey: 'portal.changes.raise' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/RaiseChangePage')).RaiseChangePage,
+        }),
+      },
+      {
+        path: 'changes/:id',
+        handle: { titleKey: 'portal.changes.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/changes/ChangePage')).ChangePage,
+        }),
+      },
+      {
         // WP-031: the catalog for requesters, and one item's request form.
         path: 'catalog',
         handle: { titleKey: 'nav.catalog' },
@@ -102,7 +120,11 @@ export const routes: RouteObject[] = [
         handle: { titleKey: 'portal.search.title' },
         lazy: async () => ({ Component: (await import('./pages/SearchPage')).SearchPage }),
       },
-      { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },
+      {
+        path: '*',
+        handle: { titleKey: 'shell.not_found' },
+        lazy: async () => ({ Component: (await import('./pages/NotFoundPage')).NotFoundPage }),
+      },
     ],
   },
 ];

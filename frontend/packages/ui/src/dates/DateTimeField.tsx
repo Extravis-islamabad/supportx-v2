@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { useAppearance, useLabel } from '../appearance';
 
 import { pickerFormat } from './format';
-import { fromPicker, toPicker, useTimeZone } from './time';
+import { fromPicker, toPicker, useTimeZone, zoneName } from './time';
 
 /**
  * "Times are in <zone>", said once under a group of date fields (a range, a row of start, end
@@ -16,9 +16,16 @@ export function TimeZoneNote() {
 
 function ZoneNote({ zone }: { zone: string }) {
   const t = useLabel();
+  const { locale } = useAppearance();
   return (
-    <Typography.Text type="secondary" style={{ fontSize: 12 }} data-testid="time-zone-note">
-      {t('datetime.time_zone_note', { zone })}
+    <Typography.Text
+      type="secondary"
+      style={{ fontSize: 12 }}
+      // The exact zone stays one hover away for admins checking it.
+      title={zone}
+      data-testid="time-zone-note"
+    >
+      {t('datetime.time_zone_note', { zone: zoneName(zone, locale) })}
     </Typography.Text>
   );
 }

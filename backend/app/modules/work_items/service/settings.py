@@ -5,8 +5,9 @@ status moves on assignment, and the category tree (add, rename / translate, disa
 and transitions keep their Appendix A shape until the life-cycle designer (REQ-INC-049).
 """
 
+import re
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -22,6 +23,8 @@ from app.modules.work_items.domain.classification import Impact, Priority, Urgen
 from app.modules.work_items.domain.closure import (
     AUTO_CLOSE_MAX,
     AUTO_CLOSE_MIN,
+    RELEASE_CONDITIONS,
+    REVIEW_COMPLETED,
     WINDOW_MAX,
     WINDOW_MIN,
     OpenWorkKind,
@@ -29,6 +32,8 @@ from app.modules.work_items.domain.closure import (
     rule_field_problems,
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
+from app.modules.work_items.domain.mail_commands import CommandField
+from app.modules.work_items.domain.requester_rules import RequesterCancel, editable_by_requester
 from app.modules.work_items.domain.service_requests import OnBehalfScope
 from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemSettingsChanged
@@ -95,7 +100,37 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
 
 
 # Settings only changes have (WP-045b S3); audited with the type's settings_changed.
-CHANGE_ONLY = ("segregation_strict", "cab_every_match")
+CHANGE_ONLY = ("segregation_strict", "cab_every_match", "outside_maintenance_blocks")  # D-156
+# Settings only releases have (WP-058b S3; REQ-REL-048).
+RELEASE_ONLY = ("open_stage_tasks_block",)
+
+
+# WP-046a S6: mail commands and people kept informed, on incidents (mailboxes make incidents).
+MAIL_SETTINGS = ("mail_commands", "mail_command_fields", "cc_from_first_mail")
+
+
+def _mail_settings(
+    wtype: WorkItemType,
+    values: Mapping[str, Any],
+    changes: dict[str, Any],
+    problem: Callable[..., None],
+) -> None:
+    """Commands from mail (off by default) and Cc from the first mail (REQ-INC-025, -066)."""
+    for name in MAIL_SETTINGS:
+        if name not in values:
+            continue
+        if wtype.code is not WorkItemTypeCode.INCIDENT:
+            problem(name, "not_allowed")
+        elif name == "mail_command_fields":
+            wanted = list(values[name] or [])
+            if any(code not in set(CommandField) for code in wanted):
+                problem(name, "invalid_choice")
+            # Stored in the fixed order, so a re-ordered list is not a change.
+            changes[name] = [c.value for c in CommandField if c.value in wanted]
+        elif not isinstance(values[name], bool):  # never "false" read as true
+            problem(name, "invalid_value")
+        else:
+            changes[name] = values[name]
 
 
 async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
@@ -151,6 +186,17 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
     if "first_task_starts_work" in values:
         changes["first_task_starts_work"] = bool(values["first_task_starts_work"])
+    # WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
+    if "requester_cancel" in values:
+        if values["requester_cancel"] not in set(RequesterCancel):
+            problem("requester_cancel", "invalid_choice")
+        changes["requester_cancel"] = values["requester_cancel"]
+    if "requester_edit_fields" in values:
+        wanted = sorted(set(values["requester_edit_fields"] or []))
+        # Only reporting fields and custom fields; a staff-only one never (the domain's rule).
+        if not all(editable_by_requester(f, frozenset(wanted)) for f in wanted):
+            problem("requester_edit_fields", "invalid_choice")
+        changes["requester_edit_fields"] = wanted
     if "review_required_priorities" in values:
         wanted = list(values["review_required_priorities"] or [])
         if any(code not in set(Priority) for code in wanted):
@@ -172,12 +218,20 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
             if wtype.code is not WorkItemTypeCode.CHANGE:
                 problem(name, "not_allowed")
             changes[name] = bool(values[name])
+    for name in RELEASE_ONLY:  # WP-058b S3: a stage's open tasks hold its move out (or not)
+        if name in values:
+            if wtype.code is not WorkItemTypeCode.RELEASE:
+                problem(name, "not_allowed")
+            elif not isinstance(values[name], bool):  # never "false" read as true (lane A)
+                problem(name, "invalid_value")
+            changes[name] = values[name] is True
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
             problem("first_response_on", "invalid_choice")
         # Stored in the fixed order, so a re-ordered list is not a change.
         changes["first_response_on"] = [c for c in FirstResponseAction if c in chosen]
+    _mail_settings(wtype, values, changes, problem)
     for name, codes in (("default_impact", set(Impact)), ("default_urgency", set(Urgency))):
         if name in values:
             if values[name] is not None and values[name] not in codes:
@@ -195,13 +249,20 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "approvals_require_sign_in": current.approvals_require_sign_in,
         "portal_show_due_time": current.portal_show_due_time,
         "first_task_starts_work": current.first_task_starts_work,
+        "requester_cancel": current.requester_cancel,
+        "requester_edit_fields": list(current.requester_edit_fields),
         "review_required_priorities": list(current.review_required_priorities),
         "segregation_strict": current.segregation_strict,
+        "outside_maintenance_blocks": current.outside_maintenance_blocks,
+        "open_stage_tasks_block": current.open_stage_tasks_block,
         "cab_every_match": current.cab_every_match,
         "reapproval": current.reapproval,
         "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,
+        "mail_commands": current.mail_commands,
+        "mail_command_fields": list(current.mail_command_fields),
+        "cc_from_first_mail": current.cc_from_first_mail,
     }
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if current.settings_version != expected_version:
@@ -247,6 +308,15 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     return await config.load(session, wtype)
 
 
+# Items per record across its checklists (the column's check, migration 0144).
+CHECKLIST_MIN, CHECKLIST_MAX = 1, 1000
+COPY_MIN, COPY_MAX = 1, 100  # WP-046a S5c: the column's own range (0156)
+FIRST_CONTACT_MAX = 1440  # WP-046b S1 (0169): a day, in minutes
+_FIELD_NAME = re.compile(r"^[a-z][a-z0-9_]{0,59}(\.[a-z][a-z0-9_]{0,59})?$")
+
+# WP-046a S3 (REQ-INC-070): the worklog rules, on every type with worklogs.
+WORKLOG_RULES = ("worklog_block_closed", "worklog_count_nonworking", "timer_auto_start")
+
 CLOSURE_FIELDS = (
     "resolve_requires",
     "close_requires",
@@ -254,6 +324,11 @@ CLOSURE_FIELDS = (
     "complete_open_work",
     "auto_close_days",
     "reopen_window_days",
+    "checklist_item_max",
+    "copy_limit",
+    "edit_reason_fields",
+    "first_contact_minutes",
+    "closed_edit_locked",  # only through its own route (RecentAuth, audited: lane B)
 )
 
 
@@ -267,6 +342,15 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "auto_close_days": c.auto_close_days,
         "reopen_window_days": c.reopen_window_days,
         "task_owner_access": c.task_owner_access,
+        "worklog_block_closed": c.worklog_block_closed,
+        "worklog_count_nonworking": c.worklog_count_nonworking,
+        "timer_auto_start": c.timer_auto_start,
+        "task_dependency_mode": c.task_dependency_mode,
+        "checklist_item_max": c.checklist_item_max,
+        "copy_limit": c.copy_limit,
+        "edit_reason_fields": sorted(c.edit_reason_fields),
+        "first_contact_minutes": c.first_contact_minutes,
+        "closed_edit_locked": c.closed_edit_locked,
     }
 
 
@@ -276,7 +360,19 @@ def _days(value: Any, low: int, high: int) -> int | None:  # noqa: ANN401 - JSON
     return value
 
 
-async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+def _conditions(wtype: WorkItemType, rule: str) -> frozenset[str]:
+    """A type's own closure conditions for `rule` (REQ-REL-051): a release's, before closing.
+
+    The review comes after a release is resolved (deployed), so it is never needed to resolve.
+    """
+    if wtype.code != WorkItemTypeCode.RELEASE:
+        return frozenset()
+    if rule == "close_requires":
+        return RELEASE_CONDITIONS
+    return RELEASE_CONDITIONS - {REVIEW_COMPLETED}
+
+
+async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -301,7 +397,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
     for name in ("resolve_requires", "close_requires"):
         if name in values:
             chosen = list(dict.fromkeys(values[name] or []))
-            if rule_field_problems(chosen, custom):
+            if rule_field_problems(chosen, custom, _conditions(wtype, name)):
                 problem(name, "invalid_choice")
             changes[name] = chosen
     if "open_work" in values:
@@ -314,6 +410,39 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["complete_open_work"] = bool(values["complete_open_work"])
     if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
         changes["task_owner_access"] = bool(values["task_owner_access"])
+    for name in WORKLOG_RULES:  # WP-046a S3 (REQ-INC-070): true or false, nothing else
+        if name in values:
+            if not isinstance(values[name], bool):
+                problem(name, "invalid_value")
+            changes[name] = values[name] is True
+    if "task_dependency_mode" in values:  # REQ-INC-075: an open predecessor blocks or warns
+        if values["task_dependency_mode"] not in {"block", "warn"}:
+            problem("task_dependency_mode", "invalid_choice")
+        changes["task_dependency_mode"] = values["task_dependency_mode"]
+    if "checklist_item_max" in values:  # WP-046a S2 (REQ-INC-040): the column's own range
+        if _days(values["checklist_item_max"], CHECKLIST_MIN, CHECKLIST_MAX) is None:
+            problem("checklist_item_max", "out_of_range", min=CHECKLIST_MIN, max=CHECKLIST_MAX)
+        changes["checklist_item_max"] = values["checklist_item_max"]
+    if "copy_limit" in values:  # WP-046a S5c (REQ-INC-033 AC3): copies one request may make
+        if _days(values["copy_limit"], COPY_MIN, COPY_MAX) is None:
+            problem("copy_limit", "out_of_range", min=COPY_MIN, max=COPY_MAX)
+        changes["copy_limit"] = values["copy_limit"]
+    if "edit_reason_fields" in values:  # WP-046b S1 (REQ-INC-124): field names, as history's
+        names = values["edit_reason_fields"]
+        if not isinstance(names, list) or not all(
+            isinstance(n, str) and _FIELD_NAME.fullmatch(n) for n in names
+        ):
+            problem("edit_reason_fields", "invalid_choice")
+        else:
+            changes["edit_reason_fields"] = sorted(set(names))
+    if "closed_edit_locked" in values:  # WP-046b S1 (REQ-INC-101): beats incidents.edit_closed
+        if not isinstance(values["closed_edit_locked"], bool):
+            problem("closed_edit_locked", "invalid_choice")
+        changes["closed_edit_locked"] = values["closed_edit_locked"]
+    if "first_contact_minutes" in values:  # WP-046b S1 (REQ-INC-102): the column's own range
+        if _days(values["first_contact_minutes"], 0, FIRST_CONTACT_MAX) is None:
+            problem("first_contact_minutes", "out_of_range", min=0, max=FIRST_CONTACT_MAX)
+        changes["first_contact_minutes"] = values["first_contact_minutes"]
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:

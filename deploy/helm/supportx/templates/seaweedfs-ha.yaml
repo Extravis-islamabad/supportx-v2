@@ -1,0 +1,464 @@
+{{- /*
+HA SeaweedFS (D-166, ADR-038 addendum): SeaweedFS's own replication, in place of the single pod
+of seaweedfs.yaml, with objectStorage.seaweedfs.ha (values-ha.yaml).
+
+  - masters: a raft group (an odd number, 3 by default); the leader assigns file IDs and places
+    every new volume's copies (-defaultReplication) and runs the maintenance script of
+    master.toml, which re-makes missing copies (volume.fix.replication);
+  - volume servers: the data. With 001 each volume has a copy on two servers; every server runs
+    on its own node (required anti-affinity), so the two copies are on two nodes. All servers
+    share SeaweedFS's default rack: "001" counts other servers in the same rack (a rack per
+    server would need "010" and would leave 001 volumes unplaceable);
+  - filers: the file tree, each with the S3 gateway, behind the same <release>-seaweedfs Service
+    and port 8333 as the single pod, so the app's settings do not change. Their metadata is in
+    PostgreSQL (SeaweedFS's postgres2 store): the database objectStorage.seaweedfs.ha.filer.database
+    in this release's CloudNativePG cluster, owned by the role seaweedfs_filer, which may connect
+    to that database only (postgresql.yaml: managed role and pg_hba). Same cluster, so the same
+    backups and the same restore (docs/runbooks/restore.md).
+
+Every pod of one component on its own node, whatever ha.antiAffinity says: two copies on one node
+would fall together. Only SupportX's pods, the database's pods (backups) and SeaweedFS's own pods
+reach them (networkpolicies.yaml).
+*/ -}}
+{{- if and (eq .Values.objectStorage.mode "seaweedfs") .Values.objectStorage.seaweedfs.ha.enabled }}
+{{- $rel := .Release.Name }}
+{{- $sw := .Values.objectStorage.seaweedfs }}
+{{- $h := $sw.ha }}
+{{- if ne .Values.postgresql.mode "cnpg" }}
+{{- fail "objectStorage.seaweedfs.ha keeps the filers' metadata in this release's CloudNativePG cluster (postgresql.mode: cnpg). With an external database, use objectStorage.mode external (your own S3-compatible store)." }}
+{{- end }}
+{{- if not (has (toString $h.replication) (list "001" "002")) }}
+{{- fail "objectStorage.seaweedfs.ha.replication must be \"001\" (two copies) or \"002\" (three copies), quoted" }}
+{{- end }}
+{{- $copies := add 1 (int (substr 2 3 (toString $h.replication))) }}
+{{- if lt (int $h.volume.replicas) (add $copies 1) }}
+{{- fail (printf "objectStorage.seaweedfs.ha.volume.replicas must be at least %d with replication %s: a lost server must leave enough servers to write every copy" (add $copies 1) $h.replication) }}
+{{- end }}
+{{- if or (lt (int $h.master.replicas) 3) (eq (mod (int $h.master.replicas) 2) 0) }}
+{{- fail "objectStorage.seaweedfs.ha.master.replicas must be odd and at least 3 (raft needs a majority)" }}
+{{- end }}
+{{- if lt (int $h.filer.replicas) 2 }}
+{{- fail "objectStorage.seaweedfs.ha.filer.replicas must be at least 2" }}
+{{- end }}
+{{- $s3 := dict "root" . "component" "seaweedfs" }}
+{{- $master := dict "root" . "component" "seaweedfs-master" }}
+{{- $volume := dict "root" . "component" "seaweedfs-volume" }}
+{{- $filer := dict "root" . "component" "seaweedfs-filer" }}
+{{- $config := dict "root" . "component" "seaweedfs-config" }}
+{{- $masterSvc := include "supportx.name" $master }}
+{{- $volumeSvc := include "supportx.name" $volume }}
+{{- $peers := list }}
+{{- range $i := until (int $h.master.replicas) }}
+{{- $peers = append $peers (printf "%s-%d.%s:9333" $masterSvc $i $masterSvc) }}
+{{- end }}
+{{- $masters := join "," $peers }}
+{{- $image := include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.seaweedfs) }}
+# The S3 gateway of the filers, under the single pod's name and port: the app sees no change.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $s3 }}
+  labels:
+    {{- include "supportx.labels" $s3 | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $filer | nindent 4 }}
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+---
+# Masters find each other by these stable names (pod.service), published before the pods are
+# ready: raft needs its peers' addresses to elect a leader at all.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $masterSvc }}
+  labels:
+    {{- include "supportx.labels" $master | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "supportx.selector" $master | nindent 4 }}
+  ports:
+    - {name: http, port: 9333, targetPort: http}
+    - {name: grpc, port: 19333, targetPort: grpc}
+---
+# Volume servers' names resolve only while they are ready (unlike the masters'): they announce
+# themselves to the masters by heartbeat, so nothing needs their names before that. A lost node's
+# volume server then stops resolving once the node is NotReady, and each filer's S3 gateway, which
+# caches volume locations with no expiry and retries a failed server every 30 s with a fixed 30 s
+# dial timeout (SeaweedFS 4.48), fails over in milliseconds instead of stalling 30 s per try:
+# measured one 30 s stall, then clean (D-166; it was a stall about every 60 s for minutes).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $volumeSvc }}
+  labels:
+    {{- include "supportx.labels" $volume | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: false
+  selector:
+    {{- include "supportx.selector" $volume | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+    - {name: grpc, port: 18080, targetPort: grpc}
+---
+# The filers' store has no password here: the filer reads it from WEED_POSTGRES2_PASSWORD (the
+# Secret), which SeaweedFS's settings take over the file's empty value.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $config }}
+  labels:
+    {{- include "supportx.labels" $config | nindent 4 }}
+data:
+  # The leader master's maintenance, every maintenanceMinutes (SeaweedFS's documented script,
+  # its weed shell commands, under the cluster-wide admin lock): empty volumes go after a day,
+  # volumes are spread evenly, and every volume with fewer copies than its replication gets
+  # them back (after a lost server, or one replaced with an empty disk).
+  master.toml: |
+    [master.maintenance]
+    scripts = """
+      lock
+      volume.deleteEmpty -quietFor=24h -apply
+      volume.balance -apply
+      volume.fix.replication -apply
+      unlock
+    """
+    sleep_minutes = {{ int $h.maintenanceMinutes }}
+
+    [master.sequencer]
+    type = "raft"
+  filer.toml: |
+    [filer.options]
+    recursive_delete = false
+
+    [postgres2]
+    enabled = true
+    createTable = """
+      CREATE TABLE IF NOT EXISTS "%s" (
+        dirhash   BIGINT,
+        name      VARCHAR(65535),
+        directory VARCHAR(65535),
+        meta      bytea,
+        PRIMARY KEY (dirhash, name)
+      );
+    """
+    hostname = "{{ include "supportx.dbHost" . }}"
+    port = 5432
+    username = "seaweedfs_filer"
+    password = ""
+    database = "{{ $h.filer.database }}"
+    schema = ""
+    # verify-full against CloudNativePG's CA (audit row 5): the chain and the host name.
+    sslmode = "verify-full"
+    sslrootcert = "/etc/seaweedfs/pg-ca/ca.crt"
+    connection_max_idle = 10
+    connection_max_open = 20
+    connection_max_lifetime_seconds = 300
+    pgbouncer_compatible = false
+    enableUpsert = true
+    upsertQuery = """
+      INSERT INTO "%[1]s" (dirhash, name, directory, meta)
+        VALUES($1, $2, $3, $4)
+        ON CONFLICT (dirhash, name) DO UPDATE SET
+          directory=EXCLUDED.directory,
+          meta=EXCLUDED.meta
+    """
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $masterSvc }}
+  labels:
+    {{- include "supportx.labels" $master | nindent 4 }}
+spec:
+  serviceName: {{ $masterSvc }}
+  replicas: {{ int $h.master.replicas }}
+  # All at once: raft elects a leader only once a majority runs.
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $master | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $master | nindent 8 }}
+      annotations:
+        checksum/config: {{ printf "%s%d" $masters (int $h.maintenanceMinutes) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.seaweedfsPod" $master | nindent 6 }}
+      containers:
+        - name: master
+          image: {{ $image }}
+          command: ["weed"]
+          args:
+            - master
+            - -mdir=/data
+            - -ip=$(POD_NAME).{{ $masterSvc }}
+            - -ip.bind=0.0.0.0
+            - -port=9333
+            - -peers={{ $masters }}
+            # Hashicorp raft: leadership can be handed over before maintenance
+            # (cluster.raft.transferLeader), and the first master in -peers starts the cluster.
+            - -raftHashicorp
+            - -defaultReplication={{ $h.replication }}
+            - -volumeSizeLimitMB={{ $sw.volumeSizeLimitMB }}
+            # No usage statistics to the internet (air-gapped and sovereign installs, §1.2).
+            - -telemetry=false
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+          ports:
+            - {name: http, containerPort: 9333}
+            - {name: grpc, containerPort: 19333}
+          readinessProbe:
+            httpGet: {path: /cluster/status, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $h.master.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "supportx.name" $config }}
+            items:
+              - {key: master.toml, path: master.toml}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $h.master.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $h.master.storage.size }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $volumeSvc }}
+  labels:
+    {{- include "supportx.labels" $volume | nindent 4 }}
+spec:
+  serviceName: {{ $volumeSvc }}
+  replicas: {{ int $h.volume.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $volume | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $volume | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.seaweedfsPod" $volume | nindent 6 }}
+      containers:
+        - name: volume
+          image: {{ $image }}
+          command: ["weed"]
+          args:
+            - volume
+            - -dir=/data
+            - -max=0                  # as many volumes as the disk holds
+            - -ip=$(POD_NAME).{{ $volumeSvc }}
+            - -ip.bind=0.0.0.0
+            - -port=8080
+            - -master={{ $masters }}
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: grpc, containerPort: 18080}
+          readinessProbe:
+            httpGet: {path: /status, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $h.volume.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $h.volume.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $h.volume.storage.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $filer }}
+  labels:
+    {{- include "supportx.labels" $filer | nindent 4 }}
+spec:
+  replicas: {{ int $h.filer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $filer | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $filer | nindent 8 }}
+      annotations:
+        checksum/config: {{ printf "%s%s%s" $masters $h.filer.database (include "supportx.dbHost" .) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.seaweedfsPod" $filer | nindent 6 }}
+      {{- /* A Deployment's copy on a lost node starts elsewhere after ha.fastEvictionSeconds, so two
+      filers serve again; the other one serves meanwhile. */}}
+      {{- if .Values.ha.fastEvictionSeconds }}
+      tolerations:
+        {{- range $taint := list "node.kubernetes.io/unreachable" "node.kubernetes.io/not-ready" }}
+        - key: {{ $taint }}
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: {{ int $.Values.ha.fastEvictionSeconds }}
+        {{- end }}
+      {{- end }}
+      initContainers:
+        # The filer stops at start when its store is unreachable: wait until the role, its
+        # database and the pg_hba rule are in place (CloudNativePG makes them after the cluster).
+        - name: wait-for-database
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.postgres) }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until psql -qtAc 'SELECT 1' >/dev/null 2>&1; do echo "waiting for the filer database"; sleep 3; done
+          env:
+            - {name: PGHOST, value: {{ include "supportx.dbHost" . | quote }}}
+            - {name: PGUSER, value: seaweedfs_filer}
+            - {name: PGDATABASE, value: {{ $h.filer.database | quote }}}
+            - {name: PGSSLMODE, value: verify-full}
+            - {name: PGSSLROOTCERT, value: /etc/seaweedfs/pg-ca/ca.crt}
+            - {name: PGCONNECT_TIMEOUT, value: "5"}
+            - name: PGPASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.seaweedfsFilerDb }}, key: password}}
+          volumeMounts:
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+      containers:
+        - name: filer
+          image: {{ $image }}
+          command: ["weed"]
+          args:
+            - filer
+            - -ip=$(POD_IP)
+            - -ip.bind=0.0.0.0
+            - -port=8888
+            - -master={{ $masters }}
+            - -s3
+            - -s3.port=8333
+            - -s3.config=/etc/seaweedfs/s3.json
+          env:
+            - name: POD_IP
+              valueFrom: {fieldRef: {fieldPath: status.podIP}}
+            - name: WEED_POSTGRES2_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.seaweedfsFilerDb }}, key: password}}
+          ports:
+            - {name: s3, containerPort: 8333}
+            - {name: http, containerPort: 8888}
+            - {name: grpc, containerPort: 18888}
+          readinessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml $h.filer.resources | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          projected:
+            sources:
+              - configMap:
+                  name: {{ include "supportx.name" $config }}
+                  items:
+                    - {key: filer.toml, path: filer.toml}
+              - secret:
+                  name: {{ .Values.secrets.app }}
+                  items:
+                    - {key: seaweedfs-s3-config, path: s3.json}
+              # CloudNativePG's CA certificate only, never its key: the store checks the server.
+              - secret:
+                  name: {{ printf "%s-pg-ca" .Release.Name }}
+                  items:
+                    - {key: ca.crt, path: pg-ca/ca.crt}
+        # The filer's own scratch (its store is PostgreSQL): nothing here outlives the pod.
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+{{- range $part := list (dict "c" $master "min" (add (div (int $h.master.replicas) 2) 1)) (dict "c" $volume "min" 2) (dict "c" $filer "min" 1) }}
+---
+# Raft keeps its majority, and enough volume servers and filers keep serving, through a drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "supportx.name" $part.c }}
+  labels:
+    {{- include "supportx.labels" $part.c | nindent 4 }}
+spec:
+  minAvailable: {{ $part.min }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $part.c | nindent 6 }}
+{{- end }}
+---
+# The filers' metadata database, owned by their role (postgresql.yaml's managed roles). Kept when
+# the release goes (retain): it maps every stored file.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $rel }}-seaweedfs-filer
+  labels:
+    {{- include "supportx.labels" $filer | nindent 4 }}
+spec:
+  name: {{ $h.filer.database }}
+  owner: seaweedfs_filer
+  cluster:
+    name: {{ $rel }}-pg
+  ensure: present
+  databaseReclaimPolicy: retain
+{{- end }}

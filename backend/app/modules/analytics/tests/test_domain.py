@@ -1,5 +1,6 @@
 """Reporting domain and compiler without a database (WP-035)."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -8,7 +9,7 @@ import pytest
 from sqlalchemy import Column, DateTime, Integer, MetaData, Select, String, Table, Uuid, select
 from sqlalchemy.dialects import postgresql
 
-from app.core.errors import ValidationFailed
+from app.core.errors import PermissionDenied, ValidationFailed
 from app.modules.analytics.domain.builtin import BUILTIN, BUILTIN_REPORTS
 from app.modules.analytics.domain.definition import (
     AGE_BUCKETS,
@@ -16,6 +17,7 @@ from app.modules.analytics.domain.definition import (
     ReportDefinition,
 )
 from app.modules.analytics.domain.measures import MEASURES, measure_problems
+from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS
 from app.modules.analytics.service.compiler import (
     available_measures,
     compile_report,
@@ -24,6 +26,7 @@ from app.modules.analytics.service.compiler import (
 )
 from app.modules.analytics.service.runner import age_bounds, bucket_bounds
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
+from app.shared.labels import missing_labels
 from app.shared.reporting import Dimension, DimensionKind, ReportingSource
 
 _T = Table(
@@ -105,6 +108,7 @@ def test_req_rpt_015_every_builtin_report_is_filed_under_its_module() -> None:
         "problem": "problems",
         "release": "releases",
         "asset": "assets",
+        "change": "changes",
     }
     for report in BUILTIN_REPORTS:
         assert folders[report.definition.entity] == report.folder, report.code
@@ -252,3 +256,44 @@ def test_qa10_p4_22_a_counted_measure_s_condition_is_in_the_drill() -> None:
     }
     # A plain count adds nothing.
     assert drill_all(_definition(measures=["count"])) is None
+
+
+def test_every_ready_made_dashboard_has_a_name_and_a_description() -> None:
+    """QA 2026-11-12 F-04: the Changes card read the word "Description" (no label behind it)."""
+    keys = [
+        k
+        for code in BUILTIN_DASHBOARDS
+        for k in (f"dashboard.{code}", f"dashboard.{code}.description")
+    ]
+    assert missing_labels(keys, ("en", "ar", "ur")) == []
+
+
+# --- field access per role (ADR-047 §5) ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"filter": {"field": "priority", "op": "eq", "value": "p1"}},
+        {"filter": {"and": [{"field": "priority", "op": "eq", "value": "p1"}]}},
+        {"group_by": [{"field": "priority"}]},
+        {"columns": ["priority"]},
+        {"columns": ["group_id"], "sort": [{"field": "priority"}]},
+    ],
+)
+def test_a_withheld_field_is_refused_as_not_permitted(values: dict[str, Any]) -> None:
+    """Wherever a definition names it; the source has already left it out of its fields."""
+    source = replace(_source(), withheld=frozenset({"priority"}))
+    with pytest.raises(PermissionDenied) as refused:
+        compile_report(_definition(measures=["count"], **values), source, now=NOW, zone="UTC")
+    assert refused.value.instance_code == "field_not_permitted"
+
+
+def test_a_definition_without_withheld_fields_compiles_as_before() -> None:
+    source = replace(_source(), withheld=frozenset({"reopen_count"}))
+    compile_report(
+        _definition(measures=["count"], group_by=[{"field": "priority"}]),
+        source,
+        now=NOW,
+        zone="UTC",
+    )

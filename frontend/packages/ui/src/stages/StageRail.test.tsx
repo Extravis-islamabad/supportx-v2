@@ -18,10 +18,26 @@ const RAIL: RailStage[] = [
       { entered_at: '2026-11-01T09:00:00Z', left_at: '2026-11-02T09:00:00Z' },
       { entered_at: '2026-11-03T09:00:00Z', left_at: '2026-11-04T09:00:00Z' },
     ],
+    tasks_done: 0,
+    tasks_total: 0,
   },
-  { stage: 'planning', state: 'current', optional: false, entries: [] },
-  { stage: 'build', state: 'skipped', optional: true, entries: [] },
-  { stage: 'testing', state: 'future', optional: false, entries: [] },
+  {
+    stage: 'planning',
+    state: 'current',
+    optional: false,
+    entries: [],
+    tasks_done: 1,
+    tasks_total: 3,
+  },
+  { stage: 'build', state: 'skipped', optional: true, entries: [], tasks_done: 0, tasks_total: 0 },
+  {
+    stage: 'testing',
+    state: 'future',
+    optional: false,
+    entries: [],
+    tasks_done: 0,
+    tasks_total: 0,
+  },
 ];
 
 describe('StageRail', () => {
@@ -33,5 +49,11 @@ describe('StageRail', () => {
     expect(screen.getByTestId('rail-build-state').textContent).toBe('Skipped');
     expect(screen.getByText('Optional')).toBeTruthy();
     expect(screen.queryByText(/^(work_item_stage|stage_rail|rail_state)\./)).toBeNull(); // rule d
+  });
+
+  it('REQ-REL-048 AC2: a stage with tasks says how many are done', () => {
+    renderUi(<StageRail rail={RAIL} testId="rail" />);
+    expect(screen.getByTestId('rail-planning-tasks').textContent).toBe('Tasks 1 / 3');
+    expect(screen.queryByTestId('rail-testing-tasks')).toBeNull(); // no tasks: nothing said
   });
 });

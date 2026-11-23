@@ -93,6 +93,61 @@ describe('Admin › Incidents › Closing', () => {
     expect(sent?.body).not.toHaveProperty('auto_close_days');
   });
 
+  it('REQ-INC-069/070 (WP-046a S3): the worklog rules start at their defaults and save', async () => {
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...routes(),
+        'PATCH /api/v1/incidents/settings/closure': { body: fakeIncidentCatalogue() },
+      },
+    });
+    open('/admin/incidents/closing');
+    const block = await screen.findByTestId('settings-worklog_block_closed');
+    expect(block.getAttribute('aria-checked')).toBe('false');
+    expect(
+      screen.getByTestId('settings-worklog_count_nonworking').getAttribute('aria-checked'),
+    ).toBe('true');
+    const auto = screen.getByTestId('settings-timer_auto_start');
+    expect(auto.getAttribute('aria-checked')).toBe('false'); // off: an unnoticed timer logs wrong time
+    fireEvent.click(block);
+    fireEvent.click(screen.getByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/incidents/settings/closure');
+    expect(sent?.body).toMatchObject({
+      worklog_block_closed: true,
+      worklog_count_nonworking: true,
+      timer_auto_start: false,
+    });
+  });
+
+  it('REQ-INC-033 AC3 (WP-046a S5c): the copy limit saves, and stays within 1 to 100', async () => {
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...routes(),
+        'PATCH /api/v1/incidents/settings/closure': { body: fakeIncidentCatalogue() },
+      },
+    });
+    open('/admin/incidents/closing');
+    const limit = await screen.findByTestId('settings-copy-limit');
+    expect((limit as HTMLInputElement).value).toBe('20');
+    fireEvent.change(limit, { target: { value: '101' } });
+    fireEvent.click(screen.getByTestId('settings-save'));
+    expect(
+      await screen.findByText(/100/, { selector: '.ant-form-item-explain-error' }),
+    ).toBeDefined();
+    expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(0);
+    fireEvent.change(limit, { target: { value: '5' } });
+    fireEvent.click(screen.getByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/incidents/settings/closure')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/incidents/settings/closure');
+    expect(sent?.body).toMatchObject({ copy_limit: 5 });
+  });
+
   it('REQ-INC-096 AC3: auto-close is off and disabled while no channel can tell requesters', async () => {
     api({ me: ADMIN, routes: routes() });
     open('/admin/incidents/closing');

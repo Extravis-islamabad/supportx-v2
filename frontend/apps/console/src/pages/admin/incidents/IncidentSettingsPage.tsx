@@ -13,12 +13,15 @@ import {
 } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
+import { ChecklistLibraryTab } from './ChecklistLibraryTab';
 import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
+import { LifecycleTab } from './LifecycleTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
 import { ReplyTemplatesTab } from './ReplyTemplatesTab';
+import { TaskTemplatesTab } from './TaskTemplatesTab';
 import { StatusesTab } from './StatusesTab';
 import { TemplatesTab } from './TemplatesTab';
 import { RepeatRulesTab } from './RepeatRulesTab';
@@ -26,8 +29,10 @@ import { RepeatRulesTab } from './RepeatRulesTab';
 const SECTIONS = [
   'general',
   'templates',
+  'checklists',
   'custom-fields',
   'statuses',
+  'lifecycle',
   'reasons',
   'priority',
   'categories',
@@ -35,6 +40,8 @@ const SECTIONS = [
   'closure-codes',
   'closing',
   'reply-templates',
+  'resolution-templates',
+  'task-templates',
   'repeat-rules',
 ] as const;
 type Section = (typeof SECTIONS)[number];
@@ -85,6 +92,11 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
+      case 'resolution-templates':
+        // REQ-INC-042: the resolution editor's own templates, by category.
+        return <ReplyTemplatesTab kind="resolution" />;
+      case 'task-templates':
+        return <TaskTemplatesTab />;
       default:
         break;
     }
@@ -95,6 +107,8 @@ export function IncidentSettingsPage() {
         return <GeneralTab catalogue={cat} />;
       case 'statuses':
         return <StatusesTab catalogue={cat} />;
+      case 'lifecycle':
+        return <LifecycleTab catalogue={cat} />;
       case 'reasons':
         return (
           <Flex vertical gap={16}>
@@ -130,6 +144,8 @@ export function IncidentSettingsPage() {
             values={cat.closure_codes}
           />
         );
+      case 'checklists':
+        return <ChecklistLibraryTab />;
       case 'closing':
         return <ClosingTab catalogue={cat} />;
       case 'repeat-rules':

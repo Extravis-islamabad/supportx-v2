@@ -1,22 +1,13 @@
 import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
-import {
-  Button,
-  Checkbox,
-  Drawer,
-  Empty,
-  Flex,
-  Input,
-  Select,
-  Space,
-  Spin,
-  Typography,
-} from 'antd';
+import { Button, Checkbox, Empty, Flex, Input, Select, Space, Spin, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
   queryKeys,
+  resourceAccessKeys,
+  usePersonResourceAccess,
   useRoleAssignment,
   useRoles,
   useUnitMutations,
@@ -26,7 +17,14 @@ import {
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshList, useRealtimeUser, useRecordChannel } from '@supportx/realtime';
-import { FormProblem, PresenceAvatars, useAccess, useFormProblem, useLabel } from '@supportx/ui';
+import {
+  Drawer,
+  FormProblem,
+  PresenceAvatars,
+  useAccess,
+  useFormProblem,
+  useLabel,
+} from '@supportx/ui';
 
 import { roleName } from './roleName';
 
@@ -63,7 +61,9 @@ export function UserAccessPanel({ user }: { user: UserDetail }) {
   const queryClient = useQueryClient();
   const viewers = useRecordChannel('users', user.id, () => {
     refreshList(queryClient, queryKeys.access.user(user.id));
+    refreshList(queryClient, resourceAccessKeys.person(user.id));
   });
+  const { can } = useAccess();
   const self = useRealtimeUser();
   if (access.data === undefined) return <Spin />;
   return (
@@ -76,7 +76,63 @@ export function UserAccessPanel({ user }: { user: UserDetail }) {
       />
       <UnitsSection kind="sites" userId={user.id} memberOf={access.data.site_ids} />
       <UnitsSection kind="groups" userId={user.id} memberOf={access.data.group_ids} />
+      {can('roles.manage') && <RecordsSection userId={user.id} />}
     </Space>
+  );
+}
+
+/**
+ * ADR-053: which assets and CIs this person sees, from their own compiled access (the server's
+ * same compile): per resource, as their roles' scope allows or narrowed by the listed rules.
+ */
+function RecordsSection({ userId }: { userId: string }) {
+  const t = useLabel();
+  const found = usePersonResourceAccess(userId);
+  if (found.data === undefined) return null;
+  const { narrowed, tenant_admin: admin } = found.data;
+  return (
+    <section aria-label={t('resource_access.person_title')} data-testid="user-records">
+      <Typography.Title level={5}>{t('resource_access.person_title')}</Typography.Title>
+      {admin ? (
+        <Typography.Text type="secondary">{t('resource_access.person_admin')}</Typography.Text>
+      ) : (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {(['ci', 'asset'] as const).map((resource) => {
+            const one = narrowed[resource];
+            return (
+              <div key={resource} data-testid={`user-records-${resource}`}>
+                <Typography.Text strong>
+                  {t(`resource_access_resource.${resource}`)}
+                </Typography.Text>
+                <br />
+                {one === undefined ? (
+                  <Typography.Text type="secondary">
+                    {t('resource_access.person_not_narrowed')}
+                  </Typography.Text>
+                ) : (
+                  <Flex gap={4} wrap>
+                    {one.whole_scope_roles > 0 && (
+                      <Typography.Text type="secondary">
+                        {t('resource_access.person_whole_scope_roles', {
+                          count: one.whole_scope_roles,
+                        })}
+                      </Typography.Text>
+                    )}
+                    {one.rules.map((rule, index) => (
+                      <Typography.Text key={index} code>
+                        {Object.keys(rule)
+                          .map((key) => t(`resource_access_criterion.${key}`))
+                          .join(' · ')}
+                      </Typography.Text>
+                    ))}
+                  </Flex>
+                )}
+              </div>
+            );
+          })}
+        </Space>
+      )}
+    </section>
   );
 }
 

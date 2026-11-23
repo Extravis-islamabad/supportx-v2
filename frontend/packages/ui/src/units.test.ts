@@ -121,6 +121,38 @@ describe('visibleNav', () => {
 });
 
 describe('describeError', () => {
+  it('WP-058b S3: a stage left with open tasks names the first and how many more', () => {
+    const refused = (extra: Record<string, unknown>) =>
+      describeError(
+        new ApiError(409, problem(409, 'stage_move_refused', { params: extra as never }), null),
+        t,
+      ).detail;
+    expect(
+      refused({
+        reason: 'stage_tasks_open',
+        count: 1,
+        tasks: 3,
+        stage: 'testing',
+        task: 'Smoke test',
+        more: 2,
+      }),
+    ).toBe("Finish this stage's open tasks first: Smoke test and 2 more.");
+    expect(
+      refused({
+        reason: 'stage_tasks_open',
+        count: 1,
+        tasks: 1,
+        stage: 'testing',
+        task: 'Smoke test',
+        more: 0,
+      }),
+    ).toBe("Finish this stage's open task first: Smoke test.");
+    // An older answer without the task keeps the plain reason.
+    expect(refused({ reason: 'stage_tasks_open', count: 2, stage: 'testing' })).toBe(
+      "Finish this stage's tasks first.",
+    );
+  });
+
   it('explains entitlement problems with the feature and the reason', () => {
     const feature = describeError(
       new ApiError(

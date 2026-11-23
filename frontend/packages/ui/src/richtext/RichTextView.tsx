@@ -40,6 +40,7 @@ export function RichTextView({ html, testId }: { html: string | null; testId?: s
   return (
     <>
       <RichTextStyles />
+      {/* nosemgrep: sx.inner-html - the API sanitised it on save (nh3) */}
       <div
         ref={container}
         className="sx-richtext"

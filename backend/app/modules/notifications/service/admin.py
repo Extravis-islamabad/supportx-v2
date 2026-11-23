@@ -4,6 +4,7 @@ Rules: every event every module registered, with the shipped default until an ad
 rule (no set-up step, REQ-NTF-008 AC1). Saving uses the rule's version (0 for an event that
 still has its default) so two admins never overwrite each other; "reset" goes back to the
 default. Every change is audited by the route and recorded as `notifications.rule.changed`.
+A locked event (a security notice) refuses both: its shipped default always applies.
 
 Delivery log: the rows of one record, for people who may see the record in full (staff); the
 e-mail state is read live from the mail sender (sent, failed with the reason).
@@ -72,8 +73,13 @@ async def _row(session: AsyncSession, code: str, *, lock: bool = False) -> Notif
     return await session.scalar(query.with_for_update() if lock else query)
 
 
+def _unlocked(event: NotificationEvent) -> None:
+    if event.locked:
+        raise Conflict(code="notification_rule_locked", params={"event_code": event.code})
+
+
 def _view(source: RecordSource, event: NotificationEvent, row: NotificationRule | None) -> RuleView:
-    if row is None:
+    if row is None or event.locked:
         return RuleView(source, event, Rule.from_default(event.default), 0, None, None)
     return RuleView(source, event, rule_of(row), row.version, row.updated_at, row.updated_by)
 
@@ -174,6 +180,7 @@ async def save_rule(
 ) -> RuleView:
     """Replace an event's rule (If-Match: 0 while the default applies)."""
     source, event = _event(code)
+    _unlocked(event)
     if errors := _check(source, wanted):
         raise ValidationFailed(errors=errors)
     row = await _row(session, code, lock=True)
@@ -218,6 +225,7 @@ async def reset_rule(
 ) -> RuleView:
     """Back to the shipped default (the saved rule is soft-deleted, kept for history)."""
     source, event = _event(code)
+    _unlocked(event)
     row = await _row(session, code, lock=True)
     if row is None:
         return _view(source, event, None)

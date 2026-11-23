@@ -14,6 +14,7 @@ dependencies = [
     "httpx>=0.28.1",
     "icalendar>=7.3.0",
     "jinja2>=3.1.6",
+    "maxminddb>=2.6",
     "nats-py>=2.16.0",
     "nh3>=0.3.7",
     "openpyxl>=3.1.5",
@@ -25,6 +26,8 @@ dependencies = [
     "prometheus-client>=0.26.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
+    "python-barcode>=0.16.1",
+    "segno>=1.6.6",
     "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
     "temporalio>=1.35.0",
@@ -52,6 +55,8 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
+    # test helper: a hung test fails and names itself with a thread dump (CI shards; MIT, D-012)
+    "pytest-timeout>=2.4",
     "pytest-xdist>=3.8",
     "ruff>=0.17.1",
     "types-aioboto3[s3]>=15.5.0",
@@ -104,6 +109,12 @@ disallow_subclassing_any = false
 # WeasyPrint (D-100 D8) is in the worker-only `pdf` group and ships no type hints; CI's default
 # install does not have it, the worker image job does.
 module = ["weasyprint", "weasyprint.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# python-barcode (D-141, asset labels) ships no type hints; infra/labels.py wraps it behind the
+# CodeRenderer interface, so its types stop there.
+module = ["barcode", "barcode.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -185,6 +196,12 @@ containers = ["app.modules.assets"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "cmdb layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.cmdb"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "procurement layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.procurement"]
@@ -254,6 +271,14 @@ source_modules = ["app.core", "app.shared", "app.main", "workers", "tooling"]
 forbidden_modules = ["app.modules.ai.service.providers"]
 
 [[tool.importlinter.contracts]]
+# WP-046b S4 (lane C, REQ-INC-129): work_items announces through announcements' public package;
+# announcements stays unaware of records and never imports work_items, directly or indirectly.
+name = "announcements never imports work_items"
+type = "forbidden"
+source_modules = ["app.modules.announcements"]
+forbidden_modules = ["app.modules.work_items"]
+
+[[tool.importlinter.contracts]]
 # CLAUDE.md rule b / architecture.md §6.5: request code writes events to the outbox and never
 # publishes to NATS itself. Only workers/ (relay, consumers) may use the NATS client. The single
 # exception is the system module's readiness probes, which open a connection to ping NATS and
@@ -281,3 +306,20 @@ ignore_imports = [
     "app.modules.licensing -> app.modules.licensing.infra.**",
     "app.modules.licensing.** -> app.modules.licensing.infra.**",
 ]
+
+[[tool.importlinter.contracts]]
+# ADR-050 (lane B): crypto stays a leaf, the codec and the key-provider shape only. It never
+# reaches the files key ring or field encryption (files already imports crypto: no cycle).
+name = "app.shared.crypto imports neither files nor fields"
+type = "forbidden"
+source_modules = ["app.shared.crypto"]
+forbidden_modules = ["app.shared.files", "app.shared.fields"]
+
+[[tool.importlinter.contracts]]
+# ADR-050 item 4: modules seal and open values through app.shared.fields' package root only;
+# its cipher and purpose registry (and with them the data keys) are not theirs to call.
+name = "Modules use field encryption only through app.shared.fields"
+type = "forbidden"
+source_modules = ["app.modules"]
+forbidden_modules = ["app.shared.fields.cipher", "app.shared.fields.purposes"]
+allow_indirect_imports = true

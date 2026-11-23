@@ -123,19 +123,21 @@ export function PasswordPolicyCard() {
   const number = (field: NumberField, label: string, suffix: string, hint?: string) => (
     <FieldNote id={`security-${field}`} message={shown[field] ?? null}>
       <label htmlFor={`security-${field}`}>{label}</label>
-      <InputNumber
-        id={`security-${field}`}
-        value={draft[field]}
-        disabled={readOnly}
-        onChange={(value) => {
-          update({ [field]: value });
-        }}
-        suffix={suffix}
-        style={{ width: 168 }}
-        status={shown[field] ? 'error' : undefined}
-        aria-describedby={`security-${field}-problem`}
-        data-testid={`security-${field}`}
-      />
+      {/* The unit in its own box: inside the field it ran under the arrows in Arabic. */}
+      <Space.Compact>
+        <InputNumber
+          id={`security-${field}`}
+          value={draft[field]}
+          disabled={readOnly}
+          onChange={(value) => {
+            update({ [field]: value });
+          }}
+          status={shown[field] ? 'error' : undefined}
+          aria-describedby={`security-${field}-problem`}
+          data-testid={`security-${field}`}
+        />
+        <Space.Addon>{suffix}</Space.Addon>
+      </Space.Compact>
       {hint !== undefined && <Typography.Text type="secondary">{hint}</Typography.Text>}
     </FieldNote>
   );

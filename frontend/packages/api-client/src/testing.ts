@@ -75,6 +75,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['config.service_desk', 'all'],
   ['config.organisation', 'all'],
   ['config.assets', 'all'], // WP-049a: the asset catalogue
+  ['incidents.declare_major', 'all'], // WP-046b S4: admins and service desk managers
   ['assets.view_financials', 'all'], // WP-049b s2: costs, depreciation, book value
   ['vendors.create', 'all'],
   ['vendors.manage', 'all'],
@@ -122,6 +123,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['dashboards.share', 'all'],
   ['dashboards.manage_defaults', 'all'],
   ['identity.manage', 'all'],
+  ['identity.view_sign_ins', 'all'], // the sign-in log (WP-057 S1a): the tenant admin's only
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
   ['integrations.manage_email', 'all'],
@@ -500,6 +502,10 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     closed_at: null,
     last_reopened_at: null,
     reopen_count: 0,
+    major: false,
+    major_declared_at: null,
+    major_declared_by: null,
+    major_reason: null,
     reassignment_count: 0,
     resolution: null,
     closure_code: null,
@@ -597,7 +603,14 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     approvals_require_sign_in: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
+    requester_cancel: 'off',
+    requester_edit_fields: [],
+    mail_commands: false,
+    mail_command_fields: [],
+    cc_from_first_mail: true,
     segregation_strict: false,
+    outside_maintenance_blocks: false,
+    open_stage_tasks_block: true,
     cab_every_match: false,
     first_response_on: ['reply', 'public_note'],
     version: 1,
@@ -669,8 +682,18 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       open_work: { tasks: 'warn', checklists: 'warn', child_incidents: 'warn', approvals: 'block' },
       complete_open_work: false,
       auto_close_days: null,
+      checklist_item_max: 100, // WP-046a S2
+      copy_limit: 20, // WP-046a S5c
+      closed_edit_locked: false, // WP-046b S1
+      edit_reason_fields: [],
+      first_contact_minutes: 30,
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
+      task_dependency_mode: 'block', // WP-046a S1 (REQ-INC-075)
+      // WP-046a S3 (REQ-INC-069/070) defaults: no block, non-working hours count, no auto-start.
+      worklog_block_closed: false,
+      worklog_count_nonworking: true,
+      timer_auto_start: false,
       requester_channels: [],
       requester_channel_states: [],
     },
@@ -760,6 +783,11 @@ export function fakeCustomField(overrides: Partial<CustomField> = {}): CustomFie
     in_use: false,
     index_state: 'none',
     index_error: null,
+    sensitive: false,
+    seal_state: 'plain',
+    // 0175: entity-wide and the entity's own unless a test scopes it to a type.
+    scope_type_id: null,
+    inherited: false,
     version: 1,
     ...overrides,
   };
@@ -886,6 +914,7 @@ export function fakeNotificationRule(
     record_type: 'incident',
     category: 'created',
     required: false,
+    locked: false,
     is_default: true,
     enabled: true,
     recipients: ['requester'],
@@ -938,6 +967,9 @@ export function fakeMailbox(
     unknown_senders: 'create_allowed_domains',
     allowed_domains: ['acme.test'],
     enabled: true,
+    trusted_servers: [],
+    trust_provider_results: false,
+    quarantine_days: 14,
     state: 'working',
     state_reason: null,
     last_fetch_at: '2026-10-28T09:00:00Z',

@@ -139,3 +139,52 @@ def test_a_window_checks_its_own_times() -> None:
     assert window_problems(MON, MON + H, repeat_weekly=False, repeat_until=MON + 2 * H) == [
         ("repeat_until", "not_allowed")
     ]
+
+
+# --- monthly windows (D-156) --------------------------------------------------------------------
+
+
+def test_d156_nth_weekday_finds_the_first_and_the_last() -> None:
+    from datetime import date  # noqa: PLC0415 - this block's own
+
+    from app.modules.work_items.domain.change_windows import nth_weekday  # noqa: PLC0415
+
+    assert nth_weekday(2027, 3, 1, 6) == date(2027, 3, 7)  # the first Sunday of March 2027
+    assert nth_weekday(2027, 3, 5, 4) == date(2027, 3, 26)  # its last Friday
+    assert nth_weekday(2027, 2, 4, 0) == date(2027, 2, 22)  # a fourth Monday always exists
+
+
+def test_d156_a_first_sunday_window_repeats_monthly_on_local_sundays() -> None:
+    from zoneinfo import ZoneInfo  # noqa: PLC0415 - this block's own
+
+    karachi = ZoneInfo("Asia/Karachi")
+    first = datetime(2027, 3, 7, 2, 0, tzinfo=karachi).astimezone(UTC)  # 02:00 Sunday local
+    window = Window(
+        id=uuid.uuid4(),
+        kind=WindowKind.MAINTENANCE,
+        mode=WindowMode.WARN,
+        starts_at=first,
+        ends_at=first + timedelta(hours=4),
+        monthly=(1, 6),
+        zone=karachi,
+    )
+    found = window.occurrences(first, first + timedelta(days=100))
+    local = [b.astimezone(karachi) for b, _ in found]
+    assert [(d.month, d.day, d.hour) for d in local] == [(3, 7, 2), (4, 4, 2), (5, 2, 2), (6, 6, 2)]
+    assert all(d.weekday() == 6 for d in local)  # Sundays in Karachi, Saturdays in UTC
+    assert window.contains(found[1][0] + timedelta(hours=1), found[1][0] + timedelta(hours=2))
+
+
+def test_d156_a_monthly_window_names_its_week_and_day_and_fits_in_a_month() -> None:
+    assert window_problems(
+        MON, MON + timedelta(days=30), repeat_weekly=False, repeat_until=None, monthly=(1, 6)
+    ) == [("ends_at", "longer_than_a_month")]
+    assert window_problems(
+        MON, MON + H, repeat_weekly=False, repeat_until=None, monthly=(None, 9)
+    ) == [("repeat_week", "required"), ("repeat_weekday", "invalid_choice")]
+    assert (
+        window_problems(
+            MON, MON + H, repeat_weekly=False, repeat_until=MON + 90 * H, monthly=(5, 4)
+        )
+        == []
+    )

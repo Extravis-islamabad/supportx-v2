@@ -5,7 +5,8 @@ import {
   MenuOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { Button, ConfigProvider, Drawer, Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
+import { Button, ConfigProvider, Grid, Layout, Menu, Tooltip, type MenuProps } from 'antd';
+import { Drawer } from '../Drawer';
 import { useContext, useState, type ReactNode } from 'react';
 
 import type { NavLayout } from '@supportx/api-client';

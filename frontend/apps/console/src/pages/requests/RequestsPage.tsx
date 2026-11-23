@@ -386,8 +386,12 @@ export function RequestsPage() {
             title: t('requests.approval'),
             width: widths.width('approval'),
             onHeaderCell: () => widths.header('approval'),
+            // Said once (QA-2026-11-11 V-16): while the status itself is "Awaiting approval",
+            // the column stays empty; it names the outcome once there is one.
             render: (_, row) =>
-              row.approval_status == null || row.approval_status === 'not_needed'
+              row.approval_status == null ||
+              row.approval_status === 'not_needed' ||
+              (row.approval_status === 'pending' && row.status === 'awaiting_approval')
                 ? ''
                 : t(`approval_status.${row.approval_status}`),
           },

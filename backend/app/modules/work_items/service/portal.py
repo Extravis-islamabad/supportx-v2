@@ -36,6 +36,7 @@ from app.modules.work_items.domain.conversation import Visibility
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.parts import LinkKind
 from app.modules.work_items.domain.portal import (
+    PLANNED_STAGE,
     KnownProblem,
     PortalReach,
     PortalStatus,
@@ -60,6 +61,7 @@ from app.modules.work_items.infra.models import (
     WorkItem,
     WorkItemConversation,
     WorkItemLink,
+    WorkItemStageSchedule,
     WorkItemTemplate,
 )
 from app.modules.work_items.service import approval_stage, catalogue, resolution, templates
@@ -454,11 +456,31 @@ async def conversation(
     found = await get_record(session, subject, record_id, wtype)
     if found.reach is PortalReach.APPROVER:
         return []  # an approver sees what is asked, not the requester's talk with the desk
+    # WP-046b S2: incidents merged into this one bring their public entries (never private
+    # notes); their requesters stay nameless here, so neither requester learns about the other.
+    merged = (
+        await session.execute(
+            select(WorkItem.id, WorkItem.requester_id, WorkItem.on_behalf_of_id)
+            .join(WorkItemLink, WorkItemLink.source_id == WorkItem.id)
+            .where(
+                WorkItemLink.target_id == found.record.id,
+                WorkItemLink.kind == LinkKind.MERGED_INTO.value,
+                WorkItemLink.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    own = {found.record.requester_id, found.record.on_behalf_of_id}
+    nameless = {u for _, *people in merged for u in people if u is not None} - own
+    if merged and subject.user_id not in own:
+        # A follower brought in by the merge (the duplicate's requester) sees the survivor's
+        # public side, never its requesters by name either (lane B, #525).
+        nameless |= {u for u in own if u is not None}
+    nameless.discard(subject.user_id)  # your own entries always show your name
     rows = list(
         await session.scalars(
             select(WorkItemConversation)
             .where(
-                WorkItemConversation.work_item_id == found.record.id,
+                WorkItemConversation.work_item_id.in_([found.record.id, *(m[0] for m in merged)]),
                 WorkItemConversation.visibility == Visibility.PUBLIC,
                 WorkItemConversation.deleted_at.is_(None),
             )
@@ -475,7 +497,9 @@ async def conversation(
             e.kind,
             e.body,
             e.created_at,
-            names[str(e.created_by)][0] if str(e.created_by) in names else None,
+            names[str(e.created_by)][0]
+            if str(e.created_by) in names and e.created_by not in nameless
+            else None,
             e.created_by == subject.user_id,
         )
         for e in rows
@@ -552,3 +576,21 @@ __all__ = [
     "reply",
     "viewer",
 ]
+
+
+async def planned_window(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID, wtype: WorkItemType
+) -> tuple[datetime | None, datetime | None]:
+    """A staged record's planned window as its requester may see it (WP-045d S4a, REQ-CHG-109).
+
+    The planned stage's scheduled start and end only (a change's implementation), after the
+    same reach check as the record; never the plans, the outcome or anyone's notes.
+    """
+    await get_record(session, subject, record_id, wtype)  # 404 out of reach
+    row = await session.scalar(
+        select(WorkItemStageSchedule).where(
+            WorkItemStageSchedule.work_item_id == record_id,
+            WorkItemStageSchedule.stage == PLANNED_STAGE,
+        )
+    )
+    return (row.scheduled_start, row.scheduled_end) if row is not None else (None, None)

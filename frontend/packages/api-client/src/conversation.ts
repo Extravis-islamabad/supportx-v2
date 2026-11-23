@@ -22,8 +22,9 @@ export type ReplyTemplate = components['schemas']['ReplyTemplateOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
-/** The work-item types whose conversation these hooks serve (UI pass 3: the SR record). */
-export type ConversationBase = 'incidents' | 'service-requests';
+/** The work-item types whose conversation these hooks serve (UI pass 3: the SR record; WP-045d
+ * S2: the change record, REQ-CHG-100). */
+export type ConversationBase = 'incidents' | 'service-requests' | 'changes';
 
 /**
  * The same engine route under another type's prefix. The conversation routes are generated
@@ -36,9 +37,7 @@ function at<P extends string>(base: ConversationBase, path: P): P {
 
 /** The record's own query (its counts and first response change with the conversation). */
 function detailKey(base: ConversationBase, id: string): readonly unknown[] {
-  return base === 'service-requests'
-    ? ['service-requests', 'detail', id]
-    : queryKeys.incidents.detail(id);
+  return base === 'incidents' ? queryKeys.incidents.detail(id) : [base, 'detail', id];
 }
 
 /** Replies and notes of one incident, oldest first (staff see private notes, marked). */
@@ -189,36 +188,77 @@ export function useIncidentCounters(enabled = true) {
   });
 }
 
-export function useReplyTemplates(enabled = true) {
+/** Reply or resolution (REQ-INC-041, -042). */
+export type ReplyTemplateKind = ReplyTemplate['kind'];
+/** What a template is, as its owner or the admin writes it. */
+export type ReplyTemplateInput = components['schemas']['ReplyTemplateIn'];
+export type FilledTemplate = components['schemas']['FilledTemplateOut'];
+
+/**
+ * The templates you may use: shared ones (yours by group) and your own personal ones. For a
+ * resolution, `categoryId`'s come first.
+ */
+export function useReplyTemplates(
+  enabled = true,
+  kind: ReplyTemplateKind = 'reply',
+  categoryId?: string | null,
+  base: ConversationBase = 'incidents',
+) {
   return useQuery({
-    queryKey: queryKeys.incidents.replyTemplates,
-    queryFn: () => call(api.GET('/api/v1/incidents/reply-templates')),
+    queryKey: [...queryKeys.incidents.replyTemplates, base, kind, categoryId ?? null],
+    queryFn: () =>
+      call(
+        api.GET(at(base, '/api/v1/incidents/reply-templates'), {
+          params: { query: { kind, category_id: categoryId ?? undefined } },
+        }),
+      ),
     enabled,
     staleTime: 60_000,
   });
 }
 
-/** Add, change or remove a reply template (settings.manage). */
+/** The admin screen's list: every shared template and your own personal ones. */
+export function useManagedReplyTemplates(kind: ReplyTemplateKind, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.replyTemplates, 'manage', kind],
+    queryFn: () =>
+      call(api.GET('/api/v1/incidents/reply-templates/manage', { params: { query: { kind } } })),
+    enabled,
+  });
+}
+
+/** A template filled with a record's values, in `language` first (the requester's). */
+export function fillReplyTemplate(
+  recordId: string,
+  templateId: string,
+  language?: 'en' | 'ar' | 'ur' | null,
+  base: ConversationBase = 'incidents',
+): Promise<FilledTemplate> {
+  return call(
+    api.POST(at(base, '/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill'), {
+      params: { path: { record_id: recordId, template_id: templateId } },
+      body: { language: language ?? null },
+    }),
+  );
+}
+
+/** Add, change or remove a template (personal: yours; shared: the settings right). */
 export function useReplyTemplateChange() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (
       change:
-        | { kind: 'create'; name: string; body: string }
-        | { kind: 'update'; id: string; version: number; name: string; body: string }
-        | { kind: 'delete'; id: string; version: number },
+        | { op: 'create'; template: ReplyTemplateInput }
+        | { op: 'update'; id: string; version: number; template: ReplyTemplateInput }
+        | { op: 'delete'; id: string; version: number },
     ): Promise<void> => {
-      if (change.kind === 'create') {
-        await call(
-          api.POST('/api/v1/incidents/reply-templates', {
-            body: { name: change.name, body: change.body },
-          }),
-        );
-      } else if (change.kind === 'update') {
+      if (change.op === 'create') {
+        await call(api.POST('/api/v1/incidents/reply-templates', { body: change.template }));
+      } else if (change.op === 'update') {
         await call(
           api.PUT('/api/v1/incidents/reply-templates/{template_id}', {
             params: { path: { template_id: change.id }, header: ifMatch(change.version) },
-            body: { name: change.name, body: change.body },
+            body: change.template,
           }),
         );
       } else {
@@ -232,5 +272,25 @@ export function useReplyTemplateChange() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
     },
+  });
+}
+
+/**
+ * The conversation for a printout (WP-046b S4, REQ-INC-126): public entries only when asked,
+ * filtered by the server, so a private note never reaches the page (lane B).
+ */
+export function usePrintedConversation(id: string, publicOnly: boolean, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.incidents.conversation(id), 'print', publicOnly],
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/conversation', {
+          params: {
+            path: { record_id: id },
+            query: publicOnly ? { visibility: 'public' } : {},
+          },
+        }),
+      ),
+    enabled: enabled && id !== '',
   });
 }

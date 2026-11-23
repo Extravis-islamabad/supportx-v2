@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import after_commit
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
+from app.modules.identity_access.domain import erasure as erasure_rules
 from app.modules.identity_access.domain.identity import PERSON_TYPES, UserType
 from app.modules.identity_access.domain.people import (
     DIRECTORY_FIELDS,
@@ -33,13 +34,15 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
+from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.events import UserCreatedV3, UserStatusChanged, UserUpdated
-from app.modules.identity_access.infra.models import Role, User, UserRole
+from app.modules.identity_access.infra.models import PersonErasure, Role, User, UserRole
 from app.modules.identity_access.service.directory import (
     USER_RECORD_TYPE,
     UserRepository,
     explain_user_conflict,
 )
+from app.modules.identity_access.service.invitations import clear_links
 from app.modules.identity_access.service.roles import (
     grant_system_role,
     guard_last_admin,
@@ -78,6 +81,9 @@ FIELD_PROBLEMS = frozenset(
         "manager_loop",
     }
 )
+
+# The person types an event names (UserCreatedV3): never a vendor support account.
+PersonTypeCode = Literal["technician", "requester", "service"]
 
 
 @dataclass(frozen=True)
@@ -176,6 +182,8 @@ async def _person(session: AsyncSession, user_id: uuid.UUID) -> User:
     current = await UserRepository(session).get(user_id)
     if current.user_type == UserType.SERVICE.value:
         raise Conflict(code="service_identity_managed")
+    if current.user_type == SUPPORT_USER_TYPE:  # its grant alone manages it (lane B (1))
+        raise Conflict(code="vendor_support_type_fixed")
     return current
 
 
@@ -284,11 +292,24 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     )
     await record_event(
         session,
-        UserCreatedV3(user_id=person.id, user_type=user_type.value, source=source),
+        # A person's type only (checked by _person_type above): never vendor_support here.
+        UserCreatedV3(
+            user_id=person.id, user_type=cast("PersonTypeCode", user_type.value), source=source
+        ),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )
     return person
+
+
+async def changes_email(session: AsyncSession, user_id: uuid.UUID, email: object) -> bool:
+    """Whether `email` would change the person's sign-in address (REQ-SEC-027).
+
+    The route then asks for a recent confirmation: the address is where password resets go.
+    Compared as it would be stored (trimmed), so a case-only change still asks.
+    """
+    current = await _person(session, user_id)
+    return clean_text(email) != current.email
 
 
 async def update_person(
@@ -300,8 +321,8 @@ async def update_person(
     source: Source = "api",
 ) -> User:
     """Change the person record (REQ-ADM-002). A stale version gets an explained 409."""
+    current = await _person(session, user_id)  # not a person (service, vendor support): 409 first
     clean = _clean(changes)
-    current = await _person(session, user_id)
     if current.directory_source is not None and source != "integration":
         managed = sorted(
             name
@@ -325,6 +346,22 @@ async def update_person(
     if problems:
         raise _invalid(problems)
     return await _save(session, current, expected_version, clean, source)
+
+
+async def save_marks(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    source: Source = "ui",
+) -> User:
+    """Fields no person form edits (the legal hold, D-171 H1), saved as any person change.
+
+    If-Match, field history and `user.updated` as `update_person`; the caller checks the values.
+    """
+    current = await _person(session, user_id)
+    return await _save(session, current, expected_version, values, source)
 
 
 async def _save(
@@ -401,6 +438,10 @@ async def set_user_type(
     """
     _person_type(user_type)
     current = await _person(session, user_id)
+    # A vendor support account's type is set when its grant makes it and never changes (lane B
+    # (1), WP-057 S4c-1): the type is what every check of its access reads.
+    if current.user_type == SUPPORT_USER_TYPE:
+        raise Conflict(code="vendor_support_type_fixed")
     if current.user_type == user_type.value:
         return await _save(session, current, expected_version, {}, "ui")
     if user_type is UserType.TECHNICIAN:
@@ -436,6 +477,8 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
     current = await _person(session, user_id)
     if allowed == current.can_sign_in:
         return await _save(session, current, expected_version, {}, "ui")
+    if allowed and current.erased_at is not None:
+        raise Conflict(code="person_already_erased")
     if allowed and not current.email:
         raise _invalid([("email", "email_required_for_sign_in", {})])
     if not allowed and user_id == actor_id:
@@ -445,6 +488,7 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
         values["invited_at"] = datetime.now(UTC)
     updated = await _save(session, current, expected_version, values, "ui")
     if not allowed:
+        await clear_links(session, user_id)  # a copied invite link stops working (REQ-SEC-021)
         _end_after_commit(session, user_id, end_sessions)
     return updated
 
@@ -483,6 +527,7 @@ async def deactivate(  # noqa: PLR0913 - the record, the version and who asks, e
         aggregate_id=user_id,
         aggregate_version=updated.version,
     )
+    await clear_links(session, user_id)  # a copied invite link stops working (REQ-SEC-021)
     _end_after_commit(session, user_id, end_sessions)
     return updated
 
@@ -495,6 +540,19 @@ async def reactivation(session: AsyncSession, user_id: uuid.UUID) -> Reactivatio
     return Reactivation(
         role_ids=[role_id for _key, role_id in held], group_ids=sorted(groups.group_ids)
     )
+
+
+async def erasure_in_progress(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """An erasure of this person is approved, running or failed half-way (frozen, ADR-052)."""
+    found = await session.scalar(
+        select(PersonErasure.id)
+        .where(
+            PersonErasure.person_id == user_id,
+            PersonErasure.state.in_([s.value for s in erasure_rules.FROZEN_STATES]),
+        )
+        .limit(1)
+    )
+    return found is not None
 
 
 async def reactivate(  # noqa: PLR0913 - the record, the version and what is kept, explicit
@@ -511,6 +569,11 @@ async def reactivate(  # noqa: PLR0913 - the record, the version and what is kep
     `directory`: the directory enabled the person again (the sync keeps what they held).
     """
     current = await _person(session, user_id)
+    if current.erased_at is not None:
+        raise Conflict(code="person_already_erased")  # erasure is not undoable (ADR-052)
+    if await erasure_in_progress(session, user_id):
+        # Frozen at step 1, anonymised at step 5: in between they stay disabled (lane C, #507).
+        raise Conflict(code=erasure_rules.IN_PROGRESS)
     history: Source = "ui" if directory is None else "integration"
     if current.status == "active":
         return await _save(session, current, expected_version, {}, history)

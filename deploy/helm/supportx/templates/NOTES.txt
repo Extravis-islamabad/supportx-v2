@@ -29,6 +29,18 @@ cluster or its storage loses the backups with it: fine for dev and CI, not for p
 postgresql.cnpg.backup at storage outside the cluster (destinationPath, endpointURL,
 credentialsSecret; encrypted at rest), and keep the offsite copy (docs/deployment.md, Backups).
 {{- end }}
+{{- /* HA installs need cluster DNS on two nodes (Cluster run 43082299609). lookup reads the live
+cluster at install time; `helm template` and clusters without a kube-system/coredns get nothing. */}}
+{{- if .Values.ha.enabled }}
+{{- $dns := lookup "apps/v1" "Deployment" "kube-system" "coredns" }}
+{{- if and $dns (lt (int ($dns.spec.replicas | default 1)) 2) }}
+
+WARNING: cluster DNS (kube-system/coredns) runs one copy. Losing its node stops every name lookup
+for about five minutes, and Valkey's sentinels cannot fail over meanwhile. Run two copies on
+different nodes: on k3s, deploy/k3s/cluster-dns-ha.sh; then check with deploy/k3s/ha-preflight.sh
+(docs/deployment.md, Profiles).
+{{- end }}
+{{- end }}
 
 {{- $ai := .Values.ai }}
 {{- if and .Values.networkPolicies.enabled $egress.enabled $ai.local.enabled $ai.mirror (not $egress.extra) }}

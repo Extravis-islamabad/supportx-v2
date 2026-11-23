@@ -1,9 +1,9 @@
-import { Collapse, Descriptions, Drawer, Empty, List, Spin, Typography } from 'antd';
+import { Collapse, Descriptions, Empty, List, Spin, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
-import { useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, useDateTime, useLabel } from '@supportx/ui';
 
 import {
   actionLabel,
@@ -23,6 +23,7 @@ const NUMBER_DETAILS = new Set([
   'first_broken_seq',
   'unsealed_overdue',
   'personal_rows_removed',
+  'readable_keys',
 ]);
 // `status` (the HTTP status of a refused call) is never shown: the outcome line already says why
 // in words (AUD-01).
@@ -210,10 +211,17 @@ function Change({
       text: t('audit.ui.role', { name: roleNames.get(details.role_id) ?? t('audit.ui.deleted') }),
     });
   }
-  for (const key of ['user_id', 'reassigned_to'] as const) {
+  for (const key of ['user_id', 'reassigned_to', 'owner_before', 'owner_after'] as const) {
     if (typeof details[key] === 'string') {
       rows.push({ key, text: t(`audit.detail.${key}`, { name: person(details[key]) ?? '' }) });
     }
+  }
+  if (typeof details.active_after === 'boolean') {
+    // A service account switched on or off (WP-057 S4a).
+    rows.push({
+      key: 'active',
+      text: t(details.active_after ? 'audit.ui.turned_on' : 'audit.ui.turned_off'),
+    });
   }
   const changes = details.changes as Record<string, { old: unknown; new: unknown }> | undefined;
   for (const [field, change] of Object.entries(changes ?? {})) {

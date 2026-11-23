@@ -35,7 +35,7 @@ test.afterAll(async ({ browser }) => {
   await context.close();
 });
 
-test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen keeps the past', async ({
+test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen keeps the past @smoke', async ({
   page,
 }) => {
   test.setTimeout(180_000);

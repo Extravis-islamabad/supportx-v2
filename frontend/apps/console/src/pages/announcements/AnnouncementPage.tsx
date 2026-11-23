@@ -10,7 +10,6 @@ import {
   Popconfirm,
   Result,
   Skeleton,
-  Tabs,
   Tooltip,
   Typography,
 } from 'antd';
@@ -51,6 +50,7 @@ import {
   useRefetchAfter,
   WriteButton,
   lengthLimit,
+  Tabs,
 } from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';

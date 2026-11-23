@@ -18,7 +18,41 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # WP-057 S5a: SIEM destinations.
+    "SiemFormat": "siem_format",
+    "SiemKind": "siem_destination_kind",
+    "SiemTransport": "siem_transport",
+    "SiemStream": "siem_stream",
+    "SiemTestOut.result": "siem_test_result",
+    "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
+    # WP-057 S4c-1 (D-173): vendor support grants.
+    "SupportGrantIn.access": "support_grant_access",
+    "SupportGrantOut.access": "support_grant_access",
+    "SupportGrantMadeOut.access": "support_grant_access",
+    "SupportGrantIn.verification": "support_grant_verification",
+    "SupportGrantOut.verification": "support_grant_verification",
+    "SupportGrantMadeOut.verification": "support_grant_verification",
+    "SupportGrantOut.state": "support_grant_state",
+    "SupportGrantMadeOut.state": "support_grant_state",
+    "SupportGrantMadeOut.delivery": "support_grant_delivery",
+    "SecuritySeverity": "security_severity",
+    "FieldMode": "field_mode",  # ADR-047: field access per role
+    "Resource": "resource_access_resource",  # ADR-053: what a rule narrows
+    "ErasureState": "people_erasure.state",  # GDPR erasure (D-171, ADR-052)
+    "ErasureReason": "people_erasure.reason",
+    "MentionMatchKind": "people_erasure.match_kind",  # the mentions report (ADR-052 S1b)
+    "MentionState": "people_erasure.mention_state",
+    "PlaceOut.kind": "sign_in_place_kind",  # WP-057 S2b-1 (D-170)
+    "PersonalDataAccessOut.kind": "access_kind",  # WP-057 S3b-1 (REQ-AUD-017)
+    "InviteLinkPeekOut.app": "sign_in_app",  # WP-057 S2b-2: console or portal (REQ-SEC-021)
+    "TemplateKind": "text_template_kind",  # WP-046a S5a
+    "TemplateVisibility": "text_template_visibility",
+    "VersionState": "lifecycle_version_state",  # ADR-049 (WP-046a S4)
+    "ReleaseFollowUpIn.kind": "work_item_type",  # WP-058b S4
+    "ReleaseFollowUpOut.relation": "releases.failed.relation",
     "InstanceOut.status": "workflow_instance_status",  # WP-048b
+    "WorkItemClosureOut.task_dependency_mode": "task_dependency_mode",  # WP-046a S1
+    "WorkItemClosurePatch.task_dependency_mode": "task_dependency_mode",
     "JobIn.kind": "workflow_job_kind",  # WP-048b S3
     "JobOut.kind": "workflow_job_kind",
     "JobOut.status": "workflow_job_status",
@@ -38,14 +72,65 @@ ENUM_PREFIXES: dict[str, str] = {
     "ApprovalPurpose": "approval_purpose",
     "RecipientSet": "problem_recipient_set",
     "CopyPart": "problem_follow_up_copy",
+    "RecordCopyPart": "record_copy_part",  # WP-046a S5c (REQ-INC-033)
     "OutcomeIn.outcome": "ai_outcome",
+    # CMDB (WP-053 S1)
+    "CiImpact": "cmdb_impact",
+    "CiSource": "cmdb_ci_source",
+    "CiStateCategory": "cmdb_state_category",
+    "CiSkippedAsset.reason": "cmdb_skip_reason",
+    "CiHistoryEntryOut.actor_type": "actor_type",
+    # CMDB relationships, maps, views and versions (WP-053 S2)
+    "RelationshipDirection": "cmdb_relationship_direction",
+    "BusinessViewLayout": "cmdb_view_layout",
+    "CiAttributeChangeOut.kind": "cmdb_compare_kind",
+    # Who a business service serves (0185)
+    "AudienceKind": "audience_kind",
+    # CMDB impact (WP-053 S3b)
+    "ImpactDirection": "cmdb_impact_direction",
+    "ImpactOut.affected_users_reason": "cmdb_impact_users_reason",
     # Asset catalogue (WP-049a)
     "AssetAgeBasis": "asset_age_basis",
     "AssetDepreciationMethod": "asset_depreciation",
+    # The asset list's built-in views (WP-049b s4a)
+    "AssetView": "asset_view",
+    # Bulk jobs, merges and imports (WP-049b S4b)
+    "AssetBulkAction": "asset_bulk_action",
+    "AssetBulkStatus": "asset_bulk_status",
+    "AssetBulkOutcome": "asset_bulk_outcome",
+    "AssetBulkChanges.holder_kind": "asset_holder_kind",
+    "AssetImportStatus": "asset_import_status",
+    "AssetImportOut.file_format": "people_import_format",
+    "ImportKind": "asset_import_kind",
+    "ImportMatch": "asset_import_match",
+    "ImportMode": "asset_import_mode",
+    "MergeSide": "asset_merge_side",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
+    "RateState": "people.cost_rate.state",  # a person's cost per hour (REQ-INC-068)
     "TermsSource": "asset_terms_source",
+    # Labels, audits, scans and the overdue rule (WP-049b s3)
+    "AssetChangeOriginOut.kind": "asset_change_origin",
+    "AssetChangeOriginOut.reason_code": "asset_change_reason",
+    "AuditFix": "asset_audit_fix",
+    "AuditItemKind": "asset_audit_item_kind",
+    "AuditItemResult": "asset_audit_result",
+    "AuditKind": "asset_audit_kind",
+    "AuditMarkMethod": "asset_audit_method",
+    "AuditScanIn.result": "asset_audit_result",
+    "AuditState": "asset_audit_state",
+    "AuditHolderIn.kind": "asset_holder_kind",
+    "LabelJobStatus": "asset_label_job_status",
+    "LabelLayout": "asset_label_layout",
+    "LabelTarget": "asset_label_target",
+    "LabelsIn.language": "locale",
+    "OverdueAction": "asset_overdue_action",
+    "ScanFailure": "asset_scan_failure",
+    "ScanResult": "asset_scan_result",
+    "ScanSource": "asset_scan_source",
+    "ScanType": "asset_scan_type",
+    "Symbology": "asset_label_symbology",
     "AssetStateCategory": "asset_state_category",
     "AssetDisposalIn.method": "asset_disposal_method",
     "AssetHolderIn.kind": "asset_holder_kind",
@@ -102,6 +187,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # Tasks, worklogs and links (WP-020e)
     "TaskStatus": "task_status",
     "TaskPriority": "task_priority",
+    "LabelPosition": "form_label_position",  # WP-046a S5b
+    "RuleAction": "form_rule_action",
     "WorklogType": "worklog_type",
     "LinkKind": "link_kind",
     "PortalSettingsOut.search_sources[]": "portal.search.group",
@@ -113,6 +200,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "BulkOutcome": "bulk_outcome",
     "BulkStatus": "bulk_status",
     "ViewVisibility": "view_visibility",
+    "RowColourBy": "row_colour_by",  # WP-046b S3a (REQ-INC-115)
+    "ListLayout": "list_layout",  # WP-046b S3b (REQ-INC-111)
+    "BoardGroupBy": "board_group_by",
+    "RequesterCancel": "requester_cancel",  # WP-046b S5 (REQ-INC-148)
+    "CancellationDeciders": "cancellation_deciders",  # WP-046b S5 condition 1
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
@@ -131,6 +223,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # API keys (WP-041)
     "ApiKeyOut.status": "api_key_status",
     "ApiKeyCreatedOut.status": "api_key_status",
+    "ApiKeyOut.out_of_policy[]": "api_key_policy_gap",  # WP-057 S4a (REQ-SEC-037)
+    "ApiKeyCreatedOut.out_of_policy[]": "api_key_policy_gap",
     "ScopeOut.access": "api_scope_access",
     # Knowledge on incidents (WP-033 session 4)
     "ApplyIn.audience": "kb_apply_audience",
@@ -147,6 +241,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFormatsOut.formats[]": "report_export_format",
     "ReportExportIn.language": "locale",
     "ReportRunIn.language": "locale",
+    "ArchiveIn.language": "locale",  # WP-046a S2: the zip manifest's language
     "ReportExportOut.status": "report_export_status",
     "ReportSettingsOut.week_start": "report_week_start",
     "ReportSettingsPatch.week_start": "report_week_start",
@@ -161,10 +256,17 @@ ENUM_PREFIXES: dict[str, str] = {
     "AuditCategory": "audit_category",
     "AuditClient": "audit_client",
     "AuditOutcome": "audit_outcome",
+    "SignInOutcome": "sign_in_outcome",  # WP-057 S1a (REQ-AUD-015)
+    "SignInMethod": "sign_in_method",
+    "SignInApp": "sign_in_app",
+    "SsoRequired": "sso_required_mode",  # WP-057 S1b (REQ-SEC-009)
     "FingerprintStatus": "audit_fingerprint_status",  # WP-064 S2 (ADR-046)
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "SystemLogCode": "system_log_code",
+    "SystemLogSeverity": "system_log_severity",
+    "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",
     "AnnouncementSeverity": "announcement_severity",
@@ -255,6 +357,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "BoardChoice": "change_board_choice",  # WP-045b S3 (REQ-CHG-041)
     "WindowKind": "change_window_kind",  # WP-045c (REQ-CHG-075, -076)
     "WindowMode": "change_window_mode",  # WP-045c (REQ-CHG-077)
+    "WindowOut.repeat": "window_repeat",  # D-156: none, weekly, monthly
+    "WindowIn.repeat": "window_repeat",
+    "WindowPatch.repeat": "window_repeat",
     "ConflictKind": "change_conflict",  # WP-045c (REQ-CHG-073, -074)
     "Watched": "reapproval_field",  # WP-045b S4 (REQ-CHG-053)
     "OnChange": "reapproval_effect",
@@ -266,6 +371,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "DeliveryState": "delivery_state",
     "EntryKind": "entry_kind",
     "FirstResponseAction": "first_response_action",
+    "CommandField": "mail_command_field",  # WP-046a S6: what a mail may set
+    "BlockKind": "mail_block_kind",  # WP-046a S6: what a block rule looks at
     "FollowReason": "follow_reason",
     "ReplyMode": "reply_mode",
     "TypingIn.state": "typing_state",
@@ -289,6 +396,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "CustomFieldEntity": "custom_field_entity",
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
+    "SealState": "custom_field_seal_state",
     # The service catalog (WP-030)
     "ApprovalStatus": "approval_status",
     "OnBehalfScope": "work_item_on_behalf_scope",

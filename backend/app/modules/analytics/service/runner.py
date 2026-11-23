@@ -34,6 +34,7 @@ from app.modules.analytics.service.compiler import (
     drill_filter,
 )
 from app.modules.identity_access import Subject
+from app.shared.api.filters import FieldType
 from app.shared.reporting import (
     ReportingSource,
     SourceProvider,
@@ -152,12 +153,30 @@ def bucket_bounds(local_start: datetime, bucket: DateBucket, zone: ZoneInfo) -> 
     return low.astimezone(UTC).isoformat(), high.astimezone(UTC).isoformat()
 
 
-def _rows(
+def _date_fields(source: ReportingSource) -> frozenset[str]:
+    """The source's calendar DATE fields (no time): their drills take plain dates."""
+    return frozenset(
+        name for name, spec in source.fields.fields.items() if spec.type == FieldType.DATE
+    )
+
+
+def date_bounds(local_start: datetime, bucket: DateBucket) -> tuple[str, str]:
+    """[from, to) of a bucket of a calendar DATE field as plain dates (lane B's #S5b check).
+
+    A date field (an asset's acquired-on, a custom date) has no time or zone: its list refuses
+    instants, so its drill names the bucket's first day and the next bucket's.
+    """
+    return local_start.date().isoformat(), _next_start(local_start, bucket).date().isoformat()
+
+
+def _rows(  # noqa: PLR0913 - the report, its groups, the records and how to read their keys
     definition: ReportDefinition,
     groups: Sequence[CompiledGroup],
     records: Sequence[Any],
     zone: ZoneInfo,
     now: datetime,
+    *,
+    date_fields: frozenset[str] = frozenset(),
 ) -> list[ResultRow]:
     rows: list[ResultRow] = []
     width = len(groups)
@@ -172,7 +191,11 @@ def _rows(
                 keys_out.append(AGE_BUCKETS[raw][0])
                 continue
             if group.bucket is not None and raw is not None:
-                bounds[i] = bucket_bounds(raw, group.bucket, zone)
+                bounds[i] = (
+                    date_bounds(raw, group.bucket)
+                    if group.field in date_fields
+                    else bucket_bounds(raw, group.bucket, zone)
+                )
             keys_out.append(_key(raw))
         keys = tuple(keys_out)
         drill = drill_filter(definition, groups, keys, bucket_bounds=bounds)
@@ -224,7 +247,16 @@ async def run_report(  # noqa: PLR0913 - the run's inputs, explicit
         time_zone=zone.key,
         groups=compiled.groups,
         measures=compiled.measures,
-        rows=tuple(_rows(definition, compiled.groups, grouped, zone, now)),
+        rows=tuple(
+            _rows(
+                definition,
+                compiled.groups,
+                grouped,
+                zone,
+                now,
+                date_fields=_date_fields(source),
+            )
+        ),
         totals=tuple(_number(v) for v in totals),
         truncated=truncated,
         drill_all=drill_all(definition),

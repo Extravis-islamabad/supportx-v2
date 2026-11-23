@@ -18,15 +18,19 @@ USER_NAME="tech@demo.test"
 COOKIES="$(mktemp)"  # the session's Cookie header, mode 600; removed on exit
 trap 'rm -f "$COOKIES"' EXIT
 
+# valkey-cli inside a pod through the chart's own `vcli` (templates/valkey-ha.yaml common.sh): it
+# holds the password and, with valkeyHa.tls on (values-ha.yaml), the TLS flags and the CA.
+vcli() {  # vcli <pod> <container> <valkey-cli args...>
+  local pod="$1" container="$2"
+  shift 2
+  kubectl -n "$NAMESPACE" exec "$pod" -c "$container" -- sh -c '. /scripts/common.sh; vcli "$@"' vcli "$@"
+}
 sentinel() {  # a sentinel's answer: the current master's pod name
-  kubectl -n "$NAMESPACE" exec "$1" -c sentinel -- sh -c \
-    'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli -p 26379 --no-auth-warning SENTINEL get-master-addr-by-name supportx' \
+  vcli "$1" sentinel -p 26379 SENTINEL get-master-addr-by-name supportx \
     2>/dev/null | head -n 1 | cut -d. -f1
 }
 role() {
-  kubectl -n "$NAMESPACE" exec "$1" -c valkey -- sh -c \
-    'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli --no-auth-warning info replication' \
-    2>/dev/null | tr -d '\r' | sed -n 's/^role://p'
+  vcli "$1" valkey info replication 2>/dev/null | tr -d '\r' | sed -n 's/^role://p'
 }
 me() {
   curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $(cat "$COOKIES")" \

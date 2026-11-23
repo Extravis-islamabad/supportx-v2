@@ -22,6 +22,7 @@ from httpx import ASGITransport, AsyncClient
 from app.core.authorization import AUTHORIZER_STATE
 from app.core.entitlements import read_only_exempt
 from app.core.modules import ModuleRegistry, ModuleSpec
+from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
 from app.modules import licensing, system
@@ -75,11 +76,16 @@ SAMPLE_CORE = ModuleSpec(name="sample_core", routers=[sample_router("/core")])
 REGISTRY = ModuleRegistry.from_specs([licensing.module, system.module, SAMPLE_ESM, SAMPLE_CORE])
 
 
+FRESH = SignInFreshness(interactive=True, recent=True)
+
+
 async def fake_session(request: Request) -> TenantContext | None:
     tenant = request.headers.get("x-test-tenant")
     if tenant is None:
         return None
     roles = frozenset(filter(None, request.headers.get("x-test-roles", "").split(",")))
+    # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
+    record_freshness(request, FRESH)
     return TenantContext(uuid.UUID(tenant), uuid.uuid4(), roles=roles)
 
 

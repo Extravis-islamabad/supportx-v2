@@ -8,11 +8,20 @@ import { Attachments, useAccess, useLabel } from '@supportx/ui';
  * The incident's own attachments (REQ-INC-079), under the description: files attached to the
  * record itself. Replies and notes show theirs on their own cards (IncidentConversation).
  */
-export function IncidentFiles({ item, canEdit }: { item: Incident; canEdit: boolean }) {
+export function IncidentFiles({
+  item,
+  canEdit,
+  recordType = 'incident',
+}: {
+  item: Incident;
+  canEdit: boolean;
+  /** The files API's name of the record's type (a change's files too, REQ-CHG-100). */
+  recordType?: string;
+}) {
   const t = useLabel();
   const { can } = useAccess();
   const queryClient = useQueryClient();
-  const found = useRecordFiles('incident', item.id);
+  const found = useRecordFiles(recordType, item.id);
   const files = (found.data ?? []).filter(
     (file) => file.owner_type === 'work_item' && !file.inline,
   );
@@ -29,7 +38,7 @@ export function IncidentFiles({ item, canEdit }: { item: Incident; canEdit: bool
         target={canEdit ? { ownerType: 'work_item', ownerId: item.id } : null}
         onStored={() => {
           void queryClient.invalidateQueries({
-            queryKey: queryKeys.files.record('incident', item.id),
+            queryKey: queryKeys.files.record(recordType, item.id),
           });
         }}
         canRemove={canEdit}

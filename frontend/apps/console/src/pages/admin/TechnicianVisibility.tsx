@@ -216,8 +216,8 @@ export function TechnicianVisibilityCard() {
           }}
         />
         <FormProblem problem={save.problem} />
+        {/* Default: "New role" is the roles page's one primary action (QA 2026-11-12 V-11). */}
         <Button
-          type="primary"
           disabled={draft === null || draft.scope === saved.technician_scope}
           loading={save.pending}
           onClick={() => {

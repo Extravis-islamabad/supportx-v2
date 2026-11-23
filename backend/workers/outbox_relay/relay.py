@@ -25,6 +25,7 @@ import contextlib
 import time
 from collections.abc import Sequence
 from datetime import timedelta
+from ssl import SSLContext
 from typing import Any
 
 import asyncpg
@@ -114,8 +115,10 @@ class OutboxRelay:
         processed_retention: timedelta = timedelta(days=30),
         metrics: RelayMetrics | None = None,
         connectivity: Connectivity | None = None,
+        ssl: SSLContext | None = None,
     ) -> None:
         self.dsn = dsn
+        self.ssl = ssl  # verify-full when set (app.core.database.database_ssl)
         self.js = js
         self.names = names
         self.batch_size = batch_size
@@ -136,10 +139,14 @@ class OutboxRelay:
     async def connect(self) -> None:
         """Open the work pool and the LISTEN connection."""
         self._pool = await asyncpg.create_pool(
-            self.dsn, min_size=1, max_size=2, server_settings={"application_name": "outbox-relay"}
+            self.dsn,
+            min_size=1,
+            max_size=2,
+            ssl=self.ssl,
+            server_settings={"application_name": "outbox-relay"},
         )
         self._listener = await asyncpg.connect(
-            self.dsn, server_settings={"application_name": "outbox-relay-listen"}
+            self.dsn, ssl=self.ssl, server_settings={"application_name": "outbox-relay-listen"}
         )
         await self._listener.add_listener(OUTBOX_CHANNEL, self._on_notify)
         self._wake.set()  # drain whatever accumulated while we were away

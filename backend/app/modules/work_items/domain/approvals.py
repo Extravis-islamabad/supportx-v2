@@ -61,6 +61,9 @@ class RouteReason(StrEnum):
     SEGREGATION_OF_DUTIES = "segregation_of_duties"
     # WP-045b S3 (REQ-CHG-040): the change advisory board chosen has no members yet.
     BOARD_HAS_NO_MEMBERS = "board_has_no_members"
+    # ADR-052 (the coordinator, 2026-11-14): an erased approver's pending approval is rerouted,
+    # never granted; the record shows why.
+    APPROVER_ERASED = "approver_erased"
 
 
 class DecisionChannel(StrEnum):
