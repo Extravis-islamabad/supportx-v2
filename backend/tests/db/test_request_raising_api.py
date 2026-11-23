@@ -114,20 +114,35 @@ async def test_req_sr_015_ac3_the_date_is_worked_out_again_when_approval_complet
             world, a, a.requester, catalog_item_id=item["id"], answers={"model": "air"}
         )
     ).json()
-    before = record["expected_delivery_at"]
-    assert before is not None
+    assert record["expected_delivery_at"] is not None
+    # Made stale on purpose (superuser, the tenant filtered by hand), so the date worked out at
+    # approval always differs from the stored one, whatever the hour the test runs.
+    stale = datetime(2026, 1, 5, 9, 0, tzinfo=UTC)
+    await world.sql(
+        "UPDATE work_items SET expected_delivery_at = $3 WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(record["id"]),
+        stale,
+    )
     [entry] = await approvals(world, a, a.tech_a, record)
     assert (await decide(world, a, a.tech_a, record, entry, "approve")).status_code == 200
     after = (await world.call("GET", f"{SR}/{record['id']}", a, a.admin)).json()
-    assert after["expected_delivery_at"] >= before
-    # Its change went through the usual update (history and the record's event: live).
+    assert datetime.fromisoformat(after["expected_delivery_at"]) > stale
+    # The change went through the usual update: in history, and the record's event (live).
+    history = await world.sql(
+        "SELECT 1 FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
+        " AND field = 'expected_delivery_at'",
+        a.tenant,
+        uuid.UUID(record["id"]),
+    )
+    assert len(history) == 1
     rows = await world.sql(
         "SELECT 1 FROM outbox_events WHERE tenant_id = $1 AND aggregate_id = $2"
         " AND envelope::text LIKE '%expected_delivery_at%'",
         a.tenant,
         record["id"],
     )
-    assert rows or after["expected_delivery_at"] == before  # unchanged within the same second
+    assert rows
 
 
 async def test_condition_2_the_portal_never_returns_an_answer_meant_for_staff(
