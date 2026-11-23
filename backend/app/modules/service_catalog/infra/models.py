@@ -171,7 +171,7 @@ class CatalogItem(TenantEntity):
     auto_fulfil: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # WP-047a S1 (0193): a quantity up to this (REQ-SR-014; NULL: none asked) and a needed-by
     # date (REQ-SR-015).
-    max_quantity: Mapped[int | None]
+    max_quantity: Mapped[int | None] = mapped_column(Integer)
     asks_needed_by: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-031 s1 (domain/catalog.py): life, kind, texts, search words, placement.
     status: Mapped[str] = mapped_column(String(20), server_default="draft")

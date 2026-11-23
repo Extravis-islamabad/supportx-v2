@@ -325,6 +325,8 @@ FIELD_PROBLEMS = frozenset(
     {
         # REQ-AST-025: an asset that is not there or not yours to see, and the per-record cap.
         "asset_not_found",
+        # WP-047a S1 (REQ-SR-014 AC2): above the item's maximum, with the maximum.
+        "quantity_over_max",
         # WP-046a S1 (REQ-INC-073..075): task details, template tasks and dependencies.
         "dependency_loop",
         "needs_scheduled_start",

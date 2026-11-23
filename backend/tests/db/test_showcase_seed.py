@@ -1169,7 +1169,9 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
     assert all(a.startswith("service_request.") for a in actions), actions
     # Its update event too, so open screens and search follow (rule 5b, lane B).
     events = asyncio.run(_updates_of(database.admin_url, orphan))
-    assert events == [["technician_id"]]
+    # WP-047a S1: the seed's approval worked out the expected delivery again (REQ-SR-015 AC3),
+    # its own update before the repair's; the repair's is the technician, once.
+    assert events == [["expected_delivery_at"], ["technician_id"]]
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     assert asyncio.run(repair.run(settings, write=False)) == []  # once
     assert repair.refuse("other", settings) is not None

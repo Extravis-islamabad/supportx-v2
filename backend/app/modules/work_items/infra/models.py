@@ -893,7 +893,7 @@ class WorkItem(TenantEntity):
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     approval_status: Mapped[str | None] = mapped_column(String(20))
     # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
-    quantity: Mapped[int | None]
+    quantity: Mapped[int | None] = mapped_column(Integer)
     needed_by: Mapped[datetime | None]
     expected_delivery_at: Mapped[datetime | None]
     # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
