@@ -1125,6 +1125,20 @@ def test_step7_brings_the_seeds_own_records_to_today_silently_and_once(
 # --- E1 repair (Haider, 2026-11-10): requests fulfilled with nobody on them --------------------
 
 
+async def _history_count(url: str, record: uuid.UUID, field: str) -> int:
+    """How many times the record's history says `field` changed."""
+    conn = await asyncpg.connect(url)
+    try:
+        found = await conn.fetchval(
+            "SELECT count(*) FROM field_changes WHERE record_id = $1 AND field = $2",
+            record,
+            field,
+        )
+    finally:
+        await conn.close()
+    return int(found or 0)
+
+
 async def _updates_of(url: str, record: uuid.UUID) -> list[Any]:
     """The changed fields of each `work_item.updated` event of the record in the outbox."""
     conn = await asyncpg.connect(url)
@@ -1207,9 +1221,14 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
     assert all(a.startswith("service_request.") for a in actions), actions
     # Its update event too, so open screens and search follow (rule 5b, lane B).
     events = asyncio.run(_updates_of(database.admin_url, orphan))
-    # WP-047a S1: the seed's approval worked out the expected delivery again (REQ-SR-015 AC3),
-    # its own update before the repair's; the repair's is the technician, once.
-    assert events == [["expected_delivery_at"], ["technician_id"]]
+    # WP-047a S1: the seed's approval works the expected delivery out again (REQ-SR-015 AC3),
+    # and saves it only when the date moved, which depends on the hour the seed ran; so its
+    # update is expected exactly when its history says it changed (never one without the
+    # other). The repair's own update is the technician, once. The changed case is pinned
+    # deterministically in test_request_raising_api (REQ-SR-015 AC3).
+    moved = asyncio.run(_history_count(database.admin_url, orphan, "expected_delivery_at"))
+    assert moved in (0, 1)
+    assert events == [["expected_delivery_at"]] * moved + [["technician_id"]]
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     assert asyncio.run(repair.run(settings, write=False)) == []  # once
     assert repair.refuse("other", settings) is not None
