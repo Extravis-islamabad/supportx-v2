@@ -503,6 +503,18 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/cmdb/relationships/{relationship_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/settings` | `cmdb.view` | cmdb.view: all/site/group/own |
 | PUT | `/api/v1/cmdb/settings` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all |
+| PUT | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all |
+| POST | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/sync-rules/fields` | `cmdb.configure` | cmdb.configure: all |
+| POST | `/api/v1/cmdb/sync-rules/preview` | `cmdb.configure` | cmdb.configure: all |
+| DELETE | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
+| PUT | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all |
+| POST | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all |
+| GET | `/api/v1/cmdb/sync-runs/{run_id}` | `cmdb.configure` | cmdb.configure: all |
 | GET | `/api/v1/custom-fields` | signed_in | - |
 | POST | `/api/v1/custom-fields` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
 | PUT | `/api/v1/custom-fields/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |

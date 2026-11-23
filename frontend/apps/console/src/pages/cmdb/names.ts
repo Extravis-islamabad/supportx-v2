@@ -19,8 +19,15 @@ export interface TypeNode {
   children: TypeNode[];
 }
 
-/** The type tree for a TreeSelect, names in this language, sorted by name. */
-export function typeTree(types: CiType[], name: (type: CiType) => string): TypeNode[] {
+/**
+ * The type tree for a TreeSelect, names in this language, sorted by name. Each name carries its
+ * CI count unless `counts` is false (a picker that only chooses a type, such as a sync rule's).
+ */
+export function typeTree(
+  types: CiType[],
+  name: (type: CiType) => string,
+  { counts = true }: { counts?: boolean } = {},
+): TypeNode[] {
   const byParent = new Map<string | null, CiType[]>();
   for (const type of types) {
     const key = type.parent_id ?? null;
@@ -30,7 +37,7 @@ export function typeTree(types: CiType[], name: (type: CiType) => string): TypeN
     (byParent.get(parent) ?? [])
       .map((type) => ({
         value: type.id,
-        title: `${name(type)} (${String(type.ci_count)})`,
+        title: counts ? `${name(type)} (${String(type.ci_count)})` : name(type),
         children: build(type.id),
       }))
       .sort((a, b) => a.title.localeCompare(b.title));

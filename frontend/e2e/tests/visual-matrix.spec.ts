@@ -110,6 +110,11 @@ function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
 
 const STOP_TOKEN = 'S'.repeat(43);
 
+// WP-053 S4a (#574): one rule, one run, and the preview's answer, shaped as the API's schema.
+const SYNC_RULE = '01936f2a-5b1c-7000-8000-00000000c501';
+const SYNC_RUN = '01936f2a-5b1c-7000-8000-00000000c502';
+const SYNC_ASSET = '01936f2a-5b1c-7000-8000-00000000c503';
+
 /** The stop-mails page with its public calls answered in the browser; `press`: also stop. */
 function stopMails(press: boolean): (page: Page) => Promise<void> {
   return async (page) => {
@@ -908,6 +913,40 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
     state: { name: 'compare', open: ciCompare },
+  },
+  // WP-053 S4a (lane B, #574; lane C's matrix conditions): sync rules in Admin › CMDB, the list,
+  // the editor with its preview drawer, and a run's drawer with a restricted item, a kept field,
+  // a skipped target, and totals hidden from a narrowed reader. A fresh stack has no rules, so the
+  // sync endpoints are answered here; everything else is the stack's own.
+  {
+    key: 'cmdb-sync-rules',
+    path: '/admin/cmdb/sync-rules',
+    app: 'console',
+    state: syncState('listed'),
+  },
+  {
+    key: 'cmdb-sync-rule',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('editor'),
+  },
+  {
+    key: 'cmdb-sync-rule-preview',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('preview'),
+  },
+  {
+    key: 'cmdb-sync-run',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('run'),
+  },
+  {
+    key: 'cmdb-sync-run-hidden',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('totals-hidden'),
   },
   // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
   // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
@@ -1798,6 +1837,153 @@ async function ciCompare(page: Page): Promise<void> {
     await page.unroute(compare, compared);
     await page.unroute(fields, defined);
   }
+}
+
+type SyncStateName = 'listed' | 'editor' | 'preview' | 'run' | 'totals-hidden';
+
+/**
+ * A sync rules screen with the sync endpoints answered in the browser (lane C's conditions):
+ * one route per endpoint, only the method the screen calls, anything else passed on. The rule
+ * targets the stack's own first CI type, so its name renders through the stack's labels.
+ */
+function syncState(name: SyncStateName): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  const only =
+    (method: string, json: () => unknown, headers?: Record<string, string>) => (route: Route) =>
+      route.request().method() === method
+        ? route.fulfill({ json: json(), headers })
+        : route.continue();
+  return {
+    name,
+    open: async (page) => {
+      const types = await page.request.get('/api/v1/cmdb/ci-types');
+      const typeId =
+        ((await types.json()) as { items?: { id: string }[] }).items?.[0]?.id ??
+        '01936f2a-5b1c-7000-8000-00000000c509';
+      const hidden = name === 'totals-hidden';
+      const rule = {
+        id: SYNC_RULE,
+        name: 'Laptops become workstations',
+        source_kind: 'assets',
+        filter: null,
+        target_type_id: typeId,
+        target_state_id: null,
+        field_map: { name: 'name', description: 'location', 'custom.retired_rack': 'tag' },
+        enabled: true,
+        updated_at: '2026-11-21T09:00:00Z',
+        version: 3,
+      };
+      const run = {
+        id: SYNC_RUN,
+        rule_id: SYNC_RULE,
+        trigger: 'schedule',
+        status: 'succeeded',
+        incremental: false,
+        started_at: '2026-11-21T09:00:00Z',
+        ended_at: '2026-11-21T09:00:05Z',
+        created_count: hidden ? null : 12,
+        updated_count: hidden ? null : 3,
+        kept_count: hidden ? null : 1,
+        unchanged_count: hidden ? null : 24,
+        failed_count: hidden ? null : 1,
+        failure: null,
+        // A CI field that stopped being plain since the rule was saved (lane C (a)).
+        skipped_targets: ['retired_rack'],
+        created_at: '2026-11-21T09:00:00Z',
+        version: 3,
+      };
+      const items = [
+        // A CI and an asset the reader may not see: "Not visible to you", no ID or name.
+        {
+          outcome: 'updated',
+          asset_id: null,
+          asset_label: null,
+          asset_restricted: true,
+          ci_id: null,
+          ci_label: null,
+          ci_restricted: true,
+          kept: [],
+          code: null,
+        },
+        // A value a stronger source holds (a hand edit), kept.
+        {
+          outcome: 'kept',
+          asset_id: SYNC_ASSET,
+          asset_label: 'SX-LAP-001',
+          asset_restricted: false,
+          ci_id: null,
+          ci_label: 'Finance laptop',
+          ci_restricted: false,
+          kept: ['description'],
+          code: null,
+        },
+        // A refused save, with its labelled reason.
+        {
+          outcome: 'failed',
+          asset_id: SYNC_ASSET,
+          asset_label: 'SX-LAP-002',
+          asset_restricted: false,
+          ci_id: null,
+          ci_label: null,
+          ci_restricted: false,
+          kept: [],
+          code: 'cmdb_sync_name_required',
+        },
+      ];
+      const preview = {
+        total: 40,
+        complete: true,
+        counts: { created: 36, updated: 3, kept: 1, unchanged: 0, failed: 0 },
+        items: [
+          {
+            asset_id: SYNC_ASSET,
+            asset_tag: 'SX-LAP-001',
+            asset_name: 'Finance laptop',
+            ci_id: null,
+            outcome: 'created',
+            changes: ['name', 'description'],
+            kept: [],
+          },
+        ],
+      };
+      routes.push(
+        [/\/api\/v1\/cmdb\/sync-rules(\?.*)?$/u, only('GET', () => ({ items: [rule] }))],
+        [
+          new RegExp(`/api/v1/cmdb/sync-rules/${SYNC_RULE}(\\?.*)?$`, 'u'),
+          only('GET', () => rule, { ETag: '"3"' }),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/sync-rules/${SYNC_RULE}/runs(\\?.*)?$`, 'u'),
+          only('GET', () => ({ items: [run] })),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/sync-runs/${SYNC_RUN}(\\?.*)?$`, 'u'),
+          only('GET', () => ({ ...run, items })),
+        ],
+        [/\/api\/v1\/cmdb\/sync-rules\/preview$/u, only('POST', () => preview)],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      await page.reload();
+      if (name === 'listed') {
+        await page.getByTestId(`cmdb-sync-link-${SYNC_RULE}`).waitFor({ timeout: STATE_TIMEOUT });
+        return;
+      }
+      await page.getByTestId('cmdb-sync-name').waitFor({ timeout: STATE_TIMEOUT });
+      if (name === 'preview') {
+        await page.getByTestId('cmdb-sync-preview').click({ timeout: STATE_TIMEOUT });
+        await page.getByTestId('cmdb-sync-preview-body').waitFor({ timeout: STATE_TIMEOUT });
+      } else if (name === 'run' || name === 'totals-hidden') {
+        await page.getByTestId(`cmdb-sync-run-${SYNC_RUN}`).click({ timeout: STATE_TIMEOUT });
+        await page.getByTestId('cmdb-sync-run-body').waitFor({ timeout: STATE_TIMEOUT });
+        await page
+          .getByTestId(hidden ? 'cmdb-sync-totals-hidden' : 'cmdb-sync-skipped-targets')
+          .waitFor({ timeout: STATE_TIMEOUT });
+      }
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
 }
 
 /**

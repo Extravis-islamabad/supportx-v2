@@ -1029,6 +1029,7 @@ export const ur: LabelResource = {
   'change_kind.updated': 'ترمیم کی گئی',
   'change_source.ai_agent': 'AI ایجنٹ کے ذریعے',
   'change_source.api': 'API کے ذریعے',
+  'change_source.asset_sync': 'اثاثوں کی مطابقت کے اصول سے',
   'change_source.email': 'ای میل کے ذریعے',
   'change_source.import': 'درآمد کے ذریعے',
   'change_source.integration': 'انٹیگریشن کے ذریعے',

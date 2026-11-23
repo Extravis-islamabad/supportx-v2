@@ -78,6 +78,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "CiImpact": "cmdb_impact",
     "CiSource": "cmdb_ci_source",
     "CiStateCategory": "cmdb_state_category",
+    # WP-053 S4a: attribute sources and sync rules.
+    "AttributeSource": "cmdb_attribute_source",
+    "SyncOutcome": "cmdb_sync_outcome",
+    "SyncRunStatus": "cmdb_sync_run_status",
+    "SyncSourceKind": "cmdb_sync_source",
+    "SyncTrigger": "cmdb_sync_trigger",
+    "SyncValueKind": "cmdb_sync_value_kind",
     "CiSkippedAsset.reason": "cmdb_skip_reason",
     "CiHistoryEntryOut.actor_type": "actor_type",
     # CMDB relationships, maps, views and versions (WP-053 S2)
