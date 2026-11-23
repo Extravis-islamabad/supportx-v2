@@ -243,10 +243,10 @@ licence-check: ## The shipped JS dependencies' licences against the allow-list (
 	$(BACKEND) uv run python -m tooling.licence_check ../frontend ../mobile
 
 audit-frontend: not-shipped-check
-	@# D-174: the one accepted advisory (picomatch, GHSA-fc5q-39xc-vjpf) expires on 2026-12-01.
-	@if grep -q 'GHSA-fc5q-39xc-vjpf' frontend/pnpm-workspace.yaml && \
-		[ "$$(date -u +%Y%m%d)" -ge 20261201 ]; then \
-		echo "D-174 expired: remove GHSA-fc5q-39xc-vjpf from frontend/pnpm-workspace.yaml (bump picomatch, or ask Haider again)"; \
+	@# D-174: no ignored advisory (picomatch's GHSA was withdrawn 2026-11-18); one may only come
+	@# back as a new decision, never by editing the workspace file alone.
+	@if grep -q 'ignoreGhsas' frontend/pnpm-workspace.yaml; then \
+		echo "D-174: frontend/pnpm-workspace.yaml ignores an advisory; that needs a new decision"; \
 		exit 1; fi
 	$(FRONTEND) pnpm audit || true
 	$(FRONTEND) pnpm audit --audit-level high
