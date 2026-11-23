@@ -40,6 +40,13 @@ def test_without_a_base_domain_only_verified_domains_count() -> None:
         ("localhost", None),
         ("a..b", None),
         ("", None),
+        # Only letters, digits and hyphens per label (lane C on #579): these build redirect URIs.
+        ("help%2e.acme.com", None),
+        ("help_desk.acme.com", None),
+        ("he<lp.acme.com", None),
+        ("-help.acme.com", None),
+        ("help-.acme.com", None),
+        ("help-desk.acme.com", "help-desk.acme.com"),
     ],
 )
 def test_hosts_are_normalised_as_keycloak_compares_them(given: str, expected: str | None) -> None:

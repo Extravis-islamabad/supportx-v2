@@ -16,6 +16,7 @@ addresses (the clients' own base URLs, the mobile return address) are never mana
 removed; an entry of any other shape (added by hand by an operator) is left alone. Pure: no I/O.
 """
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
@@ -80,6 +81,9 @@ class Change:
         return bool(self.add or self.remove)
 
 
+_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+
+
 def normalise_host(value: str) -> str | None:
     """A host in the form Keycloak compares: lower case, no trailing dot, IDN as punycode.
 
@@ -96,6 +100,11 @@ def normalise_host(value: str) -> str | None:
     if len(ascii_host) > _MAX_HOST or len(labels) < 2 or not all(labels):  # noqa: PLR2004 - a dot
         return None
     if all(label.isdigit() for label in labels):  # an IPv4 literal never names a tenant
+        return None
+    # Each label is letters, digits and hyphens, not starting or ending with one (RFC 1123, the
+    # rule organization's domains use): this builds redirect URIs, so nothing else gets in, even
+    # if a source ever let it through (lane C on #579).
+    if not all(_LABEL.fullmatch(label) for label in labels):
         return None
     return ascii_host
 
