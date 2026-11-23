@@ -16,8 +16,9 @@ import { recaptureForTests } from './supportLink';
 // Lane B's conditions (1), (3), (5), the coordinator's (2): the token never leaves the page in
 // a URL, the password is kept nowhere once shown, every failure reads the same.
 
-const TOKEN = 'tok-9f3b2c1d8e7a6f5b4c3d2e1f0a9b8c7d';
-const PASSWORD = 'Temp-Pass-7Qx!-not-kept';
+// Both made at test time: a fixed secret-shaped literal trips the secret scan.
+const TOKEN = `tok-${crypto.randomUUID().replaceAll('-', '')}`;
+const PASSWORD = `Temp-${crypto.randomUUID()}-not-kept`;
 
 let restore: () => void = () => undefined;
 afterEach(() => {
