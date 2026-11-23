@@ -13,7 +13,7 @@ two permissions of the work-item engine, not of one type, so service requests us
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -180,6 +180,9 @@ class PortalRecord:
     status: PortalStatus
     # The problem behind it, in the requester's words only (REQ-PRB-075, WP-044c D15).
     known_problem: KnownProblem | None = None
+    # A service request's answers to the questions its requester sees, and no others (WP-047a
+    # S1, the coordinator's condition 2): filtered here, on the server, for every portal read.
+    answers: Mapping[str, Any] = field(default_factory=dict)
 
     def values(self) -> dict[str, Any]:
         """Only the allowed fields (the allow-list, D1), plus the portal status."""
@@ -223,6 +226,9 @@ async def _shape(
     # The expected resolution time, only if the tenant shows it (REQ-INC-147, D5).
     shown = DUE_TIME if records and await _shows_due_time(session, records[0].type) else frozenset()
     causes = await _known_problems(session, [r.id for r in records])
+    theirs = await service_catalog.requester_question_keys(
+        session, [r.catalog_item_id for r in records if r.catalog_item_id is not None]
+    )
     out: list[PortalRecord] = []
     for record in records:
         found_reach = reach or reaches(seen_by, _facts(record))
@@ -236,9 +242,20 @@ async def _shape(
                 requester_fields(found if found is not None else rules_from_json(None)) | shown,
                 portal_status(record.status, StatusCategory(record.status_category)),
                 causes.get(record.id),
+                _requester_answers(record, theirs),
             )
         )
     return out
+
+
+def _requester_answers(
+    record: WorkItem, theirs: Mapping[uuid.UUID, frozenset[str]]
+) -> dict[str, Any]:
+    """The answers whose question the requester sees (default deny: none without the item)."""
+    if record.catalog_item_id is None:
+        return {}
+    keys = theirs.get(record.catalog_item_id, frozenset())
+    return {k: v for k, v in (record.answers or {}).items() if k in keys}
 
 
 async def _known_problems(
@@ -594,3 +611,23 @@ async def planned_window(
         )
     )
     return (row.scheduled_start, row.scheduled_end) if row is not None else (None, None)
+
+
+async def request_again(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID
+) -> service_catalog.AgainForm:
+    """Request again on one of the requester's own past requests (REQ-SR-016; Essentials).
+
+    Out of reach is 404; in reach but someone else's (a department or reports reach) is 403,
+    which reveals nothing they cannot already see. The answers are the record's own,
+    then fitted to the item's form as it is now by the catalogue (`request_again`): it keeps
+    only the requester's questions and names only questions the form no longer has.
+    """
+    found = await get_record(session, subject, record_id, SERVICE_REQUEST)
+    if found.reach is not PortalReach.OWN:
+        raise PermissionDenied(params={"permission": CREATE, "reason": "no_permission"})
+    if found.record.catalog_item_id is None:
+        raise NotFound(code="catalog_item_not_found")
+    return await service_catalog.again_form(
+        session, subject, found.record.catalog_item_id, found.record.answers or {}
+    )

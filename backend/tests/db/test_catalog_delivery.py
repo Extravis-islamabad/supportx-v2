@@ -35,7 +35,12 @@ async def policy(world: World, org: Org, targets: list[dict[str, Any]]) -> dict[
 async def delivery(world: World, org: Org, item: dict[str, Any], who: uuid.UUID) -> Any:  # noqa: ANN401 - JSON
     read = await world.call("GET", f"/catalog/items/{item['id']}", org, who)
     assert read.status_code == 200, read.text
-    return read.json()["expected_delivery"]
+    found = read.json()["expected_delivery"]
+    if found is None:
+        return None
+    # WP-047a S1: the date a request raised now would get (REQ-SR-015 AC1), always with a target.
+    assert found.pop("at") is not None
+    return found
 
 
 async def test_the_items_policy_says_how_long_in_working_time(world: World) -> None:

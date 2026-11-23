@@ -142,6 +142,9 @@ class CatalogItemIn(BaseModel):
     technician_after_approval: bool | None = None
     count_approval_time: bool | None = None
     auto_fulfil: bool | None = None
+    # WP-047a S1: REQ-SR-014 (Professional: `catalog`) and REQ-SR-015.
+    max_quantity: int | None = Field(default=None, ge=1, le=10_000)
+    asks_needed_by: bool | None = None
 
 
 class CatalogMissingTranslation(BaseModel):
@@ -157,6 +160,11 @@ class ExpectedDeliveryOut(BaseModel):
     amount: int
     unit: str = Field(description="minutes, hours or business_days.")
     around_the_clock: bool = Field(description="False: counted in working time.")
+    at: datetime | None = Field(
+        default=None,
+        description="When a request raised now should be delivered (REQ-SR-015 AC1), on the "
+        "SLA's calendar; the form shows it in the requester's time zone.",
+    )
 
 
 class CatalogItemOut(BaseModel):
@@ -197,6 +205,10 @@ class CatalogItemOut(BaseModel):
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
+    max_quantity: int | None = Field(
+        default=None, description="The most one request may ask for; null: no quantity asked."
+    )
+    asks_needed_by: bool = False
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
@@ -207,8 +219,14 @@ class CatalogItemOut(BaseModel):
     )
 
     @classmethod
-    def of(cls, view: service.ItemView, *, staff: bool) -> "CatalogItemOut":
-        """From the service's view; requesters never see questions meant for others."""
+    def of(
+        cls, view: service.ItemView, *, staff: bool, quantity_offered: bool = True
+    ) -> "CatalogItemOut":
+        """From the service's view; requesters never see questions meant for others.
+
+        `quantity_offered` false: no quantity is offered (REQ-SR-014 is Professional), so the
+        portal never shows a field the server would refuse (lane C, #578).
+        """
         item = view.item
         questions = [
             q
@@ -217,9 +235,12 @@ class CatalogItemOut(BaseModel):
             or QuestionAudience.REQUESTER.value
             in (q.get("shown_to") or [QuestionAudience.REQUESTER])
         ]
+        fields = {name: getattr(item, name) for name in service.ITEM_FIELDS}
+        if not quantity_offered:
+            fields["max_quantity"] = None
         return cls.model_validate(
             {
-                **{name: getattr(item, name) for name in service.ITEM_FIELDS},
+                **fields,
                 "questions": questions,
                 "id": item.id,
                 "status": item.status,
@@ -445,7 +466,8 @@ async def list_items(
         statuses=item_status or (),
         featured=featured,
     )
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
@@ -457,7 +479,8 @@ async def popular_items(
     """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
     staff = is_staff(subject)
     views = await service.popular_items(session, subject, limit=limit)
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/search", summary="Search the catalog items you may see")
@@ -469,8 +492,9 @@ async def search_items(
 ) -> list[CatalogItemOut]:
     """Names, keywords, summaries and descriptions in every language; best match first."""
     staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
     return [
-        CatalogItemOut.of(v, staff=staff)
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered)
         for v in await search.search_items(session, subject, q, limit=limit)
     ]
 
@@ -482,11 +506,16 @@ async def get_item(
     """One item you may see (404 otherwise)."""
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
-    out = CatalogItemOut.of(view, staff=is_staff(subject))
+    staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
+    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered)
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(
-            amount=target.amount, unit=target.unit, around_the_clock=target.around_the_clock
+            amount=target.amount,
+            unit=target.unit,
+            around_the_clock=target.around_the_clock,
+            at=await service.expected_delivery_at(session, view.item),
         )
     return out
 

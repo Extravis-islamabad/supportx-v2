@@ -60,6 +60,7 @@ const laptop: CatalogItem = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   can_manage: true,
   version: 1,
 };
@@ -685,5 +686,40 @@ describe('console: the service request record (template A)', () => {
         (c.path.startsWith('/api/v1/incidents/') || c.path.includes('/records/incident/')),
     );
     expect(strays.map((c) => c.path)).toEqual([]);
+  });
+
+  it('WP-047a S1: requests can be picked for a bulk change; ticking a row never opens it', async () => {
+    window.history.pushState({}, '', '/requests');
+    api();
+    render(<App />);
+    const row = (await screen.findByTestId('sr-row-SR-1')).closest('tr');
+    if (row === null) throw new Error('no row');
+    const tick = row.querySelector('input[type="checkbox"]');
+    if (tick === null) throw new Error('no checkbox on the row');
+    fireEvent.click(tick);
+    expect((await screen.findByText('1 request selected')).textContent).toBe('1 request selected');
+    expect(window.location.pathname).toBe('/requests');
+  });
+
+  it('WP-047a S1: the record shows how many, when needed and when expected, and a sooner need', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: {
+          ...request,
+          quantity: 2,
+          needed_by: '2026-11-20T09:00:00Z',
+          expected_delivery_at: '2026-11-24T10:00:00Z',
+          needed_earlier: true,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-details'));
+    expect((await screen.findByTestId('sr-quantity')).textContent).toBe('2');
+    expect(screen.getByTestId('sr-expected').textContent).not.toBe('');
+    expect(screen.getByTestId('sr-needed-earlier').textContent).toContain(
+      'Needed earlier than expected',
+    );
   });
 });

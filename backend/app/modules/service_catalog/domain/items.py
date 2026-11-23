@@ -372,3 +372,33 @@ __all__ = [
     "question_problems",
     "rules_problems",
 ]
+
+
+@dataclass(frozen=True)
+class Again:
+    """A past request's answers, as the item's form takes them now (REQ-SR-016)."""
+
+    answers: Mapping[str, Any]
+    dropped: tuple[str, ...]  # answers to questions the form no longer has (AC2)
+
+
+def request_again(questions: Sequence[Question], answers: Mapping[str, Any]) -> Again:
+    """The earlier answers for a new request of the same item (WP-047a S1, REQ-SR-016).
+
+    Kept: answers to the requester's questions the form still has. Attachments are never
+    copied (AC1): the requester adds them again. Dropped and listed (AC2): answers to questions
+    the form no longer has at all. An answer to a question the form still has but not for the
+    requester (a technician's or an approver's) is in neither list: never shown, never named.
+    The record's answers are all the requester's own today (`answer_problems` refuses any other
+    at create); a later answer by staff or an approver must be stored apart (WP-047a S4), so a
+    removed staff question can never be named here.
+    """
+    every = {q.key for q in questions}
+    current = {q.key: q for q in questions if QuestionAudience.REQUESTER in q.shown_to}
+    kept = {
+        key: value
+        for key, value in answers.items()
+        if key in current and current[key].kind is not QuestionKind.ATTACHMENT
+    }
+    dropped = tuple(sorted(key for key in answers if key not in every))
+    return Again(kept, dropped)

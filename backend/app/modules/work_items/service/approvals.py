@@ -404,6 +404,8 @@ async def _finish(
         technician_id=technician,
         source=source,
     )
+    if item is not None:
+        await items.refresh_expected_delivery(session, record, source=source)  # REQ-SR-015 AC3
     await fulfilment.start_plan(session, record, item, source=source)  # REQ-SR-021 AC1
 
 
