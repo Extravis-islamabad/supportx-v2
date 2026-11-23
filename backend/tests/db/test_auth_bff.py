@@ -1746,3 +1746,38 @@ async def test_a_session_survives_a_key_rotation_and_moves_to_the_new_key(bff: B
     assert retired is not None
     bff.app.state.auth.store = SessionStore(bff.kv, retired)
     assert (await bff.me()).status_code == 200
+
+
+# --- password reset: the answer never waits on the work (lane B's condition 7 on #566) ----------
+
+
+async def test_a_reset_answers_at_once_and_its_work_runs_after(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """202 for an unknown and a known address alike; the service runs after the answer, and a
+    failure there is logged, never shown."""
+    from app.modules.identity_access.bff import routes as bff_routes  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.service import password_reset  # noqa: PLC0415
+
+    asked: list[str] = []
+
+    async def reset(*args: object) -> None:
+        request = args[-1]
+        assert isinstance(request, password_reset.ResetRequest)
+        asked.append(request.email)
+        if request.email == "boom@demo.test":
+            raise RuntimeError
+
+    logged: list[str] = []
+
+    class _Log:
+        def exception(self, event: str, **_: object) -> None:
+            logged.append(event)
+
+    monkeypatch.setattr(password_reset, "request_reset", reset)
+    monkeypatch.setattr(bff_routes, "log", _Log())
+    for email in ("nobody@demo.test", "tech@demo.test", "boom@demo.test"):
+        answer = await bff.client.post("/api/v1/auth/password-reset", json={"email": email})
+        assert answer.status_code == 202, answer.text
+    assert asked == ["nobody@demo.test", "tech@demo.test", "boom@demo.test"]
+    assert logged == ["password_reset_failed"]

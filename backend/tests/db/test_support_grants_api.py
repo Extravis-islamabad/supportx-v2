@@ -26,11 +26,14 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.database import Database, create_engine
+from app.core.errors import PermissionDenied
 from app.modules.identity_access.domain import support_grants as rules
+from app.modules.identity_access.domain.identity import identity_from
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import IdentityAdminUnavailable
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service import password_reset, support_grant_job, support_grants
+from app.modules.identity_access.service.users import provision_user
 from app.modules.identity_access.tests.fake_idp import MemoryKeyValue
 from tests.app_state import set_state
 from tests.db.test_identity_api import World, world  # noqa: F401 - the fixture, reused
@@ -633,3 +636,61 @@ async def test_a_support_account_never_gets_a_password_reset(
         password_reset.ResetRequest("staff@acme.test", None, None),
     )
     assert world.admin.emails == [("kc-staff", ["UPDATE_PASSWORD"], 3600)]
+
+
+async def test_an_invalid_address_signs_in_by_subject_only(
+    world: World,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B's condition 8 on #566: a .invalid e-mail claim never links or makes a person.
+
+    The session names such an account by its login, so without this a stranger's account whose
+    login is a pre-added person's address would have been linked to that person (D-092's link).
+    The support account itself still signs in (its row holds its subject from the grant).
+    """
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    await _sql(
+        world,
+        "UPDATE users SET external_subject = NULL, email = 'added@acme.test' WHERE id = $1",
+        world.a.tech,
+    )
+    before = await _sql(
+        world, "SELECT count(*) AS n FROM users WHERE tenant_id = $1", world.a.tenant
+    )
+    stranger = identity_from(
+        {"sub": "kc-stranger", "email": "x@evil.invalid", "preferred_username": "added@acme.test"}
+    )
+    assert stranger.subject_only
+    with pytest.raises(PermissionDenied) as refused:
+        await provision_user(
+            database, world.a.tenant, stranger, datetime.now(UTC), client="console", reason="login"
+        )
+    assert refused.value.instance_code == "sign_in_unknown_person"
+    (row,) = await _sql(world, "SELECT external_subject FROM users WHERE id = $1", world.a.tech)
+    assert row["external_subject"] is None  # not linked
+    after = await _sql(
+        world, "SELECT count(*) AS n FROM users WHERE tenant_id = $1", world.a.tenant
+    )
+    assert after[0]["n"] == before[0]["n"]  # and nobody made
+    # The support account itself: found by its subject, as the grant made it.
+    made = await _grant(world)
+    assert made.status_code == 201, made.text
+    grant_id = uuid.UUID(made.json()["id"])
+    account, user_id = await _account(world, grant_id)
+    support = identity_from(
+        {
+            "sub": account,
+            "email": rules.support_address(grant_id),
+            "preferred_username": rules.support_login(grant_id),
+        }
+    )
+    signed_in = await provision_user(
+        database, world.a.tenant, support, datetime.now(UTC), client="console", reason="login"
+    )
+    assert signed_in.user_id == user_id
+    # The control: a real address links the pre-added person, as D-092 says.
+    real = identity_from({"sub": "kc-real", "email": "added@acme.test"})
+    assert not real.subject_only
+    linked = await provision_user(
+        database, world.a.tenant, real, datetime.now(UTC), client="console", reason="login"
+    )
+    assert linked.user_id == world.a.tech

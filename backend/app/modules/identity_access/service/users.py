@@ -139,7 +139,9 @@ async def _find_person(session: AsyncSession, identity: Identity) -> tuple[User 
         .where(User.external_subject == identity.subject, User.user_type != SERVICE)
         .with_for_update()
     )
-    if person is not None:
+    if person is not None or identity.subject_only:
+        # A .invalid address (a support account's) is never matched by address or login: its
+        # row holds its subject from the grant on (lane B's condition 8 on #566).
         return person, False
     person = await session.scalar(
         select(User)
@@ -218,7 +220,9 @@ async def _sign_in(  # noqa: PLR0913 - the sign-in and two keyword-only tenant p
         # Taken first, so parallel first sign-ins of technicians claim seats one at a time.
         await hold_limit(session, LimitKey.TECHNICIANS)
     person, linked = await _find_person(session, identity)
-    if person is None and not create_people:
+    if person is None and (not create_people or identity.subject_only):
+        # Nobody is ever made from a .invalid address (condition 8): it is refused like an
+        # unknown person, whatever the tenant's own setting.
         raise PermissionDenied(code="sign_in_unknown_person")
     if person is None:
         user_id, version, inserted = await _create_person(session, tenant_id, identity, now)

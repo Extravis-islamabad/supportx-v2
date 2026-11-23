@@ -93,7 +93,10 @@ from app.shared.realtime import (
 )
 
 if TYPE_CHECKING:
+    from app.core.config import Settings
     from app.core.database import Database
+    from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin
+    from app.modules.identity_access.infra.store import SessionStore
     from app.modules.identity_access.service.policy import PolicyService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -527,7 +530,7 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
     return Response(
         status_code=status.HTTP_202_ACCEPTED,
         background=BackgroundTask(
-            password_reset_service.request_reset,
+            _reset_after_answer,
             database,
             request.app.state.settings,
             auth.store,
@@ -539,6 +542,20 @@ async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) ->
             ),
         ),
     )
+
+
+async def _reset_after_answer(
+    database: "Database",
+    settings: "Settings",
+    store: "SessionStore",
+    admin: "IdentityAdmin | None",
+    reset: password_reset_service.ResetRequest,
+) -> None:
+    """The reset's work, after the 202: a failure is logged, never shown (lane B on #566)."""
+    try:
+        await password_reset_service.request_reset(database, settings, store, admin, reset)
+    except Exception:
+        log.exception("password_reset_failed")
 
 
 async def _address_tenant(request: Request, address: LoginAddress | None) -> uuid.UUID | None:

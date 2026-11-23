@@ -15,8 +15,6 @@ from enum import StrEnum
 from typing import Any, Literal, get_args
 from urllib.parse import unquote, urlsplit
 
-from app.modules.identity_access.domain.support_grants import SUPPORT_ADDRESS_DOMAIN
-
 ORGANIZATIONS_CLAIM = "supportx_organizations"
 ROLES_CLAIM = "supportx_roles"
 TENANT_ATTRIBUTE = "tenant_id"
@@ -132,6 +130,10 @@ class Identity:
     # epoch; WP-057 S2a, REQ-SEC-027). Read at login and at a confirmation only, never from a
     # refresh's token (lane B's condition A1).
     auth_time: int | None = None
+    # The e-mail claim was a .invalid address (RFC 2606; a vendor support account's, D-177): this
+    # sign-in matches a person by its Keycloak subject only, never links one by address or
+    # login and never makes a new one (lane B's condition 8 on #566).
+    subject_only: bool = False
 
     @property
     def user_type(self) -> Literal[UserType.TECHNICIAN, UserType.REQUESTER]:
@@ -204,9 +206,11 @@ def identity_from(claims: Mapping[str, Any]) -> Identity:
     roles = claims.get(ROLES_CLAIM)
     locale = claims.get("locale")
     address = str(claims.get("email") or "").strip().lower()
-    if address.endswith(f"@{SUPPORT_ADDRESS_DOMAIN}"):
-        # A vendor support account's .invalid address only completes its Keycloak profile (D-177):
-        # the session keeps naming the account by its generated login, as before it had one.
+    subject_only = address.rpartition("@")[2].rstrip(".").rpartition(".")[2] == "invalid"
+    if subject_only:
+        # A .invalid address (a vendor support account's, SUPPORT_ADDRESS_DOMAIN) only completes
+        # its Keycloak profile (D-177): the session names the account by its generated login, as
+        # before it had one, and the person is found by subject alone (`subject_only`).
         address = ""
     email = str(address or claims.get("preferred_username") or "").strip().lower()
     name = str(claims.get("name") or email).strip()
@@ -223,6 +227,7 @@ def identity_from(claims: Mapping[str, Any]) -> Identity:
         keycloak_session_id=sid if isinstance(sid, str) else None,
         identity_provider=_idp(claims.get(IDP_CLAIM)),
         auth_time=_auth_time(claims.get("auth_time")),
+        subject_only=subject_only,
     )
 
 
