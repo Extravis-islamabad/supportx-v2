@@ -414,3 +414,54 @@ export function usePortalChangeReply(id: string) {
     },
   });
 }
+
+// WP-046b S5 (REQ-INC-148): the requester's cancel, its ask, and editing after submitting.
+
+/** Cancel the incident, or ask to, as the organisation set it; the record refreshes either way. */
+export function usePortalCancel(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) =>
+      call(
+        api.POST('/api/v1/portal/incidents/{record_id}/cancel', {
+          params: { path: { record_id: id } },
+          body: { reason },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: [...portalKeys.all, 'list'] });
+    },
+  });
+}
+
+/** Take back a waiting ask to cancel. */
+export function usePortalWithdrawCancel(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      call(
+        api.DELETE('/api/v1/portal/incidents/{record_id}/cancel-request', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalKeys.detail(id) });
+    },
+  });
+}
+
+/** Change the fields the organisation lets requesters edit, with the version read (If-Match). */
+export function usePortalEdit(id: string) {
+  const saved = useSavedRecord();
+  return useMutation({
+    mutationFn: ({ changes, version }: { changes: Record<string, unknown>; version: number }) =>
+      call(
+        api.PATCH('/api/v1/portal/incidents/{record_id}', {
+          params: { path: { record_id: id }, header: { 'If-Match': `"${String(version)}"` } },
+          body: { changes },
+        }),
+      ),
+    onSuccess: saved,
+  });
+}

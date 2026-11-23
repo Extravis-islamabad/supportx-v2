@@ -5331,6 +5331,8 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
 # --- the requester replies (WP-020f) --------------------------------------------------------------
 
 REQUESTER_REPLY = "requester_reply"
+# The requester cancelled their own record from the portal (WP-046b S5; REQ-INC-148).
+REQUESTER_CANCELED = "requester_canceled"
 
 
 async def system_move(  # noqa: PLR0913 - the move and its context, explicit
@@ -5344,8 +5346,11 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     rule: str = REQUESTER_REPLY,
     given: closing.MoveInput | None = None,
     by_requester: bool = True,
+    reason_text: str | None = None,
 ) -> WorkItem:
     """A move made for the requester's act (a reply, a confirmation) or by the system.
+
+    `reason_text`: the requester's own words when the move asks for one (a cancel; S5).
 
     The requester's own acts (reply, confirm, reject) are theirs, never automation (WP-020f
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
@@ -5360,7 +5365,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+        session, wtype, record, action, target=target, reason_code=None, reason_text=reason_text
     )
     changes.update(step.changes)
     updated = await _update(session, record, record.version, changes)
@@ -5370,7 +5375,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         updated,
         action,
         source=source,
-        reason=None,
+        reason=reason_text,
         automatic=not by_requester,
         rule=rule,
         extra=[Change("requester_action", None, requester_action(rule, action))]

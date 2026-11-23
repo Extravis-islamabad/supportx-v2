@@ -219,6 +219,9 @@ class Catalogue:
     last_number: int = 0  # the last display number handed out (0: none yet)
     major: MajorSettings = MajorSettings()  # WP-046b S4 (0177): incidents only
     row_colour_by: str = "none"  # WP-046b S3a (0178, REQ-INC-115 AC1): the tenant's default
+    # WP-046b S5 (0184, REQ-INC-148): what a requester may do after submitting.
+    requester_cancel: str = "off"
+    requester_edit_fields: frozenset[str] = frozenset()
     # ADR-049: every runnable (published or retired) version of every set, by (code, number),
     # and each set's latest published number (what a new record is made on).
     versions: Mapping[tuple[str, int], Lifecycle] = field(default_factory=dict)
@@ -1023,4 +1026,6 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             template_id=settings.major_template_id,
         ),
         row_colour_by=settings.row_colour_by,
+        requester_cancel=settings.requester_cancel,
+        requester_edit_fields=frozenset(settings.requester_edit_fields),
     )

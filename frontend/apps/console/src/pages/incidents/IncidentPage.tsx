@@ -133,6 +133,7 @@ import { PriorityTag, SlaTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 import { CausingProblemCard } from './CausingProblemCard';
 import { RecordAssets } from './RecordAssets';
+import { CancellationAsk } from './CancellationAsk';
 import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -732,6 +733,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             />
             <LoopWarning id={item.id} />
             <MovedBanner item={item} kind="incidents" />
+            <CancellationAsk item={item} />
           </>
         }
         panel={

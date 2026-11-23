@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Segmented,
   Select,
   Switch,
   Typography,
@@ -68,6 +69,9 @@ interface General {
   mailCommands: boolean;
   mailFields: string[];
   ccFromMail: boolean;
+  // WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
+  cancelMode: 'off' | 'direct' | 'ask';
+  editFields: string[];
 }
 
 function savedOf(catalogue: IncidentCatalogue): General {
@@ -84,8 +88,13 @@ function savedOf(catalogue: IncidentCatalogue): General {
     mailCommands: catalogue.mail_commands,
     mailFields: [...(catalogue.mail_command_fields ?? [])],
     ccFromMail: catalogue.cc_from_first_mail,
+    cancelMode: catalogue.requester_cancel,
+    editFields: [...(catalogue.requester_edit_fields ?? [])],
   };
 }
+
+// What a requester may be allowed to edit (the backend's REQUESTER_EDITABLE; staff-only never).
+const REQUESTER_FIELDS = ['subject', 'description', 'impact', 'urgency', 'impact_details'] as const;
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -139,6 +148,10 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         body.mail_command_fields = MAIL_FIELDS.filter((f) => draft.mailFields.includes(f));
       }
       if (draft.ccFromMail !== saved.ccFromMail) body.cc_from_first_mail = draft.ccFromMail;
+      if (draft.cancelMode !== saved.cancelMode) body.requester_cancel = draft.cancelMode;
+      if (!same(draft.editFields, saved.editFields)) {
+        body.requester_edit_fields = REQUESTER_FIELDS.filter((f) => draft.editFields.includes(f));
+      }
     }
     save({ kind: 'settings', body }, discard, base);
   };
@@ -316,6 +329,55 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           </fieldset>
         </Flex>
       </SettingsCard>
+      {incidents && (
+        // WP-046b S5 (REQ-INC-148): off and none by default, as requesters can do today.
+        <SettingsCard title={t('settings.requester_rules')} testId="settings-requester-rules">
+          <Flex vertical gap={12}>
+            <Typography.Paragraph type="secondary">
+              {t('settings.requester_rules_help')}
+            </Typography.Paragraph>
+            <Flex vertical gap={4}>
+              <Typography.Text strong id="settings-requester-cancel-label">
+                {t('settings.requester_cancel')}
+              </Typography.Text>
+              <Segmented<'off' | 'direct' | 'ask'>
+                aria-labelledby="settings-requester-cancel-label"
+                value={draft.cancelMode}
+                onChange={(cancelMode) => {
+                  set({ cancelMode });
+                }}
+                options={(['off', 'direct', 'ask'] as const).map((value) => ({
+                  value,
+                  label: t(`requester_cancel.${value}`),
+                }))}
+                data-testid="settings-requester-cancel"
+              />
+            </Flex>
+            <Flex vertical gap={4}>
+              <Typography.Text strong id="settings-requester-edit-label">
+                {t('settings.requester_edit_fields')}
+              </Typography.Text>
+              <Typography.Text type="secondary">
+                {t('settings.requester_edit_fields_help')}
+              </Typography.Text>
+              <Select
+                mode="multiple"
+                aria-labelledby="settings-requester-edit-label"
+                value={draft.editFields}
+                onChange={(editFields: string[]) => {
+                  set({ editFields });
+                }}
+                options={REQUESTER_FIELDS.map((value) => ({
+                  value,
+                  label: t(`work_item.field.${value}`),
+                }))}
+                placeholder={t('settings.requester_edit_none')}
+                data-testid="settings-requester-edit"
+              />
+            </Flex>
+          </Flex>
+        </SettingsCard>
+      )}
       {incidents && (
         <SettingsCard title={t('settings.mail')} testId="settings-mail">
           <Flex vertical gap={16}>
