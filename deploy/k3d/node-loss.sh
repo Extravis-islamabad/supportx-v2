@@ -172,7 +172,16 @@ fi
 # not only that a pod is ready.
 mark="$(nats_max '.state.last_seq' "$node")"
 [ "$mark" -gt 0 ] || { echo "cannot read the events stream from any live NATS server"; exit 1; }
-save_locale '"en"' || { echo "the write after the fan-out check failed (last answer: $(head -c 300 "$BODY"))"; exit 1; }
+# Retried like the promotion's write: one API copy may still hold a pooled socket to the lost
+# node's pooler (dropped after about 15 s, TCP_USER_TIMEOUT), longer than one request's 10 s
+# (nightly 45179819016 failed on that single try). The time it took is printed, and any failed
+# attempt is in the trace, so a slow recovery stays visible instead of hidden by the retry.
+AFTER_FANOUT_BUDGET=30
+took="$(until_ok "$AFTER_FANOUT_BUDGET" save_locale '"en"')" ||
+  { echo "the write after the fan-out check did not succeed within ${AFTER_FANOUT_BUDGET} s (last answer: $(head -c 300 "$BODY"))"
+    show_write_trace; exit 1; }
+echo "the write after the fan-out check succeeded after ${took}s"
+show_write_trace
 took="$(until_ok "$FANOUT_BUDGET" fanout_acked_past "$mark" "$node")" ||
   { echo "the fan-out did not acknowledge an event past stream sequence $mark within ${FANOUT_BUDGET} s"
     js_leaders "$node"; fanout_diagnose "$node"; exit 1; }
