@@ -78,6 +78,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "CiImpact": "cmdb_impact",
     "CiSource": "cmdb_ci_source",
     "CiStateCategory": "cmdb_state_category",
+    # WP-053 S4a: attribute sources and sync rules.
+    "AttributeSource": "cmdb_attribute_source",
+    "SyncOutcome": "cmdb_sync_outcome",
+    "SyncRunStatus": "cmdb_sync_run_status",
+    "SyncSourceKind": "cmdb_sync_source",
+    "SyncTrigger": "cmdb_sync_trigger",
+    "SyncValueKind": "cmdb_sync_value_kind",
     "CiSkippedAsset.reason": "cmdb_skip_reason",
     "CiHistoryEntryOut.actor_type": "actor_type",
     # CMDB relationships, maps, views and versions (WP-053 S2)
@@ -210,6 +217,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "RowColourBy": "row_colour_by",  # WP-046b S3a (REQ-INC-115)
     "ListLayout": "list_layout",  # WP-046b S3b (REQ-INC-111)
     "BoardGroupBy": "board_group_by",
+    "RequesterCancel": "requester_cancel",  # WP-046b S5 (REQ-INC-148)
+    "CancellationDeciders": "cancellation_deciders",  # WP-046b S5 condition 1
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
@@ -269,6 +278,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "SystemLogCode": "system_log_code",
+    "SystemLogSeverity": "system_log_severity",
     "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",

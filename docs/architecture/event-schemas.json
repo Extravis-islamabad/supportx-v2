@@ -2066,6 +2066,27 @@
         "type": "object"
       }
     },
+    "audit.system_log.recorded": {
+      "1": {
+        "description": "A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.\n\nThe severity only: never the code's params or the object.",
+        "properties": {
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity"
+        ],
+        "title": "SystemLogRecorded",
+        "type": "object"
+      }
+    },
     "audit.verification.completed": {
       "1": {
         "description": "A verification run finished (`status`: passed, failed or error).",
@@ -2946,6 +2967,64 @@
           "other_ci_ids"
         ],
         "title": "RelationshipsChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.sync_rule.changed": {
+      "1": {
+        "description": "A sync rule was created, changed or removed (WP-053 S4a; field names only).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "SyncRuleChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.sync_run.changed": {
+      "1": {
+        "description": "A sync run was queued, started or finished (WP-053 S4a; IDs and its status code only).",
+        "properties": {
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "rule_id",
+          "status"
+        ],
+        "title": "SyncRunChanged",
         "type": "object"
       }
     },
@@ -6375,6 +6454,78 @@
           "total"
         ],
         "title": "WorkItemBulkJobProgressed",
+        "type": "object"
+      }
+    },
+    "work_items.cancellation_request.created": {
+      "1": {
+        "description": "A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).\n\nIDs only: the reason is the ask's own row, read by those who may decide.",
+        "properties": {
+          "deciders": {
+            "title": "Deciders",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "requested_by",
+          "request_id",
+          "deciders"
+        ],
+        "title": "WorkItemCancellationRequested",
+        "type": "object"
+      }
+    },
+    "work_items.cancellation_request.decided": {
+      "1": {
+        "description": "A requester's ask to cancel was approved, declined or withdrawn (its state code).",
+        "properties": {
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "state",
+          "requested_by"
+        ],
+        "title": "WorkItemCancellationDecided",
         "type": "object"
       }
     },

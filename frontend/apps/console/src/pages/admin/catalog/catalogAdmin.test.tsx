@@ -83,6 +83,7 @@ const laptop: CatalogItem = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   missing_translations: [
     { field: 'names', language: 'ar' },
     { field: 'questions.0.label', language: 'ur' },
@@ -221,5 +222,27 @@ describe('Admin › Service catalog', () => {
     expect(listed.textContent).toContain('Name: no Arabic text yet');
     expect(listed.textContent).toContain('Question 1: no Urdu text yet');
     expect(listed.textContent).not.toContain('questions.0');
+  });
+
+  it('WP-047a S1: an item may ask a quantity up to a maximum, and when it is needed', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const fake = api({
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: {
+        body: { ...laptop, max_quantity: 10, asks_needed_by: true, version: 4 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Fulfil/ }));
+    fireEvent.click(await screen.findByTestId('catalog-asks-quantity'));
+    expect(await screen.findByTestId('catalog-max-quantity')).toBeDefined();
+    fireEvent.click(screen.getByTestId('catalog-asks-needed-by'));
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)[0]?.body).toEqual({
+      max_quantity: 10,
+      asks_needed_by: true,
+    });
   });
 });

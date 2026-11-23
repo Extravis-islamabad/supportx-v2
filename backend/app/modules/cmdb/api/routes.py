@@ -18,6 +18,7 @@ from app.core.database import TenantSession
 from app.core.errors import NotFound, ProblemDetail
 from app.modules.audit import audited
 from app.modules.cmdb.domain import types as domain
+from app.modules.cmdb.domain.sources import AttributeSource
 from app.modules.cmdb.infra.models import Ci, CiState
 from app.modules.cmdb.service import aliases, catalogue, cis, ref_names
 from app.modules.identity_access import Subject, scope_filter
@@ -261,6 +262,13 @@ class CiListItem(BaseModel):
         return cls.model_validate(row, from_attributes=True)
 
 
+class AttributeStampOut(BaseModel):
+    """Where one attribute's value came from, and when (REQ-CMDB-016)."""
+
+    source: AttributeSource
+    at: datetime
+
+
 class CiOut(CiListItem):
     """One CI with everything staff see."""
 
@@ -284,6 +292,11 @@ class CiOut(CiListItem):
         description="The site, owner, groups, asset and person custom values named for you, by "
         "the referenced ID.",
     )
+    sources: dict[str, AttributeStampOut] = Field(
+        default_factory=dict,
+        description="Each attribute's source and time (`name`, `custom.<key>` …), for the fields "
+        "you may read; never one of a hidden, masked or sealed field.",
+    )
 
     @classmethod
     def of_view(cls, view: cis.CiView) -> "CiOut":
@@ -304,6 +317,10 @@ class CiOut(CiListItem):
             masked_fields=list(view.masked_fields),
             read_only_fields=list(view.read_only_fields),
             names=names_out(view.names),
+            sources={
+                k: AttributeStampOut(source=v.source, at=v.at)
+                for k, v in sorted(view.sources.items())
+            },
         )
 
 

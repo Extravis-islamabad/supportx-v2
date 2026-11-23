@@ -467,6 +467,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     subject: 'Mail is down',
     description: '<p>Since <strong>9:00</strong>.</p>',
     custom: {},
+    needed_earlier: false, // WP-047a S1: service requests only
     requester_id: requester,
     on_behalf_of_id: null,
     channel: 'phone',
@@ -603,6 +604,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     approvals_require_sign_in: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
+    requester_cancel: 'off',
+    requester_edit_fields: [],
     mail_commands: false,
     mail_command_fields: [],
     cc_from_first_mail: true,

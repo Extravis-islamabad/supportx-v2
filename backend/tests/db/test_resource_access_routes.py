@@ -87,6 +87,15 @@ EXEMPT: dict[str, str] = {
     "/cmdb/imports/{import_id}/problems": "one import job's refused rows: codes only",
     "/cmdb/relationship-types": "relationship types: configuration",
     "/cmdb/settings": "CMDB settings: configuration",
+    "/cmdb/settings/source-precedence": "which source wins: configuration (S4a)",
+    "/cmdb/sync-rules": "sync rules: configuration (cmdb.configure)",
+    "/cmdb/sync-rules/fields": "the fields a sync rule may map: configuration",
+    "/cmdb/sync-rules/{rule_id}": "one sync rule: configuration",
+    "/cmdb/sync-rules/{rule_id}/runs": "a rule's runs: counts only, no CI or asset",
+    "/cmdb/sync-runs/{run_id}": (
+        "a run's items: each CI through visible_rows and each asset through asset_refs, an unseen"
+        " one a placeholder with no ID (test_cmdb_sync's reader test)"
+    ),
     "/assets/audits": "audit campaigns, not assets (their items route is checked)",
     "/assets/audits/{audit_id}": "one audit campaign's header, not assets",
     "/assets/availability": (
@@ -310,6 +319,10 @@ _AUDIT = (
 )
 _OWN = "the caller's own record (portal): no staff scope"
 _JOB = "a job by its own ID, started by the caller; its rows were checked when it was made"
+_SYNC = (
+    "a sync rule (S4a): only an unrestricted author (no ADR-053 narrowing, every asset and CI at"
+    " 'all') may write or preview one, so a narrowed person is refused first (test_cmdb_sync)"
+)
 
 # Write routes that name no CI or asset, and why they need no probe here.
 WRITE_EXEMPT: dict[str, str] = {
@@ -380,6 +393,12 @@ WRITE_EXEMPT: dict[str, str] = {
     "POST /cmdb/imports/{import_id}/run": _JOB,
     "POST /cmdb/relationship-types": _CONFIG,
     "PUT /cmdb/settings": _CONFIG,
+    "PUT /cmdb/settings/source-precedence": _CONFIG,
+    "POST /cmdb/sync-rules": _SYNC,
+    "POST /cmdb/sync-rules/preview": _SYNC,
+    "PUT /cmdb/sync-rules/{rule_id}": _SYNC,
+    "DELETE /cmdb/sync-rules/{rule_id}": _SYNC,
+    "POST /cmdb/sync-rules/{rule_id}/runs": _SYNC,
 }
 
 

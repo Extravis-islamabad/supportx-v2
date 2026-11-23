@@ -82,6 +82,7 @@ from app.modules.service_catalog.service.starter import seed_empty_catalog
 from app.modules.work_items.service.work_items import apply_sla_from_creation
 from app.shared.api.idempotency import REPLAYED_HEADER
 from tooling import showcase_assets as assets
+from tooling import showcase_cmdb as cmdb
 from tooling import showcase_lane_a as lane_a
 from tooling.keycloak_theme import admin_token
 
@@ -1407,6 +1408,7 @@ class Report:
     stock: int = 0  # consumables, their stock, movements and minimum, a booking (WP-049b)
     audit: int = 0  # a running audit, started, with its marks (WP-049b s3)
     scans: int = 0  # scans of one asset through the discovery port (WP-049b s3)
+    cmdb: int = 0  # CI types, CIs, relationships, views, subscribers, a rule (showcase_cmdb)
     backdated: int = 0
     freshened: int = 0  # step 7: seed records moved to read as of today
     # Between the steps only: step 6's candidates and who acts.
@@ -1483,6 +1485,8 @@ async def fill(
         # WP-049b s3: a running audit with marks, and scans through the discovery port.
         report.audit = await assets.ensure_audit(admin, key, sites, signed_in[TECHNICIAN.email])
         report.scans = await _ensure_scans(settings, admin)
+        # WP-053: CIs and their relationships, so the map and the impact tab show real depth.
+        report.cmdb = await cmdb.ensure_cmdb(admin, key, sites, groups)
         report.admin_id = signed_in[ADMIN.email]
         # Only the seed's own incidents (lane C's shared definition), never others; step 6 also
         # checks each was made by the seed's admin.
@@ -1783,6 +1787,7 @@ def main(argv: Sequence[str]) -> int:  # pragma: no cover - thin CLI over the te
         f"  articles made now: {report.articles}; releases made now: {report.releases}\n"
         f"  assets made now (products, assets, holders, a loan, a group): {report.assets}\n"
         f"  stock made now (consumables, movements, a minimum, a booking): {report.stock}\n"
+        f"  CMDB made now (types, CIs, relationships, views, subscribers, a rule): {report.cmdb}\n"
         f"  service requests made now: {report.service_requests}; problems made now:"
         f" {report.problems}; rules made now: {report.rules}; managers set now:"
         f" {report.managers}; catalog items featured now: {report.featured}\n"

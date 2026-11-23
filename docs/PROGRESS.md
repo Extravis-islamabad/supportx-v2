@@ -34,9 +34,15 @@
 ### Known gaps
 
 - **Bulk actions on service requests** (QA10V-05, the coordinator, 2026-11-10). REQ-SR-002 gives
-  requests the engine's bulk actions, but the API has no bulk route for them and the requests
-  list has no row checkboxes or selection bar. It is built in **WP-047a** (SR V1, lane A). Until
-  then the list shows no checkboxes at all, rather than dead ones.
+  requests the engine's bulk actions. The API route was already the engine's
+  (`/service-requests/bulk`, the visibility-first runner); WP-047a S1 gives the requests list its
+  row checkboxes and selection bar with **assign and take**. Close, resolve, cancel and delete
+  follow with their own dialogs (as the change list's), recorded for WP-047a S5.
+- **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
+  WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
+  `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
+  route-level feature declaration (a `require_feature` dependency) and a Feature column in the
+  generated map. Until then a WP's PR body lists each REQ's edition and where it is gated.
 
 ### Engineering-practices audit (#444), lane B security items
 
@@ -1668,8 +1674,8 @@ declare major) default to the tenant admin and service desk manager, grantable, 
   - REQ-INC-092: a resolved parent resolves the chosen children with its resolution (a bulk job).
   - Seed version 6 tops up the `converted` status for older tenants.
 - [~] **S3, views, lists and bulk:** S3a done (0178; #549 merged 2026-11-18; lane C blocked
-  under D-175); S3b (cards, board and calendar; 0182) in review, its draft PR blocked by lane
-  C; S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
+  under D-175); S3b done (cards, board and calendar; 0182; #559 merged 2026-11-20; lane C
+  blocked); S3c (split view, peek, in-list edits, chart, bulk merge/link/note/delete) to come.
   - REQ-INC-111 (S3b): table, cards or board per person and view (0182: `layout`,
     `group_by`). A board grouped by status, priority, technician or group; its counts are the
     list's own query (only records you may see) and its columns keep a stable order (every
@@ -1690,6 +1696,40 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     theirs (checked on every read); sharing on a restricted or sealed field refused; the view
     audit makes existing offending views private (history, events, the owner told, a report).
   - A link opens a view (`?view=open`, `?view=custom:<id>`).
+- [~] **S5, requester cancel and edit rules (0184; REQ-INC-148; lane C blocks):** in review.
+  - Per type: `requester_cancel` off (as today), direct, or ask; `requester_edit_fields`, the
+    reporting fields a requester may still change (none by default: read-only apart from
+    replying). Staff-only fields can never be listed or edited (domain rule, tested).
+  - Direct: the requester's own cancel, with their words, through the life cycle. Ask: one
+    waiting ask per record; the assignee decides (with none, whoever may edit it); approving
+    runs the ordinary cancel as the decider; declining sends their note as a public reply; the
+    requester may withdraw. Events, history, labels en/ar/ur; the portal, the record's strip
+    and the admin card.
+
+### [~] WP-047a — Service requests V1: raising, approvals, fulfilment (lane A, 2026-11-23; 6 sessions; 29 REQs)
+
+Plan approved by the coordinator 2026-11-23 (`~/Extravis/plans/wp-047a-plan-lane-a.md`):
+service requests move onto the existing level engine; one migration per session. REQs so far:
+**4 done** (019 and 054 before this WP; 015 and 016 in S1), **1 partly** (014: AC2 done, AC1 waits
+for the item price, REQ-CAT-020), 24 to come.
+
+- [~] **S1, raising (0193; REQ-SR-014, -015, -016; lane C blocks):** in review.
+  - REQ-SR-014 (Professional, `catalog` checked in the service): an item may ask a quantity up
+    to its maximum (`catalog_items.max_quantity`); above it, the same field error in the form
+    and the API (`quantity_over_max`, with the max). The estimated cost (AC1) lands with the
+    item price (WP-047b or S6), hidden from requesters and approvers until Haider's answer to
+    the plan's Q3.
+  - REQ-SR-015 (Essentials): an item may ask when it is needed; the expected delivery date is
+    the item's SLA on its own calendar (`sla.delivery_at`; 3 business days from a Thursday is
+    the Tuesday), shown on the form before submitting and on the record, worked out again when
+    approval completes (history and the record's event: live); a needed-by date earlier than
+    that is a warning on the form and a flag on the record.
+  - REQ-SR-016 (Essentials): "Request again" on one's own past request: the item as it is now,
+    the earlier answers filled in (never attachments), answers to removed questions dropped and
+    counted, a retired item refused with the reason.
+  - The portal returns only the answers to the requester's own questions (filtered in the
+    service, default deny), the coordinator's condition 2; a request's subject comes from the
+    item's template when none is typed (WP-031 leftover); bulk on requests (assign, take).
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

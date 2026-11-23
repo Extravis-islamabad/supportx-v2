@@ -311,6 +311,13 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    # WP-053 S4a (0191): which source wins, sync rules, and one entry per run.
+    ("cmdb.source_precedence_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_run_requested", AuditCategory.RECORDS, "cmdb"),
+    ("cmdb.sync_run_finished", AuditCategory.RECORDS, "cmdb"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
     ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),
@@ -396,6 +403,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
     ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
+    # WP-046b S5: an unassigned ask to cancel fell to the service desk managers.
+    ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
@@ -500,6 +509,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.personal_data_access_viewed", AuditCategory.DATA, "audit"),  # REQ-AUD-017 report
+    ("audit.system_log_exported", AuditCategory.DATA, "audit"),  # REQ-AUD-016 AC3
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),

@@ -100,6 +100,30 @@ class BusinessViewChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class SyncRuleChanged(DomainEvent):
+    """A sync rule was created, changed or removed (WP-053 S4a; field names only)."""
+
+    event_type: ClassVar[str] = "cmdb.sync_rule.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "cmdb_sync_rule"
+
+    rule_id: uuid.UUID
+    action: str  # created, updated or deleted
+    changed_fields: list[str]
+
+
+class SyncRunChanged(DomainEvent):
+    """A sync run was queued, started or finished (WP-053 S4a; IDs and its status code only)."""
+
+    event_type: ClassVar[str] = "cmdb.sync_run.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "cmdb_sync_run"
+
+    run_id: uuid.UUID
+    rule_id: uuid.UUID
+    status: str
+
+
 class CiImportProgressed(DomainEvent):
     """An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.
 
@@ -125,5 +149,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     CmdbConfigChanged,
     RelationshipsChanged,
     BusinessViewChanged,
+    SyncRuleChanged,
+    SyncRunChanged,
     CiImportProgressed,
 )

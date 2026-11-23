@@ -39,7 +39,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata, service_catalog, sla
+from app.modules import licensing, metadata, service_catalog, sla
 from app.modules.audit import WORKER as AUDIT_WORKER
 from app.modules.audit import AuditActorType, RequestFacts
 from app.modules.audit import record as record_audit
@@ -343,6 +343,10 @@ class WorkItemView:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+# REQ-SR-014's quantity is Professional (D-133).
+REQUEST_QUANTITY_FEATURE = "catalog"
 
 
 def _errors(problems: Sequence[tuple[str, str]], **params: Any) -> ValidationFailed:  # noqa: ANN401 - problem params
@@ -2651,6 +2655,90 @@ def _item_columns(
     }
 
 
+async def _subject_from_item(
+    session: AsyncSession, wtype: WorkItemType, values: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """A service request sent with no subject takes its item's template (WP-031 leftover).
+
+    Only when the subject is missing or blank: a subject the person typed is theirs. With no
+    template either, the subject stays missing and is refused as required, as before.
+    """
+    item_id = values.get("catalog_item_id")
+    if (
+        wtype.code is not WorkItemTypeCode.SERVICE_REQUEST
+        or not item_id
+        or str(values.get("subject") or "").strip()
+    ):
+        return values
+    person = values.get("on_behalf_of_id") or values.get("requester_id")
+    names = await user_names(session, [str(person)]) if person else {}
+    filled = await service_catalog.templated_subject(
+        session,
+        uuid.UUID(str(item_id)),
+        values.get("answers") or {},
+        person=names.get(str(person), ""),
+    )
+    return values if filled is None else {**values, "subject": filled}
+
+
+async def _check_request_details(
+    subject: Subject, item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> None:
+    """A quantity and a needed-by date, only where the item asks (WP-047a S1).
+
+    REQ-SR-014: the quantity is Professional (`catalog`, D-133, checked here on the server),
+    and above the item's maximum it is the same field error as the form's. REQ-SR-015: a
+    needed-by date only when the item asks for one. Other types take neither.
+    """
+    quantity = values.get("quantity")
+    needed_by = values.get("needed_by")
+    if item is None:
+        given = [n for n, v in (("quantity", quantity), ("needed_by", needed_by)) if v is not None]
+        if given:
+            raise _errors([(name, "not_allowed") for name in given])
+        return
+    if quantity is not None:
+        await licensing.require_feature(subject.tenant_id, REQUEST_QUANTITY_FEATURE)
+        if item.max_quantity is None:
+            raise _errors([("quantity", "not_allowed")])
+        if quantity > item.max_quantity:
+            raise _errors([("quantity", "quantity_over_max")], quantity={"max": item.max_quantity})
+    if needed_by is not None and not item.asks_needed_by:
+        raise _errors([("needed_by", "not_allowed")])
+
+
+async def _delivery_columns(  # noqa: PLR0913 - the request, its moment and its placement
+    session: AsyncSession,
+    item: service_catalog.RequestItem | None,
+    values: Mapping[str, Any],
+    now: datetime,
+    *,
+    priority: str,
+    site_id: uuid.UUID | None,
+    group_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    """A request's quantity, needed-by and expected delivery (REQ-SR-014, -015).
+
+    The expected date is the item's SLA counted on its calendar from now; worked out again
+    when approval completes (`refresh_expected_delivery`). None when no SLA applies.
+    """
+    if item is None:
+        return {}
+    return {
+        "quantity": values.get("quantity"),
+        "needed_by": values.get("needed_by"),
+        "expected_delivery_at": await sla.delivery_at(
+            session,
+            WorkItemTypeCode.SERVICE_REQUEST.value,
+            item.sla_policy_id,
+            priority,
+            now,
+            site_id=site_id,
+            group_id=group_id,
+        ),
+    }
+
+
 def _person_facts(user_id: uuid.UUID, placement: Placement) -> sr_rules.PersonFacts:
     return sr_rules.PersonFacts(
         user_id=user_id,
@@ -2764,6 +2852,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     group (history: "routed to the group of the way it came in").
     """
     cat = await config.load(session, wtype)
+    values = await _subject_from_item(session, wtype, values)
     template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     # The template's form rules first (REQ-INC-037): what they set or clear is then checked
     # like any other input, and what they refuse is reported with the other field errors.
@@ -2792,6 +2881,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     # status, priority and assignment (REQ-SR-005, -008, -021); the person's own choices of
     # group and technician were checked above, the item's were checked when it was saved.
     item = await _request_item(session, subject, wtype, values)
+    await _check_request_details(subject, item, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
     problems += [
@@ -2877,6 +2967,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         started, *_first_priority(cat, cleaned, manual, automated.values)
     )
     now = _now()
+    delivery = await _delivery_columns(
+        session,
+        item,
+        values,
+        now,
+        priority=priority,
+        site_id=cleaned.get("site_id"),
+        group_id=group_id,
+    )
     number = await next_display_number(session, wtype.counter_key)
     # Sensitive values sealed under the new record's ID before it is written (WP-057 S3b-2).
     new_custom = await custom_values.seal_custom(
@@ -2920,6 +3019,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
         **_item_columns(item, values),
+        **delivery,
         custom=new_custom.stored,
         custom_text=await _custom_text(session, wtype, new_custom.stored),
         status=initial,
@@ -5331,6 +5431,8 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
 # --- the requester replies (WP-020f) --------------------------------------------------------------
 
 REQUESTER_REPLY = "requester_reply"
+# The requester cancelled their own record from the portal (WP-046b S5; REQ-INC-148).
+REQUESTER_CANCELED = "requester_canceled"
 
 
 async def system_move(  # noqa: PLR0913 - the move and its context, explicit
@@ -5344,8 +5446,11 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     rule: str = REQUESTER_REPLY,
     given: closing.MoveInput | None = None,
     by_requester: bool = True,
+    reason_text: str | None = None,
 ) -> WorkItem:
     """A move made for the requester's act (a reply, a confirmation) or by the system.
+
+    `reason_text`: the requester's own words when the move asks for one (a cancel; S5).
 
     The requester's own acts (reply, confirm, reject) are theirs, never automation (WP-020f
     BUG-03): history keeps them as the person, from their channel, with `requester_action`
@@ -5360,7 +5465,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
-        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+        session, wtype, record, action, target=target, reason_code=None, reason_text=reason_text
     )
     changes.update(step.changes)
     updated = await _update(session, record, record.version, changes)
@@ -5370,7 +5475,7 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         updated,
         action,
         source=source,
-        reason=None,
+        reason=reason_text,
         automatic=not by_requester,
         rule=rule,
         extra=[Change("requester_action", None, requester_action(rule, action))]
@@ -5378,6 +5483,40 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         else (),
     )
     return updated
+
+
+async def refresh_expected_delivery(
+    session: AsyncSession, record: WorkItem, *, source: Source
+) -> None:
+    """A request's expected delivery, worked out again once approval completes (REQ-SR-015 AC3).
+
+    From now, on the item's SLA and calendar, as at create; saved through `set_fields`, so the
+    change is in history and its event patches every open screen live (the portal included).
+    """
+    if record.catalog_item_id is None:
+        return
+    item = await service_catalog.item_decides(session, record.catalog_item_id)
+    expected = (
+        None
+        if item is None
+        else await sla.delivery_at(
+            session,
+            WorkItemTypeCode.SERVICE_REQUEST.value,
+            item.sla_policy_id,
+            record.priority,
+            _now(),
+            site_id=record.site_id,
+            group_id=record.group_id,
+        )
+    )
+    if expected != record.expected_delivery_at:
+        await set_fields(
+            session,
+            record,
+            {"expected_delivery_at": expected},
+            expected_version=record.version,
+            source=source,
+        )
 
 
 async def set_fields(  # noqa: PLR0913 - the record, its version, the change and its reason

@@ -183,12 +183,16 @@ export const ar: LabelResource = {
   'errors.calendar_in_use':
     'لا تزال مواقع أو فرق دعم تستخدم هذا التقويم. اختر لها تقويمًا آخر أولًا.',
   'errors.calendar_not_found': 'هذا التقويم غير موجود أو حُذف.',
+  'errors.cancellation_already_asked': 'لقد طلبت الإلغاء بالفعل. سيقرر الفريق.',
+  'errors.cancellation_request_not_found': 'لا يوجد طلب إلغاء بانتظار القرار على هذا السجل.',
   'errors.cannot_deactivate_self': 'لا يمكنك إلغاء تفعيل حسابك بنفسك.',
   'errors.cannot_publish': 'لا يمكن نشر هذا الإعلان بعد.',
   'errors.cannot_stop_own_sign_in': 'لا يمكنك إيقاف تسجيل دخولك بنفسك.',
   'errors.catalog_item_in_use': 'لهذا العنصر طلبات، لذا لا يمكن حذفه. أوقِفه بدلاً من ذلك.',
   'errors.catalog_item_incomplete': 'لم يكن العنصر مكتملاً في موعد نشره المخطط، فبقي مسودة.',
   'errors.catalog_item_not_found': 'عنصر الكتالوج هذا غير موجود أو غير متاح لك.',
+  'errors.catalog_item_retired': 'لم يعد هذا العنصر متاحًا، لذا لا يمكن طلبه مرة أخرى.',
+  'errors.catalog_item_unavailable': 'هذا العنصر غير متاح لك الآن.',
   'errors.category_not_found': 'هذه الفئة غير موجودة.',
   'errors.certificate_invalid': 'تعذرت قراءة الشهادة. الصق ملف PEM مع مفتاحه الخاص.',
   'errors.certificate_key_mismatch': 'المفتاح الخاص لا يخص هذه الشهادة.',
@@ -480,6 +484,7 @@ export const ar: LabelResource = {
   'errors.field.fallback_fixed': 'السياسة الافتراضية تُطبَّق دائمًا وليس لها شروط.',
   'errors.field.field_always_required': 'الموضوع ومقدم الطلب ظاهران ومطلوبان دائمًا.',
   'errors.field.field_locked': 'تقفل قاعدة نموذج هذا الحقل، لذا لا يمكن تغييره هنا.',
+  'errors.field.field_not_editable_by_requester': 'لا يمكنك تغيير هذا الحقل هنا.',
   'errors.field.field_not_filterable_sealed':
     'هذا الحقل مشفّر عند التخزين: يمكن التصفية به بقيمة مطابقة فقط (يساوي، أحد)، وليس أثناء تشفيره أو فكّ تشفيره.',
   'errors.field.field_not_permitted': 'لا يمكنك استخدام هذا الحقل: أدوارك لا تسمح لك برؤيته.',
@@ -638,6 +643,7 @@ export const ar: LabelResource = {
   'errors.field.plain_connection_refused': 'يُرفض الاتصال دون تشفير ما لم تسمح به.',
   'errors.field.port_not_allowed': 'استخدم منفذ بريد: 993 (TLS) أو 143.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
+  'errors.field.quantity_over_max': 'يمكنك طلب {{max}} كحد أقصى.',
   'errors.field.range_end_before_start': 'يجب أن تكون النهاية بعد البداية.',
   'errors.field.read_category_unknown': 'لا يمكن تسجيل هذا النوع من القراءة.',
   'errors.field.read_only': 'لا يمكن تغيير هذا الحقل هنا.',
@@ -1030,6 +1036,7 @@ export const ar: LabelResource = {
   'errors.not_major': '{{display_id}} ليست حادثة كبرى.',
   'errors.not_merged': '{{display_id}} غير مدمجة، فلا يوجد ما يُتراجع عنه.',
   'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
+  'errors.not_the_decider': 'يقرر هذا الشخص المُسند إليه فقط، أو من يمكنه تعديله إن لم يُسند لأحد.',
   'errors.not_visible': 'لا يمكنك رؤية هذا التغيير، لذا تُرك كما هو.',
   'errors.nothing_to_override': 'هذا التغيير لا ينتظر الموافقة مجددًا، فلا يوجد ما يُتجاوز.',
   'errors.nothing_to_retry': 'لا توجد خطوة فاشلة لتشغيلها مرة أخرى.',
@@ -1113,6 +1120,11 @@ export const ar: LabelResource = {
   'errors.report_schedule_not_found': 'هذه الجدولة غير موجودة أو ليست لك.',
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
+  'errors.requester_action_closed': 'لم يعد بإمكانك تغيير هذا: فقد حُلّ أو أُغلق أو أُلغي بالفعل.',
+  'errors.requester_cancel_not_possible':
+    'لا يمكن إلغاء هذا في هذه المرحلة. أرسل ردًا لإبلاغ الفريق.',
+  'errors.requester_cancel_off':
+    'لا تسمح مؤسستك للطالبين بالإلغاء هنا. أرسل ردًا لتطلب ذلك من الفريق.',
   'errors.required': 'هذا الحقل مطلوب.',
   'errors.resource_access_limit_reached':
     'لدى مؤسستك بالفعل {{limit}} قاعدة للوصول إلى السجلات، وهو الحد الأقصى. احذف قاعدة أولاً.',

@@ -195,6 +195,9 @@ export const en = {
   'errors.calendar_in_use':
     'Sites or support groups still use this calendar. Give them another calendar first.',
   'errors.calendar_not_found': 'This calendar does not exist or was deleted.',
+  'errors.cancellation_already_asked':
+    'You have already asked to cancel this. The team will decide.',
+  'errors.cancellation_request_not_found': 'There is no ask to cancel waiting on this record.',
   'errors.cannot_deactivate_self': 'You cannot deactivate yourself.',
   'errors.cannot_publish': 'This announcement cannot be published yet.',
   'errors.cannot_stop_own_sign_in': 'You cannot stop your own sign-in.',
@@ -203,6 +206,8 @@ export const en = {
   'errors.catalog_item_incomplete':
     'The item was not complete at its planned publish time, so it stayed a draft.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
+  'errors.catalog_item_retired': 'This item is no longer offered, so it cannot be requested again.',
+  'errors.catalog_item_unavailable': 'This item is not available to you now.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
     'The certificate could not be read. Paste the PEM with its private key.',
@@ -523,6 +528,7 @@ export const en = {
   'errors.field.fallback_fixed': 'The default policy always applies and has no conditions.',
   'errors.field.field_always_required': 'Subject and requester are always shown and required.',
   'errors.field.field_locked': 'A form rule locks this field, so it cannot be changed here.',
+  'errors.field.field_not_editable_by_requester': "You can't change this field here.",
   'errors.field.field_not_filterable_sealed':
     'This field is sealed at rest: it can be filtered only by an exact value (is, is one of), and not while it is being sealed or opened.',
   'errors.field.field_not_permitted': "You can't use this field: your roles don't let you see it.",
@@ -685,6 +691,7 @@ export const en = {
   'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
+  'errors.field.quantity_over_max': 'You can ask for at most {{max}}.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
@@ -1105,6 +1112,8 @@ export const en = {
   'errors.not_major': '{{display_id}} is not a major incident.',
   'errors.not_merged': '{{display_id}} is not merged, so there is nothing to undo.',
   'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
+  'errors.not_the_decider':
+    'Only the person assigned (or, when nobody is, someone who may edit it) can decide this.',
   'errors.not_visible': 'You cannot see this change, so it was left as it is.',
   'errors.nothing_to_override':
     'This change is not waiting for approval again, so there is nothing to override.',
@@ -1197,6 +1206,12 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.requester_action_closed':
+    "You can no longer change this: it's already resolved, closed or cancelled.",
+  'errors.requester_cancel_not_possible':
+    "This can't be cancelled at this stage. Reply to tell the team.",
+  'errors.requester_cancel_off':
+    "Your organisation doesn't let requesters cancel here. Reply to ask the team instead.",
   'errors.required': 'This field is required.',
   'errors.resource_access_limit_reached':
     'Your organisation already has {{limit}} record access rules, the most allowed. Remove one first.',

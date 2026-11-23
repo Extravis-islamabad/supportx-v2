@@ -25,6 +25,7 @@ import {
 } from '@supportx/ui';
 
 import { PortalStatusTag } from './PortalStatusTag';
+import { RequesterActions } from './RequesterActions';
 
 const COMMENT_MAX = 200_000;
 
@@ -189,6 +190,7 @@ export function RequestPage() {
       {item.portal_status === 'waiting_for_you' && own && (
         <Alert type="warning" showIcon message={t('portal.request.waiting_for_you')} />
       )}
+      {own && <RequesterActions item={item} />}
 
       {item.description !== undefined && (
         <section aria-labelledby="portal-description">

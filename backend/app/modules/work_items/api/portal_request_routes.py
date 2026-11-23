@@ -21,6 +21,7 @@ from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.identity_access import Subject
 from app.modules.work_items.api.portal_routes import PortalRejectIn
+from app.modules.work_items.domain import service_requests as sr_rules
 from app.modules.work_items.domain.portal import PortalReach, PortalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.service import parts
@@ -53,6 +54,13 @@ class PortalRequestOut(BaseModel):
     catalog_item_id: uuid.UUID | None = None
     answers: dict[str, Any] = Field(default_factory=dict)
     approval_status: str | None = None
+    # WP-047a S1: how many (REQ-SR-014), when needed and when expected (REQ-SR-015).
+    quantity: int | None = None
+    needed_by: datetime | None = None
+    expected_delivery_at: datetime | None = Field(
+        default=None, description="From the item's SLA; updated when approval completes."
+    )
+    needed_earlier: bool = False
     created_at: datetime
     updated_at: datetime
     resolution: str | None = None
@@ -98,8 +106,12 @@ def _out(found: service.PortalRecord) -> PortalRequestOut:
         requester_id=r.requester_id,
         on_behalf_of_id=r.on_behalf_of_id,
         catalog_item_id=r.catalog_item_id,
-        answers=dict(r.answers or {}),
+        answers=dict(found.answers),  # filtered by the service: the requester's questions only
         approval_status=r.approval_status,
+        quantity=r.quantity,
+        needed_by=r.needed_by,
+        expected_delivery_at=r.expected_delivery_at,
+        needed_earlier=sr_rules.needed_earlier(r.needed_by, r.expected_delivery_at),
         created_at=r.created_at,
         updated_at=r.updated_at,
         resolution=r.resolution,
@@ -130,6 +142,39 @@ async def get_portal_request(
 ) -> PortalRequestOut:
     """Out of reach reads as not found (404), never forbidden."""
     return _out(await service.get_record(session, subject, record_id, SERVICE_REQUEST))
+
+
+class PortalRequestAgainOut(BaseModel):
+    """Request again (REQ-SR-016): the item's form with the earlier answers."""
+
+    catalog_item_id: uuid.UUID
+    available: bool = Field(description="False when the item can no longer be requested (AC3).")
+    reason: str | None = Field(
+        default=None,
+        description="Why not, a label code (errors.<code>): catalog_item_retired, "
+        "catalog_item_unavailable.",
+    )
+    answers: dict[str, Any] = Field(
+        description="The earlier answers the form still asks; attachments never copied (AC1)."
+    )
+    dropped: list[str] = Field(
+        description="Keys of earlier answers to questions the form no longer has (AC2)."
+    )
+
+
+@router.get("/{record_id}/request-again", summary="Request this again")
+async def portal_request_again(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> PortalRequestAgainOut:
+    """Your own past request's item, prefilled; nothing is created until you submit the form."""
+    found = await service.request_again(session, subject, record_id)
+    return PortalRequestAgainOut(
+        catalog_item_id=found.item_id,
+        available=found.available,
+        reason=found.reason,
+        answers=dict(found.answers),
+        dropped=list(found.dropped),
+    )
 
 
 @router.get("/{record_id}/steps", summary="The fulfilment progress of your service request")

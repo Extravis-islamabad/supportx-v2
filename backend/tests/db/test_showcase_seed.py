@@ -5,7 +5,7 @@ import copy
 import json
 import uuid
 from collections import Counter
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -23,6 +23,7 @@ from app.shared.events.outbox import OUTBOX_TABLE
 from conftest import create_tenant, make_settings
 from tooling import db_testing
 from tooling import showcase_assets as assets
+from tooling import showcase_cmdb as cmdb
 from tooling import showcase_lane_a as lane_a
 from tooling import showcase_seed as seed
 
@@ -106,7 +107,17 @@ async def _counts(url: str, tenant: uuid.UUID) -> dict[str, int]:
             await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
             return {
                 table: await conn.fetchval(f"SELECT count(*) FROM {table}")  # noqa: S608 - fixed names
-                for table in ("users", "work_items", "sites", "support_groups", "dashboards")
+                for table in (
+                    "users",
+                    "work_items",
+                    "sites",
+                    "support_groups",
+                    "dashboards",
+                    "cmdb_cis",
+                    "cmdb_relationships",
+                    "cmdb_business_views",
+                    "cmdb_service_subscribers",
+                )
             }
     finally:
         await conn.close()
@@ -659,7 +670,32 @@ def seeded_copy(
         db_testing.destroy(db_config, database)
 
 
-def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
+def _check_cmdb(first: seed.Report, counts: Mapping[str, int]) -> None:
+    """WP-053: a CMDB to look at (showcase_cmdb).
+
+    The CIs and the one from the finance laptop, every relationship and the laptop's link, the
+    views, the subscribers and the access rule.
+    """
+    subscribers = sum(len(refs) for refs in cmdb.SUBSCRIBERS.values())
+    assert (counts["cmdb_cis"], counts["cmdb_relationships"]) == (
+        len(cmdb.CIS) + 1,
+        len(cmdb.LINKS) + 1,
+    )
+    assert counts["cmdb_business_views"] == len(cmdb.VIEWS)
+    assert counts["cmdb_service_subscribers"] == subscribers
+    # The CI made from the finance laptop and its link make the 2; the access rule the 1.
+    assert first.cmdb == (
+        len(cmdb.OWN_TYPES)
+        + len(cmdb.CIS)
+        + len(cmdb.LINKS)
+        + len(cmdb.VIEWS)
+        + subscribers
+        + 2
+        + 1
+    )
+
+
+def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(  # noqa: PLR0915 - one whole seed run, checked step by step
     seeded: Seeded, seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak]
 ) -> None:
     database, keycloak = seeded_copy
@@ -698,6 +734,7 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
     )
     assert counts["work_items"] == 81 + len(seed.RELEASES)
     assert asyncio.run(_without_a_manager(database.migrator_url)) == 0
+    _check_cmdb(first, counts)
     # Named SLAs with live countdowns, not "No SLA applies" (QA9, Haider): every incident
     # has targets, the urgent ones and the network ones on the showcase's own policies.
     assert first.sla_policies == len(lane_a.SLA_POLICIES) == 2
@@ -749,7 +786,8 @@ def test_fills_showcase_through_the_api_once_and_leaves_other_tenants_alone(
         second.sla_from_creation,
         second.audit,
         second.scans,
-    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        second.cmdb,
+    ) == ([], [], 0, False, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert asyncio.run(_seed_audit(database.migrator_url)) == audit
     assert second.backdated == 0  # nothing made now, so nothing moved
     assert asyncio.run(_seed_assets(database.migrator_url)) == found
@@ -1169,7 +1207,80 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
     assert all(a.startswith("service_request.") for a in actions), actions
     # Its update event too, so open screens and search follow (rule 5b, lane B).
     events = asyncio.run(_updates_of(database.admin_url, orphan))
-    assert events == [["technician_id"]]
+    # WP-047a S1: the seed's approval worked out the expected delivery again (REQ-SR-015 AC3),
+    # its own update before the repair's; the repair's is the technician, once.
+    assert events == [["expected_delivery_at"], ["technician_id"]]
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     assert asyncio.run(repair.run(settings, write=False)) == []  # once
     assert repair.refuse("other", settings) is not None
+
+
+async def _persona_view(settings: Settings, url: str) -> dict[str, Any]:  # Any: per persona
+    """What Omar (technician only) and Sana (also tenant_admin) see of the critical CIs.
+
+    `url` is the admin connection (RLS-free), so the lookup filters the tenant itself.
+    """
+    conn = await asyncpg.connect(url)
+    try:
+        ids = {
+            r["email"]: r["id"]
+            for r in await conn.fetch(
+                "SELECT id, email FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+                seed.TENANT_ID,
+                [seed.TECHNICIAN.email, seed.ADMIN.email],
+            )
+        }
+    finally:
+        await conn.close()
+    contexts = {
+        ids[p.email]: TenantContext(seed.TENANT_ID, ids[p.email], roles=frozenset(p.roles))
+        for p in (seed.TECHNICIAN, seed.ADMIN)
+    }
+    seen: dict[str, Any] = {}
+    async with seed.console_api(settings, contexts) as client:
+        sana = seed.Api(client, ids[seed.ADMIN.email])
+        by_name = {c["name"]: c["id"] for c in await sana.all_pages(f"{cmdb.BASE}/cis")}
+        engine = by_name["Payroll engine"]
+        for person in (seed.TECHNICIAN, seed.ADMIN):
+            headers = {seed.SEED_HEADER: str(ids[person.email])}
+            api = seed.Api(client, ids[person.email])
+            names = {c["name"] for c in await api.all_pages(f"{cmdb.BASE}/cis")}
+            opened = {
+                name: (
+                    await client.get(f"{cmdb.BASE}/cis/{by_name[name]}", headers=headers)
+                ).status_code
+                for name in ("Payroll database", "ERP database", "Payroll engine")
+            }
+            graph = await api.call("GET", f"{cmdb.BASE}/cis/{engine}/neighbours")
+            seen[person.first_name] = {
+                "listed": {"Payroll database", "ERP database", "Payroll engine"} & names,
+                "opened": opened,
+                "restricted": sum(n["restricted"] for n in graph["nodes"]),
+                "restricted_named": [n for n in graph["nodes"] if n["restricted"] and n["name"]],
+            }
+    return seen
+
+
+def test_the_access_rule_keeps_critical_cis_from_the_technician_only(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    """ADR-053 as the showcase shows it: Omar sees the critical databases as placeholders.
+
+    Sana holds `technician` too, but also `tenant_admin`, which is not narrowed (the union of a
+    person's roles): she sees and opens everything. Omar can't list or open the two critical
+    databases (404, as a missing CI), and the payroll engine's map shows the one it runs on as a
+    restricted node with no name.
+    """
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    seen = asyncio.run(_persona_view(settings, database.admin_url))
+    critical = {"Payroll database", "ERP database"}
+    assert seen["Sana"]["listed"] == critical | {"Payroll engine"}
+    assert seen["Sana"]["opened"] == dict.fromkeys(critical | {"Payroll engine"}, 200)
+    assert seen["Sana"]["restricted"] == 0
+    assert seen["Omar"]["listed"] == {"Payroll engine"}
+    assert seen["Omar"]["opened"] == {**dict.fromkeys(critical, 404), "Payroll engine": 200}
+    assert seen["Omar"]["restricted"] == 1  # the payroll database, by key only
+    assert seen["Omar"]["restricted_named"] == []
