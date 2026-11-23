@@ -6,6 +6,7 @@ Channels this module decides about:
     t:{tenant}:ci:{id}         one CI, for whoever may see it (with presence); a relationship
                                added or removed names `relationships` on both ends (S2)
     t:{tenant}:cmdb_view:{id}  one business view, for whoever may see its base CI (S2)
+    t:{tenant}:user:{id}       (identity_access) an import's progress, to its importer (S4b)
     t:{tenant}:broadcast       (identity_access) "the CMDB's types, states or settings changed",
                                with no names: open screens refetch them; also "the business
                                views changed" for open view lists (S2)
@@ -33,6 +34,7 @@ from app.shared.realtime import (
     RealtimeEffects,
     RealtimeRoute,
     broadcast,
+    personal,
     record,
 )
 
@@ -44,6 +46,7 @@ RELATIONSHIPS = "relationships"  # the field a relationship change names on both
 VIEW_KIND = "cmdb_view"
 VIEW_CHANGED = "cmdb.view.changed"
 VIEWS_CHANGED = "cmdb.views_changed"
+IMPORT_PROGRESS = "cmdb.import_progress"  # S4b: an import moved on, to its importer only
 
 
 async def _record_channel(request: ChannelRequest) -> ChannelAccess | None:
@@ -164,6 +167,22 @@ async def _config_changed(envelope: EventEnvelope, session: AsyncSession) -> Rea
     )
 
 
+async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An import moved on: its importer's screens refresh (IDs only, S4b)."""
+    del session
+    payload = envelope.payload
+    person = uuid.UUID(str(payload["requested_by"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person),
+                IMPORT_PROGRESS,
+                ids=(str(payload["import_id"]),),
+            )
+        ]
+    )
+
+
 CHANNELS = [
     LIST.spec(),
     ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
@@ -178,4 +197,5 @@ ROUTES = [
     RealtimeRoute(("cmdb.config.changed",), _config_changed),
     RealtimeRoute(("cmdb.relationship.changed",), _relationships_changed),
     RealtimeRoute(("cmdb.business_view.changed",), _view_changed),
+    RealtimeRoute(("cmdb.import.progressed",), _import_progressed),
 ]

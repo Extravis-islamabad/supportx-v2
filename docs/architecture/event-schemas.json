@@ -2865,6 +2865,44 @@
         "type": "object"
       }
     },
+    "cmdb.import.progressed": {
+      "1": {
+        "description": "An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.\n\nIDs, a status code and counts only (rule c).",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "import_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "CiImportProgressed",
+        "type": "object"
+      }
+    },
     "cmdb.relationship.changed": {
       "1": {
         "description": "Relationships of one type were added to or removed from a CI (WP-053 S2).\n\nOne event per add or remove call: the source CI and every other CI it touched, all of which\ngot a new version. IDs only (rule c); open maps patch both ends or refetch (§8.3).",

@@ -17,11 +17,17 @@ owned CIs and business views to the successor.
 Session 3b (REQ-CMDB-010, 011, 030): `impact_of` (`Impact`, `ImpactCi`, `ImpactService`,
 `AffectedUsers`, `ImpactDirection`), the one impact service every module calls, with CIs the
 reader may not see as placeholders.
+
+Session 4b (REQ-CMDB-017, 018; 0192): merge duplicate CIs (aliases that open the survivor for a
+reader who may see it), and import CIs and relationships from CSV or Excel. `register_ci_links`
+(`CiLinksPort`): the port work items registers with `work_item_cis` (lane A, S5) to move their CI
+links on a merge (IDs only).
 """
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
 from app.modules.cmdb.api.graph_routes import router as graph_router
+from app.modules.cmdb.api.merge_routes import router as merge_router
 from app.modules.cmdb.api.routes import router
 from app.modules.cmdb.domain.impact import ImpactDirection
 from app.modules.cmdb.events import EVENTS
@@ -38,9 +44,12 @@ from app.modules.cmdb.service.impact import (
     ImpactService,
     impact_of,
 )
+from app.modules.cmdb.service.imports import run_cmdb_imports
+from app.modules.cmdb.service.links import CiLinksPort, register_ci_links
 from app.modules.cmdb.service.open_counts import OpenCounts, OpenCountsPort, register_open_counts
 from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
 from app.modules.cmdb.service.refs import CiRef, can_link, can_see, ci_refs, visible_ci_ids
+from app.shared.schedules import ScheduleSpec
 
 FEATURE = "cmdb"
 _ASSET_MANAGER: tuple[tuple[str, Scope], ...] = (("asset_manager", "all"),)
@@ -65,12 +74,13 @@ PERMISSIONS = (
 
 module = ModuleSpec(
     name="cmdb",
-    routers=[router, graph_router],
+    routers=[router, graph_router, merge_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
     channels=CHANNELS,
     realtime=ROUTES,
+    schedules=[ScheduleSpec("cmdb__imports", 5, run_cmdb_imports)],
 )
 
 # GDPR erasure (ADR-052): owned CIs move to the successor; at import, for the workers too.
@@ -82,6 +92,7 @@ _access_criteria.register()  # what fine-grained access rules may narrow CIs to 
 
 __all__ = [
     "AffectedUsers",
+    "CiLinksPort",
     "CiRef",
     "Impact",
     "ImpactCi",
@@ -94,6 +105,7 @@ __all__ = [
     "ci_refs",
     "impact_of",
     "module",
+    "register_ci_links",
     "register_open_counts",
     "visible_ci_ids",
 ]

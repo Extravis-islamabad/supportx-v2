@@ -39,7 +39,7 @@ from app.modules.cmdb.domain import impact as domain
 from app.modules.cmdb.domain import relationships as rel
 from app.modules.cmdb.domain.types import Problem
 from app.modules.cmdb.infra.models import Ci, CiType, Relationship, RelationshipType
-from app.modules.cmdb.service import subscribers
+from app.modules.cmdb.service import aliases, subscribers
 from app.modules.cmdb.service.catalogue import ensure_defaults, invalid
 from app.modules.cmdb.service.cis import visible_rows
 from app.modules.cmdb.service.relationships import NodeInfo, ensure_types, node_infos
@@ -227,6 +227,10 @@ async def impact_of(  # noqa: PLR0913 - the question and its bounds, keyword-onl
         except ValueError:
             raise invalid([Problem("direction", "invalid_value")]) from None
     await ensure_defaults(session)
+    # A merged CI's ID stands for its survivor when the reader may see it (S4b); otherwise it
+    # stays a CI that exists nowhere, so `missing` never tells an unseen survivor (lane C (8)).
+    survivors = await aliases.resolve_visible(session, subject, asked)
+    asked = list(dict.fromkeys(survivors.get(i, i) for i in asked))
     live = set(
         await session.scalars(select(Ci.id).where(Ci.id.in_(asked), Ci.deleted_at.is_(None)))
     )

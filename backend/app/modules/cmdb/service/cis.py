@@ -26,7 +26,7 @@ from app.modules import assets, metadata
 from app.modules.cmdb.domain import field_access as field_rules
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
-from app.modules.cmdb.infra.models import Ci, CiState, CiType
+from app.modules.cmdb.infra.models import Ci, CiAlias, CiState, CiType
 from app.modules.cmdb.service import ref_names
 from app.modules.cmdb.service.catalogue import (
     ADD,
@@ -328,6 +328,10 @@ def _mask_custom(unseen: field_rules.Unseen, entries: list[HistoryEntry]) -> lis
 
 
 LINK_FIELD = "relationship"  # a relationship line's field (service/relationships.py)
+# A merge's lines (service/merge.py, S4b): the other CI by ID only ({"ci_id"}), never its name.
+MERGED_INTO = "merged_into"  # the merged CI's line
+MERGED_FROM = "merged_from"  # the survivor's line
+MERGE_LINES = frozenset({MERGED_INTO, MERGED_FROM})
 
 
 def _linked(value: object) -> str | None:
@@ -342,41 +346,45 @@ async def _mask_links(
     Otherwise the line says `restricted` with no ID (lane C's condition 2, as the map's
     placeholders).
     """
+    masked_fields = {LINK_FIELD, *MERGE_LINES}
     linked = {
         i
         for e in entries
         for c in e.changes
-        if c.field == LINK_FIELD
+        if c.field in masked_fields
         for i in (_linked(c.old), _linked(c.new))
         if i
     }
     if not linked:
         return entries
+    asked = [uuid.UUID(i) for i in linked]
     seen = {
         str(i)
         for i in await session.scalars(
-            visible_rows(subject)
-            .with_only_columns(Ci.id)
-            .where(Ci.id.in_([uuid.UUID(i) for i in linked]))
+            visible_rows(subject).with_only_columns(Ci.id).where(Ci.id.in_(asked))
+        )
+    }
+    # A merge line names a CI that may be in the trash (the merged one): seen if within reach.
+    seen_any = seen | {
+        str(i)
+        for i in await session.scalars(
+            select(Ci.id).where(Ci.id.in_(asked), scope_filter(subject, VIEW, CIS))
         )
     }
 
-    def masked(value: Any) -> Any:  # noqa: ANN401 - a history value (JSON)
+    def masked(value: Any, known: set[str]) -> Any:  # noqa: ANN401 - a history value (JSON)
         ci = _linked(value)
-        if ci is None or ci in seen:
+        if ci is None or ci in known:
             return value
         return {**value, "ci_id": None, "restricted": True}
 
-    return [
-        replace(
-            e,
-            changes=[
-                replace(c, old=masked(c.old), new=masked(c.new)) if c.field == LINK_FIELD else c
-                for c in e.changes
-            ],
-        )
-        for e in entries
-    ]
+    def shown(change: Change) -> Change:
+        if change.field not in masked_fields:
+            return change
+        known = seen if change.field == LINK_FIELD else seen_any
+        return replace(change, old=masked(change.old, known), new=masked(change.new, known))
+
+    return [replace(e, changes=[shown(c) for c in e.changes]) for e in entries]
 
 
 # --- writing --------------------------------------------------------------------------------------
@@ -873,15 +881,22 @@ async def remove(
     )
 
 
-async def restore(
+async def restore(  # noqa: PLR0913 - the record, its version, the source and the warning
     session: AsyncSession,
     subject: Subject,
     ci_id: uuid.UUID,
     *,
     expected_version: int,
     source: Source,
+    confirm_merged: bool = False,
 ) -> CiView:
-    """Take out of the trash, exactly as it was (refused if its asset has a new CI since)."""
+    """Take out of the trash, exactly as it was (refused if its asset has a new CI since).
+
+    A CI merged into another (S4b) comes back only once the person has seen the warning (409
+    `cmdb_ci_restore_merged`; then `confirm_merged`). It comes back on its own: the alias ends and
+    nothing moves back (lane C (10)). The warning names the survivor only to a reader who may see
+    it.
+    """
     record = await _visible(session, subject, ci_id, trash=True)
     key = writer(subject, DELETE)
     in_scope = key is not None and await session.scalar(
@@ -898,6 +913,22 @@ async def restore(
             ),
             record.id,
         )
+    alias: CiAlias | None = await session.scalar(
+        select(CiAlias)
+        .where(
+            CiAlias.alias_id == record.id,
+            CiAlias.restored_at.is_(None),
+            CiAlias.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if alias is not None and not confirm_merged:
+        survivor = await session.scalar(visible_rows(subject).where(Ci.id == alias.ci_id))
+        params = {"display_id": survivor.display_id} if survivor is not None else {}
+        raise Conflict(code="cmdb_ci_restore_merged", params=params)
+    if alias is not None:
+        alias.restored_at, alias.restored_by = _now(), subject.user_id
+        alias.version += 1
     if record.asset_id is not None:
         taken = await session.scalar(
             select(Ci.id).where(Ci.asset_id == record.asset_id, Ci.deleted_at.is_(None))
@@ -1018,8 +1049,112 @@ async def picker(
     if search and search.strip():
         text = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         term = f"%{text}%"
+        # A merged CI's display ID finds its survivor (S4b), within the reader's scope above.
+        alias = Ci.id.in_(
+            select(CiAlias.ci_id).where(
+                CiAlias.restored_at.is_(None),
+                CiAlias.deleted_at.is_(None),
+                func.lower(CiAlias.alias_display_id) == search.strip().lower(),
+            )
+        )
         rows = rows.where(
-            or_(Ci.name.ilike(term, escape="\\"), Ci.display_id.ilike(term, escape="\\"))
+            or_(Ci.name.ilike(term, escape="\\"), Ci.display_id.ilike(term, escape="\\"), alias)
         )
     rows = rows.order_by(func.lower(Ci.name), Ci.id).limit(max(1, min(limit, PICKER_MAX)))
     return list(await session.scalars(rows))
+
+
+# --- for merges (service/merge.py, S4b) -----------------------------------------------------------
+
+
+def not_found() -> NotFound:
+    """The one answer for a CI the person may not see, or that exists nowhere."""
+    return NotFound(code="cmdb_ci_not_found")
+
+
+async def get_visible(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
+    """A live CI the person may see (404 otherwise)."""
+    return await _visible(session, subject, ci_id)
+
+
+def json_value(value: object) -> Any:  # noqa: ANN401 - a field's JSON value
+    """A field's value as history and previews show it (IDs as text)."""
+    return _json(value)
+
+
+def withheld_custom(subject: Subject) -> frozenset[str]:
+    """Custom field keys the person may not read on CIs: hidden or masked (ADR-047, ADR-050)."""
+    return frozenset(_unseen(subject).custom_keys())
+
+
+async def stale(
+    session: AsyncSession, ci_id: uuid.UUID, expected_version: int, current_version: int
+) -> Conflict:
+    """409 `version_conflict` explaining who changed what since `expected_version`."""
+    return await _conflict(
+        session,
+        Conflict(
+            code="version_conflict",
+            params={"expected_version": expected_version, "current_version": current_version},
+        ),
+        ci_id,
+    )
+
+
+async def view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
+    """The CI as the person may see it."""
+    return await _view(session, subject, record)
+
+
+async def save_merged(  # noqa: PLR0913 - the survivor, its new values and the merge's line
+    session: AsyncSession,
+    subject: Subject,
+    record: Ci,
+    *,
+    columns: Mapping[str, Any],
+    source: Source,
+    extra: Sequence[Change],
+) -> Ci:
+    """The survivor of a merge: the chosen values through the ordinary save, with the merge line.
+
+    With no value to change, the survivor still gets a version holding the "merged from" line.
+    """
+    if columns:
+        return await _save(
+            session,
+            subject,
+            record,
+            expected_version=record.version,
+            columns=columns,
+            source=source,
+            extra=extra,
+        )
+    record.version += 1
+    record.updated_at, record.updated_by = _now(), subject.user_id
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=list(extra),
+        source=source,
+    )
+    await _save_version(session, record, subject)
+    await record_event(
+        session,
+        CiUpdated(ci_id=record.id, type_id=record.type_id, changed_fields=[c.field for c in extra]),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
+    return record
+
+
+async def add_imported(
+    session: AsyncSession, subject: Subject, values: Mapping[str, Any], source: Source
+) -> Ci:
+    """A new CI from an import row (S4b): the ordinary create, its source `import`."""
+    if writer(subject, ADD) is None:
+        raise _denied(ADD)
+    return await _add(session, subject, values, source, origin=domain.CiSource.IMPORT)

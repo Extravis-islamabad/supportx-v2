@@ -15,11 +15,11 @@ from pydantic import BaseModel, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import NotFound, ProblemDetail
 from app.modules.audit import audited
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import Ci, CiState
-from app.modules.cmdb.service import catalogue, cis, ref_names
+from app.modules.cmdb.service import aliases, catalogue, cis, ref_names
 from app.modules.identity_access import Subject, scope_filter
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -708,8 +708,21 @@ async def from_assets(
 async def get_ci(
     ci_id: uuid.UUID, session: TenantSession, subject: View, response: Response
 ) -> CiOut:
-    """One CI you may see (404 `cmdb_ci_not_found` otherwise)."""
-    view = await cis.get_ci(session, subject, ci_id)
+    """One CI you may see (404 `cmdb_ci_not_found` otherwise).
+
+    A merged CI's ID answers 404 `cmdb_ci_merged` naming the survivor (`survivor_id`) when you
+    may see it, so the screen opens the survivor (REQ-CMDB-017 AC2). When you may not, it answers
+    exactly as a CI that exists nowhere (lane C (8)).
+    """
+    try:
+        view = await cis.get_ci(session, subject, ci_id)
+    except NotFound:
+        survivor = await aliases.visible_survivor(session, subject, ci_id)
+        if survivor is not None:
+            raise NotFound(
+                code="cmdb_ci_merged", params={"survivor_id": str(survivor.id)}
+            ) from None
+        raise
     set_etag(response, view.record.version)
     return CiOut.of_view(view)
 
@@ -824,17 +837,30 @@ async def delete_ci(
 
 
 @router.post("/cis/{ci_id}/restore", summary="Restore a CI", responses=CONFLICT)
-async def restore_ci(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+async def restore_ci(  # noqa: PLR0913 - FastAPI dependencies and the confirmation
+    *,
     ci_id: uuid.UUID,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Delete,
     response: Response,
     request: Request,
+    confirm_merged: Annotated[
+        bool, Query(description="Restore a CI merged into another, having seen the warning.")
+    ] = False,
 ) -> CiOut:
-    """Take it out of the trash (409 `cmdb_asset_has_ci` if its asset has another CI now)."""
+    """Take it out of the trash (409 `cmdb_asset_has_ci` if its asset has another CI now).
+
+    A CI merged into another answers 409 `cmdb_ci_restore_merged` until `confirm_merged` is
+    sent: it then comes back on its own, and nothing moves back (S4b).
+    """
     view = await cis.restore(
-        session, subject, ci_id, expected_version=version, source=source_of(request)
+        session,
+        subject,
+        ci_id,
+        expected_version=version,
+        source=source_of(request),
+        confirm_merged=confirm_merged,
     )
     set_etag(response, view.record.version)
     return CiOut.of_view(view)

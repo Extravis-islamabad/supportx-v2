@@ -305,6 +305,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
+    ("cmdb.ci_merged", AuditCategory.RECORDS, "cmdb"),  # a duplicate CI merged (S4b, 0192)
+    ("cmdb.import_started", AuditCategory.DATA, "cmdb"),  # a CMDB import uploaded (S4b)
+    ("cmdb.import_run", AuditCategory.DATA, "cmdb"),  # a checked dry run run for real (S4b)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),

@@ -100,6 +100,23 @@ class BusinessViewChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class CiImportProgressed(DomainEvent):
+    """An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.
+
+    IDs, a status code and counts only (rule c).
+    """
+
+    event_type: ClassVar[str] = "cmdb.import.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "cmdb_import"
+
+    import_id: uuid.UUID
+    requested_by: uuid.UUID
+    status: str
+    processed: int
+    total: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CiCreated,
     CiUpdated,
@@ -108,4 +125,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     CmdbConfigChanged,
     RelationshipsChanged,
     BusinessViewChanged,
+    CiImportProgressed,
 )

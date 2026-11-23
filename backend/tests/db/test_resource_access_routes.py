@@ -51,6 +51,7 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/subscribers": CIS,  # 0185: the CI is read through get_ci first
     "/cmdb/cis/{ci_id}/subscribers/people": CIS,
     "/cmdb/cis/{ci_id}/versions": CIS,
+    "/cmdb/merges/preview": CIS,  # S4b: both CIs read through get_visible first
     "/assets": ASSETS,
     "/assets/audits/{audit_id}/items": ASSETS,
     "/assets/bookings": ASSETS,
@@ -81,6 +82,9 @@ MUST: dict[str, str] = {
 # Routes that return no CI or asset (configuration, jobs, other record kinds), and why.
 EXEMPT: dict[str, str] = {
     "/cmdb/ci-states": "CI states: configuration",
+    "/cmdb/imports": "import jobs, not CIs (S4b)",
+    "/cmdb/imports/{import_id}": "one import job: codes and counts, never a CI",
+    "/cmdb/imports/{import_id}/problems": "one import job's refused rows: codes only",
     "/cmdb/relationship-types": "relationship types: configuration",
     "/cmdb/settings": "CMDB settings: configuration",
     "/assets/audits": "audit campaigns, not assets (their items route is checked)",
@@ -160,6 +164,7 @@ async def test_every_cmdb_and_asset_record_route_goes_through_scope_filter(world
         [
             ("cmdb.view", "all"),
             ("cmdb.edit", "all"),
+            ("cmdb.manage", "all"),  # the merge preview (S4b)
             ("assets.view", "all"),
             ("assets.manage", "all"),
             ("assets.view_financials", "all"),
@@ -194,6 +199,7 @@ async def test_every_cmdb_and_asset_record_route_goes_through_scope_filter(world
     query = {
         "/assets/held-by": {"kind": "user", "id": str(a.requester)},
         "/assets/merge-preview": {"first": asset["id"], "second": second["id"]},
+        "/cmdb/merges/preview": {"first": ci["id"], "second": other["id"]},
         "/cmdb/cis/{ci_id}/as-of": {"at": now},
         "/cmdb/cis/{ci_id}/change-type-preview": {"type_id": types["database"]["id"]},
         "/cmdb/cis/{ci_id}/compare": {"from": "1", "to": "1"},
@@ -278,6 +284,7 @@ BODY_PROBED = frozenset(
         "POST /assets/labels",
         "POST /cmdb/cis/from-assets",
         "POST /cmdb/business-views",
+        "POST /cmdb/merges",
         "DELETE /cmdb/relationships/{relationship_id}",
         "POST /assets/bookings/{booking_id}/cancel",
         "POST /assets/bookings/{booking_id}/handover",
@@ -368,6 +375,9 @@ WRITE_EXEMPT: dict[str, str] = {
     "POST /cmdb/ci-states": _CONFIG,
     "POST /cmdb/ci-types": _CONFIG,
     "POST /cmdb/cis": _CREATE,
+    "POST /cmdb/imports": "an import job: its rows match only CIs the importer sees, and an"
+    " unseen one reads as one that exists nowhere (test_cmdb_merge_import)",
+    "POST /cmdb/imports/{import_id}/run": _JOB,
     "POST /cmdb/relationship-types": _CONFIG,
     "PUT /cmdb/settings": _CONFIG,
 }
@@ -586,6 +596,10 @@ async def _body_probes(
             }),
             ("POST", "/cmdb/business-views", {
                 "name": "Probe view", "base_ci_id": ci, "layout": "radial",
+            }),
+            ("POST", "/cmdb/merges", {
+                "survivor_id": seen_ci["id"], "survivor_version": 1, "merged_id": ci,
+                "merged_version": 1, "choices": {},
             }),
             ("DELETE", f"/cmdb/relationships/{rel}", None),
             ("POST", f"/assets/bookings/{book}/cancel", None),

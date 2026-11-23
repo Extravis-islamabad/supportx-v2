@@ -492,6 +492,13 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/versions` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports/{import_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports/{import_id}/problems` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/imports/{import_id}/run` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/merges` | `cmdb.manage` | cmdb.manage: all |
+| GET | `/api/v1/cmdb/merges/preview` | `cmdb.manage` | cmdb.manage: all |
 | GET | `/api/v1/cmdb/relationship-types` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/relationship-types` | `cmdb.configure` | cmdb.configure: all |
 | DELETE | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
