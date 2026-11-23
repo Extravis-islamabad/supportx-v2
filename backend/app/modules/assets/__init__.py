@@ -29,7 +29,9 @@ and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_
 its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
 each scan (REQ-AST-054); (D-157) the port work items register "the requesters of my tickets
 that link this asset" with; and `LinkedRecords` with `register_linked_records` (REQ-AST-044),
-the port work items register for the asset's linked records panel.
+the port work items register for the asset's linked records panel; (WP-053 S4a) what the CMDB's
+sync rules may read: `syncable_fields`, `check_sync_filter`, `sync_page`, `sync_count` and
+`sync_assets` (service/sync_source.py).
 """
 
 from fastapi import FastAPI
@@ -90,6 +92,20 @@ from app.modules.assets.service.refs import (
     email_includes_assets,
 )
 from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
+from app.modules.assets.service.sync_source import (
+    SyncedAsset,
+    SyncFieldKind,
+    sync_assets,
+    sync_count,
+    sync_page,
+    syncable_fields,
+)
+from app.modules.assets.service.sync_source import (
+    check_filter as check_sync_filter,
+)
+from app.modules.assets.service.sync_source import (
+    filter_fields as sync_filter_fields,
+)
 from app.modules.assets.service.ticket_access import (
     TicketRequesters,
     register_ticket_requesters,
@@ -225,10 +241,13 @@ __all__ = [
     "ScanResult",
     "ScanSource",
     "ScanType",
+    "SyncFieldKind",
+    "SyncedAsset",
     "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
+    "check_sync_filter",
     "email_includes_assets",
     "module",
     "owners_of",
@@ -237,6 +256,11 @@ __all__ = [
     "register_draft_purchase_requests",
     "register_linked_records",
     "register_ticket_requesters",
+    "sync_assets",
+    "sync_count",
+    "sync_filter_fields",
+    "sync_page",
+    "syncable_fields",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
     "unregister_linked_records",

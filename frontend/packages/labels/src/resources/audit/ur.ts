@@ -1031,6 +1031,7 @@ export const ur: LabelResource = {
   'change_kind.updated': 'ترمیم کی گئی',
   'change_source.ai_agent': 'AI ایجنٹ کے ذریعے',
   'change_source.api': 'API کے ذریعے',
+  'change_source.asset_sync': 'اثاثوں کی مطابقت کے اصول سے',
   'change_source.email': 'ای میل کے ذریعے',
   'change_source.import': 'درآمد کے ذریعے',
   'change_source.integration': 'انٹیگریشن کے ذریعے',
@@ -1379,6 +1380,8 @@ export const ur: LabelResource = {
   'system_log_code.integrations.mailbox.send_failed': 'میل باکس سے ڈاک بھیجنا ناکام ہوا',
   'system_log_code.licensing.check_failed': 'لائسنس کی جانچ ناکام ہوئی',
   'system_log_code.notifications.mail.refused': 'ای میل اطلاع بھیجی نہ جا سکی',
+  'system_log_code.work_items.cancellation.no_decider':
+    '{{display_id}} کی منسوخی کی درخواست کا فیصلہ کوئی نہیں کر سکتا: کوئی ذمہ دار مقرر کریں یا سروس ڈیسک مینیجرز کو اختیار دیں',
   'system_log_module.assets': 'اثاثے',
   'system_log_module.audit': 'آڈٹ',
   'system_log_module.automation': 'خودکاری',

@@ -60,6 +60,8 @@ class SystemLogCode(StrEnum):
     LICENCE_CHECK_FAILED = "licensing.check_failed"
     # automation: a rule or workflow run that failed (the run record has the detail).
     AUTOMATION_RUN_FAILED = "automation.run.failed"
+    # work_items: a requester's ask to cancel that nobody can decide (WP-046b S5 follow-up).
+    CANCELLATION_WITHOUT_DECIDER = "work_items.cancellation.no_decider"
 
 
 class SystemLogProblem(ValueError):
@@ -96,7 +98,7 @@ class SystemLogEntryIn:
         if not _MODULE.match(self.module):
             msg = "a module is its lowercase code"
             raise SystemLogProblem(msg)
-        if not self.code.startswith(_code_prefix(self.module) + "."):
+        if not self.code.startswith(tuple(p + "." for p in _code_prefixes(self.module))):
             msg = f"{self.module} writes only its own codes"
             raise SystemLogProblem(msg)
         if self.job_id is not None and not _REF.match(self.job_id):
@@ -105,12 +107,14 @@ class SystemLogEntryIn:
         check_params(self.params)
 
 
-# Modules whose codes don't start with their own name (records' imports are shared work).
+# A module always writes its own codes (`<module>.*`); this map adds shared prefixes some modules
+# write too (records' imports are shared work: `imports.*`).
 _PREFIXES = {"work_items": "imports", "assets": "imports", "organization": "imports"}
 
 
-def _code_prefix(module: str) -> str:
-    return _PREFIXES.get(module, module)
+def _code_prefixes(module: str) -> tuple[str, ...]:
+    shared = _PREFIXES.get(module)
+    return (module,) if shared is None else (module, shared)
 
 
 def check_params(params: Mapping[str, ParamValue]) -> dict[str, ParamValue]:

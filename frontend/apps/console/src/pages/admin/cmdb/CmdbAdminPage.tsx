@@ -45,6 +45,7 @@ import {
 import { nameOf, typeTree } from '../../cmdb/names';
 import { ciTypeFieldsHref } from './links';
 import { RelationshipTypesBlock } from './RelationshipTypesBlock';
+import { SourceOrderBlock } from './SourceOrderBlock';
 
 interface TypeDraft {
   api_name: string;
@@ -72,7 +73,11 @@ export function CmdbAdminPage() {
   const allowed = can('cmdb.configure');
   const queryClient = useQueryClient();
   useTenantChannel((message) => {
-    if (message.type === 'cmdb.config_changed' || message.type === 'refresh') {
+    if (
+      message.type === 'cmdb.config_changed' ||
+      message.type === 'cmdb.sync_changed' ||
+      message.type === 'refresh'
+    ) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
     }
   });
@@ -87,6 +92,7 @@ export function CmdbAdminPage() {
       <TypesBlock />
       <StatesBlock />
       <RelationshipTypesBlock />
+      <SourceOrderBlock />
     </Flex>
   );
 }

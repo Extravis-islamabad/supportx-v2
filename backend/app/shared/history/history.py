@@ -37,6 +37,7 @@ Source = Literal[
     "integration",
     "system",
     "import",
+    "asset_sync",  # a CMDB sync rule (WP-053 S4a, 0191): its run is the batch, its rule the ref
 ]
 # `child_*`: a part of the record (a note, a task, a link) was added, changed or removed; `field`
 # names the kind of part. Those saves do not bump the record's version (ADR-026).

@@ -1026,6 +1026,7 @@ export const ar: LabelResource = {
   'change_kind.updated': 'عُدّل',
   'change_source.ai_agent': 'بواسطة وكيل ذكاء اصطناعي',
   'change_source.api': 'عبر الواجهة البرمجية',
+  'change_source.asset_sync': 'بواسطة قاعدة مزامنة الأصول',
   'change_source.email': 'عبر البريد الإلكتروني',
   'change_source.import': 'بواسطة استيراد',
   'change_source.integration': 'بواسطة تكامل',
@@ -1375,6 +1376,8 @@ export const ar: LabelResource = {
   'system_log_code.integrations.mailbox.send_failed': 'فشل إرسال البريد من صندوق بريد',
   'system_log_code.licensing.check_failed': 'فشل التحقق من الترخيص',
   'system_log_code.notifications.mail.refused': 'تعذّر إرسال إشعار بريد إلكتروني',
+  'system_log_code.work_items.cancellation.no_decider':
+    'لا يمكن لأحد البت في طلب إلغاء {{display_id}}: عيّن مسؤولًا أو امنح مديري مكتب الخدمة الصلاحية',
   'system_log_module.assets': 'الأصول',
   'system_log_module.audit': 'التدقيق',
   'system_log_module.automation': 'الأتمتة',
