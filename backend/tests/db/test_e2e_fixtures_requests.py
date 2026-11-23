@@ -135,13 +135,16 @@ async def test_the_teardown_removes_every_row_that_references_a_suite_record(wor
         "SELECT work_item_id FROM work_item_reads WHERE tenant_id = $1", a.tenant
     )
     assert {r["work_item_id"] for r in reads} == {kept}
-    # Coverage: no blocking foreign key onto work_items still points at a removed record.
-    fks = await world.sql(
-        "SELECT conrelid::regclass::text AS child FROM pg_constraint"
-        " WHERE contype = 'f' AND confrelid = 'work_items'::regclass"
-        " AND confdeltype IN ('a', 'r')"
-    )
-    assert fks, "work_items has blocking foreign keys to cover"
+    # Coverage (lane A): no blocking foreign key onto work_items, read from the same catalogue
+    # query the teardown uses, still holds the removed suite record's ID.
+    fks = await world.sql(e2e_fixtures._BLOCKING_FKS, "work_items")  # noqa: SLF001 - the tool's own query
+    assert any(r["child"] == "work_item_reads" for r in fks), [r["child"] for r in fks]
+    for fk in fks:
+        held = await world.sql(
+            f'SELECT count(*) AS n FROM {fk["child"]} WHERE "{fk["col"]}" = $1',  # noqa: S608 - catalogue names
+            suite,
+        )
+        assert held[0]["n"] == 0, f"{fk['child']}.{fk['col']} still names the removed record"
 
 
 async def test_the_teardown_refuses_a_tenant_other_than_the_dev_ones(world: World) -> None:

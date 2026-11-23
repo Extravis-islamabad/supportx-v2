@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type APIResponse, type Browser, type Page } from '@playwright/test';
 
 import { expectAccessible, signInAs } from './helpers';
 
@@ -56,51 +56,77 @@ async function logDiagnostics(
   technicianRoleId: string,
   ruleRoleId: string | undefined,
 ): Promise<void> {
-  const session = async (page: Page) =>
-    (await (await page.request.get('/api/v1/auth/me')).json()) as Session;
-  const [adminSession, techSession] = [await session(admin), await session(tech)];
-  const techUser = (await (
-    await tech.request.get(`/api/v1/users/${techSession.user.id}`)
-  ).json()) as { roles?: unknown };
-  const roleIds = Array.isArray(techUser.roles)
-    ? techUser.roles.map((r: unknown) =>
-        typeof r === 'object' && r !== null && 'id' in r ? String(r.id) : String(r),
-      )
-    : null;
-  const polls: {
-    ms: number;
-    status: number;
-    value: boolean;
-    hidden: boolean;
-    pod: string | null;
-  }[] = [];
-  const started = Date.now();
-  while (Date.now() - started < 10_000) {
-    const read = await tech.request.get(`/api/v1/incidents/${incidentId}`);
-    const body = (await read.json()) as { impact_details?: unknown; hidden_fields?: string[] };
-    const hidden = (body.hidden_fields ?? []).includes(FIELD);
-    polls.push({
-      ms: Date.now() - started,
-      status: read.status(),
-      value: typeof body.impact_details === 'string' && body.impact_details !== '',
-      hidden,
-      pod: read.headers()['x-served-by'] ?? null,
-    });
-    if (hidden) break;
-    await tech.waitForTimeout(500);
+  // Never fails the spec: a non-JSON answer (a 502) or a thrown request is logged and skipped.
+  const json = async (response: APIResponse): Promise<unknown> => {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+  try {
+    const session = async (page: Page) =>
+      ((await json(await page.request.get('/api/v1/auth/me'))) ?? { user: {} }) as Session;
+    const [adminSession, techSession] = [await session(admin), await session(tech)];
+    // Through the admin's session: the technician's own read of their user row may be refused,
+    // and the role IDs are what tells "a second role with no rule" from a delay (lane B).
+    const techUserRead = await admin.request.get(`/api/v1/users/${techSession.user.id}`);
+    const techUser = ((await json(techUserRead)) ?? {}) as { roles?: unknown };
+    const roleIds = Array.isArray(techUser.roles)
+      ? techUser.roles.map((r: unknown) =>
+          typeof r === 'object' && r !== null && 'id' in r ? String(r.id) : String(r),
+        )
+      : null;
+    const polls: {
+      ms: number;
+      status: number;
+      value: boolean | null;
+      hidden: boolean | null;
+      pod: string | null;
+    }[] = [];
+    const started = Date.now();
+    while (Date.now() - started < 10_000) {
+      const read = await tech.request.get(`/api/v1/incidents/${incidentId}`);
+      const status = read.status(); // before the body: a 502 has none worth reading
+      const body = (await json(read)) as {
+        impact_details?: unknown;
+        hidden_fields?: unknown;
+      } | null;
+      const hidden =
+        body === null
+          ? null
+          : Array.isArray(body.hidden_fields) && body.hidden_fields.includes(FIELD);
+      polls.push({
+        ms: Date.now() - started,
+        status,
+        value:
+          body === null
+            ? null
+            : typeof body.impact_details === 'string' && body.impact_details !== '',
+        hidden,
+        pod: read.headers()['x-served-by'] ?? null,
+      });
+      if (hidden === true) break;
+      await tech.waitForTimeout(500);
+    }
+    console.log(
+      'field-access diagnostics',
+      JSON.stringify({
+        tenant_admin: adminSession.tenant?.id ?? null,
+        tenant_tech: techSession.tenant?.id ?? null,
+        user_admin: adminSession.user.id,
+        user_tech: techSession.user.id,
+        rule_role_id: ruleRoleId ?? null,
+        technician_role_id: technicianRoleId,
+        tech_role_keys: techSession.user.roles ?? null,
+        tech_user_read: techUserRead.status(),
+        tech_role_ids: roleIds,
+        polls,
+      }),
+    );
+  } catch (error) {
+    console.log('field-access diagnostics failed', String(error).slice(0, 200));
   }
-  console.log(
-    'field-access diagnostics',
-    JSON.stringify({
-      tenant_admin: adminSession.tenant?.id ?? null,
-      tenant_tech: techSession.tenant?.id ?? null,
-      rule_role_id: ruleRoleId ?? null,
-      technician_role_id: technicianRoleId,
-      tech_role_keys: techSession.user.roles ?? null,
-      tech_role_ids: roleIds,
-      polls,
-    }),
-  );
 }
 
 /** Takes away the technician role's impact-details rule, if one is left (suite-owned). */
