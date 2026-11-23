@@ -379,6 +379,20 @@ async def test_editions_essentials_may_request_again_and_see_delivery_but_not_qu
     )
     assert made.status_code == 201, made.text
     item = made.json()
+    # A requester's view never offers a quantity the server refuses (lane C on #578): an item
+    # left with a maximum (as after a downgrade from Professional) reads as none to them, while
+    # staff still see it, so they can clear it.
+    await world.sql(
+        "UPDATE catalog_items SET max_quantity = 4 WHERE tenant_id = $1 AND id = $2",
+        tenant,
+        item["id"],
+    )
+    for path in (f"/catalog/items/{item['id']}", "/catalog/items"):
+        seen = (await world.call("GET", path, org, requester)).json()
+        listed = seen if isinstance(seen, list) else [seen]
+        assert [i["max_quantity"] for i in listed if i["id"] == item["id"]] == [None]
+    staff_view = (await world.call("GET", f"/catalog/items/{item['id']}", org, admin)).json()
+    assert staff_view["max_quantity"] == 4
     record = await raise_request(
         world, org, requester, catalog_item_id=item["id"], answers={"model": "air"}
     )

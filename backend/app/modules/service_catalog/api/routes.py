@@ -219,8 +219,14 @@ class CatalogItemOut(BaseModel):
     )
 
     @classmethod
-    def of(cls, view: service.ItemView, *, staff: bool) -> "CatalogItemOut":
-        """From the service's view; requesters never see questions meant for others."""
+    def of(
+        cls, view: service.ItemView, *, staff: bool, quantity_offered: bool = True
+    ) -> "CatalogItemOut":
+        """From the service's view; requesters never see questions meant for others.
+
+        `quantity_offered` false: no quantity is offered (REQ-SR-014 is Professional), so the
+        portal never shows a field the server would refuse (lane C, #578).
+        """
         item = view.item
         questions = [
             q
@@ -229,9 +235,12 @@ class CatalogItemOut(BaseModel):
             or QuestionAudience.REQUESTER.value
             in (q.get("shown_to") or [QuestionAudience.REQUESTER])
         ]
+        fields = {name: getattr(item, name) for name in service.ITEM_FIELDS}
+        if not quantity_offered:
+            fields["max_quantity"] = None
         return cls.model_validate(
             {
-                **{name: getattr(item, name) for name in service.ITEM_FIELDS},
+                **fields,
                 "questions": questions,
                 "id": item.id,
                 "status": item.status,
@@ -457,7 +466,8 @@ async def list_items(
         statuses=item_status or (),
         featured=featured,
     )
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
@@ -469,7 +479,8 @@ async def popular_items(
     """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
     staff = is_staff(subject)
     views = await service.popular_items(session, subject, limit=limit)
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/search", summary="Search the catalog items you may see")
@@ -481,8 +492,9 @@ async def search_items(
 ) -> list[CatalogItemOut]:
     """Names, keywords, summaries and descriptions in every language; best match first."""
     staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
     return [
-        CatalogItemOut.of(v, staff=staff)
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered)
         for v in await search.search_items(session, subject, q, limit=limit)
     ]
 
@@ -494,7 +506,9 @@ async def get_item(
     """One item you may see (404 otherwise)."""
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
-    out = CatalogItemOut.of(view, staff=is_staff(subject))
+    staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
+    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered)
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(

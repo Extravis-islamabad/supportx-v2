@@ -658,6 +658,11 @@ async def templated_subject(
     return filled or None
 
 
+async def quantity_licensed(subject: Subject) -> bool:
+    """Whether the tenant's plan offers a quantity on requests (REQ-SR-014: `catalog`)."""
+    return await licensing.has_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
 async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> None:
     """A quantity on an item is Professional (REQ-SR-014, D-133): `catalog`, on the server.
 
