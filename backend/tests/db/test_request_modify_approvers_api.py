@@ -24,7 +24,7 @@ from app.modules.work_items.service.approvals import issue_links
 from conftest import assign_system_role
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, fresh
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role
 from tests.db.test_service_requests_api import an_item, raise_request
 from tests.db.test_users_api import seed_users
 
@@ -341,3 +341,53 @@ async def test_an_api_key_needs_its_own_write_scope(world: World) -> None:
             facts=WORKER,
         )
         assert reminded == 1
+
+
+async def test_each_action_is_a_new_version_so_a_stale_if_match_is_refused(world: World) -> None:
+    """Rule 5g (lane B's #593 review): two calls with the same If-Match never both apply."""
+    a = world.a
+    sdm = await _manager(world, a)
+    record = await _raised(world, a, [_person(a.tech_a), _person(a.tech_c)])
+    seen = (await fresh(world, a, record))["version"]
+
+    async def add_stage() -> Any:  # noqa: ANN401 - the response
+        return await world.call(
+            "POST",
+            f"{SR}/{record['id']}/approvals/stages",
+            a,
+            sdm,
+            json={"reason": WHY, "approver_ids": [str(a.tech_b)]},
+            headers={"If-Match": f'"{seen}"', **CONSOLE},
+        )
+
+    first = await add_stage()
+    assert first.status_code == 200, first.text
+    assert first.headers["ETag"] == f'"{seen + 1}"'  # the next If-Match
+    assert (await fresh(world, a, record))["version"] == seen + 1
+    again = await add_stage()
+    assert problem(again) == (409, "version_conflict")
+    rows = await world.sql(
+        "SELECT approval_stages FROM work_items WHERE id = $1", uuid.UUID(record["id"])
+    )
+    stored = rows[0]["approval_stages"]
+    stored = json.loads(stored) if isinstance(stored, str) else stored
+    assert len(stored["stages"]) == 3  # one stage added, never two
+
+
+async def test_a_right_that_does_not_reach_the_request_is_404_not_403(world: World) -> None:
+    """Lane B's L3 within one tenant: a manager scoped to their groups, none of them the
+    request's, gets 404 (the request is not theirs to know of), never a 403 that would say it
+    exists."""
+    a = world.a
+    [scoped] = await seed_users(world.db, a.tenant, [{"user_type": "technician"}])
+    made = await role(
+        world,
+        a,
+        f"Group approvals {uuid.uuid4().hex[:6]}",
+        [("requests.view", "group"), ("requests.modify_approvers", "group")],
+    )
+    assigned = await world.call("PUT", f"/users/{scoped}/roles/{made}", a, a.admin)
+    assert assigned.status_code == 204, assigned.text
+    record = await _raised(world, a, [_person(a.tech_a), _person(a.tech_c)])
+    hidden = await _act(world, a, scoped, record, "reminders")
+    assert hidden.status_code == 404, hidden.text

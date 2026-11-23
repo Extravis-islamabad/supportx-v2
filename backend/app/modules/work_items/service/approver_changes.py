@@ -1,5 +1,7 @@
 """Adjusting a request's running approval (WP-047a S2b; REQ-SR-042).
 
+Every action takes If-Match on the request's version and makes a new one (rule 5g).
+
 A person holding `requests.modify_approvers` on the request (seeded for the service desk
 manager; tenant admins hold every right) may, with a reason:
 
@@ -101,6 +103,13 @@ async def _running(
         raise Conflict(code="approval_not_running", params={"display_id": record.display_id})
     if record.version != expected_version:
         raise items.stale(record.version, expected_version)
+    # Each action is a new version of the request (rule 5g, lane B's #593 review): the next
+    # call with the same If-Match is refused, and the events below carry the new version, so
+    # every screen showing the request refetches it.
+    record.version += 1
+    record.updated_at = datetime.now(UTC)
+    record.updated_by = subject.user_id
+    await session.flush()
     return record
 
 

@@ -7,7 +7,7 @@ request's approvals as `GET /{record_id}/approvals` does, so the screen replaces
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
@@ -17,8 +17,9 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.api.approval_routes import ApprovalsOut, approvals_out
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.types import WorkItemType
+from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import approver_changes as changes
-from app.shared.api.concurrency import ExpectedVersion
+from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.history import source_of
 
 REASON = Field(min_length=1, max_length=changes.REASON_MAX, description="Why; in the history.")
@@ -61,8 +62,25 @@ class RemindIn(BaseModel):
     reason: str = REASON
 
 
+async def _answer(
+    session: TenantSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    response: Response,
+) -> ApprovalsOut:
+    """The approvals, with the request's new version as the ETag (the next If-Match)."""
+    record = await session.get(WorkItem, record_id)
+    if record is not None:
+        set_etag(response, record.version)
+    return await approvals_out(session, subject, wtype, record_id)
+
+
 def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
-    """The four actions on a request's running approval (If-Match: the request's version)."""
+    """The four actions on a request's running approval (If-Match: the request's version).
+
+    Each answers with the new version as its ETag.
+    """
     Modify = Annotated[  # noqa: N806 - type alias
         Subject, Depends(require_permission(wtype.permission(changes.MODIFY)))
     ]
@@ -75,6 +93,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
         session: TenantSession,
         subject: Modify,
         request: Request,
+        response: Response,
     ) -> ApprovalsOut:
         """They are asked at once; the reason goes in the history."""
         await changes.add_approver(
@@ -88,7 +107,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
             source=source_of(request),
             facts=RequestFacts.of(request),
         )
-        return await approvals_out(session, subject, wtype, record_id)
+        return await _answer(session, subject, wtype, record_id, response)
 
     @router.post("/{record_id}/approvals/{approval_id}/replace", summary="Ask someone else instead")
     async def replace_approver(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -99,6 +118,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
         session: TenantSession,
         subject: Modify,
         request: Request,
+        response: Response,
     ) -> ApprovalsOut:
         """The old approval is withdrawn as `replaced`, its link revoked; the new person asked."""
         await changes.replace_approver(
@@ -112,7 +132,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
             source=source_of(request),
             facts=RequestFacts.of(request),
         )
-        return await approvals_out(session, subject, wtype, record_id)
+        return await _answer(session, subject, wtype, record_id, response)
 
     @router.post("/{record_id}/approvals/stages", summary="Add a stage after the last one")
     async def add_stage(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -122,6 +142,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
         session: TenantSession,
         subject: Modify,
         request: Request,
+        response: Response,
     ) -> ApprovalsOut:
         """It opens when the stages before it pass (Professional: `catalog`)."""
         await changes.add_stage(
@@ -135,7 +156,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
             source=source_of(request),
             facts=RequestFacts.of(request),
         )
-        return await approvals_out(session, subject, wtype, record_id)
+        return await _answer(session, subject, wtype, record_id, response)
 
     @router.post("/{record_id}/approvals/reminders", summary="Remind the open stage's approvers")
     async def remind(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -145,6 +166,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
         session: TenantSession,
         subject: Modify,
         request: Request,
+        response: Response,
     ) -> ApprovalsOut:
         """At most once every 10 minutes and 10 times per request."""
         await changes.remind(
@@ -156,7 +178,7 @@ def add_approver_change_routes(router: APIRouter, wtype: WorkItemType) -> None:
             source=source_of(request),
             facts=RequestFacts.of(request),
         )
-        return await approvals_out(session, subject, wtype, record_id)
+        return await _answer(session, subject, wtype, record_id, response)
 
 
 __all__ = ["add_approver_change_routes"]
