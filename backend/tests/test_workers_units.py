@@ -167,7 +167,8 @@ async def test_the_bus_notices_a_lost_server_within_about_30_s(
         seen.update(kwargs)
         raise Stop
 
-    monkeypatch.setattr("workers.bus.nats.connect", fake_connect)
+    # The bounded first connect (bus._first_connect) calls the client's own connect.
+    monkeypatch.setattr("workers.bus.NatsClient.connect", fake_connect)
     with pytest.raises(Stop):
         await bus.connect(make_settings(nats_url="nats://bus:4222"), "fanout")
     assert (seen["ping_interval"], seen["max_outstanding_pings"]) == (10, 3)
