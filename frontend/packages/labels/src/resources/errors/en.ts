@@ -206,6 +206,8 @@ export const en = {
   'errors.catalog_item_incomplete':
     'The item was not complete at its planned publish time, so it stayed a draft.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
+  'errors.catalog_item_retired': 'This item is no longer offered, so it cannot be requested again.',
+  'errors.catalog_item_unavailable': 'This item is not available to you now.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
     'The certificate could not be read. Paste the PEM with its private key.',
@@ -689,6 +691,7 @@ export const en = {
   'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
+  'errors.field.quantity_over_max': 'You can ask for at most {{max}}.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',

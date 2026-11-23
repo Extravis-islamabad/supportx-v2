@@ -47,6 +47,7 @@ const base: Omit<CatalogItem, 'id' | 'names' | 'kind'> = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   missing_translations: [],
   can_manage: false,
   version: 1,

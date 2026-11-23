@@ -421,6 +421,28 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
               label: <span data-testid="sr-tab-details">{t('requests.item_details')}</span>,
               children: (
                 <Descriptions size="small" column={1} data-testid="sr-answers">
+                  {/* WP-047a S1: how many, when needed, when expected (REQ-SR-014, -015). */}
+                  {r.quantity != null && (
+                    <Descriptions.Item label={t('work_item.field.quantity')}>
+                      <span data-testid="sr-quantity">{r.quantity}</span>
+                    </Descriptions.Item>
+                  )}
+                  {r.expected_delivery_at != null && (
+                    <Descriptions.Item label={t('work_item.field.expected_delivery_at')}>
+                      <span data-testid="sr-expected">{dates.format(r.expected_delivery_at)}</span>
+                    </Descriptions.Item>
+                  )}
+                  {r.needed_by != null && (
+                    <Descriptions.Item label={t('work_item.field.needed_by')}>
+                      <span data-testid="sr-needed-by">{dates.format(r.needed_by)}</span>
+                      {r.needed_earlier && (
+                        <Typography.Text type="warning" data-testid="sr-needed-earlier">
+                          {' '}
+                          · {t('requests.needed_earlier')}
+                        </Typography.Text>
+                      )}
+                    </Descriptions.Item>
+                  )}
                   {questions.map((q) => (
                     <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
                       {answerWords(q, r.answers?.[q.key]) || (

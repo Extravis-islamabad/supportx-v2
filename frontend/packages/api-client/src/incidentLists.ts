@@ -247,7 +247,7 @@ export function useSaveListSetting(kind: ListKind = 'incidents') {
 }
 
 /** The lists whose bulk jobs a screen follows: each type keeps its own jobs. */
-export type BulkBase = 'incidents' | 'changes' | 'releases';
+export type BulkBase = 'incidents' | 'changes' | 'releases' | 'service-requests';
 
 /** One bulk job's cache key, by the list it was started from. */
 export const bulkJobKey = (base: BulkBase, id: string) =>

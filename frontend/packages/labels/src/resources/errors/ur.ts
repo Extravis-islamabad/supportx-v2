@@ -205,6 +205,9 @@ export const ur: LabelResource = {
     'اس آئٹم کی درخواستیں موجود ہیں، اس لیے اسے حذف نہیں کیا جا سکتا۔ اس کے بجائے اسے ختم کریں۔',
   'errors.catalog_item_incomplete': 'طے شدہ وقت پر آئٹم مکمل نہیں تھا، اس لیے یہ مسودہ ہی رہا۔',
   'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.catalog_item_retired':
+    'یہ آئٹم اب پیش نہیں کیا جاتا، اس لیے اسے دوبارہ درخواست نہیں کیا جا سکتا۔',
+  'errors.catalog_item_unavailable': 'یہ آئٹم اس وقت آپ کے لیے دستیاب نہیں۔',
   'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.certificate_invalid':
     'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
@@ -695,6 +698,7 @@ export const ur: LabelResource = {
   'errors.field.port_not_allowed': 'میل پورٹ استعمال کریں: 993 (TLS) یا 143۔',
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.field.quantity_over_max': 'آپ زیادہ سے زیادہ {{max}} مانگ سکتے ہیں۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
   'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',

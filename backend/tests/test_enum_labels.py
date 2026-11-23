@@ -265,6 +265,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "SystemLogCode": "system_log_code",
+    "SystemLogSeverity": "system_log_severity",
     "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",

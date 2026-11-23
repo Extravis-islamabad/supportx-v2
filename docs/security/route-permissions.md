@@ -202,6 +202,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/audit/siem/destinations/{destination_id}/rotate-secret` | `audit.manage` | audit.manage: all |
 | POST | `/api/v1/audit/siem/destinations/{destination_id}/test` | `audit.manage` | audit.manage: all |
 | GET | `/api/v1/audit/status` | `audit.view` | audit.view: all |
+| GET | `/api/v1/audit/system-log` | `audit.view` | audit.view: all |
+| GET | `/api/v1/audit/system-log/export` | `audit.export` | audit.export: all |
 | GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all |
 | POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
 | GET | `/api/v1/auth/account-action` | session (BFF) | - |
@@ -900,6 +902,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/portal/incidents/{record_id}/resolution/reject` | signed_in | - |
 | GET | `/api/v1/portal/service-requests` | signed_in | - |
 | GET | `/api/v1/portal/service-requests/{record_id}` | signed_in | - |
+| GET | `/api/v1/portal/service-requests/{record_id}/request-again` | signed_in | - |
 | POST | `/api/v1/portal/service-requests/{record_id}/resolution/confirm` | signed_in | - |
 | POST | `/api/v1/portal/service-requests/{record_id}/resolution/reject` | signed_in | - |
 | GET | `/api/v1/portal/service-requests/{record_id}/steps` | signed_in | - |

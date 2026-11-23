@@ -8,9 +8,9 @@ requester's reach is a 404 and their own is the only one they act on.
 Deciding an ask (`CancellationDeciders`): the assignee; with none, the group's members who may
 edit it; with none of those, the type's service desk managers (`config.service_desk` holders who
 may edit it), which is audited and tells the requester; with none at all, the ask stays open
-as "nobody can decide yet" and a log line flags it. Every decider also passes the record's own
-edit check at its scope. Approving runs the ordinary cancel as the decider, with the
-requester's reason; nothing moves that the decider could not do on the record.
+as "nobody can decide yet" and a system log entry flags it. Every decider also passes the
+record's own edit check at its scope. Approving runs the ordinary cancel as the decider, with
+the requester's reason; nothing moves that the decider could not do on the record.
 """
 
 import html
@@ -25,8 +25,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied, ValidationFailed
-from app.core.logging import get_logger
 from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import (
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogSeverity,
+    record_system,
+)
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import Subject, worker_policy
 from app.modules.organization import users_in_groups
@@ -56,8 +61,6 @@ REASON_MAX = 2000
 MANAGERS_PERMISSION = "config.service_desk"
 TO_MANAGERS_AUDIT = "incident.cancellation_to_managers"
 _HOLDER_LIMIT = 500
-
-log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -194,11 +197,16 @@ async def cancel(  # noqa: PLR0913 - the record, the reason and the context, exp
             details={"display_id": record.display_id, "request_id": str(ask.id)},
         )
     elif who is CancellationDeciders.NONE:
-        # Never lost: it stays open, says so on the record, and this line flags it.
-        log.warning(
-            "cancellation_ask_without_decider",
-            work_item_id=str(record.id),
-            request_id=str(ask.id),
+        # Never lost: it stays open, says so on the record, and the system log flags it for the
+        # admins (a code and the display ID only; lane C's conditions on the follow-up).
+        await record_system(
+            session,
+            SystemLogEntryIn(
+                module="work_items",
+                code=SystemLogCode.CANCELLATION_WITHOUT_DECIDER,
+                severity=SystemLogSeverity.WARNING,
+                params={"display_id": record.display_id},
+            ),
         )
     return CancelOutcome(canceled=False, request_id=ask.id)
 

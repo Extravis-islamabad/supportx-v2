@@ -136,6 +136,19 @@ class PersonalDataAccessRecorded(DomainEvent):
     kind: Literal["view", "export", "ai_masking"]
 
 
+class SystemLogRecorded(DomainEvent):
+    """A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.
+
+    The severity only: never the code's params or the object.
+    """
+
+    event_type: ClassVar[str] = "audit.system_log.recorded"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "system_log_entry"
+
+    severity: Literal["info", "warning", "error"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     AuditEntryRecorded,
     AuditEntriesSealed,
@@ -148,4 +161,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditArchiveUpdated,
     AuditArchiveRestoreRequested,
     PersonalDataAccessRecorded,
+    SystemLogRecorded,
 )

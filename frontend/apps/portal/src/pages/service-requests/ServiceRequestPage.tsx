@@ -12,10 +12,11 @@ import {
   Progress,
   Result,
   Skeleton,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   portalRequestKeys,
@@ -24,6 +25,7 @@ import {
   useApprovals,
   useCatalogItem,
   usePortalRequest,
+  usePortalRequestAgain,
   usePortalRequestSteps,
   useSession,
   useWithdrawRequest,
@@ -62,6 +64,9 @@ export function ServiceRequestPage() {
   const steps = usePortalRequestSteps(id);
   const approvals = useApprovals(id);
   const item = useCatalogItem(record.data?.catalog_item_id ?? undefined);
+  // "Request again" (WP-047a S1; REQ-SR-016): one's own requests only (the server's rule too).
+  const again = usePortalRequestAgain(record.data?.reach === 'own' ? id : null);
+  const navigate = useNavigate();
   const withdraw = useWithdrawRequest();
   const [asking, setAsking] = useState(false);
   const answer = useAnswerRequest(id);
@@ -136,7 +141,27 @@ export function ServiceRequestPage() {
           </span>{' '}
           · <bdi>{r.subject}</bdi>
         </Typography.Title>
-        <PortalStatusTag status={r.portal_status} />
+        <Flex gap={8} align="center" wrap>
+          <PortalStatusTag status={r.portal_status} />
+          {again.data !== undefined &&
+            (again.data.available ? (
+              <Button
+                onClick={() => {
+                  void navigate(`/catalog/items/${again.data.catalog_item_id}?again=${r.id}`);
+                }}
+                data-testid="portal-request-again"
+              >
+                {t('portal.request.again')}
+              </Button>
+            ) : (
+              <Tooltip title={t(`errors.${again.data.reason ?? 'catalog_item_unavailable'}`)}>
+                {/* A disabled button gets no hover: the span carries the reason (AC3). */}
+                <span tabIndex={0} data-testid="portal-request-again-disabled">
+                  <Button disabled>{t('portal.request.again')}</Button>
+                </span>
+              </Tooltip>
+            ))}
+        </Flex>
       </Flex>
       {r.portal_status === 'resolved' && mine && (
         <Card title={t('portal.service_requests.received_title')} data-testid="portal-receipt">

@@ -198,6 +198,13 @@ async def test_ac1_an_infected_file_is_blocked_and_never_downloadable(
     assert files.storage is not None
     assert await files.storage.get(f"tenants/{a.tenant}/files/{stored['id']}") is None
     assert "file.blocked" in await audit_actions(world, a)
+    # REQ-AUD-016 (WP-057 S5b): and in the system log, linked to the file.
+    logged = await world.call(
+        "GET", f"/audit/system-log?object_type=file&object_id={stored['id']}", a, a.admin
+    )
+    assert [(i["code"], i["severity"]) for i in logged.json()["items"]] == [
+        ("files.scan.infected", "warning")
+    ]
     usage = await world.call("GET", "/files/settings/usage", a, a.admin)
     assert (usage.json()["bytes_used"], usage.json()["files"]) == (0, 0)
     # A rescan cannot bring it back.

@@ -23,7 +23,7 @@ from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound
-from app.modules import sla
+from app.modules import licensing, sla
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.organization import existing_unit_ids
 from app.modules.service_catalog.domain.catalog import (
@@ -39,6 +39,7 @@ from app.modules.service_catalog.domain.catalog import (
     missing_translations,
     publish_problems,
     schedule_problems,
+    subject_from,
     subject_template_problems,
     text_problems,
 )
@@ -56,6 +57,7 @@ from app.modules.service_catalog.domain.items import (
     answer_problems,
     name_problems,
     needs_approval,
+    request_again,
     rules_problems,
 )
 from app.modules.service_catalog.events import CatalogItemChanged
@@ -79,6 +81,9 @@ PRIORITIES = frozenset({"p1", "p2", "p3", "p4"})
 # The words of a copy's name, per language (data, kept with the copy; plan D3).
 COPY_PREFIX = {"en": "Copy of", "ar": "نسخة من", "ur": "نقل:"}
 # What a write may set, as stored. `status` changes through `set_status` rules only.
+# REQ-SR-014's quantity is Professional (D-133): the licence's catalogue feature.
+CATALOG_FEATURE = "catalog"
+
 ITEM_FIELDS = (
     "category_id",
     "names",
@@ -95,6 +100,9 @@ ITEM_FIELDS = (
     "technician_after_approval",
     "count_approval_time",
     "auto_fulfil",
+    # WP-047a S1
+    "max_quantity",
+    "asks_needed_by",
     # WP-031 s1
     "kind",
     "template_id",
@@ -467,6 +475,22 @@ async def expected_delivery(session: AsyncSession, item: CatalogItem) -> sla.Del
     return await sla.delivery_target(session, SR_TYPE, item.sla_policy_id, item.default_priority)
 
 
+async def expected_delivery_at(session: AsyncSession, item: CatalogItem) -> datetime | None:
+    """When a request for `item` raised now should be delivered (REQ-SR-015 AC1; WP-047a S1).
+
+    The same SLA as `expected_delivery`, counted from now on its calendar (the item's group's
+    when the target uses the group calendar), as the request itself will be.
+    """
+    return await sla.delivery_at(
+        session,
+        SR_TYPE,
+        item.sla_policy_id,
+        item.default_priority,
+        datetime.now(UTC),
+        group_id=item.group_id,
+    )
+
+
 def snapshot(item: CatalogItem) -> dict[str, Any]:
     """The item's fields as field history keeps them (IDs and times as text)."""
     out: dict[str, Any] = {}
@@ -547,6 +571,107 @@ def _initial_status(values: Mapping[str, Any]) -> ItemStatus:
     return ItemStatus.PUBLISHED if values.get("enabled") is True else ItemStatus.DRAFT
 
 
+async def requester_question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions its requesters see (REQ-CAT-008; WP-047a S1).
+
+    For the portal's answers, filtered on the server: an answer is shown to its requester only
+    when its question is theirs (default deny: a removed question's answer, or a technician's or
+    an approver's, never reaches them). Read as system data: the caller already decided the
+    record is the requester's to see.
+    """
+    if not item_ids:
+        return {}
+    rows = await session.execute(
+        select(CatalogItem.id, CatalogItem.questions).where(CatalogItem.id.in_(set(item_ids)))
+    )
+    return {
+        item_id: frozenset(
+            q["key"]
+            for q in questions or []
+            if QuestionAudience.REQUESTER.value
+            in (q.get("shown_to") or [a.value for a in QuestionAudience])
+        )
+        for item_id, questions in rows.all()
+    }
+
+
+@dataclass(frozen=True)
+class AgainForm:
+    """Request again from a past request (REQ-SR-016): the item's form with its answers.
+
+    `available` false with `reason` (a label code) when the item can no longer be requested
+    (AC3: retired, or no longer offered to this person); then nothing else is given.
+    """
+
+    item_id: uuid.UUID
+    available: bool
+    reason: str | None
+    answers: Mapping[str, Any]
+    dropped: tuple[str, ...]
+
+
+def _unavailable(item_id: uuid.UUID, reason: str) -> AgainForm:
+    return AgainForm(item_id=item_id, available=False, reason=reason, answers={}, dropped=())
+
+
+async def again_form(
+    session: AsyncSession, subject: Subject, item_id: uuid.UUID, answers: Mapping[str, Any]
+) -> AgainForm:
+    """The item as it is now (no item versions yet, the coordinator's Q8), prefilled (S1)."""
+    try:
+        view = await get_item(session, subject, item_id)
+    except NotFound:
+        row = await session.get(CatalogItem, item_id)
+        retired = row is not None and row.status == ItemStatus.RETIRED.value
+        reason = "catalog_item_retired" if retired else "catalog_item_unavailable"
+        return _unavailable(item_id, reason)
+    item = view.item
+    if item.status != ItemStatus.PUBLISHED.value or item.kind != ItemKind.SERVICE.value:
+        retired = item.status == ItemStatus.RETIRED.value
+        reason = "catalog_item_retired" if retired else "catalog_item_unavailable"
+        return _unavailable(item_id, reason)
+    again = request_again(view.rules.questions, answers)
+    return AgainForm(
+        item_id=item_id, available=True, reason=None, answers=again.answers, dropped=again.dropped
+    )
+
+
+async def templated_subject(
+    session: AsyncSession, item_id: uuid.UUID, answers: Mapping[str, Any], *, person: str
+) -> str | None:
+    """A new request's subject from its item's template, or None without one (WP-031 leftover).
+
+    Choice answers show their English words (the stored fallback language, never a code);
+    `person` is the requested-for person's name.
+    """
+    item = await session.get(CatalogItem, item_id)
+    if item is None or not item.subject_template:
+        return None
+    words = {
+        code: str(labels.get("en") or code)
+        for q in rules_of(item).questions
+        for code, labels in q.option_labels.items()
+    }
+    filled = subject_from(item.subject_template, answers, person=person, words=words)
+    return filled or None
+
+
+async def quantity_licensed(subject: Subject) -> bool:
+    """Whether the tenant's plan offers a quantity on requests (REQ-SR-014: `catalog`)."""
+    return await licensing.has_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
+async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> None:
+    """A quantity on an item is Professional (REQ-SR-014, D-133): `catalog`, on the server.
+
+    Turning it off (null) is always allowed, so a downgraded tenant can clear it.
+    """
+    if values.get("max_quantity") is not None:
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
 async def create_item(
     session: AsyncSession,
     subject: Subject,
@@ -560,6 +685,7 @@ async def create_item(
     clock = clock or SystemClock()
     if problems := _shape_problems({"names": {}, **values}):
         raise invalid(problems)
+    await _quantity_licensed(subject, values)
     status = _initial_status(values)
     item = CatalogItem(
         **{
@@ -639,6 +765,7 @@ async def update_item(  # noqa: PLR0913 - the item, its version and the change
     row = await _live(session, item_id)
     if problems := _shape_problems(values):
         raise invalid(problems)
+    await _quantity_licensed(subject, values)
     before = snapshot(row)
     wanted = {**stored(values), **_status_change(row, values, clock.now())}
     changes = {k: v for k, v in wanted.items() if getattr(row, k) != v}
@@ -746,6 +873,9 @@ class RequestItem:
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
+    # WP-047a S1: how many may be asked for (None: no quantity), and whether needed-by is asked.
+    max_quantity: int | None
+    asks_needed_by: bool
     answer_problems: tuple[tuple[str, str], ...]  # the answers checked against the form
     # The approval stage (WP-030 s2), as plain values for work_items' engine: each approver as
     # (manager of the requested-for person?, person id), the backup, and the stage's switches.
@@ -787,6 +917,8 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         technician_after_approval=rules.technician_after_approval,
         count_approval_time=rules.count_approval_time,
         auto_fulfil=rules.auto_fulfil,
+        max_quantity=item.max_quantity,
+        asks_needed_by=item.asks_needed_by,
         answer_problems=tuple(answer_problems(rules.questions, answers)),
         approvers=tuple(
             (a.kind is ApproverKind.REQUESTED_FOR_MANAGER, a.person_id)

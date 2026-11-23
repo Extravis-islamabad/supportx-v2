@@ -1,9 +1,26 @@
-import { App as AntApp, Alert, Button, Flex, Form, Input, Skeleton, Typography } from 'antd';
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-
-import { ApiError, useCatalogItem, useRaiseServiceRequest, useSession } from '@supportx/api-client';
 import {
+  App as AntApp,
+  Alert,
+  Button,
+  Flex,
+  Form,
+  Input,
+  InputNumber,
+  Skeleton,
+  Typography,
+} from 'antd';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+
+import {
+  ApiError,
+  useCatalogItem,
+  usePortalRequestAgain,
+  useRaiseServiceRequest,
+  useSession,
+} from '@supportx/api-client';
+import {
+  DateTimeField,
   FormFooter,
   QuestionField,
   RichTextView,
@@ -15,6 +32,7 @@ import {
   startingAnswers,
   textIn,
   useAppearance,
+  useDateTime,
   useLabel,
   type QuestionValue,
   useLicence,
@@ -47,7 +65,14 @@ export function CatalogItemPage() {
   const raise = useRaiseServiceRequest();
   const files = useFilesToAttach();
   const [assetIds, setAssetIds] = useState<string[]>([]);
-  const hasAssets = useLicence().has('assets');
+  const licence = useLicence();
+  const hasAssets = licence.has('assets');
+  const { format } = useDateTime();
+  // "Request again" (WP-047a S1; REQ-SR-016): ?again=<request id> fills the form from it.
+  const [search] = useSearchParams();
+  const again = usePortalRequestAgain(search.get('again'));
+  const [quantity, setQuantity] = useState<number | null>(null);
+  const [neededBy, setNeededBy] = useState<string | null>(null);
   const [key] = useState(() => crypto.randomUUID());
   const item = loaded.data;
   const questions = useMemo(() => requesterQuestions(item?.questions ?? []), [item]);
@@ -65,9 +90,20 @@ export function CatalogItemPage() {
       </Flex>
     );
   }
-  const shown = answers ?? startingAnswers(questions);
+  const earlier = again.data?.available === true ? again.data.answers : {};
+  // The earlier answers are the requester's own, fitted by the server to the form as it is now.
+  const shown = answers ?? {
+    ...startingAnswers(questions),
+    ...(earlier as Record<string, QuestionValue>),
+  };
   const name = textIn(item.names, locale);
-  const typed = subject ?? name;
+  // An item with a subject template fills the subject from the answers when none is typed.
+  const templated = item.subject_template != null && item.subject_template !== '';
+  const typed = subject ?? (templated ? '' : name);
+  // REQ-SR-014 (Professional): the server refuses it without the catalogue feature too.
+  const asksQuantity = item.max_quantity != null && licence.has('catalog');
+  const expectedAt = item.expected_delivery?.at ?? null;
+  const neededEarlier = neededBy !== null && expectedAt !== null && neededBy < expectedAt;
   const description = textIn(item.descriptions, locale);
   const missing = questions.filter((q) => {
     const value = shown[q.key];
@@ -75,10 +111,10 @@ export function CatalogItemPage() {
       q.required && (value == null || value === '' || (Array.isArray(value) && value.length === 0))
     );
   });
-  const ready = typed.trim() !== '' && missing.length === 0;
+  const ready = (templated || typed.trim() !== '') && missing.length === 0;
   // What is still missing, said beside the disabled button (Haider, 2026-11-10).
   const why =
-    typed.trim() === ''
+    !templated && typed.trim() === ''
       ? t('requests.why.subject')
       : missing.length > 0
         ? t('requests.why.answers')
@@ -129,6 +165,11 @@ export function CatalogItemPage() {
               {approval}
             </Typography.Paragraph>
           )}
+          {expectedAt !== null && (
+            <Typography.Paragraph style={{ margin: 0 }} data-testid="portal-cat-expected">
+              {t('portal.catalog.expected_on', { date: format(expectedAt) })}
+            </Typography.Paragraph>
+          )}
           {delivery !== null && (
             <Typography.Paragraph
               style={{ margin: approval === null ? 0 : '8px 0 0' }}
@@ -138,6 +179,22 @@ export function CatalogItemPage() {
             </Typography.Paragraph>
           )}
         </FormCard>
+      )}
+      {again.data?.available === false && again.data.reason != null && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t(`errors.${again.data.reason}`)}
+          data-testid="portal-cat-again-unavailable"
+        />
+      )}
+      {again.data?.available === true && again.data.dropped.length > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          message={t('portal.catalog.again_dropped', { count: again.data.dropped.length })}
+          data-testid="portal-cat-again-dropped"
+        />
       )}
       <FormCard testId="portal-cat-form">
         <Form
@@ -150,7 +207,9 @@ export function CatalogItemPage() {
               {
                 key,
                 body: {
-                  subject: typed.trim(),
+                  ...(typed.trim() !== '' ? { subject: typed.trim() } : {}),
+                  ...(asksQuantity ? { quantity: quantity ?? 1 } : {}),
+                  ...(item.asks_needed_by && neededBy !== null ? { needed_by: neededBy } : {}),
                   requester_id: session.user.id,
                   catalog_item_id: item.id,
                   answers: sentAnswers(shown),
@@ -196,6 +255,7 @@ export function CatalogItemPage() {
               id="portal-cat-subject"
               size="large"
               value={typed}
+              placeholder={templated ? t('portal.catalog.subject_from_answers') : undefined}
               count={lengthLimit(SUBJECT_MAX)}
               onChange={(event) => {
                 setSubject(event.target.value);
@@ -223,6 +283,42 @@ export function CatalogItemPage() {
               />
             </Form.Item>
           ))}
+          {asksQuantity && (
+            <Form.Item
+              label={t('portal.catalog.quantity')}
+              htmlFor="portal-cat-quantity"
+              extra={t('portal.catalog.quantity_max', { max: item.max_quantity ?? 1 })}
+              validateStatus={problems['body.quantity'] !== undefined ? 'error' : undefined}
+              help={problems['body.quantity']}
+            >
+              <InputNumber
+                id="portal-cat-quantity"
+                min={1}
+                max={item.max_quantity ?? 1}
+                precision={0}
+                value={quantity ?? 1}
+                onChange={(value) => {
+                  setQuantity(value);
+                }}
+                data-testid="portal-cat-quantity"
+              />
+            </Form.Item>
+          )}
+          {item.asks_needed_by && (
+            <Form.Item
+              label={t('portal.catalog.needed_by')}
+              htmlFor="portal-cat-needed-by"
+              validateStatus={neededEarlier ? 'warning' : undefined}
+              help={neededEarlier ? t('portal.catalog.needed_earlier') : undefined}
+            >
+              <DateTimeField
+                id="portal-cat-needed-by"
+                value={neededBy}
+                onChange={setNeededBy}
+                testId="portal-cat-needed-by"
+              />
+            </Form.Item>
+          )}
           {/* REQ-AST-025: the assets it is about, the person's own only (AC1). */}
           {hasAssets && (
             <Form.Item label={t('work_item.field.asset_ids')} htmlFor="portal-cat-assets">
