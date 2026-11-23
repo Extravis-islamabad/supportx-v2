@@ -241,10 +241,23 @@ export function useRestoreCi() {
   const saved = useCiSaved();
   return useMutation({
     meta: { silent: true },
-    mutationFn: ({ id, version }: { id: string; version: number }) =>
+    mutationFn: ({
+      id,
+      version,
+      confirmMerged = false,
+    }: {
+      id: string;
+      version: number;
+      /** After the merged-CI warning (409 `cmdb_ci_restore_merged`, S4b). */
+      confirmMerged?: boolean;
+    }) =>
       call(
         api.POST('/api/v1/cmdb/cis/{ci_id}/restore', {
-          params: { path: { ci_id: id }, header: ifMatch(version) },
+          params: {
+            path: { ci_id: id },
+            header: ifMatch(version),
+            query: { confirm_merged: confirmMerged },
+          },
         }),
       ),
     onSuccess: saved,

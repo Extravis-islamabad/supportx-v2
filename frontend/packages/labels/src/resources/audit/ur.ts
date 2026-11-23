@@ -676,6 +676,8 @@ export const ur: LabelResource = {
   'audit.object.change_task_template': 'تبدیلیوں کے کاموں کا سانچہ',
   'audit.object.change_template': 'تبدیلی کا سانچہ',
   'audit.object.change_window': 'تبدیلی ونڈو',
+  'audit.object.ci': 'کنفیگریشن آئٹم',
+  'audit.object.cmdb_import': 'فائل سے CMDB درآمد',
   'audit.object.connector_settings': 'کنیکٹر کی ترتیبات',
   'audit.object.custom_field': 'اپنی مرضی کا خانہ',
   'audit.object.department': 'شعبہ',
@@ -1112,6 +1114,7 @@ export const ur: LabelResource = {
   'event_type.automation.workflow.webhook_requested': 'ورک فلو نے ویب ہک کال کرنے کو کہا',
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.automation.workflow_job.progressed': 'ورک فلو کی جاب آگے بڑھی',
+  'event_type.cmdb.import.progressed': 'CMDB کی درآمد آگے بڑھی',
   'event_type.identity_access.access_settings.changed': 'ٹیکنیشن کی رسائی کا دائرہ بدلا',
   'event_type.identity_access.account_security.changed':
     'اکاؤنٹ مقفل ہوا، یا اس کا پاس ورڈ یا MFA بدلا',

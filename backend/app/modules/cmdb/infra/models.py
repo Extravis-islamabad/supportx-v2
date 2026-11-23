@@ -31,6 +31,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
@@ -481,3 +482,107 @@ class SyncRun(TenantEntity):
     # The rule's custom targets this run skipped (no longer a plain field); keys only.
     skipped_targets: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
     failure: Mapped[str | None] = mapped_column(String(60))
+
+
+# --- merges and imports (WP-053 S4b, migration 0192) ----------------------------------------------
+
+IMPORT_KINDS = ("cis", "relationships")
+IMPORT_MODES = ("add", "update", "add_update")
+IMPORT_MATCHES = ("display_id", "name")
+IMPORT_STATUSES = ("queued", "running", "checked", "done", "failed")
+
+
+class CiAlias(TenantEntity):
+    """One CI merged into another (REQ-CMDB-017), and the alias it leaves.
+
+    The merged CI (`alias_id`) is in the trash. Its ID and display ID find the survivor
+    (`ci_id`), but only for a reader who may see the survivor. `mapping` is the field-by-field
+    choice ([{"field", "side"}], codes only); `moved` counts what moved. A restore of the merged CI
+    ends the alias (`restored_at`); it never undoes the merge.
+    """
+
+    __tablename__ = "cmdb_ci_aliases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "alias_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_aliases_alias",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_aliases_ci",
+        ),
+        CheckConstraint("alias_id <> ci_id", name="not_self"),
+        Index(
+            "uq_cmdb_ci_aliases_live",
+            "tenant_id",
+            "alias_id",
+            unique=True,
+            postgresql_where="restored_at IS NULL AND deleted_at IS NULL",
+        ),
+        Index("ix_cmdb_ci_aliases_tenant_ci", "tenant_id", "ci_id"),
+        Index("ix_cmdb_ci_aliases_tenant_display", "tenant_id", text("lower(alias_display_id)")),
+    )
+
+    alias_id: Mapped[uuid.UUID]
+    ci_id: Mapped[uuid.UUID]
+    alias_display_id: Mapped[str] = mapped_column(String(20))
+    mapping: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    moved: Mapped[dict[str, int]] = mapped_column(JSONB, server_default="{}")
+    restored_at: Mapped[datetime | None]
+    restored_by: Mapped[uuid.UUID | None]
+
+
+class CiImport(TenantEntity):
+    """One CSV or Excel file of CIs or relationships (REQ-CMDB-018), read in the background.
+
+    A dry run reads and checks every row inside savepoints it rolls back, so nothing changes; it
+    ends `checked`, keeping the file for the real run. The file is cleared once the real run has
+    read it. Results keep counts and per-row problems (row, column, code), never values.
+    """
+
+    __tablename__ = "cmdb_imports"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "type_id"],
+            ["cmdb_ci_types.tenant_id", "cmdb_ci_types.id"],
+            name="fk_cmdb_imports_type",
+        ),
+        CheckConstraint(_codes("kind", IMPORT_KINDS), name="kind_code"),
+        CheckConstraint(_codes("mode", IMPORT_MODES), name="mode_code"),
+        CheckConstraint(_codes("match_on", IMPORT_MATCHES), name="match_code"),
+        CheckConstraint(_codes("status", IMPORT_STATUSES), name="status_code"),
+        CheckConstraint("kind <> 'cis' OR type_id IS NOT NULL", name="cis_have_a_type"),
+        Index("ix_cmdb_imports_requested", "tenant_id", "created_by", "created_at"),
+        Index(
+            "ix_cmdb_imports_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where="status IN ('queued', 'running') AND deleted_at IS NULL",
+        ),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    mode: Mapped[str] = mapped_column(String(20))
+    match_on: Mapped[str] = mapped_column(String(20))
+    type_id: Mapped[uuid.UUID | None]
+    dry_run: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    file_name: Mapped[str] = mapped_column(String(255))
+    file_format: Mapped[str] = mapped_column(String(10))
+    content: Mapped[bytes | None]
+    status: Mapped[str] = mapped_column(String(20), server_default="queued")
+    total: Mapped[int] = mapped_column(Integer, server_default="0")
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    created_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    unchanged_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Rows that changed nothing because a stronger source set the values (S4a's who wins).
+    kept_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    failed_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # [{"row": 12, "field": "to", "code": "not_found"}, ...] (codes only, never values).
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    failure: Mapped[str | None] = mapped_column(String(50))
+    failure_detail: Mapped[str | None] = mapped_column(String(100))
+    checked_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
