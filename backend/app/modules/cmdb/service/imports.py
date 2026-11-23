@@ -514,6 +514,9 @@ async def _ci_row(
         return domain.CiRowOutcome.CREATED
     if how.mode is domain.CiImportMode.ADD:
         raise RowProblem(key_field, domain.ROW_CONFLICT)
+    # The per-CI edit check first (lane C's #577 re-check): a CI the importer sees but may not
+    # edit is not_permitted, before anything says unchanged or kept about it.
+    record = await cis.editable(session, how.subject, record.id)
     # Who wins, per attribute (S4a): only what the import's source may change is written.
     found = sync_rules.plan(
         how.precedence,

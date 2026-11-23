@@ -13,6 +13,7 @@ everything). Every organisation is new for the module, so nothing here touches d
                 only "all", so the site view decides what they may merge)
     requester   member of site S1: sees S1's CIs only
     tech_c      sees and edits every CI, without cmdb.manage
+    tech_b      member of site S2: sees every CI, edits S2's only (an import's edit check)
 """
 
 import uuid
@@ -23,6 +24,7 @@ import pytest
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
+from app.modules.cmdb.domain.merge import NOT_PERMITTED
 from app.modules.cmdb.service import imports, links
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_cmdb_api import _ci, _types
@@ -59,6 +61,10 @@ async def _cast(world: World) -> dict[str, Any]:
     await _given(
         world, a, a.tech_c, "CMDB editor, all seen, no manage",
         [("cmdb.view", "all"), ("cmdb.edit", "all")],
+    )  # fmt: skip
+    await _given(
+        world, a, a.tech_b, "CMDB viewer of all, editor of its site",
+        [("cmdb.view", "all"), ("cmdb.add", "all"), ("cmdb.edit", "site")],
     )  # fmt: skip
     # A field is clear for a person while any of their roles has no rule: requester2's two.
     _CAST[a.tenant] = {"roles": [s2_role, await _role_id(world, a, "requester")]}
@@ -514,6 +520,47 @@ async def test_an_import_stamps_what_it_writes_and_never_overwrites_a_hand_edit(
     assert (again["kept_count"], again["unchanged_count"]) == (1, 2)
     for ci_id, sources in after_first.items():
         assert (await _fresh(world, a, {"id": ci_id}))["sources"] == sources
+
+
+async def test_a_ci_the_importer_sees_but_may_not_edit_is_not_permitted_before_who_wins(
+    world: World,
+) -> None:
+    """Lane C's #577 re-check: the edit check comes before `plan`, in a dry run and a real run.
+
+    tech_b sees every CI but edits S2's only. On an S1 CI, a row with the same values and a row
+    whose only change a hand edit holds both read not_permitted, never unchanged or kept, and
+    kept_count says nothing. The negative control: the same rows on an S2 CI are unchanged and
+    kept.
+    """
+    a = world.a
+    await _cast(world)
+    tag = uuid.uuid4().hex[:6]
+    outcomes = {}
+    for site, label in ((a.s1, "S1"), (a.s2, "S2")):
+        same = await _made(world, a, f"Same {label} {tag}", site_id=str(site), description="Hand")
+        held = await _made(world, a, f"Held {label} {tag}", site_id=str(site), description="Hand")
+        sheet = (
+            "Name,Description\n"
+            f"{same['name']},Hand\n"  # identical values
+            f"{held['name']},From a file\n"  # the only change, held by a hand edit
+        ).encode()
+        for dry_run in (True, False):
+            job = await _worked(
+                world, a,
+                await _upload(world, a, sheet, mode="update", type_code="server",
+                              dry_run=dry_run, user=a.tech_b),
+                user=a.tech_b,
+            )  # fmt: skip
+            outcomes[label, dry_run] = (
+                job["updated_count"],
+                job["unchanged_count"],
+                job["kept_count"],
+                job["failed_count"],
+                sorted((p["row"], p["code"]) for p in job["problems"]),
+            )
+    for dry_run in (True, False):
+        assert outcomes["S1", dry_run] == (0, 0, 0, 2, [(2, NOT_PERMITTED), (3, NOT_PERMITTED)])
+        assert outcomes["S2", dry_run] == (0, 1, 1, 0, []), dry_run
 
 
 async def test_an_import_overwrites_a_value_a_weaker_source_set(world: World) -> None:

@@ -717,6 +717,16 @@ async def _writable(
     return record
 
 
+async def editable(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
+    """The CI, if the person may edit it: 404 if they can't see it, 403 if they can't edit it.
+
+    For a caller that decides what to write before calling `update` (an import's who wins):
+    the per-CI edit check comes first, so a row that ends up writing nothing still tells a
+    person nothing about a CI they may not edit (lane C's #577 re-check).
+    """
+    return await _writable(session, subject, EDIT, ci_id)
+
+
 async def _save(  # noqa: PLR0913 - the record, the version and the change, explicit
     session: AsyncSession,
     subject: Subject | None,
