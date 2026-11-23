@@ -16,13 +16,12 @@ from app.modules.work_items.domain.request_stages import (
     Candidate,
     StagePlan,
     assign,
-    is_staged,
+    ci_owner_targets,
     next_step,
     request_outcome,
     step_outcome,
     steps,
 )
-from app.modules.work_items.domain.stage_snapshot import SnapApprover, SnapStage
 
 A, R, P = LevelOutcome.APPROVED, LevelOutcome.REJECTED, LevelOutcome.PENDING
 
@@ -77,23 +76,12 @@ def test_a_majority_tie_follows_the_tenants_tie_rule() -> None:
     assert step_outcome([1], {1: LevelOutcome.TIED}) is P
 
 
-# --- is_staged and assign -------------------------------------------------------------------------
+# --- assign -------------------------------------------------------------------------
 
 REQUESTER = uuid.UUID("01900000-0000-7000-8000-0000000000c1")
 ANN = uuid.UUID("01900000-0000-7000-8000-0000000000c2")
 BACKUP = uuid.UUID("01900000-0000-7000-8000-0000000000c3")
 NAMED, MANAGER = ApproverOrigin.NAMED, ApproverOrigin.MANAGER
-
-
-def test_one_stage_of_todays_kinds_is_not_staged() -> None:
-    """The coordinator's condition 5: today's single stage keeps its own path."""
-    today = SnapStage((SnapApprover("requested_for_manager"), SnapApprover("person", ANN)))
-    assert not is_staged([today])
-    assert not is_staged([])
-    assert is_staged([today, today])
-    assert is_staged([SnapStage(today.approvers, rule="all")])
-    assert is_staged([SnapStage((SnapApprover("group", group_id=ANN),))])
-    assert is_staged([SnapStage(today.approvers, condition={"field": "quantity"})])
 
 
 def test_the_requester_never_approves_their_own_request() -> None:
@@ -138,3 +126,13 @@ def test_a_person_matched_twice_holds_one_approval() -> None:
         backup_id=None,
     )
     assert found == [Assignment(ANN, MANAGER)]
+
+
+def test_a_ci_owner_person_approves_alone_and_the_group_only_without_one() -> None:
+    """Lane B's #582 question, named: the person when there is one, else the owner group."""
+    group = uuid.UUID("01900000-0000-7000-8000-0000000000d1")
+    other = uuid.UUID("01900000-0000-7000-8000-0000000000d2")
+    assert ci_owner_targets([(ANN, group)]) == ([ANN], [])
+    assert ci_owner_targets([(None, group)]) == ([], [group])
+    assert ci_owner_targets([(ANN, None), (None, other), (ANN, group)]) == ([ANN], [other])
+    assert ci_owner_targets([(None, None)]) == ([], [])

@@ -25,18 +25,34 @@ async def test_asset_owners_are_the_people_holding_them(world: World) -> None:
     tag = uuid.uuid4().hex[:6]
     held = await _asset(world, f"Owner laptop {tag}")
     assert (await _hold(world, held, "user", a.tech_a)).status_code == 200
-    # Held by something other than a person (fitted into another asset): no owner.
+    # Held by something other than a person: fitted into another asset, or a department.
     host = await _asset(world, f"Host workstation {tag}")
-    by_group = await _asset(world, f"Fitted laptop {tag}")
-    assert (await _hold(world, by_group, "asset", host["id"])).status_code == 200
+    fitted = await _asset(world, f"Fitted laptop {tag}")
+    assert (await _hold(world, fitted, "asset", host["id"])).status_code == 200
+    department = await world.call(
+        "POST", "/organization/departments", a, a.admin, json={"name": f"Owners {tag}"}
+    )
+    assert department.status_code == 201, department.text
+    shared = await _asset(world, f"Department printer {tag}")
+    assert (await _hold(world, shared, "department", department.json()["id"])).status_code == 200
+    # A disposed asset still held by a person: its holder is still its owner (lane B's review).
+    disposed = await _asset(world, f"Disposed laptop {tag}")
+    assert (await _hold(world, disposed, "user", a.tech_c)).status_code == 200
+    await world.sql(  # superuser: the tenant filtered by hand
+        "UPDATE assets SET state_id = (SELECT id FROM asset_states"
+        " WHERE tenant_id = $1 AND category = 'disposed' LIMIT 1)"
+        " WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(disposed["id"]),
+    )
     gone = await _asset(world, f"Gone laptop {tag}")
     assert (await _hold(world, gone, "user", a.tech_b)).status_code == 200
     await world.sql("UPDATE assets SET deleted_at = now() WHERE id = $1", uuid.UUID(gone["id"]))
     loose = await _asset(world, f"Loose laptop {tag}")
-    ids = [uuid.UUID(x["id"]) for x in (held, by_group, gone, loose)]
+    ids = [uuid.UUID(x["id"]) for x in (held, fitted, shared, disposed, gone, loose)]
 
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
-        assert await assets.owners_of(session, ids) == {ids[0]: a.tech_a}
+        assert await assets.owners_of(session, ids) == {ids[0]: a.tech_a, ids[3]: a.tech_c}
         assert await assets.owners_of(session, []) == {}
     async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
         assert await assets.owners_of(session, ids) == {}  # tenant A's assets: nothing
@@ -53,9 +69,11 @@ async def test_ci_owners_are_the_owner_person_and_group(world: World) -> None:
         )
     ).json()
     nobody = (await _ci(world, a, f"Unowned box {tag}")).json()
+    # Only managed by a group: never an owner (the negative control for "never managed_by").
+    managed = (await _ci(world, a, f"Managed box {tag}", managed_by_group_id=str(a.ga))).json()
     gone = (await _ci(world, a, f"Gone box {tag}", owner_user_id=str(a.tech_a))).json()
     await world.sql("UPDATE cmdb_cis SET deleted_at = now() WHERE id = $1", uuid.UUID(gone["id"]))
-    ids = [uuid.UUID(x["id"]) for x in (person, group_only, both, nobody, gone)]
+    ids = [uuid.UUID(x["id"]) for x in (person, group_only, both, nobody, gone, managed)]
 
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         found = await cmdb.owners_of(session, ids)

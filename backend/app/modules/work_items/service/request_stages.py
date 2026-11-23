@@ -12,7 +12,8 @@ record (`approval_stages`, `domain/stage_snapshot`), and its stages open one ste
   rejected step ends the request's approval and withdraws the step's other pending rows; an
   approved one opens the next step; the last one finishes the request as today.
 
-Items with one stage of today's kinds never come here (condition 5: `is_staged`).
+Items with one stage of today's kinds never come here (condition 5): the catalog says which,
+through `RequestItem.uses_stages`, the same answer that gates saving the item.
 """
 
 import contextlib
@@ -26,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules import assets, cmdb, organization, service_catalog
 from app.modules.audit import WORKER as AUDIT_WORKER
 from app.modules.audit import record as record_audit
-from app.modules.identity_access import person_placement
+from app.modules.identity_access import active_user_ids, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import stage_snapshot
@@ -61,7 +62,7 @@ def snapshot_of(item: service_catalog.RequestItem) -> tuple[stage_snapshot.SnapS
 
 def staged(item: service_catalog.RequestItem | None) -> bool:
     """Whether a new request from `item` runs on the stages (else today's single stage)."""
-    return item is not None and item.needs_approval and progression.is_staged(snapshot_of(item))
+    return item is not None and item.needs_approval and item.uses_stages
 
 
 def _values(record: WorkItem) -> dict[str, Any]:
@@ -105,10 +106,17 @@ def _outcomes(
 
 
 async def _eligible(session: AsyncSession, people: set[uuid.UUID]) -> dict[uuid.UUID, bool]:
+    """Who may approve: a live, active person of this tenant who may sign in.
+
+    Existence comes first (`active_user_ids`: this tenant's rows only, never deleted, inactive
+    or service identities), so an ID nobody holds here (a random UUID in a "person" answer, or
+    another tenant's user, which RLS hides) is never an approver (lane B's #582 review):
+    `person_placement` alone answers an unknown ID with its defaults.
+    """
+    known = await active_user_ids(session, sorted(people, key=str))
     found: dict[uuid.UUID, bool] = {}
     for person in people:
-        placement = await person_placement(session, person)
-        found[person] = placement.active and placement.can_sign_in
+        found[person] = person in known and (await person_placement(session, person)).can_sign_in
     return found
 
 
@@ -159,13 +167,13 @@ async def _candidates(  # noqa: C901, PLR0912 - one branch per approver kind, fl
             # A request's CIs come with WP-053 S5 (work_item_cis); until then none are linked,
             # so this approver names nobody and the stage falls back, recorded (condition 3).
             ci_ids: list[uuid.UUID] = []
-            for owner in (await cmdb.owners_of(session, ci_ids)).values():
-                if owner.user_id is not None:
-                    found.append(Candidate(owner.user_id, named))
-                elif owner.group_id is not None:
-                    found += [
-                        Candidate(u, named) for u in await _group_members(session, owner.group_id)
-                    ]
+            ci_owners = await cmdb.owners_of(session, ci_ids)
+            people, groups = progression.ci_owner_targets(
+                [(o.user_id, o.group_id) for o in ci_owners.values()]
+            )
+            found += [Candidate(u, named) for u in people]
+            for group in groups:
+                found += [Candidate(u, named) for u in await _group_members(session, group)]
     return found
 
 

@@ -160,6 +160,9 @@ async def test_a_stage_whose_condition_fails_is_skipped_and_shown_with_it(world:
     assert skipped["can_decide"] is False
     [waiting] = _of(entries, 2)
     assert (waiting["approver_id"], waiting["state"]) == (str(a.tech_b), "pending")
+    # The requester sees why (the labelled reason), never the item's condition (lane C, #582).
+    [theirs] = _of(await approvals(world, a, a.requester, record), 1)
+    assert (theirs["skip_reason"], theirs["condition"]) == ("condition_not_met", None)
 
 
 async def test_every_stage_skipped_approves_the_request_at_once(world: World) -> None:
@@ -362,6 +365,16 @@ async def test_a_downgrade_finishes_requests_in_flight_and_refuses_new_ones_clea
     )
     assert problem(again) == (403, "entitlement_required")
 
+    # A copy is a new item: the same gate (lane C's #582 review).
+    copied = await world.call(
+        "POST",
+        f"/catalog/items/{item['id']}/copy",
+        org,
+        admin,
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert problem(copied) == (403, "entitlement_required")
+
     # The item: its stages refused again, one stage allowed.
     path = f"/catalog/items/{item['id']}"
     current = (await world.call("GET", path, org, admin)).json()
@@ -388,3 +401,81 @@ async def test_a_downgrade_finishes_requests_in_flight_and_refuses_new_ones_clea
     )
     assert later.status_code == 201, later.text
     assert await _snapshot(world, later.json()) is None  # today's single stage again
+
+
+async def test_a_person_answer_names_an_approver_only_if_they_are_a_live_person_here(
+    world: World,
+) -> None:
+    """Lane B's and the coordinator's #582 review: a "person" answer is only shape-checked by the
+    form, so the server refuses one nobody holds here (a random ID, or another tenant's real
+    user, hidden by RLS) as the answer's labelled field problem, never a 500, and never repeats
+    the ID. A live person of the tenant is named as the stage's approver.
+    """
+    a, b = world.a, world.b
+    questions = [
+        {
+            "key": "model",
+            "label": {"en": "Model"},
+            "kind": "choice",
+            "required": True,
+            "options": ["air", "pro"],
+        },
+        {"key": "buddy", "label": {"en": "Who helps"}, "kind": "person", "required": False},
+    ]
+    stages = [
+        {"approvers": [{"kind": "person_answer", "question_key": "buddy"}]},
+        _person(a.tech_b),
+    ]
+    item = await an_item(world, a, questions=questions, approval=_staged(stages))
+
+    async def raised(buddy: uuid.UUID) -> Any:  # noqa: ANN401 - the response
+        return await raise_request(
+            world,
+            a,
+            a.requester,
+            catalog_item_id=item["id"],
+            answers={"model": "air", "buddy": str(buddy)},
+        )
+
+    for stranger in (uuid.uuid4(), b.tech_a):  # tenant B's real technician
+        refused = await raised(stranger)
+        assert problem(refused) == (422, "validation_failed"), refused.text
+        assert [(e["field"], e["code"]) for e in refused.json()["errors"]] == [
+            ("body.answers.buddy", "user_not_found")
+        ]
+        assert str(stranger) not in refused.text  # never named back
+    made = await raised(a.tech_c)
+    assert made.status_code == 201, made.text
+    [entry] = _of(await approvals(world, a, a.admin, made.json()), 1)
+    assert (entry["approver_id"], entry["origin"]) == (str(a.tech_c), "named")
+
+
+async def test_every_stage_names_only_this_tenants_people_and_groups(world: World) -> None:
+    """The coordinator's #582 rule for settings: a later stage's named approver, backup or
+    group that is not this tenant's is its field's `not_found`, and the ID is never echoed.
+    """
+    a, b = world.a, world.b
+    stranger, nowhere = b.tech_a, uuid.uuid4()
+    stages = [
+        _person(a.tech_a),
+        _person(stranger, backup_id=str(stranger)),
+        {"approvers": [{"kind": "group", "group_id": str(nowhere)}]},
+    ]
+    refused = await add_item(
+        world,
+        a,
+        a.admin,
+        questions=[
+            {"key": "model", "label": {"en": "Model"}, "kind": "choice", "options": ["air"]}
+        ],
+        approval=_staged(stages),
+        group_id=str(a.ga),
+    )
+    assert problem(refused) == (422, "validation_failed"), refused.text
+    assert {(e["field"], e["code"]) for e in refused.json()["errors"]} == {
+        ("body.approval.stages.1.approvers.0.person_id", "not_found"),
+        ("body.approval.stages.1.backup_id", "not_found"),
+        ("body.approval.stages.2.approvers.0.group_id", "not_found"),
+    }
+    assert str(stranger) not in refused.text
+    assert str(nowhere) not in refused.text

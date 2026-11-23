@@ -371,14 +371,38 @@ def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rul
 async def _group_problems(
     session: AsyncSession, item: CatalogItem, rules: ItemRules
 ) -> list[tuple[str, str]]:
+    staged = _staged_named(rules)
+    stage_groups = {at: g for at, (kind, g) in staged.items() if kind == "group"}
     wanted = {g for g in (item.group_id, *(t.group_id for t in rules.plan)) if g is not None}
+    wanted |= set(stage_groups.values())
     known = await existing_unit_ids(session, "group", sorted(wanted, key=str))
     found = [("group_id", "not_found")] if item.group_id not in {None, *known} else []
+    found += [(at, "not_found") for at, group in stage_groups.items() if group not in known]
     return found + [
         (f"plan.{i}.group_id", "not_found")
         for i, task in enumerate(rules.plan)
         if task.group_id is not None and task.group_id not in known
     ]
+
+
+def _staged_named(rules: ItemRules) -> dict[str, tuple[str, uuid.UUID]]:
+    """Every person and group the stages name, by field path (WP-047a S2a; #582 review).
+
+    Each stage's named approvers, groups and backup are checked like stage 1's, so no stage
+    can name an ID that is not this tenant's.
+    """
+    several = len(rules.stages) > 1  # one stage's people are `approval.*`, checked already
+    named: dict[str, tuple[str, uuid.UUID]] = {}
+    for n, stage in enumerate(rules.stages):
+        at = f"approval.stages.{n}" if several else "approval"
+        for i, a in enumerate(stage.approvers):
+            if a.person_id is not None and several:
+                named[f"{at}.approvers.{i}.person_id"] = ("person", a.person_id)
+            if a.group_id is not None:
+                named[f"{at}.approvers.{i}.group_id"] = ("group", a.group_id)
+        if stage.backup_id is not None and several:
+            named[f"{at}.backup_id"] = ("person", stage.backup_id)
+    return named
 
 
 def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
@@ -400,6 +424,7 @@ def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
         for i, task in enumerate(rules.plan)
         if task.owner_id is not None
     }
+    people |= {at: who for at, (kind, who) in _staged_named(rules).items() if kind == "person"}
     return people
 
 
@@ -884,6 +909,9 @@ async def copy_item(
     require_manage(subject)
     row = await _live(session, item_id)
     values = {k: getattr(row, k) for k in ITEM_FIELDS}
+    # A copy is a new item: the same edition gates as saving one (lane C's #582 review), so a
+    # downgraded tenant cannot copy stages or a quantity into a new item.
+    await _quantity_licensed(subject, values)
     values |= {
         "names": copy_names(row.names, COPY_PREFIX),
         "featured": False,
@@ -992,6 +1020,12 @@ class RequestItem:
     requesters_see_approval: bool = True  # WP-031 plan D8
     # WP-047a S2a: every stage in order (the single-stage fields above stay for stage 1).
     stages: tuple[StageSpec, ...] = ()
+    # The keys of its "person" questions: each answer must name a live person of the tenant,
+    # which work_items checks on the server (lane B's and the coordinator's #582 review).
+    person_questions: tuple[str, ...] = ()
+    # Whether the stages engine runs it: the catalog's one answer (`uses_stages`), the same one
+    # that gates saving, so the save and the raise can never disagree (lane C's #582 review).
+    uses_stages: bool = False
 
 
 async def request_item(
@@ -1046,6 +1080,8 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         ),
         requesters_see_approval=item.requesters_see_approval,
         stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
+        person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
+        uses_stages=uses_stages(rules.stages),
     )
 
 

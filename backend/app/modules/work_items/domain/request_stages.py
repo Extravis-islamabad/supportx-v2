@@ -22,7 +22,6 @@ from app.modules.work_items.domain.approvals import (
     LevelOutcome,
     RouteReason,
 )
-from app.modules.work_items.domain.stage_snapshot import SnapStage
 
 
 @dataclass(frozen=True)
@@ -88,25 +87,6 @@ def request_outcome(
 
 # --- who holds a stage once its approvers are resolved -------------------------------------------
 
-LEGACY_KINDS = frozenset({"person", "requested_for_manager"})
-
-
-def is_staged(stages: Sequence[SnapStage]) -> bool:
-    """Whether a request runs on the stages engine; else it keeps today's one stage exactly.
-
-    The coordinator's condition 5: an item with one stage of today's kinds, rule `any`, no
-    condition and no parallel group behaves exactly as before S2a (and keeps no snapshot).
-    """
-    if len(stages) > 1:
-        return True
-    return any(
-        s.rule != "any"
-        or s.condition is not None
-        or s.parallel_group is not None
-        or any(a.kind not in LEGACY_KINDS for a in s.approvers)
-        for s in stages
-    )
-
 
 @dataclass(frozen=True)
 class Candidate:
@@ -114,6 +94,20 @@ class Candidate:
 
     user_id: uuid.UUID
     origin: ApproverOrigin
+
+
+def ci_owner_targets(
+    owners: Sequence[tuple[uuid.UUID | None, uuid.UUID | None]],
+) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    """Who a "CI owner" approver asks: (people, groups whose members are asked), in order.
+
+    Named on purpose (lane B's #582 review): a CI's owner person, when it has one, is the
+    accountable owner and approves alone; its owner group is asked only when no person is
+    named. `managed_by` is never an owner (cmdb's port does not return it).
+    """
+    people = [person for person, _ in owners if person is not None]
+    groups = [group for person, group in owners if person is None and group is not None]
+    return list(dict.fromkeys(people)), list(dict.fromkeys(groups))
 
 
 def assign(

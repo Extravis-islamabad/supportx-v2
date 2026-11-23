@@ -120,8 +120,10 @@ def _shown(
         ),
         self_approved=row.decided_by is not None
         and row.decided_by in {record.requester_id, requested_for(record)},
+        # The item's set-up, for staff only (lane C's #582 review): a requester sees why a
+        # stage was skipped (the labelled reason), never the item's condition itself.
         condition=request_stages.condition_of(record, row.stage)
-        if row.skip_reason is not None
+        if row.skip_reason is not None and _staff(subject, wtype)
         else None,
     )
 

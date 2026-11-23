@@ -2682,6 +2682,32 @@ async def _subject_from_item(
     return values if filled is None else {**values, "subject": filled}
 
 
+async def _person_answer_problems(
+    session: AsyncSession, item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> list[tuple[str, str]]:
+    """A "person" answer names a live, active person of this tenant (the coordinator's #582 rule).
+
+    The form only checks the shape of an ID; an ID nobody holds here (a random one, or another
+    tenant's user, which RLS hides) is the answer's field problem `user_not_found`, never a
+    server error, and the error never repeats the ID.
+    """
+    if item is None or not item.person_questions:
+        return []
+    answers = values.get("answers") or {}
+    named: dict[str, uuid.UUID] = {}
+    for key in item.person_questions:
+        try:
+            named[key] = uuid.UUID(str(answers[key]))
+        except (KeyError, ValueError):
+            continue  # unanswered, or not an ID: the form's own check says so
+    if not named:
+        return []
+    known = await active_user_ids(session, sorted(set(named.values()), key=str))
+    return [
+        (f"answers.{key}", "user_not_found") for key, person in named.items() if person not in known
+    ]
+
+
 async def _check_request_details(
     subject: Subject, item: service_catalog.RequestItem | None, values: Mapping[str, Any]
 ) -> None:
@@ -2895,6 +2921,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     await _check_request_details(subject, item, values)
     started = _started(item, cat)
     problems += [] if item is None else list(item.answer_problems)
+    problems += await _person_answer_problems(session, item, values)
     problems += [
         p
         for p in await templates.required_problems(
