@@ -201,6 +201,15 @@ async def test_sensitive_fields_are_hidden_and_personal_ones_masked(
     # D-180: e-mail and phone stay withheld whatever unmask_personal says; names show by default.
     assert (unmasked.mask_contacts, unmasked.mask_names) == (True, False)
     assert dict(unmasked.field_access["support_test"]) == {"custom.salary": "hidden"}
+    # D-180 (0188): the grant's "Mask names too" tick reaches the subject.
+    await _sql(
+        world,
+        "UPDATE support_grants SET mask_names = true WHERE tenant_id = $1 AND id = $2",
+        world.a.tenant,
+        uuid.UUID(grant_id),
+    )
+    named = await _compiled(world, user_id)
+    assert (named.mask_contacts, named.mask_names) == (True, True)
 
 
 async def test_support_saves_workflow_drafts_and_never_publishes_or_runs_them(

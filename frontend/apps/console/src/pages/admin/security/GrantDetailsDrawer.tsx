@@ -145,6 +145,9 @@ export function GrantDetailsDrawer({
           <Descriptions.Item label={t('vendor_support.field.unmask')}>
             {grant.unmask_personal ? t('vendor_support.yes') : t('vendor_support.no')}
           </Descriptions.Item>
+          <Descriptions.Item label={t('vendor_support.field.mask_names')}>
+            {grant.mask_names ? t('vendor_support.yes') : t('vendor_support.no')}
+          </Descriptions.Item>
           <Descriptions.Item label={t('vendor_support.window')}>
             {format(grant.starts_at)} – {format(grant.ended_at ?? grant.ends_at)}
           </Descriptions.Item>

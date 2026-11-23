@@ -661,6 +661,8 @@ class SupportGrant(TenantEntity):
     access: Mapped[str] = mapped_column(String(20), server_default="view")
     change_reason: Mapped[str | None] = mapped_column(String(500))
     unmask_personal: Mapped[bool] = mapped_column(server_default="false")
+    # D-180 (0188): the grant's "Mask names too" tick; e-mail and phone are always masked.
+    mask_names: Mapped[bool] = mapped_column(server_default="false")
     ip_allowlist: Mapped[list[str]] = mapped_column(
         ARRAY(CIDR), server_default=text("'{}'::cidr[]")
     )

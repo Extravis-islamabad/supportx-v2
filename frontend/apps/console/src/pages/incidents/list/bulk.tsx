@@ -42,6 +42,7 @@ import { BULK_ACTIONS, BULK_MAX, skipReason, useBulkLive, type Selection } from 
 import { CategoryCascade } from '../CategoryCascade';
 import { closureCodeChoices, listValueLabel, scaleLabel } from '../labels';
 import { GroupPicker, SitePicker } from '../pickers';
+import { shownName, useHiddenPersonLabel } from '../../../maskedPeople';
 
 // Select across pages and bulk changes (REQ-INC-119, 120). Up to 1,000 records run as a background
 // job as you: each record keeps its own permissions, transitions and closure rules, and one that
@@ -188,6 +189,7 @@ export function BulkDialog({
   base?: BulkBase;
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const start = useStartBulk(base);
   const { locale } = useAppearance();
   const catalogue = useIncidentCatalogue(action !== null && base === 'incidents');
@@ -409,7 +411,10 @@ export function BulkDialog({
               onChange={(v: string | undefined) => {
                 setTechnicianId(v ?? null);
               }}
-              options={(assignees.data ?? []).map((a) => ({ value: a.id, label: a.display_name }))}
+              options={(assignees.data ?? []).map((a) => ({
+                value: a.id,
+                label: shownName(a.display_name, hidden),
+              }))}
               data-testid="inc-bulk-technician"
             />
             <Checkbox

@@ -75,6 +75,7 @@ import { IncidentPicker } from './IncidentPicker';
 import { statusLabel } from './labels';
 import { UserPicker } from './pickers';
 import { TaskDetails } from './TaskDetails';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 // Tasks, worklogs and links of an incident (WP-020e; REQ-INC-067, 072, 084). Each list follows
 // the record's channel (`work_items.part_changed`), so two windows see the same thing live.
@@ -112,13 +113,16 @@ function clearIfSent<T>(sent: T, empty: T): (current: T) => T {
 }
 
 function usePeople(ids: (string | null | undefined)[]): Map<string, string> {
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const wanted = [...new Set(ids.filter((id): id is string => typeof id === 'string'))].sort();
   const users = useUsers(
     { filter: { field: 'id', op: 'in', value: wanted }, limit: 100 },
     wanted.length > 0,
   );
   return new Map(
-    (users.data?.pages ?? []).flatMap((page) => page.items).map((u) => [u.id, u.display_name]),
+    (users.data?.pages ?? [])
+      .flatMap((page) => page.items)
+      .map((u) => [u.id, shownName(u.display_name, hidden)]),
   );
 }
 
@@ -1135,6 +1139,7 @@ const LINK_PATHS: Record<string, string> = {
 
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const found = useIncidentLinks(item.id);
   const change = useLinkChange(item.id);
   const children = useChildChange(item.id);
@@ -1253,7 +1258,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
               from={{
                 id: item.id,
                 requesterId: item.requester_id,
-                requesterName: requester?.display_name ?? '',
+                requesterName: shownName(requester?.display_name, hidden),
               }}
               testId="inc-link-other"
               ariaLabel={t('incidents.links.other')}

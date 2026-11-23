@@ -134,7 +134,7 @@ import { TagsInput } from './TagsInput';
 import { CausingProblemCard } from './CausingProblemCard';
 import { RecordAssets } from './RecordAssets';
 import { CancellationAsk } from './CancellationAsk';
-import { useHiddenPersonLabel } from '../../maskedPeople';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -1084,6 +1084,7 @@ function Details({
   part: 'main' | 'properties';
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
@@ -1112,7 +1113,11 @@ function Details({
   const person = (id: string | null) =>
     id === null
       ? null
-      : { id, name: item.people[id]?.display_name ?? '', email: item.people[id]?.email ?? '' };
+      : {
+          id,
+          name: shownName(item.people[id]?.display_name, hidden),
+          email: item.people[id]?.email ?? '',
+        };
   // The subject is the header's title (edited there) and the creation time is in its key facts:
   // neither repeats here (D-147: no duplicate Subject). `filled` decides what shows at once.
   const rows: {
@@ -1403,12 +1408,13 @@ function Details({
 }
 
 function Person({ item, id }: { item: Incident; id: string | null }) {
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   if (id === null) return null;
   const found = item.people[id];
   if (found === undefined) return null;
   return (
     <Tooltip title={found.email}>
-      <span>{found.display_name}</span>
+      <span>{shownName(found.display_name, hidden)}</span>
     </Tooltip>
   );
 }
