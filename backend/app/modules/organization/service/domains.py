@@ -105,6 +105,38 @@ async def list_domains(session: AsyncSession) -> list[DomainView]:
     return [_view(row) for row in rows]
 
 
+@dataclass(frozen=True)
+class TenantAddresses:
+    """What sign-in registration needs of a tenant's addresses (ADR-031): read only."""
+
+    slug: str
+    verified_hosts: tuple[str, ...]
+
+
+async def tenant_addresses(session: AsyncSession) -> TenantAddresses:
+    """The session's tenant's slug and its verified custom domains (never pending or failed)."""
+    from app.modules.organization.service.tenants import get_current_tenant  # noqa: PLC0415
+
+    tenant = await get_current_tenant(session)
+    hosts = await session.scalars(
+        select(TenantDomain.host)
+        .where(
+            TenantDomain.deleted_at.is_(None),
+            TenantDomain.status == DomainStatus.VERIFIED.value,
+        )
+        .order_by(TenantDomain.host)
+    )
+    return TenantAddresses(slug=tenant.slug, verified_hosts=tuple(hosts))
+
+
+async def domain_host(session: AsyncSession, domain_id: uuid.UUID) -> str | None:
+    """A custom domain's host, also after it was removed (an event names it by ID only)."""
+    found: str | None = await session.scalar(
+        select(TenantDomain.host).where(TenantDomain.id == domain_id)
+    )
+    return found
+
+
 async def _row(session: AsyncSession, domain_id: uuid.UUID) -> TenantDomain:
     row = await session.scalar(
         select(TenantDomain).where(TenantDomain.id == domain_id, TenantDomain.deleted_at.is_(None))

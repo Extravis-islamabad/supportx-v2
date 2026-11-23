@@ -238,6 +238,8 @@ export const ar: LabelResource = {
   'audit.action.group.member_removed': 'أزال شخصًا من مجموعة',
   'audit.action.group.renamed': 'أعاد تسمية مجموعة',
   'audit.action.identity.break_glass_changed': 'غيّر مسؤول طوارئ',
+  'audit.action.identity.client_addresses_changed':
+    'غيّر عناوين تسجيل الدخول للوحة التحكم والبوابة',
   'audit.action.identity.domain_added': 'أضاف نطاقًا للتحقق منه',
   'audit.action.identity.domain_checked': 'تحقّق من سجل التحقق لنطاق',
   'audit.action.identity.domain_removed': 'أزال نطاقًا',
@@ -729,6 +731,7 @@ export const ar: LabelResource = {
   'audit.object.service_request_template': 'قالب طلبات خدمة',
   'audit.object.session_key': 'مفتاح تسجيل الدخول',
   'audit.object.siem_destination': 'وجهة مراقبة الأمان',
+  'audit.object.sign_in_client': 'عميل تسجيل الدخول',
   'audit.object.site': 'موقع',
   'audit.object.sla_calendar': 'تقويم العمل',
   'audit.object.sla_holiday_list': 'قائمة العطلات',
