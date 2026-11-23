@@ -1211,3 +1211,74 @@ def test_e1_repair_gives_a_fulfilled_request_its_fulfiller_once_and_audits_it(
     assert asyncio.run(_audit_chain(database.app_url)) == "passed"
     assert asyncio.run(repair.run(settings, write=False)) == []  # once
     assert repair.refuse("other", settings) is not None
+
+
+async def _persona_view(settings: Settings, url: str) -> dict[str, Any]:  # Any: per persona
+    """What Omar (technician only) and Sana (also tenant_admin) see of the critical CIs.
+
+    `url` is the admin connection (RLS-free), so the lookup filters the tenant itself.
+    """
+    conn = await asyncpg.connect(url)
+    try:
+        ids = {
+            r["email"]: r["id"]
+            for r in await conn.fetch(
+                "SELECT id, email FROM users WHERE tenant_id = $1 AND email = ANY($2::text[])",
+                seed.TENANT_ID,
+                [seed.TECHNICIAN.email, seed.ADMIN.email],
+            )
+        }
+    finally:
+        await conn.close()
+    contexts = {
+        ids[p.email]: TenantContext(seed.TENANT_ID, ids[p.email], roles=frozenset(p.roles))
+        for p in (seed.TECHNICIAN, seed.ADMIN)
+    }
+    seen: dict[str, Any] = {}
+    async with seed.console_api(settings, contexts) as client:
+        sana = seed.Api(client, ids[seed.ADMIN.email])
+        by_name = {c["name"]: c["id"] for c in await sana.all_pages(f"{cmdb.BASE}/cis")}
+        engine = by_name["Payroll engine"]
+        for person in (seed.TECHNICIAN, seed.ADMIN):
+            headers = {seed.SEED_HEADER: str(ids[person.email])}
+            api = seed.Api(client, ids[person.email])
+            names = {c["name"] for c in await api.all_pages(f"{cmdb.BASE}/cis")}
+            opened = {
+                name: (
+                    await client.get(f"{cmdb.BASE}/cis/{by_name[name]}", headers=headers)
+                ).status_code
+                for name in ("Payroll database", "ERP database", "Payroll engine")
+            }
+            graph = await api.call("GET", f"{cmdb.BASE}/cis/{engine}/neighbours")
+            seen[person.first_name] = {
+                "listed": {"Payroll database", "ERP database", "Payroll engine"} & names,
+                "opened": opened,
+                "restricted": sum(n["restricted"] for n in graph["nodes"]),
+                "restricted_named": [n for n in graph["nodes"] if n["restricted"] and n["name"]],
+            }
+    return seen
+
+
+def test_the_access_rule_keeps_critical_cis_from_the_technician_only(
+    seeded_copy: tuple[db_testing.ThrowawayDatabase, FakeKeycloak],
+) -> None:
+    """ADR-053 as the showcase shows it: Omar sees the critical databases as placeholders.
+
+    Sana holds `technician` too, but also `tenant_admin`, which is not narrowed (the union of a
+    person's roles): she sees and opens everything. Omar can't list or open the two critical
+    databases (404, as a missing CI), and the payroll engine's map shows the one it runs on as a
+    restricted node with no name.
+    """
+    database, _ = seeded_copy
+    settings = make_settings(
+        database_url=database.app_url, migration_database_url=database.migrator_url
+    )
+    seen = asyncio.run(_persona_view(settings, database.admin_url))
+    critical = {"Payroll database", "ERP database"}
+    assert seen["Sana"]["listed"] == critical | {"Payroll engine"}
+    assert seen["Sana"]["opened"] == dict.fromkeys(critical | {"Payroll engine"}, 200)
+    assert seen["Sana"]["restricted"] == 0
+    assert seen["Omar"]["listed"] == {"Payroll engine"}
+    assert seen["Omar"]["opened"] == {**dict.fromkeys(critical, 404), "Payroll engine": 200}
+    assert seen["Omar"]["restricted"] == 1  # the payroll database, by key only
+    assert seen["Omar"]["restricted_named"] == []
