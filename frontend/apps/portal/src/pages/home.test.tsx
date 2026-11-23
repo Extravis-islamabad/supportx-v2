@@ -63,6 +63,7 @@ const LAPTOP = item('01a1a2b3-0000-7000-8000-00000000d001', 'New laptop', {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
   },
 });

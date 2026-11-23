@@ -42,6 +42,7 @@ from app.modules.work_items.domain.approvals import (
     ApproverOrigin,
     DecisionChannel,
     RouteReason,
+    SkipReason,
 )
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.conversation import (
@@ -903,6 +904,8 @@ class WorkItem(TenantEntity):
     item_sla_policy_id: Mapped[uuid.UUID | None]
     # Custom field values by key (WP-026, metadata module); typed JSON, GIN-indexed.
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    # WP-047a S2a (0194): a request's approval stages as submitted (`domain/stage_snapshot`).
+    approval_stages: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Their free text (text, long text, email, phone, web address), kept on every save for
     # search: a generated column cannot tell free text from choice codes (D-087).
     custom_text: Mapped[str | None] = mapped_column(Text)
@@ -1908,6 +1911,9 @@ class WorkItemApproval(TenantEntity):
         CheckConstraint("comment IS NULL OR char_length(comment) <= 4000", name="comment_length"),
         CheckConstraint("stage >= 1", name="stage_positive"),
         CheckConstraint(
+            "skip_reason IS NULL OR " + _codes("skip_reason", SkipReason), name="skip_reason_code"
+        ),
+        CheckConstraint(
             "board_reason IS NULL OR board_reason IN ('mapped', 'default')",
             name="board_reason_code",
         ),
@@ -1948,6 +1954,9 @@ class WorkItemApproval(TenantEntity):
     approver_id: Mapped[uuid.UUID | None]
     origin: Mapped[str] = mapped_column(String(20))
     route_reason: Mapped[str | None] = mapped_column(String(30))
+    # WP-047a S2a (0194): a request stage's parallel group, and why a stage was skipped.
+    branch: Mapped[str | None] = mapped_column(String(40))
+    skip_reason: Mapped[str | None] = mapped_column(String(40))
     # WP-045b S3 (0117): the change advisory board this row came from, and why that board.
     board_id: Mapped[uuid.UUID | None]
     board_reason: Mapped[str | None] = mapped_column(String(10))

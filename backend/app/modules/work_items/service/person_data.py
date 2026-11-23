@@ -8,7 +8,9 @@ Two ports, so references go before owned rows (the bands):
   role holds and board seats go; their addresses come off the people kept informed and off
   other conversations' to/cc (the messages stay); boards and the approval chair they held pass
   to the successor; open tasks they own become unassigned; their pending approvals go to the
-  approval administrators (`approver_erased`), never granted.
+  approval administrators (`approver_erased`), never granted; requests' snapshotted approval
+  stages drop them as a named approver or backup (WP-047a S2a: such a stage then falls back to
+  the approval administrators when it opens).
 - `work_items.owned` (550): their private rows go for good (list settings, reminders, timers,
   drafts, private views, personal reply templates); shared views and templates pass to the
   successor; the records they requested or were raised for lose the requester's text (the
@@ -38,6 +40,7 @@ from app.modules.identity_access import (
 )
 from app.modules.metadata import FieldType
 from app.modules.work_items.domain import approvals as approval_rules
+from app.modules.work_items.domain import stage_snapshot
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES
 from app.modules.work_items.domain.parts import OPEN_TASK_STATUSES
 from app.modules.work_items.infra.models import (
@@ -195,6 +198,40 @@ async def _approvals(run: Run, after: uuid.UUID | None) -> tuple[dict[str, int],
     return ({"approvals_rerouted": moved} if moved else {}), None
 
 
+async def _stage_snapshots(
+    run: Run, after: uuid.UUID | None
+) -> tuple[dict[str, int], uuid.UUID | None]:
+    """Requests' snapshotted stages that name them (WP-047a S2a; the snapshot condition 2).
+
+    The text match only narrows the rows; the domain decides what names them, and a stored
+    value of another shape stops the run (never guessed at).
+    """
+    query = (
+        select(WorkItem)
+        .where(
+            WorkItem.approval_stages.is_not(None),
+            cast(WorkItem.approval_stages, Text).contains(str(run.person_id)),
+        )
+        .order_by(WorkItem.id)
+        .limit(ERASE_BATCH)
+        .with_for_update()
+    )
+    if after is not None:
+        query = query.where(WorkItem.id > after)
+    rows = list((await run.session.scalars(query)).all())
+    changed = 0
+    for row in rows:
+        stages = stage_snapshot.from_json(row.approval_stages)
+        if run.person_id in stage_snapshot.person_ids(stages):
+            row.approval_stages = stage_snapshot.to_json(
+                stage_snapshot.without_person(stages, run.person_id)
+            )
+            changed += 1
+    await run.session.flush()
+    last = rows[-1].id if len(rows) == ERASE_BATCH else None
+    return ({"stage_approvers_removed": changed} if changed else {}), last
+
+
 async def _addresses(run: Run) -> set[str]:
     key = str(run.person_id)
     contact = (await user_contacts(run.session, [key])).get(key)
@@ -276,6 +313,7 @@ REFERENCE_PHASES: tuple[tuple[str, Batch], ...] = (
     ("chairs", _chairs),
     ("tasks", _tasks),
     ("approvals", _approvals),
+    ("stage_snapshots", _stage_snapshots),
     ("kept_informed", _kept_informed),
     ("recipients", _recipients),
 )
@@ -294,6 +332,7 @@ class References:
             "chairs_handed_over",
             "tasks_unassigned",
             "approvals_rerouted",
+            "stage_approvers_removed",
             "notify_addresses_removed",
             "recipient_addresses_removed",
         }

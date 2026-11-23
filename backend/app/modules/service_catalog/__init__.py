@@ -23,8 +23,10 @@ from app.modules.service_catalog.service import person_data
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
     AgainForm,
+    ApproverSpec,
     PlanStep,
     RequestItem,
+    StageSpec,
     again_form,
     item_decides,
     request_item,
@@ -71,8 +73,10 @@ module = ModuleSpec(
 
 __all__ = [
     "AgainForm",
+    "ApproverSpec",
     "PlanStep",
     "RequestItem",
+    "StageSpec",
     "again_form",
     "catalog_settings",
     "item_decides",

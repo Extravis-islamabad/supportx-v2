@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from app.shared.conditions import condition_problems
+
 LANGUAGES = ("en", "ar", "ur")
 NAME_MAX = 120
 TEXT_MAX = 2000  # a short answer
@@ -82,10 +84,35 @@ MAX_ATTACHMENTS = 10
 
 
 class ApproverKind(StrEnum):
-    """Who decides a stage (REQ-SR-022): a named person, or the requested-for person's manager."""
+    """Who decides a stage (REQ-SR-022, -031), relative to the requested-for person or named.
+
+    Each resolves to people when the stage opens; one that resolves to nobody falls back to
+    the approval administrators, recorded (REQ-SR-023; WP-047a S2 condition 3).
+    """
 
     PERSON = "person"
     REQUESTED_FOR_MANAGER = "requested_for_manager"
+    # WP-047a S2a (REQ-SR-031): Professional (`catalog`, D-133).
+    MANAGER_OF_MANAGER = "manager_of_manager"
+    DEPARTMENT_HEAD = "department_head"  # the requested-for person's department's head
+    GROUP_LEADS = "group_leads"  # the request's group's team leads (D-152)
+    GROUP = "group"  # every member of a named group who may approve
+    PERSON_ANSWER = "person_answer"  # the person a "person" question's answer names
+    ASSET_OWNER = "asset_owner"  # the holder of the asset(s) the request is about
+    CI_OWNER = "ci_owner"  # the owner of the CI(s) the request is about (person or group)
+
+
+class StageRule(StrEnum):
+    """How a stage's approvers decide it (REQ-SR-029; the level engine's rules).
+
+    "First decision" is `any` (the coordinator's Q5): the first approval approves, a rejection
+    rejects. Majority ties follow the tenant's tie rule (D-146: a tie rejects unless the chair
+    decides it).
+    """
+
+    ANY = "any"
+    ALL = "all"
+    MAJORITY = "majority"
 
 
 Problem = tuple[str, str]  # (field path, code)
@@ -124,10 +151,12 @@ class Question:
 
 @dataclass(frozen=True)
 class Approver:
-    """One approver of a stage."""
+    """One approver of a stage: a kind and what it names (a person, a group or a question)."""
 
     kind: ApproverKind
     person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None  # GROUP
+    question_key: str | None = None  # PERSON_ANSWER: a "person" question of the form
 
 
 @dataclass(frozen=True)
@@ -138,6 +167,12 @@ class ApprovalStage:
     backup_id: uuid.UUID | None = None  # REQ-SR-023: before the approval administrators
     comments_required: bool = False  # REQ-SR-028
     self_approval: bool = False  # REQ-SR-027: off = segregation of duties
+    # WP-047a S2a: how it is decided (REQ-SR-029), the stages it runs with (REQ-SR-030: the
+    # same group opens together), and when it applies at all (REQ-SR-032: the shared DSL over
+    # the answers and the quantity; None: always).
+    rule: StageRule = StageRule.ANY
+    parallel_group: str | None = None
+    condition: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -156,12 +191,14 @@ class ItemRules:
     """What an item decides for its requests."""
 
     questions: Sequence[Question] = ()
-    approval: ApprovalStage | None = None
+    approval: ApprovalStage | None = None  # the first stage (as before WP-047a S2a)
     plan: Sequence[PlannedTask] = ()
     technician_after_approval: bool = False  # REQ-SR-008
     count_approval_time: bool = False  # REQ-SR-007: off = the clock waits for approval
     auto_fulfil: bool = True  # REQ-SR-058
     extra: Mapping[str, Any] = field(default_factory=dict)
+    # WP-047a S2a: every stage in order (`approval` is the first); empty: no approval.
+    stages: Sequence[ApprovalStage] = ()
 
 
 def name_problems(at: str, names: Mapping[str, str] | None, *, required: bool) -> list[Problem]:
@@ -236,6 +273,71 @@ def _help_problems(at: str, help_text: Mapping[str, str]) -> list[Problem]:
     return found
 
 
+# REQ-SR-029 AC4: requests take up to 10 stages (the coordinator's condition 4); the staged
+# record types keep their own cap (work_items `MAX_LEVELS`, 5).
+MAX_STAGES = 10
+PARALLEL_GROUP = re.compile(r"^[a-z0-9_]{1,40}$")
+_NEEDS_PERSON = frozenset({ApproverKind.PERSON})
+_NAMES_NOTHING = frozenset(
+    {
+        ApproverKind.REQUESTED_FOR_MANAGER,
+        ApproverKind.MANAGER_OF_MANAGER,
+        ApproverKind.DEPARTMENT_HEAD,
+        ApproverKind.GROUP_LEADS,
+        ApproverKind.ASSET_OWNER,
+        ApproverKind.CI_OWNER,
+    }
+)
+
+
+TODAYS_KINDS = frozenset({ApproverKind.PERSON, ApproverKind.REQUESTED_FOR_MANAGER})
+
+
+def uses_stages(stages: Sequence[ApprovalStage]) -> bool:
+    """Whether an approval uses a Professional part of S2a (`catalog`; spec editions, D-133).
+
+    Each part is gated by its own requirement's edition, all Professional:
+    REQ-SR-029 (several stages, or a rule other than `any`), REQ-SR-030 (a parallel group),
+    REQ-SR-031 (an approver kind beyond a named person and the manager), REQ-SR-032 (a
+    condition). Today's single stage stays on every edition (the coordinator's condition 5).
+    """
+    multi_stage = len(stages) > 1 or any(s.rule is not StageRule.ANY for s in stages)  # 029
+    parallel = any(s.parallel_group is not None for s in stages)  # 030
+    kinds = any(a.kind not in TODAYS_KINDS for s in stages for a in s.approvers)  # 031
+    conditional = any(s.condition is not None for s in stages)  # 032
+    return multi_stage or parallel or kinds or conditional
+
+
+def stages_problems(
+    stages: Sequence[ApprovalStage], questions: Sequence[Question]
+) -> list[Problem]:
+    """Every stage's problems, at `approval.stages.<n>` (WP-047a S2a; REQ-SR-029..032).
+
+    At most `MAX_STAGES`; each names its approvers as its kind needs; a person answer names a
+    "person" question of this form; a condition is the shared DSL over the answers and the
+    quantity, checked exactly as form rules are (condition 4).
+    """
+    if len(stages) > MAX_STAGES:
+        return [("approval.stages", "too_many_stages")]
+    person_questions = {q.key for q in questions if q.kind is QuestionKind.PERSON}
+    fields = frozenset({*(q.key for q in questions), "quantity"})
+    found: list[Problem] = []
+    for n, stage in enumerate(stages):
+        at = f"approval.stages.{n}"
+        found += [(p.replace("approval", at, 1), c) for p, c in approval_problems(stage)]
+        for i, a in enumerate(stage.approvers):
+            here = f"{at}.approvers.{i}"
+            if a.kind is ApproverKind.GROUP and a.group_id is None:
+                found.append((f"{here}.group_id", "required"))
+            if a.kind is ApproverKind.PERSON_ANSWER and a.question_key not in person_questions:
+                found.append((f"{here}.question_key", "not_a_person_question"))
+        if stage.parallel_group is not None and not PARALLEL_GROUP.fullmatch(stage.parallel_group):
+            found.append((f"{at}.parallel_group", "invalid_value"))
+        if stage.condition is not None:
+            found += condition_problems(stage.condition, fields, f"{at}.condition")
+    return found
+
+
 def approval_problems(stage: ApprovalStage | None) -> list[Problem]:
     """A stage names at least one approver; a person approver names the person."""
     if stage is None:
@@ -246,10 +348,12 @@ def approval_problems(stage: ApprovalStage | None) -> list[Problem]:
     if len(stage.approvers) > MAX_APPROVERS:
         found.append(("approval.approvers", "too_many_approvers"))
     for i, a in enumerate(stage.approvers):
-        if a.kind is ApproverKind.PERSON and a.person_id is None:
+        if a.kind in _NEEDS_PERSON and a.person_id is None:
             found.append((f"approval.approvers.{i}.person_id", "required"))
-        if a.kind is ApproverKind.REQUESTED_FOR_MANAGER and a.person_id is not None:
+        if a.kind is not ApproverKind.PERSON and a.person_id is not None:
             found.append((f"approval.approvers.{i}.person_id", "not_allowed"))
+        if a.kind in _NAMES_NOTHING and (a.group_id is not None or a.question_key is not None):
+            found.append((f"approval.approvers.{i}", "invalid_value"))
     return found
 
 
@@ -265,9 +369,11 @@ def plan_problems(plan: Sequence[PlannedTask]) -> list[Problem]:
 
 def rules_problems(rules: ItemRules) -> list[Problem]:
     """Everything wrong with an item's rules, at its field."""
+    staged = len(rules.stages) > 1
     return (
         question_problems(rules.questions)
-        + approval_problems(rules.approval)
+        + (stages_problems(rules.stages, rules.questions) if staged else [])
+        + ([] if staged else approval_problems(rules.approval))
         + plan_problems(rules.plan)
     )
 
@@ -351,7 +457,9 @@ def answer_problems(
 
 def needs_approval(rules: ItemRules) -> bool:
     """Whether a new request from this item waits for approval (REQ-SR-021)."""
-    return rules.approval is not None and bool(rules.approval.approvers)
+    return any(stage.approvers for stage in rules.stages) or (
+        rules.approval is not None and bool(rules.approval.approvers)
+    )
 
 
 __all__ = [

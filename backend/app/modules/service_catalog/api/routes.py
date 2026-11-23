@@ -34,6 +34,7 @@ from app.modules.service_catalog.domain.items import (
     ItemAudience,
     QuestionAudience,
     QuestionKind,
+    StageRule,
 )
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
 from app.modules.service_catalog.service import catalog as service
@@ -70,23 +71,62 @@ class QuestionIO(BaseModel):
 
 
 class ApproverIO(BaseModel):
-    """An approver: a named person, or the requested-for person's manager."""
+    """An approver: a kind, and the person, group or question it names (REQ-SR-022, -031)."""
 
     model_config = ConfigDict(extra="forbid")
 
     kind: ApproverKind
     person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = Field(default=None, description="`group` only.")
+    question_key: str | None = Field(
+        default=None, max_length=40, description="`person_answer` only: a person question."
+    )
 
 
-class ApprovalIO(BaseModel):
-    """The item's approval stage (one at MVP)."""
+class ApprovalStageIO(BaseModel):
+    """One approval stage (WP-047a S2a; REQ-SR-029..032)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    approvers: list[ApproverIO] = Field(max_length=10)
+    approvers: list[ApproverIO] = Field(max_length=10)  # required as before S2a (additive API)
     backup_id: uuid.UUID | None = None
     comments_required: bool = False
     self_approval: bool = False
+    rule: StageRule = Field(
+        default=StageRule.ANY, description="any (the first decision), all, majority."
+    )
+    parallel_group: str | None = Field(
+        default=None,
+        max_length=40,
+        description="Stages with the same group open together (REQ-SR-030).",
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None,
+        description="The stage applies only when this holds (REQ-SR-032): the form rules' "
+        "condition language over the answers and `quantity`.",
+    )
+
+
+class ApprovalIO(ApprovalStageIO):
+    """The item's approval: one stage (as before), or `stages` in order (Professional)."""
+
+    stages: list[ApprovalStageIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Every stage in order (WP-047a S2a). When given, the top-level stage "
+        "fields are ignored on save; on read they repeat the first stage.",
+    )
+
+    @classmethod
+    def read(cls, stored: dict[str, Any] | None) -> "ApprovalIO | None":
+        """From the stored JSON: the old single stage, or `stages` with stage 1 on top."""
+        if not stored:
+            return None
+        if "stages" not in stored:
+            return cls.model_validate(stored)
+        stages = stored["stages"] or []
+        first = dict(stages[0]) if stages else {}
+        return cls.model_validate({**first, "stages": stages})
 
 
 class PlannedTaskIO(BaseModel):
@@ -241,6 +281,7 @@ class CatalogItemOut(BaseModel):
         return cls.model_validate(
             {
                 **fields,
+                "approval": ApprovalIO.read(item.approval),
                 "questions": questions,
                 "id": item.id,
                 "status": item.status,

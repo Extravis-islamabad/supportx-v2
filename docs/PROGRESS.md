@@ -38,6 +38,14 @@
   (`/service-requests/bulk`, the visibility-first runner); WP-047a S1 gives the requests list its
   row checkboxes and selection bar with **assign and take**. Close, resolve, cancel and delete
   follow with their own dialogs (as the change list's), recorded for WP-047a S5.
+- [x] **`person_placement` fails closed** (lane A, 2026-11-23; lane B's #582 review; lane B
+  reviews): an ID with no row this session can see (a random ID, another tenant's user) or no
+  ID reads as nobody, not active and unable to sign in, instead of the defaults (active, may
+  sign in). The callers that read `active` / `can_sign_in` only become stricter: an unknown
+  named approver goes to the backup or administrators, an unknown approver is rerouted, an
+  unknown problem approver is refused, and raising on behalf of an unknown person is refused
+  by the scope (`on_behalf_out_of_scope`; under `all_users` it used to pass the scope and be
+  refused only by a later field check, a 422).
 - **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
   WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
   `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
@@ -1710,10 +1718,10 @@ declare major) default to the tenant admin and service desk manager, grantable, 
 
 Plan approved by the coordinator 2026-11-23 (`~/Extravis/plans/wp-047a-plan-lane-a.md`):
 service requests move onto the existing level engine; one migration per session. REQs so far:
-**4 done** (019 and 054 before this WP; 015 and 016 in S1), **1 partly** (014: AC2 done, AC1 waits
-for the item price, REQ-CAT-020), 24 to come.
+**8 done** (019 and 054 before this WP; 015 and 016 in S1; 029, 030, 031 and 032 in S2a),
+**1 partly** (014: AC2 done, AC1 waits for the item price, REQ-CAT-020), 20 to come.
 
-- [~] **S1, raising (0193; REQ-SR-014, -015, -016; lane C blocks):** in review.
+- [x] **S1, raising (0193; REQ-SR-014, -015, -016; lane C blocks):** merged (#578, a25887a8d).
   - REQ-SR-014 (Professional, `catalog` checked in the service): an item may ask a quantity up
     to its maximum (`catalog_items.max_quantity`); above it, the same field error in the form
     and the API (`quantity_over_max`, with the max). The estimated cost (AC1) lands with the
@@ -1730,6 +1738,45 @@ for the item price, REQ-CAT-020), 24 to come.
   - The portal returns only the answers to the requester's own questions (filtered in the
     service, default deny), the coordinator's condition 2; a request's subject comes from the
     item's template when none is typed (WP-031 leftover); bulk on requests (assign, take).
+- [~] **S2a, approval stages (0194; REQ-SR-029, -030, -031, -032; lane C blocks feature
+  permissions, lane B reviews the owner ports):** built; DB tests next in the heavy slot.
+  - The item's approval is a list of up to 10 stages (requests only; staged record types keep
+    5). Each stage has its approvers, a rule (any, all, majority; a majority tie rejects, as the
+    staged types' engine does, D-146), a backup, comments required, an optional condition and
+    an optional parallel group. An item saved before S2a reads as its one stage, unchanged, and
+    keeps today's path: no snapshot (the coordinator's condition 5).
+  - At submission the stages are snapshotted on the request (`work_items.approval_stages`,
+    `{"v": 1, ...}`, configuration only, shape-checked, never names or e-mails). Stages that
+    share a parallel group open together; one rejection there ends the request and the others
+    are withdrawn. A stage whose condition (the form rules' DSL, now `app/shared/conditions.py`,
+    over the answers and the quantity) does not hold is a `skipped` row, shown with its
+    condition in words.
+  - Approver kinds (031): a person, the requested-for manager, the manager's manager, the
+    department head, the request group's lead, a group's members, the person a "person" answer
+    names, the asset owner (assets' `owners_of`) and the CI owner (cmdb's `owners_of`). Each
+    person must be active and able to sign in. The requester never approves their own request:
+    they are left out and audited (`service_request.approver_was_requester`). Nobody left goes
+    to the backup, else the approval administrators, with the reason (`no_approver`,
+    `self_approval_blocked`, `approver_inactive`).
+  - Erasure (ADR-052): the `work_items.references` port drops an erased person from the
+    snapshots (`stage_approvers_removed`); a required-port test covers JSON-held person IDs.
+  - Editions, each REQ by its own spec edition on the server: 029 (several stages, or a rule
+    other than `any`), 030 (parallel), 031 (the new kinds) and 032 (conditions) are
+    Professional (`catalog`). Today's single stage stays on every edition.
+  - Downgrade from Professional, recorded decision (the coordinator, 2026-11-23): requests in
+    flight finish on their snapshot. Saving a staged item is refused (`entitlement_required`),
+    but reducing it to one stage is allowed. A NEW request on a still-staged item is refused
+    (`entitlement_required`), never run on stage 1 alone, which would skip the approvals the
+    later stages ask for.
+  - UI: the item's Approval tab edits the stages (add, move, remove, runs alongside the stage
+    before, only when..., approver kinds); the request's Approvals tab numbers the stages and
+    shows parallel and skipped ones in en/ar/ur.
+  - **Follow-ups:**
+    - A tenant chair for request stages (D-146 ties). Today a majority tie rejects.
+    - The CI owner names nobody until WP-053 S5 links CIs to requests (`work_item_cis`); such a
+      stage goes to the approval administrators, recorded.
+    - The editor edits one condition per stage; combined conditions set through the API are
+      kept and shown, not edited.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

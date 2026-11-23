@@ -54,11 +54,13 @@ from app.modules.service_catalog.domain.items import (
     Question,
     QuestionAudience,
     QuestionKind,
+    StageRule,
     answer_problems,
     name_problems,
     needs_approval,
     request_again,
     rules_problems,
+    uses_stages,
 )
 from app.modules.service_catalog.events import CatalogItemChanged
 from app.modules.service_catalog.infra.models import CatalogItem
@@ -152,20 +154,8 @@ def _question(q: Mapping[str, Any]) -> Question:
 
 def rules_of(item: CatalogItem) -> ItemRules:
     """The item's rules as the domain sees them (also for work_items, through the package)."""
-    approval = item.approval
-    stage = (
-        ApprovalStage(
-            approvers=tuple(
-                Approver(ApproverKind(a["kind"]), _uuid(a.get("person_id")))
-                for a in approval.get("approvers", [])
-            ),
-            backup_id=_uuid(approval.get("backup_id")),
-            comments_required=bool(approval.get("comments_required", False)),
-            self_approval=bool(approval.get("self_approval", False)),
-        )
-        if approval
-        else None
-    )
+    stages = stages_of(item.approval)
+    stage = stages[0] if stages else None
     return ItemRules(
         questions=tuple(_question(q) for q in item.questions),
         approval=stage,
@@ -182,7 +172,43 @@ def rules_of(item: CatalogItem) -> ItemRules:
         technician_after_approval=item.technician_after_approval,
         count_approval_time=item.count_approval_time,
         auto_fulfil=item.auto_fulfil,
+        stages=stages,
     )
+
+
+def _stage(raw: Mapping[str, Any]) -> ApprovalStage:
+    return ApprovalStage(
+        approvers=tuple(
+            Approver(
+                ApproverKind(a["kind"]),
+                _uuid(a.get("person_id")),
+                group_id=_uuid(a.get("group_id")),
+                question_key=a.get("question_key"),
+            )
+            for a in raw.get("approvers", [])
+        ),
+        backup_id=_uuid(raw.get("backup_id")),
+        comments_required=bool(raw.get("comments_required", False)),
+        self_approval=bool(raw.get("self_approval", False)),
+        rule=StageRule(raw.get("rule") or StageRule.ANY.value),
+        parallel_group=raw.get("parallel_group"),
+        condition=raw.get("condition"),
+    )
+
+
+def stages_of(approval: Mapping[str, Any] | None) -> tuple[ApprovalStage, ...]:
+    """An item's approval stages, in order (WP-047a S2a).
+
+    Stored as `{"stages": [...]}`; an item saved before S2a keeps its one stage at the top
+    level and reads as that one stage, unchanged (no data step, the coordinator's condition 5).
+    """
+    if not approval:
+        return ()
+    # `stages: null` or `[]` (the API model's default on a single-stage body) is the single
+    # stage, as `_stored_approval` stores it.
+    if approval.get("stages"):
+        return tuple(_stage(raw) for raw in approval["stages"])
+    return (_stage(approval),)
 
 
 def _shape_problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:  # noqa: C901, PLR0912 - one rule per field, flat
@@ -220,9 +246,30 @@ def _shape_problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:  # noqa
         if not isinstance(approval, Mapping):
             found.append(("approval", "invalid_value"))
         else:
-            for i, a in enumerate(approval.get("approvers") or []):
-                if not isinstance(a, Mapping) or a.get("kind") not in set(ApproverKind):
-                    found.append((f"approval.approvers.{i}.kind", "invalid_choice"))
+            found += _approval_shape(approval)
+    return found
+
+
+def _stage_shape(stage: Mapping[str, Any], at: str) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for i, a in enumerate(stage.get("approvers") or []):
+        if not isinstance(a, Mapping) or a.get("kind") not in set(ApproverKind):
+            found.append((f"{at}.approvers.{i}.kind", "invalid_choice"))
+    if stage.get("rule") is not None and stage.get("rule") not in set(StageRule):
+        found.append((f"{at}.rule", "invalid_choice"))
+    return found
+
+
+def _approval_shape(approval: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """The raw approval's shape before it is parsed: one stage, or a `stages` list (S2a)."""
+    if approval.get("stages") is None:  # today's single stage (or `stages: null`)
+        return _stage_shape(approval, "approval")
+    stages = approval["stages"]
+    if not isinstance(stages, list) or not all(isinstance(x, Mapping) for x in stages):
+        return [("approval.stages", "invalid_value")]
+    found: list[tuple[str, str]] = []
+    for n, stage in enumerate(stages):
+        found += _stage_shape(stage, f"approval.stages.{n}")
     return found
 
 
@@ -240,9 +287,50 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:
+    """The approval as it is stored: one shape only (WP-047a S2a).
+
+    `{"stages": [...]}` when stages are given, else the single stage. A stage with nothing new
+    is stored exactly as before S2a (approvers with `kind` and `person_id`, the backup and the
+    two switches: the coordinator's condition 5); S2a's parts are added only when set. IDs as
+    text.
+    """
+
+    def text(value: Any) -> str | None:  # noqa: ANN401 - an ID as given (UUID or text)
+        return None if value is None else str(value)
+
+    def approver(raw: Mapping[str, Any]) -> dict[str, Any]:
+        kept: dict[str, Any] = {"kind": raw["kind"], "person_id": text(raw.get("person_id"))}
+        if raw.get("group_id") is not None:
+            kept["group_id"] = text(raw["group_id"])
+        if raw.get("question_key") is not None:
+            kept["question_key"] = raw["question_key"]
+        return kept
+
+    def stage(raw: Mapping[str, Any]) -> dict[str, Any]:
+        kept: dict[str, Any] = {
+            "approvers": [approver(a) for a in raw.get("approvers") or []],
+            "backup_id": text(raw.get("backup_id")),
+            "comments_required": bool(raw.get("comments_required", False)),
+            "self_approval": bool(raw.get("self_approval", False)),
+        }
+        if raw.get("rule") not in (None, StageRule.ANY.value):
+            kept["rule"] = str(raw["rule"])
+        for name in ("parallel_group", "condition"):
+            if raw.get(name) is not None:
+                kept[name] = raw[name]
+        return kept
+
+    if approval.get("stages"):
+        return {"stages": [stage(s) for s in approval["stages"]]}
+    return stage(approval)
+
+
 def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rule per field, flat
     """The fields as the columns keep them (IDs as text inside the JSON, HTML sanitised)."""
     out = {k: values[k] for k in ITEM_FIELDS if k in values}
+    if isinstance(out.get("approval"), Mapping):
+        out["approval"] = _stored_approval(out["approval"])
     for name in _IDS:
         if name in out:
             out[name] = _uuid(out[name])
@@ -277,34 +365,44 @@ def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rul
             }
             for t in out["plan"]
         ]
-    if out.get("approval") is not None:
-        a = out["approval"]
-        out["approval"] = {
-            "approvers": [
-                {
-                    "kind": x["kind"],
-                    "person_id": None if x.get("person_id") is None else str(x["person_id"]),
-                }
-                for x in a.get("approvers") or []
-            ],
-            "backup_id": None if a.get("backup_id") is None else str(a["backup_id"]),
-            "comments_required": bool(a.get("comments_required", False)),
-            "self_approval": bool(a.get("self_approval", False)),
-        }
     return out
 
 
 async def _group_problems(
     session: AsyncSession, item: CatalogItem, rules: ItemRules
 ) -> list[tuple[str, str]]:
+    staged = _staged_named(rules)
+    stage_groups = {at: g for at, (kind, g) in staged.items() if kind == "group"}
     wanted = {g for g in (item.group_id, *(t.group_id for t in rules.plan)) if g is not None}
+    wanted |= set(stage_groups.values())
     known = await existing_unit_ids(session, "group", sorted(wanted, key=str))
     found = [("group_id", "not_found")] if item.group_id not in {None, *known} else []
+    found += [(at, "not_found") for at, group in stage_groups.items() if group not in known]
     return found + [
         (f"plan.{i}.group_id", "not_found")
         for i, task in enumerate(rules.plan)
         if task.group_id is not None and task.group_id not in known
     ]
+
+
+def _staged_named(rules: ItemRules) -> dict[str, tuple[str, uuid.UUID]]:
+    """Every person and group the stages name, by field path (WP-047a S2a; #582 review).
+
+    Each stage's named approvers, groups and backup are checked like stage 1's, so no stage
+    can name an ID that is not this tenant's.
+    """
+    several = len(rules.stages) > 1  # one stage's people are `approval.*`, checked already
+    named: dict[str, tuple[str, uuid.UUID]] = {}
+    for n, stage in enumerate(rules.stages):
+        at = f"approval.stages.{n}" if several else "approval"
+        for i, a in enumerate(stage.approvers):
+            if a.person_id is not None and several:
+                named[f"{at}.approvers.{i}.person_id"] = ("person", a.person_id)
+            if a.group_id is not None:
+                named[f"{at}.approvers.{i}.group_id"] = ("group", a.group_id)
+        if stage.backup_id is not None and several:
+            named[f"{at}.backup_id"] = ("person", stage.backup_id)
+    return named
 
 
 def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
@@ -326,6 +424,7 @@ def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
         for i, task in enumerate(rules.plan)
         if task.owner_id is not None
     }
+    people |= {at: who for at, (kind, who) in _staged_named(rules).items() if kind == "person"}
     return people
 
 
@@ -670,6 +769,11 @@ async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> Non
     """
     if values.get("max_quantity") is not None:
         await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047a S2a: approval stages beyond today's one are Professional too; saving an item back
+    # to a single stage of today's kinds is always allowed (a downgraded tenant can simplify).
+    approval = values.get("approval")
+    if isinstance(approval, Mapping) and uses_stages(stages_of(approval)):
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
 
 
 async def create_item(
@@ -805,6 +909,9 @@ async def copy_item(
     require_manage(subject)
     row = await _live(session, item_id)
     values = {k: getattr(row, k) for k in ITEM_FIELDS}
+    # A copy is a new item: the same edition gates as saving one (lane C's #582 review), so a
+    # downgraded tenant cannot copy stages or a quantity into a new item.
+    await _quantity_licensed(subject, values)
     values |= {
         "names": copy_names(row.names, COPY_PREFIX),
         "featured": False,
@@ -861,6 +968,32 @@ class PlanStep:
 
 
 @dataclass(frozen=True)
+class ApproverSpec:
+    """One approver of a stage as plain values (WP-047a S2a): a kind code and what it names."""
+
+    kind: str
+    person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None
+    question_key: str | None = None
+
+
+@dataclass(frozen=True)
+class StageSpec:
+    """One approval stage as plain values, for the request's snapshot (WP-047a S2a).
+
+    Configuration only: codes and IDs, never names or e-mail addresses (snapshot condition 1).
+    """
+
+    approvers: tuple[ApproverSpec, ...]
+    rule: str = "any"
+    backup_id: uuid.UUID | None = None
+    comments_required: bool = False
+    self_approval: bool = False
+    parallel_group: str | None = None
+    condition: Mapping[str, Any] | None = None
+
+
+@dataclass(frozen=True)
 class RequestItem:
     """What a service request takes from its item (plain values; work_items decides with them)."""
 
@@ -885,6 +1018,14 @@ class RequestItem:
     comments_required: bool = False
     plan: tuple[PlanStep, ...] = ()  # WP-030 s3: the fulfilment tasks, in order
     requesters_see_approval: bool = True  # WP-031 plan D8
+    # WP-047a S2a: every stage in order (the single-stage fields above stay for stage 1).
+    stages: tuple[StageSpec, ...] = ()
+    # The keys of its "person" questions: each answer must name a live person of the tenant,
+    # which work_items checks on the server (lane B's and the coordinator's #582 review).
+    person_questions: tuple[str, ...] = ()
+    # Whether the stages engine runs it: the catalog's one answer (`uses_stages`), the same one
+    # that gates saving, so the save and the raise can never disagree (lane C's #582 review).
+    uses_stages: bool = False
 
 
 async def request_item(
@@ -938,6 +1079,24 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
             for t in rules.plan
         ),
         requesters_see_approval=item.requesters_see_approval,
+        stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
+        person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
+        uses_stages=uses_stages(rules.stages),
+    )
+
+
+def _spec(stage: ApprovalStage) -> StageSpec:
+    return StageSpec(
+        approvers=tuple(
+            ApproverSpec(a.kind.value, a.person_id, a.group_id, a.question_key)
+            for a in stage.approvers
+        ),
+        rule=stage.rule.value,
+        backup_id=stage.backup_id,
+        comments_required=stage.comments_required,
+        self_approval=stage.self_approval,
+        parallel_group=stage.parallel_group,
+        condition=stage.condition,
     )
 
 
@@ -953,9 +1112,11 @@ async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem
 
 __all__ = [
     "MANAGE",
+    "ApproverSpec",
     "ItemView",
     "PlanStep",
     "RequestItem",
+    "StageSpec",
     "copy_item",
     "create_item",
     "delete_item",
