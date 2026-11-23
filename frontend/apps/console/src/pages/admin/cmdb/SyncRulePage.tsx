@@ -670,6 +670,7 @@ function RunsSection({
 
 function RunBody({ runId, customName }: { runId: string; customName: (key: string) => string }) {
   const t = useLabel();
+  const list = useListFormat();
   const run = useSyncRun(runId);
   if (run.data === undefined) return null;
   const data = run.data;
@@ -685,7 +686,7 @@ function RunBody({ runId, customName }: { runId: string; customName: (key: strin
           type="warning"
           showIcon
           message={t('cmdb.sync.skipped_targets', { count: data.skipped_targets.length })}
-          description={data.skipped_targets.map(customName).join(', ')}
+          description={list(data.skipped_targets.map(customName))}
           data-testid="cmdb-sync-skipped-targets"
         />
       )}
