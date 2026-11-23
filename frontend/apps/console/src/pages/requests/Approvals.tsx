@@ -13,6 +13,8 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
+import { useApproverChanges } from './ApproverChanges';
 import { useDecision } from './useDecision';
 type Tone = 'info' | 'success' | 'warning' | 'error';
 const TONE: Record<Approval['state'], Tone> = {
@@ -22,6 +24,7 @@ const TONE: Record<Approval['state'], Tone> = {
   withdrawn: 'info',
   not_needed: 'info',
   skipped: 'info', // WP-047a S2a: the stage's condition did not hold
+  replaced: 'info', // WP-047a S2b: a technician asked someone else (REQ-SR-042)
 };
 
 type Condition = Record<string, unknown>;
@@ -80,19 +83,34 @@ export function ApprovalsPanel({
 }) {
   const t = useLabel();
   const conditionWords = useConditionWords(questions);
+  const list = useListFormat();
   const { format } = useDateTime();
   const approvals = useApprovals(recordId);
   const { dialog, start } = useDecision(recordId);
+  const { locale } = useAppearance();
+  const hidden = useHiddenPersonLabel(); // D-180: a masked support session sees no names
   const people = approvals.data?.people ?? {};
   const name = (id: string | null | undefined) =>
-    id == null ? t('requests.approval_admins') : (people[id]?.display_name ?? '');
+    id == null ? t('requests.approval_admins') : shownName(people[id]?.display_name, hidden);
   const items = approvals.data?.items ?? [];
+  const changes = useApproverChanges(recordId, items, approvals.data?.modify_refused);
+  const fieldName = (key: string) => {
+    if (key === 'quantity') return t('requests.condition_quantity');
+    if (key === 'requester_groups') return t('requests.condition_requester_groups');
+    const q = questions.find((x) => x.key === key);
+    return q ? (q.label[locale] ?? q.label.en ?? '') : t('requests.condition_removed_question');
+  };
   const staged = new Set(items.map((a) => a.stage)).size > 1;
   if (approvals.isLoading) return null;
   return (
     <>
       <List
-        header={<Typography.Text strong>{t('requests.approvals')}</Typography.Text>}
+        header={
+          <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
+            <Typography.Text strong>{t('requests.approvals')}</Typography.Text>
+            {changes.toolbar}
+          </Space>
+        }
         bordered
         dataSource={items}
         data-testid="sr-approvals"
@@ -101,8 +119,8 @@ export function ApprovalsPanel({
           <List.Item
             key={a.id}
             data-testid={`sr-approval-${a.id}`}
-            actions={
-              a.can_decide
+            actions={[
+              ...(a.can_decide
                 ? [
                     <WriteButton
                       key="approve"
@@ -125,8 +143,9 @@ export function ApprovalsPanel({
                       {t('requests.reject')}
                     </WriteButton>,
                   ]
-                : []
-            }
+                : []),
+              ...(changes.replaceButton(a) === null ? [] : [changes.replaceButton(a)]),
+            ]}
           >
             <Space direction="vertical" size={2}>
               <Space wrap>
@@ -161,7 +180,18 @@ export function ApprovalsPanel({
                   {t(`approval_route_reason.${a.route_reason}`)}
                 </Typography.Text>
               )}
-              {a.decided_at != null && (
+              {a.auto_reason != null && (
+                <Typography.Text type="secondary" data-testid="approval-auto-reason">
+                  {t(`approval_auto_reason.${a.auto_reason}`, {
+                    stage: a.auto_ref ?? '',
+                    rule: a.auto_rule == null ? '' : (a.auto_rule[locale] ?? a.auto_rule.en ?? ''),
+                  })}
+                  {a.auto_keys != null &&
+                    a.auto_keys.length > 0 &&
+                    ` · ${t('requests.auto_rule_read', { fields: list(a.auto_keys.map(fieldName)) })}`}
+                </Typography.Text>
+              )}
+              {a.decided_at != null && a.auto_reason == null && (
                 <Typography.Text type="secondary">
                   {t('requests.decided_by', {
                     name: name(a.decided_by),
@@ -189,6 +219,7 @@ export function ApprovalsPanel({
         )}
       />
       {dialog}
+      {changes.dialog}
     </>
   );
 }

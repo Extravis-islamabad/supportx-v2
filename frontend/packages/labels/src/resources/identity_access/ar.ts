@@ -1075,6 +1075,9 @@ export const ar: LabelResource = {
   'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
   'permission.requests.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',
+  'permission.requests.modify_approvers': 'تغيير الموافقين على طلبات الخدمة',
+  'permission.requests.modify_approvers.description':
+    'إضافة موافق أو استبداله، أو إضافة مرحلة، أو تذكير الموافقين على طلب ينتظر الموافقة، مع ذكر السبب دائمًا.',
   'permission.requests.reopen': 'إعادة فتح طلبات الخدمة',
   'permission.requests.reopen.description':
     'إعادة فتح طلبات الخدمة المنفذة أو المغلقة مع ذكر السبب.',

@@ -48,7 +48,7 @@ from app.modules.work_items.domain.approvals import ApprovalPurpose, LevelRule
 from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.lifecycle import StatusCategory
 from app.modules.work_items.domain.lists import MAX_BULK
-from app.modules.work_items.domain.types import PROBLEM, WorkItemType
+from app.modules.work_items.domain.types import PROBLEM, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.service import bulk as bulk_service
 from app.modules.work_items.service import (
     known_errors,
@@ -510,13 +510,16 @@ class ApprovalRequestIn(BaseModel):
 
 
 def add_approval_request_route(
-    router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel]
+    router: APIRouter, wtype: WorkItemType, record_out: type[BaseModel], *, action: str = "edit"
 ) -> None:
-    """Ask for approval on a problem or an incident; deciding uses the engine's routes.
+    """Ask for approval on a problem, an incident or a request; deciding uses the engine's routes.
 
-    WP-044b s4 (problems) and WP-046b S1 (incidents, with their rule: REQ-INC-083).
+    WP-044b s4 (problems), WP-046b S1 (incidents, with their rule: REQ-INC-083) and WP-047a S2b
+    (requests: `action` is `modify_approvers`, and the ask is `ad_hoc`, apart from the item's
+    own approval, REQ-SR-042).
     """
-    Edit = Annotated[Subject, Depends(require_permission(wtype.permission("edit")))]  # noqa: N806 - type alias
+    Edit = Annotated[Subject, Depends(require_permission(wtype.permission(action)))]  # noqa: N806 - type alias
+    ad_hoc = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
 
     @router.post(
@@ -547,12 +550,13 @@ def add_approval_request_route(
             subject,
             record_id,
             body.approver_ids,
-            purpose=body.purpose,
+            purpose=ApprovalPurpose.AD_HOC if ad_hoc else body.purpose,
             expected_version=version,
             source=source_of(request),
             policy=policy,
             wtype=wtype,
             rule=body.rule,
+            action=action,
         )
         view = await items.get(session, subject, wtype, record_id)
         set_etag(response, view.record.version)

@@ -479,8 +479,13 @@ export const ur: LabelResource = {
   'audit.action.security.session_key_rotated': 'تنصیب کی سائن اِن کلید بدلی گئی',
   'audit.action.service_request.access_changed': 'سروس کی درخواست تک رسائی رکھنے والے بدلے',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
+  'audit.action.service_request.approval_requested':
+    'سروس درخواست کی منظوری کے لیے مخصوص لوگوں سے کہا',
+  'audit.action.service_request.approved_automatically':
+    'سروس درخواست کا ایک مرحلہ خودکار طور پر منظور ہوا',
   'audit.action.service_request.approver_was_requester':
     'درخواست دہندہ کو ان کی اپنی درخواست کے منظوری دہندگان سے نکال دیا',
+  'audit.action.service_request.approvers_modified': 'سروس درخواست کے منظور کنندگان بدلے',
   'audit.action.service_request.assigned': 'سروس کی درخواست کی تفویض بدلی',
   'audit.action.service_request.bulk_started': 'سروس کی درخواستوں کی اجتماعی تبدیلی شروع کی',
   'audit.action.service_request.canceled': 'سروس کی درخواست کو منسوخ کیا',

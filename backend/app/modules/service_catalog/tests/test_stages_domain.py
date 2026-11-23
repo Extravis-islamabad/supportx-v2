@@ -3,10 +3,12 @@
 import uuid
 
 from app.modules.service_catalog.domain.items import (
+    MAX_AUTO_RULES,
     MAX_STAGES,
     ApprovalStage,
     Approver,
     ApproverKind,
+    AutoRule,
     ItemRules,
     Question,
     QuestionKind,
@@ -155,3 +157,57 @@ def test_a_single_stage_body_with_stages_null_is_the_single_stage() -> None:
     (only,) = stages_of(body)
     assert only.approvers == (MANAGER,)
     assert len(stages_of({**body, "stages": []})) == 1
+
+
+# --- WP-047a S2b (REQ-SR-033): automatic approval --------------------------------------------
+
+
+def test_automatic_approval_is_professional() -> None:
+    """Either switch or a rule makes the approval use stages (`catalog`), like S2a's parts."""
+    assert not uses_stages([_stage(MANAGER)])
+    assert uses_stages([_stage(MANAGER, auto_earlier=False)])  # overriding the tenant too
+    rule = AutoRule({"en": "Small"}, {"field": "quantity", "op": "eq", "value": 1})
+    assert uses_stages([_stage(MANAGER, auto_rules=(rule,))])
+
+
+def test_an_automatic_rule_needs_a_name_and_a_condition_over_known_fields() -> None:
+    good = AutoRule(
+        {"en": "Help desk"}, {"field": "requester_groups", "op": "eq", "value": str(GROUP)}
+    )
+    nameless = AutoRule({"ar": "x"}, {"field": "model", "op": "eq", "value": "air"})
+    unknown = AutoRule({"en": "x"}, {"field": "salary", "op": "eq", "value": 1})
+    found = stages_problems(
+        [_stage(MANAGER, auto_rules=(good, nameless, unknown)), _stage(MANAGER)], QUESTIONS
+    )
+    assert found == [
+        ("approval.stages.0.auto_rules.1.name.en", "required"),
+        ("approval.stages.0.auto_rules.2.condition.field", "not_a_form_field"),
+    ]
+    too_many = (good,) * (MAX_AUTO_RULES + 1)
+    assert stages_problems([_stage(MANAGER, auto_rules=too_many)], QUESTIONS) == [
+        ("approval.stages.0.auto_rules", "too_many_rules")
+    ]
+
+
+def test_a_single_stage_has_its_condition_and_rules_checked_too() -> None:
+    """Fixed in S2b: a lone stage's condition and rules were not checked before saving."""
+    bad = {"field": "salary", "op": "eq", "value": 1}
+    rules = ItemRules(
+        questions=QUESTIONS,
+        approval=_stage(MANAGER, condition=bad),
+        stages=(_stage(MANAGER, condition=bad),),
+    )
+    assert rules_problems(rules) == [("approval.condition.field", "not_a_form_field")]
+
+
+def test_the_auto_settings_survive_reading_and_storing() -> None:
+    stored = {
+        "approvers": [{"kind": "requested_for_manager", "person_id": None}],
+        "auto_earlier": True,
+        "auto_rules": [
+            {"name": {"en": "Small"}, "condition": {"field": "quantity", "op": "eq", "value": 1}}
+        ],
+    }
+    (stage,) = stages_of(stored)
+    assert stage.auto_earlier is True
+    assert [dict(r.name) for r in stage.auto_rules] == [{"en": "Small"}]

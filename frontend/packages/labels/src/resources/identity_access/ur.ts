@@ -1082,6 +1082,9 @@ export const ur: LabelResource = {
   'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
   'permission.requests.manage_followers.description':
     'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.modify_approvers': 'سروس درخواستوں کے منظور کنندگان بدلیں',
+  'permission.requests.modify_approvers.description':
+    'منظوری کی منتظر درخواست میں منظور کنندہ شامل کریں یا بدلیں، مرحلہ شامل کریں یا منظور کنندگان کو یاد دلائیں، ہمیشہ وجہ کے ساتھ۔',
   'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
   'permission.requests.reopen.description':
     'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',

@@ -10,13 +10,15 @@ Public interface for other modules: `item_decides` (an existing request's item, 
 approval engine), `requester_question_keys` (the answers a requester may see,
 WP-047a), `request_item` (what an item decides for a new service request, with its
 form's answers checked), `RequestItem`, `PlanStep`, `rules_of`, `catalog_settings` (the tenant's
-catalog settings), and the ports `register_item_usage` / `register_template_check` (work_items
+catalog settings), `REQUESTER_GROUPS` (what an automatic approval rule may read beyond the
+form, WP-047a S2b), and the ports `register_item_usage` / `register_template_check` (work_items
 answers them: it depends on the catalog, so the catalog cannot ask it directly).
 """
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.service_catalog.api.routes import router
+from app.modules.service_catalog.domain.items import REQUESTER_GROUPS
 from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
 from app.modules.service_catalog.service import person_data
@@ -72,6 +74,7 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "REQUESTER_GROUPS",
     "AgainForm",
     "ApproverSpec",
     "PlanStep",

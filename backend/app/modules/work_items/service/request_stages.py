@@ -19,6 +19,7 @@ through `RequestItem.uses_stages`, the same answer that gates saving the item.
 import contextlib
 import uuid
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -31,18 +32,31 @@ from app.modules.identity_access import active_user_ids, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import stage_snapshot
-from app.modules.work_items.domain.request_stages import Candidate, StagePlan
+from app.modules.work_items.domain.request_stages import Candidate, Opened, StagePlan
+from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import asset_links
+from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
+from app.modules.work_items.service.followers import RECORD_TYPE
 from app.shared.conditions import matches
+from app.shared.history import Change, record_changes
 
 REQUESTER_LEFT_OUT = "service_request.approver_was_requester"
+# WP-047a S2b (REQ-SR-033): a stage approved with nobody asked, audited with why.
+APPROVED_AUTOMATICALLY = "service_request.approved_automatically"
+AUTOMATIC_FIELD = "approval_automatic"  # its history line on the record
 MANAGER_KINDS = frozenset({"requested_for_manager", "manager_of_manager", "department_head"})
 
 
-def snapshot_of(item: service_catalog.RequestItem) -> tuple[stage_snapshot.SnapStage, ...]:
-    """The item's stages as the request keeps them (configuration only, condition 1)."""
+def snapshot_of(
+    item: service_catalog.RequestItem, *, tenant_earlier: bool = False
+) -> tuple[stage_snapshot.SnapStage, ...]:
+    """The item's stages as the request keeps them (configuration only, condition 1).
+
+    "Approved earlier" is resolved now (REQ-SR-033, the coordinator's Q1): the item's own
+    setting, else the tenant's, so a later change to either never moves a request in flight.
+    """
     return tuple(
         stage_snapshot.SnapStage(
             approvers=tuple(
@@ -55,6 +69,11 @@ def snapshot_of(item: service_catalog.RequestItem) -> tuple[stage_snapshot.SnapS
             self_approval=s.self_approval,
             parallel_group=s.parallel_group,
             condition=s.condition,
+            auto_earlier=tenant_earlier if s.auto_earlier is None else s.auto_earlier,
+            auto_rules=tuple(
+                stage_snapshot.SnapRule(dict(name), dict(condition))
+                for name, condition in s.auto_rules
+            ),
         )
         for s in item.stages
     )
@@ -68,6 +87,79 @@ def staged(item: service_catalog.RequestItem | None) -> bool:
 def _values(record: WorkItem) -> dict[str, Any]:
     """What a stage's condition reads: the form's answers and the quantity."""
     return {**(record.answers or {}), "quantity": record.quantity}
+
+
+async def _rule_values(session: AsyncSession, record: WorkItem) -> dict[str, Any]:
+    """What an automatic rule reads (REQ-SR-033).
+
+    The condition's values, and the requester's groups (`eq` a group: they are a member).
+    """
+    groups = (await organization.memberships(session, record.requester_id)).group_ids
+    return {**_values(record), service_catalog.REQUESTER_GROUPS: sorted(str(g) for g in groups)}
+
+
+def _earlier_approvers(rows: Sequence[WorkItemApproval], number: int) -> dict[uuid.UUID, int]:
+    """Who approved an earlier stage of this request themselves, and the first such stage.
+
+    Only their own decisions count: an automatic approval never carries on to a later stage.
+    """
+    found: dict[uuid.UUID, int] = {}
+    for row in rows:
+        if (
+            row.stage < number
+            and row.state == rules.ApprovalState.APPROVED
+            and row.channel != rules.DecisionChannel.AUTOMATIC
+            and row.approver_id is not None
+            and row.decided_by == row.approver_id
+        ):
+            found[row.approver_id] = min(row.stage, found.get(row.approver_id, row.stage))
+    return found
+
+
+async def _automatic(  # noqa: PLR0913 - the stage, its row and why, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    number: int,
+    row: WorkItemApproval,
+    *,
+    rule_name: Mapping[str, str] | None = None,
+    keys: Sequence[str] = (),
+) -> None:
+    """Audit an automatic approval and name it in the record's history (condition 2).
+
+    The rule's name and the answer keys it read; never the answers themselves.
+    """
+    details: dict[str, Any] = {
+        "display_id": record.display_id,
+        "stage": number,
+        "reason": row.auto_reason,
+        "ref": row.auto_ref,
+    }
+    if row.approver_id is not None:
+        details["approver_id"] = str(row.approver_id)
+    if keys:
+        details["keys"] = list(keys)
+    await record_audit(
+        session,
+        action_code=APPROVED_AUTOMATICALLY,
+        facts=AUDIT_WORKER,
+        object_type="service_request",
+        object_id=str(record.id),
+        details=details,
+    )
+    said: dict[str, Any] = {"stage": number, "reason": row.auto_reason, "ref": row.auto_ref}
+    if rule_name is not None:
+        said |= {"rule": dict(rule_name), "keys": list(keys)}
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_changed",
+        changes=[Change(AUTOMATIC_FIELD, None, said)],
+        source="rule",
+        subtype=record.type,
+    )
 
 
 async def _rows(session: AsyncSession, record: WorkItem) -> list[WorkItemApproval]:
@@ -193,6 +285,13 @@ async def _open_one(
         "self_approval": False,  # condition 2: never the requester, whatever the item says
         "comments_required": stage.comments_required,
     }
+    matched = (
+        progression.first_matching_rule(
+            [r.condition for r in stage.auto_rules], await _rule_values(session, record)
+        )
+        if stage.auto_rules
+        else None
+    )
     if stage.condition is not None and not matches(stage.condition, _values(record)):
         rows = [
             WorkItemApproval(
@@ -203,6 +302,29 @@ async def _open_one(
                 skip_reason=rules.SkipReason.CONDITION_NOT_MET.value,
             )
         ]
+    elif matched is not None:  # REQ-SR-033: a rule holds, so the stage is approved now
+        rule = stage.auto_rules[matched - 1]
+        row = _decided_automatically(
+            base,
+            Opened(
+                rules.Assignment(None, rules.ApproverOrigin.ADMINISTRATORS),
+                rules.ApprovalState.APPROVED,
+                rules.AutoReason.RULE_MATCHED,
+                matched,
+            ),
+        )
+        session.add(row)
+        await session.flush()
+        await _automatic(
+            session,
+            record,
+            number,
+            row,
+            rule_name=rule.name,
+            keys=progression.matched_keys(rule.condition),
+        )
+        await approval_event(session, record, row, "decided")
+        return [row]
     else:
         candidates = await _candidates(session, record, stage)
         people = {c.user_id for c in candidates}
@@ -223,21 +345,39 @@ async def _open_one(
                 object_id=str(record.id),
                 details={"display_id": record.display_id, "stage": number},
             )
-        rows = [
-            WorkItemApproval(
-                **base,
-                approver_id=a.approver_id,
-                origin=a.origin.value,
-                route_reason=a.reason.value if a.reason else None,
-                state=rules.ApprovalState.PENDING.value,
-            )
-            for a in assignments
-        ]
+        earlier = (
+            _earlier_approvers(await _rows(session, record), number) if stage.auto_earlier else {}
+        )
+        opened = progression.open_with_earlier(assignments, rules.LevelRule(stage.rule), earlier)
+        rows = [_decided_automatically(base, o) for o in opened]
     session.add_all(rows)
     await session.flush()
     for row in rows:
-        await approval_event(session, record, row, "opened")
+        if row.auto_reason is not None:
+            await _automatic(session, record, number, row)
+            await approval_event(session, record, row, "decided")
+        elif row.state == rules.ApprovalState.NOT_NEEDED:
+            await approval_event(session, record, row, "closed")
+        else:
+            await approval_event(session, record, row, "opened")
     return rows
+
+
+def _decided_automatically(base: Mapping[str, Any], opened: Opened) -> WorkItemApproval:
+    """One new approval row: pending, not needed, or approved automatically (with why)."""
+    a = opened.assignment
+    automatic = opened.auto_reason is not None
+    return WorkItemApproval(
+        **base,
+        approver_id=a.approver_id,
+        origin=a.origin.value,
+        route_reason=a.reason.value if a.reason else None,
+        state=opened.state.value,
+        channel=rules.DecisionChannel.AUTOMATIC.value if automatic else None,
+        auto_reason=opened.auto_reason.value if opened.auto_reason else None,
+        auto_ref=opened.auto_ref,
+        decided_at=datetime.now(UTC) if automatic else None,
+    )
 
 
 async def advance(session: AsyncSession, record: WorkItem) -> rules.LevelOutcome:
@@ -268,7 +408,10 @@ async def open_first(
     session: AsyncSession, record: WorkItem, item: service_catalog.RequestItem
 ) -> rules.LevelOutcome:
     """Snapshot the item's stages on the new request and open its first step."""
-    record.approval_stages = stage_snapshot.to_json(snapshot_of(item))
+    settings = await config.load(session, SERVICE_REQUEST)
+    record.approval_stages = stage_snapshot.to_json(
+        snapshot_of(item, tenant_earlier=settings.auto_approve_earlier)
+    )
     await session.flush()
     return await advance(session, record)
 
@@ -297,6 +440,20 @@ def stage_outcome(
     """One stage's outcome now (PENDING while it waits)."""
     stages = stage_snapshot.from_json(record.approval_stages)
     return _outcomes(stages, rows).get(number, rules.LevelOutcome.PENDING)
+
+
+def auto_rule_of(record: WorkItem, number: int, rule: int | None) -> stage_snapshot.SnapRule | None:
+    """Stage `number`'s automatic rule `rule` (1-based) as snapshotted, if any."""
+    if record.approval_stages is None or rule is None:
+        return None
+    stages = stage_snapshot.from_json(record.approval_stages)
+    if not 0 < number <= len(stages):
+        return None
+    found = stages[number - 1].auto_rules
+    return found[rule - 1] if 0 < rule <= len(found) else None
+
+
+eligible = _eligible  # REQ-SR-042: a person added or swapped in is checked the same way
 
 
 def condition_of(record: WorkItem, number: int) -> Mapping[str, Any] | None:

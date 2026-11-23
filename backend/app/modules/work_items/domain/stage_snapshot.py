@@ -45,8 +45,11 @@ _STAGE_KEYS = frozenset(
         "self_approval",
         "parallel_group",
         "condition",
+        "auto_earlier",  # WP-047a S2b (REQ-SR-033): resolved at submission (item, else tenant)
+        "auto_rules",
     }
 )
+_RULE_KEYS = frozenset({"name", "condition"})
 
 
 class SnapshotShapeError(ValueError):
@@ -74,6 +77,18 @@ class SnapStage:
     self_approval: bool = False
     parallel_group: str | None = None
     condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): "approved earlier" as resolved when the request was raised (the
+    # item's own setting, else the tenant's), and the stage's automatic rules.
+    auto_earlier: bool = False
+    auto_rules: tuple["SnapRule", ...] = ()
+
+
+@dataclass(frozen=True)
+class SnapRule:
+    """An automatic rule as snapshotted: its name per language (shown) and its condition."""
+
+    name: Mapping[str, str]
+    condition: Mapping[str, Any]
 
 
 def _id(value: uuid.UUID | None) -> str | None:
@@ -101,6 +116,11 @@ def to_json(stages: Sequence[SnapStage]) -> dict[str, Any]:
             "self_approval": s.self_approval,
             "parallel_group": s.parallel_group,
             "condition": dict(s.condition) if s.condition is not None else None,
+            "auto_earlier": True if s.auto_earlier else None,
+            "auto_rules": [
+                {"name": dict(r.name), "condition": dict(r.condition)} for r in s.auto_rules
+            ]
+            or None,
         }
         return {k: v for k, v in raw.items() if v is not None}
 
@@ -151,7 +171,23 @@ def problems(raw: object) -> list[str]:  # noqa: C901 - one check per part, flat
         ]
         if stage.get("condition") is not None and not isinstance(stage["condition"], Mapping):
             found.append(f"{at}.condition")
+        if not isinstance(stage.get("auto_earlier", False), bool):
+            found.append(f"{at}.auto_earlier")
+        found += _rule_problems(stage.get("auto_rules", []), at)
     return found
+
+
+def _rule_problems(rules: object, at: str) -> list[str]:
+    if not isinstance(rules, list):
+        return [f"{at}.auto_rules"]
+    return [
+        f"{at}.auto_rules.{i}"
+        for i, r in enumerate(rules)
+        if not isinstance(r, Mapping)
+        or set(r) != _RULE_KEYS
+        or not isinstance(r["name"], Mapping)
+        or not isinstance(r["condition"], Mapping)
+    ]
 
 
 def from_json(raw: object) -> tuple[SnapStage, ...]:
@@ -180,6 +216,8 @@ def from_json(raw: object) -> tuple[SnapStage, ...]:
             self_approval=s.get("self_approval", False),
             parallel_group=s.get("parallel_group"),
             condition=s.get("condition"),
+            auto_earlier=s.get("auto_earlier", False),
+            auto_rules=tuple(SnapRule(r["name"], r["condition"]) for r in s.get("auto_rules", [])),
         )
         for s in raw["stages"]
     )
@@ -207,6 +245,8 @@ def without_person(stages: Sequence[SnapStage], person: uuid.UUID) -> tuple[Snap
             self_approval=s.self_approval,
             parallel_group=s.parallel_group,
             condition=s.condition,
+            auto_earlier=s.auto_earlier,
+            auto_rules=s.auto_rules,
         )
         for s in stages
     )

@@ -1089,6 +1089,9 @@ export const en = {
   'permission.requests.manage_followers': 'Manage followers of requests',
   'permission.requests.manage_followers.description':
     'Add other people as followers of service requests and remove them.',
+  'permission.requests.modify_approvers': 'Change the approvers of service requests',
+  'permission.requests.modify_approvers.description':
+    'Add or replace an approver, add a stage or remind the approvers of a request waiting for approval, always with a reason.',
   'permission.requests.reopen': 'Reopen service requests',
   'permission.requests.reopen.description':
     'Reopen fulfilled or closed service requests, with a reason.',

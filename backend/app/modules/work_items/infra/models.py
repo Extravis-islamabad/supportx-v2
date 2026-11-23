@@ -40,6 +40,7 @@ from app.modules.work_items.domain.approvals import (
     ApprovalPurpose,
     ApprovalState,
     ApproverOrigin,
+    AutoReason,
     DecisionChannel,
     RouteReason,
     SkipReason,
@@ -158,6 +159,9 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     approvals_hidden_from_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # D-132: e-mailed approval links work without sign-in unless the tenant asks for it.
     approvals_require_sign_in: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # REQ-SR-033 (WP-047a S2b, 0195): a stage's approver who approved an earlier stage of the
+    # same request is not asked again; off by default, and an item's own setting overrides it.
+    auto_approve_earlier: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # D-154c: ticking a request's first fulfilment task starts the work (requests only; on).
     first_task_starts_work: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
@@ -1913,6 +1917,15 @@ class WorkItemApproval(TenantEntity):
         CheckConstraint(
             "skip_reason IS NULL OR " + _codes("skip_reason", SkipReason), name="skip_reason_code"
         ),
+        # WP-047a S2b (0195, REQ-SR-033): an automatic approval says why, and only it does.
+        CheckConstraint(
+            "auto_reason IS NULL OR " + _codes("auto_reason", AutoReason), name="auto_reason_code"
+        ),
+        CheckConstraint(
+            "(auto_reason IS NOT NULL) = (channel IS NOT DISTINCT FROM 'automatic')",
+            name="auto_reason_set",
+        ),
+        CheckConstraint("auto_ref IS NULL OR auto_ref >= 1", name="auto_ref_positive"),
         CheckConstraint(
             "board_reason IS NULL OR board_reason IN ('mapped', 'default')",
             name="board_reason_code",
@@ -1957,6 +1970,9 @@ class WorkItemApproval(TenantEntity):
     # WP-047a S2a (0194): a request stage's parallel group, and why a stage was skipped.
     branch: Mapped[str | None] = mapped_column(String(40))
     skip_reason: Mapped[str | None] = mapped_column(String(40))
+    # WP-047a S2b (0195): why it was approved automatically, and the stage or rule it names.
+    auto_reason: Mapped[str | None] = mapped_column(String(40))
+    auto_ref: Mapped[int | None] = mapped_column(Integer)
     # WP-045b S3 (0117): the change advisory board this row came from, and why that board.
     board_id: Mapped[uuid.UUID | None]
     board_reason: Mapped[str | None] = mapped_column(String(10))

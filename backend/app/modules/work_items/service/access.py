@@ -751,4 +751,14 @@ APPROVE_SPECS: tuple[PermissionSpec, ...] = (
         defaults=(("technician", "all"), ("requester", "all")),
     ),
     PermissionSpec(APPROVE_ANY, "service_request", ("all",)),
+    # WP-047a S2b (REQ-SR-042): adjust a request's running approval (add or replace an approver,
+    # add a stage, remind), with a reason. Seeded for the service desk manager only, as the
+    # cost rights are (D-164; the coordinator's Q2); tenant admins hold every right. Lane B
+    # reviews the defaults.
+    PermissionSpec(
+        "requests.modify_approvers",
+        "service_request",
+        ALL_SCOPES,
+        defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
 )
