@@ -400,6 +400,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.closed_edited", AuditCategory.RECORDS, "work_items"),  # WP-046b S1, REQ-INC-101
     ("incident.closed_edit_lock_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S1
     ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
+    # WP-046b S5: an unassigned ask to cancel fell to the service desk managers.
+    ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
@@ -487,6 +489,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.settings_changed", AuditCategory.SECURITY, "audit"),
     # REQ-AUD-011 (WP-057 S5a): streaming to a SIEM; codes and IDs only, never a secret.
     ("audit.siem_destination_added", AuditCategory.SECURITY, "audit"),
+    ("audit.siem_entries_truncated", AuditCategory.DATA, "audit"),  # D-181: UDP, never silent
+    ("audit.siem_plaintext_enabled", AuditCategory.SECURITY, "audit"),  # D-181: TCP/UDP chosen
     ("audit.siem_destination_changed", AuditCategory.SECURITY, "audit"),
     ("audit.siem_destination_removed", AuditCategory.SECURITY, "audit"),
     ("audit.siem_secret_rotated", AuditCategory.SECURITY, "audit"),
@@ -502,6 +506,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.personal_data_access_viewed", AuditCategory.DATA, "audit"),  # REQ-AUD-017 report
+    ("audit.system_log_exported", AuditCategory.DATA, "audit"),  # REQ-AUD-016 AC3
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),

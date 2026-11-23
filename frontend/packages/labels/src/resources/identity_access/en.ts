@@ -1658,6 +1658,7 @@ export const en = {
   'security_area.passwords': 'Passwords',
   'security_area.service_accounts': 'Service accounts',
   'security_area.sessions': 'Sessions',
+  'security_area.siem': 'Security monitoring',
   'security_area.sign_in': 'Single sign-on',
   'security_area.sign_in_events': 'Sign-in activity',
   'security_area.vendor_support': 'Vendor support',
@@ -1681,6 +1682,8 @@ export const en = {
   'security_flag.roles_without_mfa': 'Roles with multi-factor sign-in off: {{count}}',
   'security_flag.service_accounts_without_owner':
     'Service accounts that need a new owner: {{count}}',
+  'security_flag.siem_plaintext':
+    'Security monitoring destinations sending without encryption: {{count}}',
   'security_flag.sign_ins_locked': 'Sign-ins locked out in the last 7 days: {{count}}',
   'security_flag.sso_credential_expired': 'A single sign-on certificate or secret has run out.',
   'security_flag.sso_credential_expires':

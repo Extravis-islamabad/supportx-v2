@@ -603,6 +603,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     approvals_require_sign_in: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
+    requester_cancel: 'off',
+    requester_edit_fields: [],
     mail_commands: false,
     mail_command_fields: [],
     cc_from_first_mail: true,

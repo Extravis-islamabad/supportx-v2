@@ -2066,6 +2066,27 @@
         "type": "object"
       }
     },
+    "audit.system_log.recorded": {
+      "1": {
+        "description": "A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.\n\nThe severity only: never the code's params or the object.",
+        "properties": {
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity"
+        ],
+        "title": "SystemLogRecorded",
+        "type": "object"
+      }
+    },
     "audit.verification.completed": {
       "1": {
         "description": "A verification run finished (`status`: passed, failed or error).",
@@ -6395,6 +6416,78 @@
           "total"
         ],
         "title": "WorkItemBulkJobProgressed",
+        "type": "object"
+      }
+    },
+    "work_items.cancellation_request.created": {
+      "1": {
+        "description": "A requester asked to cancel their record (WP-046b S5; REQ-INC-148 AC1).\n\nIDs only: the reason is the ask's own row, read by those who may decide.",
+        "properties": {
+          "deciders": {
+            "title": "Deciders",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "requested_by",
+          "request_id",
+          "deciders"
+        ],
+        "title": "WorkItemCancellationRequested",
+        "type": "object"
+      }
+    },
+    "work_items.cancellation_request.decided": {
+      "1": {
+        "description": "A requester's ask to cancel was approved, declined or withdrawn (its state code).",
+        "properties": {
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "state",
+          "requested_by"
+        ],
+        "title": "WorkItemCancellationDecided",
         "type": "object"
       }
     },

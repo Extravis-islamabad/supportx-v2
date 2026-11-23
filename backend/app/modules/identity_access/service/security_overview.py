@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.modules.audit import plaintext_siem_destinations
 from app.modules.identity_access.domain import api_keys as key_rules
 from app.modules.identity_access.domain import security_overview as rules
 from app.modules.identity_access.domain.network import NetworkApp
@@ -205,6 +206,7 @@ async def overview(
         failed_sign_ins=failed or 0,
         locked_sign_ins=locked or 0,
         support_removals_stuck=len(await support_grants.stuck_removals(session, now)),
+        plaintext_siem_destinations=await plaintext_siem_destinations(session),
     )
     return Overview(
         sso_required=sso_policy.required,

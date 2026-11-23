@@ -119,6 +119,8 @@ export const ur: LabelResource = {
   'notification_event.incident.approval_requested': 'منظوری مانگی گئی',
   'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
   'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
+  'notification_event.incident.cancellation_to_managers':
+    'منسوخی کی درخواست سروس ڈیسک مینیجرز کو بھیجی گئی',
   'notification_event.incident.closed': 'واقعہ بند ہوا',
   'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
   'notification_event.incident.created_in_group': 'گروپ میں نیا واقعہ',
@@ -495,6 +497,12 @@ export const ur: LabelResource = {
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} منسوخ ہو گیا',
   'notification_template.incident.canceled.subject':
     'منسوخ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.cancellation_to_managers.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} “{{ record.title }}” کسی کو تفویض نہیں، اس لیے اسے منسوخ کرنے کی آپ کی درخواست سروس ڈیسک مینیجرز کو بھیج دی گئی ہے۔ وہ فیصلہ کریں گے: {{ record.link }}',
+  'notification_template.incident.cancellation_to_managers.in_app':
+    '{{ record.display_id }} منسوخ کرنے کی آپ کی درخواست سروس ڈیسک مینیجرز کے پاس ہے',
+  'notification_template.incident.cancellation_to_managers.subject':
+    '{{ record.display_id }} منسوخ کرنے کی آپ کی درخواست',
   'notification_template.incident.closed.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب بند ہے۔',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} بند ہو گیا',

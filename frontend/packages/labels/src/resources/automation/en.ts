@@ -172,6 +172,7 @@ export const en = {
   'automation.why.first_task_started': 'Started when the first fulfilment task was ticked done.',
   'automation.why.fulfilled': 'Fulfilled: every required task is done',
   'automation.why.matrix': 'From the priority matrix (impact and urgency).',
+  'automation.why.requester_canceled': 'The requester cancelled it in the portal.',
   'automation.why.requester_confirmed': 'The requester confirmed the fix, so it was closed.',
   'automation.why.requester_rejected': 'The requester said it is not fixed, so it was reopened.',
   'automation.why.requester_reply_reopened':

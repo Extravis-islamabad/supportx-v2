@@ -7,6 +7,7 @@ One list channel, joined only by holders of `audit.view`:
                                 through the API, which applies the permission again.
     t:{tenant}:queue:personal_data_access   "the personal data access log changed" (REQ-AUD-017),
                                 joined only with `audit.view_personal_data_access`.
+    t:{tenant}:queue:system_log  "the system log changed" (REQ-AUD-016), joined with `audit.view`.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,9 @@ CHANGED = "audit.changed"
 # REQ-AUD-017: its own list, joined only with audit.view_personal_data_access.
 ACCESS_LIST = LiveList("personal_data_access", "audit.view_personal_data_access")
 ACCESS_CHANGED = "personal_data_access.changed"
+# REQ-AUD-016 (WP-057 S5b): its own list, so a busy system log never wakes the audit screens.
+SYSTEM_LIST = LiveList("system_log", "audit.view")
+SYSTEM_CHANGED = "system_log.changed"
 
 
 async def _changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -35,7 +39,13 @@ async def _access_changed(envelope: EventEnvelope, session: AsyncSession) -> Rea
     return RealtimeEffects(publications=[Publication(channel, ACCESS_CHANGED, coalesce=True)])
 
 
-CHANNELS = [LIST.spec(), ACCESS_LIST.spec()]
+async def _system_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    del session
+    channel = queue(envelope.tenant_id, SYSTEM_LIST.name)
+    return RealtimeEffects(publications=[Publication(channel, SYSTEM_CHANGED, coalesce=True)])
+
+
+CHANNELS = [LIST.spec(), ACCESS_LIST.spec(), SYSTEM_LIST.spec()]
 ROUTES = [
     RealtimeRoute(
         (
@@ -50,4 +60,5 @@ ROUTES = [
         _changed,
     ),
     RealtimeRoute(("audit.personal_data_access.recorded",), _access_changed),
+    RealtimeRoute(("audit.system_log.recorded",), _system_changed),
 ]

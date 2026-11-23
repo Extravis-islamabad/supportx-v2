@@ -21,6 +21,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",
+    "SiemTransport": "siem_transport",
     "SiemStream": "siem_stream",
     "SiemTestOut.result": "siem_test_result",
     "SecurityArea": "security_area",  # WP-057 S4d: the security overview's tiles
@@ -209,6 +210,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "RowColourBy": "row_colour_by",  # WP-046b S3a (REQ-INC-115)
     "ListLayout": "list_layout",  # WP-046b S3b (REQ-INC-111)
     "BoardGroupBy": "board_group_by",
+    "RequesterCancel": "requester_cancel",  # WP-046b S5 (REQ-INC-148)
+    "CancellationDeciders": "cancellation_deciders",  # WP-046b S5 condition 1
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
@@ -268,6 +271,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "SystemLogCode": "system_log_code",
+    "SystemLogSeverity": "system_log_severity",
     "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",

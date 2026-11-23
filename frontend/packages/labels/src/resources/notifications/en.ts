@@ -116,6 +116,8 @@ export const en = {
   'notification_event.incident.approval_requested': 'Approval requested',
   'notification_event.incident.assigned': 'Incident assigned',
   'notification_event.incident.canceled': 'Incident cancelled',
+  'notification_event.incident.cancellation_to_managers':
+    'Cancellation ask passed to the service desk managers',
   'notification_event.incident.closed': 'Incident closed',
   'notification_event.incident.created': 'New incident: acknowledgement',
   'notification_event.incident.created_in_group': 'New incident in a group',
@@ -490,6 +492,12 @@ export const en = {
   'notification_template.incident.canceled.in_app': '{{ record.display_id }} was cancelled',
   'notification_template.incident.canceled.subject':
     'Cancelled: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.cancellation_to_managers.body':
+    'Hello {{ recipient.name }},\n\nNobody is assigned to {{ record.display_id }} "{{ record.title }}", so your request to cancel it has gone to the service desk managers. They will decide: {{ record.link }}',
+  'notification_template.incident.cancellation_to_managers.in_app':
+    'Your request to cancel {{ record.display_id }} is with the service desk managers',
+  'notification_template.incident.cancellation_to_managers.subject':
+    'Your request to cancel {{ record.display_id }}',
   'notification_template.incident.closed.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now closed.',
   'notification_template.incident.closed.in_app': '{{ record.display_id }} was closed',

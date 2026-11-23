@@ -14,6 +14,9 @@ Public interface for other modules:
 * `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable;
   `erase_saved_searches(session, user_id)`: their saved audit searches go (ADR-052, the audit
   module's part of a person's erasure);
+* `record_system(session, SystemLogEntryIn(...))` / `record_system_alone(database, tenant_id,
+  ...)`: the system log (REQ-AUD-016, WP-057 S5b): what a module did on its own or what failed,
+  as a code from `SystemLogCode` with small params and the object it's about;
 * `entries_for_changes(session, change_ids)`: which field-history saves have an audit entry
   (record history shows the link only to holders of `audit.view`, REQ-AUD-006).
 """
@@ -32,11 +35,18 @@ from app.modules.audit.api.routes import (
     router,
 )
 from app.modules.audit.api.siem import router as siem_router
+from app.modules.audit.api.system_log import router as system_log_router
 from app.modules.audit.domain.catalogue import (
     AuditActorType,
     AuditCategory,
     AuditOutcome,
     ReadCategory,
+)
+from app.modules.audit.domain.system_log import (
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogObject,
+    SystemLogSeverity,
 )
 from app.modules.audit.events import EVENTS
 from app.modules.audit.service.access_log import Accessor as AccessAccessor
@@ -72,6 +82,12 @@ from app.modules.audit.service.recording import (
 )
 from app.modules.audit.service.redaction import redact_signed_history
 from app.modules.audit.service.siem import SignInRow, register_sign_in_source
+from app.modules.audit.service.siem import plaintext_destinations as plaintext_siem_destinations
+from app.modules.audit.service.system_log import (
+    record_system,
+    record_system_alone,
+    record_system_coalesced,
+)
 from app.shared.events import ConsumerSpec
 from app.shared.history import register_audit_sink
 from app.shared.schedules import ScheduleSpec
@@ -110,7 +126,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="audit",
-    routers=[router, siem_router],
+    routers=[router, system_log_router, siem_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
@@ -166,15 +182,23 @@ __all__ = [
     "ReadCategory",
     "RequestFacts",
     "SignInRow",
+    "SystemLogCode",
+    "SystemLogEntryIn",
+    "SystemLogObject",
+    "SystemLogSeverity",
     "audit_read",
     "audited",
     "entries_for_changes",
     "erase_saved_searches",
     "erase_subject",
     "module",
+    "plaintext_siem_destinations",
     "record",
     "record_access",
     "record_alone",
+    "record_system",
+    "record_system_alone",
+    "record_system_coalesced",
     "redact_signed_history",
     "register_sign_in_source",
 ]

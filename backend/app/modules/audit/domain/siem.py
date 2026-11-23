@@ -37,6 +37,25 @@ class SiemKind(StrEnum):
     WEBHOOK = "webhook"  # HTTPS POST of a JSON batch, signed (app/shared/crypto/signing.py)
 
 
+class SiemTransport(StrEnum):
+    """How syslog travels (`siem_transport.<code>`; D-181). TLS unless an admin chooses otherwise.
+
+    Plain TCP and UDP are for older SIEMs on internal networks: no encryption, and UDP no
+    acknowledgement either. A webhook is always HTTPS (TLS).
+    """
+
+    TLS = "tls"
+    TCP = "tcp"
+    UDP = "udp"
+
+
+PLAINTEXT = frozenset({SiemTransport.TCP, SiemTransport.UDP})
+UDP_MAX_DEFAULT = 2048  # bytes in one datagram (D-181; RFC 5426 receivers take at least 480)
+UDP_MAX_LOWEST = 480
+UDP_MAX_HIGHEST = 8192
+TRUNCATED_MARK = " [truncated]"
+
+
 class SiemFormat(StrEnum):
     """What each entry looks like (`siem_format.<code>`); a webhook always sends JSON."""
 
@@ -149,6 +168,20 @@ def frame(line: str) -> bytes:
     """RFC 6587 octet counting: `<length> <message>`, so a line break never splits it."""
     data = line.encode("utf-8")
     return str(len(data)).encode("ascii") + b" " + data
+
+
+def datagram(line: str, limit: int) -> tuple[bytes, bool]:
+    """One RFC 5426 datagram (no framing) of at most `limit` bytes, and whether it was cut.
+
+    Never cut silently (D-181): a message over the limit ends in a marker a reader can see, cut at
+    a character boundary.
+    """
+    data = line.encode("utf-8")
+    if len(data) <= limit:
+        return data, False
+    mark = TRUNCATED_MARK.encode("ascii")
+    kept = data[: limit - len(mark)].decode("utf-8", errors="ignore").encode("utf-8")
+    return kept + mark, True
 
 
 def body(kind: SiemStream, content: Mapping[str, Any], fmt: SiemFormat, *, version: str) -> str:

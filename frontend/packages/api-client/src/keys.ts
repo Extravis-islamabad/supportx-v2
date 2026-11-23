@@ -8,7 +8,7 @@ import type {
   AssetProductsQuery,
   AssetRecordsQuery,
 } from './assets';
-import type { AuditEntriesQuery } from './audit';
+import type { AuditEntriesQuery, SystemLogFilters } from './audit';
 import type { IncidentSearchQuery, PossibleDuplicatesQuery, IncidentsQuery } from './incidents';
 import type { KnowledgeQuery } from './knowledge';
 import type { ReportDefinition } from './reports';
@@ -271,6 +271,8 @@ export const queryKeys = {
     personalDataAccessAll: ['audit', 'personal-data-access'] as const,
     personalDataAccess: (person: string, since?: string, until?: string) =>
       ['audit', 'personal-data-access', person, since ?? '', until ?? ''] as const,
+    systemLogAll: ['audit', 'system-log'] as const,
+    systemLog: (filters: SystemLogFilters) => ['audit', 'system-log', filters] as const,
   },
   files: {
     all: ['files'] as const,
