@@ -16,7 +16,7 @@ The downgrade drops the table and both columns: asks waiting are dropped with it
 a downgrade is for a stack that never ran S5 for real).
 
 Revision ID: 0184
-Revises: 0185
+Revises: 0190
 Created: 2026-11-21
 """
 
@@ -30,8 +30,8 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0184"
-# main's head now (… 0182 → 0185); re-pointed at its queue turn.
-down_revision: str | None = "0185"
+# main's head at its queue turn (… 0189 → 0190).
+down_revision: str | None = "0190"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

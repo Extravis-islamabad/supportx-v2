@@ -13,7 +13,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0185"  # 0184's down revision (main's head at its queue turn)
+BEFORE = "0190"  # 0184's down revision (main's head at its queue turn)
 TABLE = "work_item_cancellation_requests"
 
 
