@@ -245,7 +245,7 @@ licence-check: ## The shipped JS dependencies' licences against the allow-list (
 audit-frontend: not-shipped-check
 	@# D-174: no ignored advisory (picomatch's GHSA was withdrawn 2026-11-18); one may only come
 	@# back as a new decision, never by editing the workspace file alone.
-	@if grep -q 'ignoreGhsas' frontend/pnpm-workspace.yaml; then \
+	@if grep -Eq 'ignoreGhsas|ignoreCves' frontend/pnpm-workspace.yaml; then \
 		echo "D-174: frontend/pnpm-workspace.yaml ignores an advisory; that needs a new decision"; \
 		exit 1; fi
 	$(FRONTEND) pnpm audit || true
