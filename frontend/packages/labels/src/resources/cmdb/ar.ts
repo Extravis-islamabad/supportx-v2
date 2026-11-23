@@ -456,6 +456,7 @@ export const ar: LabelResource = {
   'errors.cmdb_merge_types_differ': 'لا يمكن دمج إلا عناصر التهيئة من النوع نفسه.',
   'errors.cmdb_relationship_exists': '{{display_id}} مرتبط بالفعل بنوع العلاقة هذا.',
   'errors.cmdb_relationship_not_found': 'هذه العلاقة غير موجودة، أو لا يمكنك رؤيتها.',
+  'errors.cmdb_relationship_self': 'لا يمكن ربط عنصر تهيئة بنفسه.',
   'errors.cmdb_relationship_target_denied':
     'لا يمكنك تغيير {{display_id}}، لذا لا يمكن ربطه أو فك ربطه هنا.',
   'errors.cmdb_relationship_type_in_use':

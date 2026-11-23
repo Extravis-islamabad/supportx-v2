@@ -439,6 +439,7 @@ export const ur: LabelResource = {
   'errors.cmdb_merge_types_differ': 'صرف ایک ہی قسم کے کنفیگریشن آئٹمز ضم ہو سکتے ہیں۔',
   'errors.cmdb_relationship_exists': '{{display_id}} پہلے ہی اس تعلق کی قسم سے جڑا ہے۔',
   'errors.cmdb_relationship_not_found': 'یہ تعلق موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.cmdb_relationship_self': 'کسی CI کو خود سے نہیں جوڑا جا سکتا۔',
   'errors.cmdb_relationship_target_denied':
     'آپ {{display_id}} تبدیل نہیں کر سکتے، اس لیے اسے یہاں جوڑا یا الگ نہیں کیا جا سکتا۔',
   'errors.cmdb_relationship_type_in_use':

@@ -437,6 +437,7 @@ export const en = {
   'errors.cmdb_relationship_exists':
     '{{display_id}} is already linked with this relationship type.',
   'errors.cmdb_relationship_not_found': 'This relationship does not exist, or you cannot see it.',
+  'errors.cmdb_relationship_self': 'A CI cannot be linked to itself.',
   'errors.cmdb_relationship_target_denied':
     'You cannot change {{display_id}}, so it cannot be linked or unlinked here.',
   'errors.cmdb_relationship_type_in_use':

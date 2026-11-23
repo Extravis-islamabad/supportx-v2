@@ -39,6 +39,7 @@ STREAMED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("POST", re.compile(r"^/api/v1/files$")),
     ("POST", re.compile(r"^/api/v1/people-imports$")),
     ("POST", re.compile(r"^/api/v1/assets/imports$")),
+    ("POST", re.compile(r"^/api/v1/cmdb/imports$")),  # CIs and relationships (WP-053 S4b)
     ("POST", re.compile(r"^/api/v1/[a-z-]+/checklist-library/import$")),
     ("POST", re.compile(r"^/api/v1/automation/workflows/import$")),
     ("POST", re.compile(r"^/api/v1/sla/holiday-lists/[^/]+/import$")),
