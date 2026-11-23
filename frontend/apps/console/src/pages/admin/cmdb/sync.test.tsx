@@ -220,6 +220,18 @@ describe('Admin › CMDB › sync rules', () => {
     expect(alert.textContent).not.toContain('rack_8758');
   });
 
+  it('shows a removed field’s source by its name, never its key', async () => {
+    // A custom target removed since the rule was saved: its kind is unknown (lane C on #574).
+    const kept = { ...rule, field_map: { name: 'name', 'custom.gone': 'location' } };
+    api({ [`GET /api/v1/cmdb/sync-rules/${RULE}`]: { body: kept, headers: { ETag: '"3"' } } });
+    open(`/admin/cmdb/sync-rules/${RULE}`);
+    const source = await screen.findByTestId('cmdb-sync-source-custom.gone');
+    await waitFor(() => {
+      expect(source.textContent).toContain('Location');
+    });
+    expect(source.textContent).not.toMatch(/\blocation\b/u);
+  });
+
   it('says the totals are hidden when the server withholds them', async () => {
     const hidden = {
       ...run,

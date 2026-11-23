@@ -164,7 +164,10 @@ export function SyncRulePage() {
     });
   }
   const tree = useMemo(
-    () => typeTree(types.data?.items ?? [], (x) => nameOf(t, locale, x, 'cmdb_ci_type')),
+    () =>
+      typeTree(types.data?.items ?? [], (x) => nameOf(t, locale, x, 'cmdb_ci_type'), {
+        counts: false,
+      }),
     [types.data, t, locale],
   );
   if (!allowed) return <NoAccess titleKey="cmdb.sync.title" />;
@@ -180,10 +183,14 @@ export function SyncRulePage() {
     return found === undefined ? t('cmdb.sync.removed_field') : fieldName(found, locale);
   };
   const kindOf = (target: string) => fields.data?.ci_attributes.find((a) => a.key === target)?.kind;
-  const sourcesFor = (target: string) =>
-    (fields.data?.asset_fields ?? [])
-      .filter((f) => f.kind === kindOf(target))
+  // A target whose kind is unknown (a custom field removed since the rule was saved) still offers
+  // every asset field, so its chosen source shows by name, never as its key (rule d; lane C).
+  const sourcesFor = (target: string) => {
+    const kind = kindOf(target);
+    return (fields.data?.asset_fields ?? [])
+      .filter((f) => kind === undefined || f.kind === kind)
       .map((f) => ({ value: f.key, label: t(`cmdb.sync.asset_field.${f.key}`) }));
+  };
   const unmapped = (fields.data?.ci_attributes ?? []).filter(
     (a) => !draft.map.some((m) => m.target === a.key),
   );
@@ -424,6 +431,8 @@ export function SyncRulePage() {
                   });
                 }}
                 options={sourcesFor(row.target)}
+                // Whatever the options, the chosen source reads by its label, never its key.
+                labelRender={({ value }) => t(`cmdb.sync.asset_field.${String(value)}`)}
                 data-testid={`cmdb-sync-source-${row.target}`}
               />
               {row.target !== 'name' && (
