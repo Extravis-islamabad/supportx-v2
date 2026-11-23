@@ -287,6 +287,8 @@ export const en = {
   'catalog_admin.stages.no_person_question': 'Add a person question to the form first',
   'catalog_admin.stages.only_when': 'Applies only when',
   'catalog_admin.stages.person_question': 'The person question',
+  'catalog_admin.stages.reduce_to_save':
+    'This item uses approval stages from the Professional edition. To save it, reduce it to one stage of a named person or the requested-for person’s manager, decided by any one approver.',
   'catalog_admin.stages.remove': 'Remove stage {{n}}',
   'catalog_admin.stages.remove_approver': 'Remove this approver',
   'catalog_admin.stages.rule': 'How they decide',
@@ -2637,6 +2639,7 @@ export const en = {
   'why.max_stages': 'At most {{max}} stages.',
   'why.no_note': "You can't add a note here.",
   'why.nothing_changed': 'Nothing has changed yet.',
+  'why.professional_edition': 'Available in the Professional edition.',
   'why.task_title': 'Give the task a title first.',
   'why.write_first': 'Write something first.',
   'window_repeat.monthly': 'Every month',

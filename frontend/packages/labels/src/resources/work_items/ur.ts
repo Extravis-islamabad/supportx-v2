@@ -290,6 +290,8 @@ export const ur: LabelResource = {
   'catalog_admin.stages.no_person_question': 'پہلے فارم میں شخص والا سوال شامل کریں',
   'catalog_admin.stages.only_when': 'صرف تب لاگو جب',
   'catalog_admin.stages.person_question': 'شخص والا سوال',
+  'catalog_admin.stages.reduce_to_save':
+    'یہ آئٹم Professional ایڈیشن کے منظوری کے مراحل استعمال کرتا ہے۔ اسے محفوظ کرنے کے لیے، اسے کسی نامزد شخص یا جس کے لیے درخواست ہے اس کے مینیجر کے ایک مرحلے تک محدود کریں، جس کا فیصلہ کوئی بھی ایک منظوری دہندہ کرے۔',
   'catalog_admin.stages.remove': 'مرحلہ {{n}} ہٹائیں',
   'catalog_admin.stages.remove_approver': 'یہ منظوری دہندہ ہٹائیں',
   'catalog_admin.stages.rule': 'فیصلہ کیسے ہو',
@@ -2645,6 +2647,7 @@ export const ur: LabelResource = {
   'why.max_stages': 'زیادہ سے زیادہ {{max}} مراحل۔',
   'why.no_note': 'آپ یہاں نوٹ شامل نہیں کر سکتے۔',
   'why.nothing_changed': 'ابھی کچھ نہیں بدلا۔',
+  'why.professional_edition': 'Professional ایڈیشن میں دستیاب ہے۔',
   'why.task_title': 'پہلے کام کا عنوان لکھیں۔',
   'why.write_first': 'پہلے کچھ لکھیں۔',
   'window_repeat.monthly': 'ہر مہینے',

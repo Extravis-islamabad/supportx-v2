@@ -296,6 +296,8 @@ export const ar: LabelResource = {
   'catalog_admin.stages.no_person_question': 'أضف سؤالًا عن شخص إلى النموذج أولًا',
   'catalog_admin.stages.only_when': 'تنطبق فقط عندما',
   'catalog_admin.stages.person_question': 'سؤال الشخص',
+  'catalog_admin.stages.reduce_to_save':
+    'يستخدم هذا العنصر مراحل موافقة من إصدار Professional. لحفظه، اختصره إلى مرحلة واحدة لشخص محدد أو مدير الشخص المطلوب له، يقرر فيها أي معتمِد.',
   'catalog_admin.stages.remove': 'إزالة المرحلة {{n}}',
   'catalog_admin.stages.remove_approver': 'إزالة هذا المعتمِد',
   'catalog_admin.stages.rule': 'طريقة القرار',
@@ -2952,6 +2954,7 @@ export const ar: LabelResource = {
   'why.max_stages': '{{max}} مراحل كحد أقصى.',
   'why.no_note': 'لا يمكنك إضافة ملاحظة هنا.',
   'why.nothing_changed': 'لم يتغير شيء بعد.',
+  'why.professional_edition': 'متاح في إصدار Professional.',
   'why.task_title': 'اكتب عنوانًا للمهمة أولًا.',
   'why.write_first': 'اكتب شيئًا أولًا.',
   'window_repeat.monthly': 'كل شهر',

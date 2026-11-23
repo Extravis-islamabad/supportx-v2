@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { CatalogCategory, CatalogItem } from '@supportx/api-client';
 
 import { App } from '../../../App';
-import { consoleApi, fakeSession, problem } from '../../../test/api';
+import { consoleApi, fakeEntitlements, fakeSession, problem } from '../../../test/api';
 
 const ADMIN = fakeSession({ roles: ['tenant_admin', 'technician'] });
 
@@ -321,5 +321,63 @@ describe('Admin › Service catalog › approval stages', () => {
     const approval = (sent?.body as { approval: { stages: Record<string, unknown>[] } }).approval;
     expect(approval.stages).toHaveLength(1);
     expect(approval.stages[0]?.parallel_group ?? null).toBeNull();
+  });
+});
+
+// Lane C's #582 notes: an Essentials tenant that still has a staged item (after a downgrade).
+describe('Admin › Service catalog › stages without the Professional edition', () => {
+  it('explains how to save, disables what is Professional and saves a rename alone', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const staged = {
+      ...laptop,
+      approval: {
+        approvers: [{ kind: 'requested_for_manager' as const, person_id: null }],
+        rule: 'any' as const,
+        comments_required: false,
+        self_approval: false,
+        stages: [
+          {
+            approvers: [{ kind: 'requested_for_manager' as const }],
+            rule: 'any' as const,
+            comments_required: false,
+            self_approval: false,
+          },
+          {
+            approvers: [{ kind: 'department_head' as const }],
+            rule: 'all' as const,
+            comments_required: false,
+            self_approval: false,
+          },
+        ],
+      },
+    };
+    const fake = api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({
+          edition: 'essentials',
+          features: ['incident', 'service_request'],
+        }),
+      },
+      [`GET /api/v1/catalog/items/${ITEM}`]: { body: staged },
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: { body: { ...staged, version: 4 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approval' }));
+    const alert = await screen.findByTestId('cat-stages-unlicensed');
+    expect(alert.textContent).toContain('reduce it to one stage');
+    expect(screen.getByTestId('cat-stage-add').hasAttribute('disabled')).toBe(true);
+    // Removing a stage stays allowed: that is how the item is reduced.
+    expect(screen.getByTestId('cat-stage-remove-1').hasAttribute('disabled')).toBe(false);
+    // A rename sends only the name, never the stages it cannot save.
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    fireEvent.change(await screen.findByTestId('cat-name-en'), {
+      target: { value: 'New laptop (renamed)' },
+    });
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`);
+    expect(Object.keys(sent?.body as object)).toEqual(['names']);
   });
 });

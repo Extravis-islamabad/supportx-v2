@@ -790,6 +790,7 @@ function ApprovalTab({ draft, set }: TabProps) {
         <StagesEditor
           stages={stages}
           questions={draft.questions ?? []}
+          licensed={licence.has('catalog')}
           onChange={(next) => {
             put({ stages: next });
           }}

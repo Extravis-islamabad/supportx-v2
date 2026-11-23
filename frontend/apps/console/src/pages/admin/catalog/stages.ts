@@ -19,6 +19,8 @@ export const KINDS: Kind[] = [
   'asset_owner',
   'ci_owner',
 ];
+// The kinds every edition keeps (today's single stage); the rest are REQ-SR-031, Professional.
+export const TODAYS_KINDS: Kind[] = ['person', 'requested_for_manager'];
 export const RULES: Rule[] = ['any', 'all', 'majority'];
 // The condition operators a stage takes (the form rules' DSL, app/shared/conditions.py).
 export const OPS = ['eq', 'ne', 'in', 'not_in', 'is_null', 'is_not_null'] as const;

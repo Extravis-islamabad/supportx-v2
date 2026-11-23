@@ -1,5 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Card, Flex, Form, Input, Select, Switch, Typography } from 'antd';
+import { Alert, Card, Flex, Form, Input, Select, Switch, Typography } from 'antd';
 
 import type { CatalogQuestion } from '@supportx/api-client';
 import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
@@ -17,6 +17,7 @@ import {
   type Rule,
   RULES,
   type Stage,
+  TODAYS_KINDS,
   valueText,
 } from './stages';
 
@@ -38,10 +39,13 @@ function simple(condition: Stage['condition']): { field: string; op: Op; value: 
 export function StagesEditor({
   stages,
   questions,
+  licensed = true,
   onChange,
 }: {
   stages: Stage[];
   questions: CatalogQuestion[];
+  /** `catalog` (REQ-SR-029..032): without it the item can only be reduced to one stage. */
+  licensed?: boolean;
   onChange: (stages: Stage[]) => void;
 }) {
   const t = useLabel();
@@ -69,6 +73,15 @@ export function StagesEditor({
   };
   return (
     <Flex vertical gap={12} data-testid="cat-stages">
+      {!licensed && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('catalog_admin.approval.advanced_upgrade')}
+          description={t('catalog_admin.stages.reduce_to_save')}
+          data-testid="cat-stages-unlicensed"
+        />
+      )}
       {stages.map((stage, index) => (
         <StageCard
           key={index}
@@ -77,6 +90,7 @@ export function StagesEditor({
           stage={stage}
           previous={stages[index - 1]}
           questions={questions}
+          licensed={licensed}
           onChange={(next) => {
             put(index, next);
           }}
@@ -93,8 +107,10 @@ export function StagesEditor({
       ))}
       <WriteButton
         style={{ alignSelf: 'flex-start' }}
-        disabled={stages.length >= MAX_STAGES}
-        whyDisabled={t('why.max_stages', { max: MAX_STAGES })}
+        disabled={!licensed || stages.length >= MAX_STAGES}
+        whyDisabled={
+          licensed ? t('why.max_stages', { max: MAX_STAGES }) : t('why.professional_edition')
+        }
         onClick={() => {
           onChange([...stages, blankStage()]);
         }}
@@ -127,6 +143,7 @@ function StageCard({
   stage,
   previous,
   questions,
+  licensed,
   onChange,
   onMove,
   onAlongside,
@@ -137,6 +154,7 @@ function StageCard({
   stage: Stage;
   previous: Stage | undefined;
   questions: CatalogQuestion[];
+  licensed: boolean;
   onChange: (next: Partial<Stage>) => void;
   onMove: (by: -1 | 1) => void;
   onAlongside: (on: boolean) => void;
@@ -194,6 +212,7 @@ function StageCard({
                 key={i}
                 approver={approver}
                 questions={questions}
+                licensed={licensed}
                 testId={`cat-stage-${String(index)}-approver-${String(i)}`}
                 onChange={(next) => {
                   onChange({ approvers: approvers.map((a, j) => (j === i ? next : a)) });
@@ -221,7 +240,11 @@ function StageCard({
           <Form.Item label={t('catalog_admin.stages.rule')} style={{ minWidth: 200 }}>
             <Select<Rule>
               value={stage.rule}
-              options={RULES.map((r) => ({ value: r, label: t(`approval_rule.${r}`) }))}
+              options={RULES.map((r) => ({
+                value: r,
+                label: t(`approval_rule.${r}`),
+                disabled: !licensed && r !== 'any', // REQ-SR-029: another rule is Professional
+              }))}
               onChange={(rule) => {
                 onChange({ rule });
               }}
@@ -247,6 +270,7 @@ function StageCard({
               checked={alongside}
               testId={`cat-stage-${String(index)}-parallel`}
               onChange={onAlongside}
+              disabled={!licensed && !alongside} // REQ-SR-030: turning it off stays allowed
             />
           )}
           <Toggle
@@ -260,6 +284,7 @@ function StageCard({
         <ConditionField
           condition={stage.condition ?? null}
           questions={questions}
+          licensed={licensed}
           testId={`cat-stage-${String(index)}-condition`}
           onChange={(condition) => {
             onChange({ condition });
@@ -273,12 +298,14 @@ function StageCard({
 function ApproverRow({
   approver,
   questions,
+  licensed,
   testId,
   onChange,
   onRemove,
 }: {
   approver: Approver;
   questions: CatalogQuestion[];
+  licensed: boolean;
   testId: string;
   onChange: (next: Approver) => void;
   onRemove: () => void;
@@ -291,7 +318,11 @@ function ApproverRow({
       <Select<Kind>
         style={{ minWidth: 260 }}
         value={approver.kind}
-        options={KINDS.map((k) => ({ value: k, label: t(`catalog_approver_kind.${k}`) }))}
+        options={KINDS.map((k) => ({
+          value: k,
+          label: t(`catalog_approver_kind.${k}`),
+          disabled: !licensed && !TODAYS_KINDS.includes(k), // REQ-SR-031: Professional
+        }))}
         onChange={(kind) => {
           onChange({ kind });
         }}
@@ -349,11 +380,13 @@ function ApproverRow({
 function ConditionField({
   condition,
   questions,
+  licensed,
   testId,
   onChange,
 }: {
   condition: Stage['condition'];
   questions: CatalogQuestion[];
+  licensed: boolean;
   testId: string;
   onChange: (next: Stage['condition']) => void;
 }) {
@@ -382,6 +415,7 @@ function ConditionField({
       <Toggle
         label={t('catalog_admin.stages.only_when')}
         checked={condition != null}
+        disabled={!licensed && condition == null}
         testId={`${testId}-on`}
         onChange={(on) => {
           onChange(on ? { field: fields[0]?.value ?? 'quantity', op: 'eq', value: null } : null);
@@ -451,16 +485,24 @@ function Toggle({
   label,
   checked,
   onChange,
+  disabled,
   testId,
 }: {
   label: string;
   checked: boolean;
   onChange: (on: boolean) => void;
+  disabled?: boolean;
   testId?: string;
 }) {
   return (
     <Flex align="center" gap={8}>
-      <Switch checked={checked} onChange={onChange} aria-label={label} data-testid={testId} />
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        aria-label={label}
+        data-testid={testId}
+      />
       <Typography.Text>{label}</Typography.Text>
     </Flex>
   );
