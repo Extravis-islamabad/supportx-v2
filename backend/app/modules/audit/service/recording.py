@@ -546,11 +546,12 @@ def requested_ids(note: AuditNote | None) -> dict[str, Any]:
     if note is None:
         return {}
     found: dict[str, Any] = {}
+    # The canonical form, so an uppercase, braced or urn ID logs as the one a search uses.
     for key, value in note.details.items():
         if _is_id(value):
-            found[key] = str(value)
+            found[key] = str(uuid.UUID(str(value)))
         elif isinstance(value, list) and value and all(_is_id(v) for v in value):
-            found[key] = [str(v) for v in value]
+            found[key] = [str(uuid.UUID(str(v))) for v in value]
     return found
 
 

@@ -28,3 +28,9 @@ def test_only_ids_and_lists_of_ids_are_kept() -> None:
 def test_no_note_or_nothing_named_gives_nothing() -> None:
     assert requested_ids(None) == {}
     assert requested_ids(AuditNote()) == {}
+
+
+def test_an_id_is_logged_in_its_canonical_form() -> None:
+    one = uuid.uuid4()
+    note = AuditNote(details={"a_id": str(one).upper(), "b_ids": [f"{{{one}}}", one.urn]})
+    assert requested_ids(note) == {"a_id": str(one), "b_ids": [str(one), str(one)]}
