@@ -306,6 +306,80 @@ def _time(value: Any) -> datetime | None:  # noqa: ANN401 - JSON
     return datetime.fromisoformat(str(value)) if value else None
 
 
+def _marker(  # noqa: PLR0913 - the downtime's keys and when, explicit
+    session: AsyncSession,
+    *,
+    ci_id: uuid.UUID,
+    downtime_id: uuid.UUID,
+    version: int,
+    payload: Mapping[str, Any],
+    now: datetime,
+) -> CiDowntime:
+    """A row born removed: it only remembers the version, for the stale check."""
+    source = domain.SOURCE_OF_TYPE[str(payload.get("type"))]
+    starts_at = _time(payload.get("starts_at")) or now
+    return CiDowntime(
+        id=new_id(),
+        tenant_id=tenant_of(session),
+        ci_id=ci_id,
+        source=source.value,
+        source_downtime_id=downtime_id,
+        source_version=version,
+        phase=str(payload.get("phase") or domain.CiDowntimePhase.PLANNED.value),
+        starts_at=starts_at,
+        ends_at=None,
+        state=domain.state_at(starts_at, None, now).value,
+        deleted_at=now,
+    )
+
+
+async def _remember_removal(
+    session: AsyncSession,
+    named: Sequence[uuid.UUID],
+    downtime_id: uuid.UUID,
+    version: int,
+    payload: Mapping[str, Any],
+) -> None:
+    """Remember a removal that arrived before any save (lane A's #608 review).
+
+    A removed marker per named CI keeps the version, so the older save, if it arrives later, is
+    stale and creates nothing.
+    """
+    if not named:
+        return
+    now = _now()
+    for ci_id in set(await session.scalars(select(Ci.id).where(Ci.id.in_(named)))):
+        session.add(
+            _marker(
+                session,
+                ci_id=ci_id,
+                downtime_id=downtime_id,
+                version=version,
+                payload=payload,
+                now=now,
+            )
+        )
+    await session.flush()
+
+
+async def _drop_unnamed(
+    session: AsyncSession,
+    existing: Mapping[uuid.UUID, CiDowntime],
+    wanted: set[uuid.UUID],
+    version: int,
+) -> None:
+    """Remove the rows of CIs the downtime no longer names (or all, when it was removed)."""
+    now = _now()
+    for ci_id, row in existing.items():
+        if ci_id in wanted:
+            continue
+        row.deleted_at = now
+        row.version += 1
+        row.source_version = version
+        await session.flush()
+        await _emit(session, row, REMOVED)
+
+
 async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> None:  # noqa: ANN401 - the event envelope
     """Mirror one work_items downtime onto each CI (and business service) it names.
 
@@ -319,19 +393,17 @@ async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> No
         return  # a record type that sends no CI downtimes
     downtime_id = uuid.UUID(str(payload["downtime_id"]))
     version = int(payload["version"])
-    existing = {
-        row.ci_id: row
-        for row in await session.scalars(
-            select(CiDowntime)
-            .where(
-                CiDowntime.source_downtime_id == downtime_id,
-                CiDowntime.deleted_at.is_(None),
-            )
-            .with_for_update()
+    every = list(
+        await session.scalars(
+            select(CiDowntime).where(CiDowntime.source_downtime_id == downtime_id).with_for_update()
         )
-    }
-    if any(domain.is_stale(row.source_version, version) for row in existing.values()):
+    )
+    # The newest version applied, over every row of this downtime, removed ones included: a
+    # removal that arrives before an older save leaves only removed rows to compare with (lane A).
+    applied = max((r.source_version for r in every if r.source_version is not None), default=None)
+    if domain.is_stale(applied, version):
         return  # this downtime is already at that version or newer
+    existing = {row.ci_id: row for row in every if row.deleted_at is None}
     named = _ids(payload.get("ci_ids")) + _ids(payload.get("service_ids"))
     wanted: set[uuid.UUID] = set()
     if not payload.get("deleted") and named:
@@ -341,13 +413,10 @@ async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> No
     starts_at = _time(payload.get("starts_at"))
     ends_at = _time(payload.get("ends_at"))
     now = _now()
-    for ci_id, row in existing.items():
-        if ci_id not in wanted or starts_at is None:
-            row.deleted_at = now
-            row.version += 1
-            row.source_version = version
-            await session.flush()
-            await _emit(session, row, REMOVED)
+    await _drop_unnamed(session, existing, wanted if starts_at is not None else set(), version)
+    if payload.get("deleted") and not every:
+        await _remember_removal(session, named, downtime_id, version, payload)
+        return
     if starts_at is None:
         return
     state = domain.state_at(starts_at, ends_at, now).value

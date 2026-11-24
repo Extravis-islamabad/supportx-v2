@@ -137,6 +137,28 @@ async def test_a_change_downtime_mirrors_once_and_follows_its_edits(world: World
     assert await _rows(world, a, downtime) == []
 
 
+async def test_a_removal_before_its_save_leaves_no_downtime(world: World) -> None:
+    """Lane A on #608: version 2 (removed) arriving before version 1 (saved) creates nothing.
+
+    Both when rows existed (the stale check reads removed rows too) and when the removal is the
+    first thing to arrive (a removed marker remembers the version).
+    """
+    a = world.a
+    tag = uuid.uuid4().hex[:6]
+    ci = await _made(world, a, f"Order box {tag}", "server")
+    seen = uuid.uuid4()
+    await _feed(world, a, _event(seen, 1, [ci["id"]]))
+    await _feed(world, a, _event(seen, 3, [ci["id"]], deleted=True))
+    await _feed(world, a, _event(seen, 2, [ci["id"]]))  # older than the removal
+    assert await _rows(world, a, seen) == []
+    first = uuid.uuid4()
+    await _feed(world, a, _event(first, 2, [ci["id"]], deleted=True))  # nothing stored yet
+    await _feed(world, a, _event(first, 1, [ci["id"]]))  # the save, late
+    assert await _rows(world, a, first) == []
+    await _feed(world, a, _event(first, 3, [ci["id"]]))  # a newer save does count
+    assert [str(r.ci_id) for r in await _rows(world, a, first)] == [ci["id"]]
+
+
 async def test_the_clock_moves_each_downtime_once(world: World) -> None:
     """AC1: active at its start without a refresh; a second sweep moves nothing (claim-once)."""
     a = world.a
