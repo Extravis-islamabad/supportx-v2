@@ -4,6 +4,8 @@
     GET /api/v1/portal/service-requests/{id}        one: its item and answers, plain status
     GET /api/v1/portal/service-requests/{id}/steps  fulfilment progress, internal names hidden
     POST …/{id}/resolution/confirm | reject         received it, or not done (REQ-SR-059)
+    GET  …/{id}/conversation                        public replies and notes (WP-047a S3a)
+    POST …/{id}/replies                             the requester's public reply (Idempotency-Key)
 
 The same reach and plain-status rules as the portal's incidents (service/portal.py, D-129).
 Approvals (respecting "hide approvals from requesters") and withdrawal use the engine's own
@@ -14,18 +16,25 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
-from app.modules.identity_access import Subject
-from app.modules.work_items.api.portal_routes import PortalRejectIn
+from app.modules.identity_access import PolicyService, Subject, get_policy
+from app.modules.work_items.api.portal_routes import (
+    PortalConversationOut,
+    PortalEntryOut,
+    PortalRejectIn,
+    PortalReplyIn,
+)
 from app.modules.work_items.domain import service_requests as sr_rules
+from app.modules.work_items.domain.conversation import EntryKind
 from app.modules.work_items.domain.portal import PortalReach, PortalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import portal as service
+from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
@@ -235,6 +244,64 @@ async def portal_request_reject(
             wtype=SERVICE_REQUEST,
         )
     )
+
+
+# WP-047a S3a (REQ-SR-037 AC1): an approver's question to the requester is a public reply, so the
+# portal shows the request's public conversation and takes the requester's answer, as it does
+# for incidents and changes.
+@router.get("/{record_id}/conversation", summary="The public conversation of your request")
+async def portal_request_conversation(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> PortalConversationOut:
+    """Public replies and notes only; private notes never."""
+    entries = await service.conversation(session, subject, record_id, SERVICE_REQUEST)
+    return PortalConversationOut(
+        items=[
+            PortalEntryOut(
+                id=e.id,
+                kind=EntryKind(e.kind),
+                body=e.body,
+                created_at=e.created_at,
+                author_name=e.author_name,
+                by_you=e.by_you,
+            )
+            for e in entries
+        ]
+    )
+
+
+@router.post(
+    "/{record_id}/replies",
+    summary="Reply on your request",
+    status_code=status.HTTP_201_CREATED,
+    response_model=PortalRequestOut,
+)
+async def portal_request_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: PortalReplyIn,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+    policy: Annotated[PolicyService, Depends(get_policy)],
+    idempotency: Idempotency,
+) -> Response:
+    """A public reply in your name, on your own request only (Idempotency-Key)."""
+
+    async def run() -> Created:
+        await service.reply(
+            session,
+            subject,
+            record_id,
+            body=body.body,
+            source=source_of(request),
+            holders=policy,
+            wtype=SERVICE_REQUEST,
+        )
+        return Created(
+            body=_out(await service.get_record(session, subject, record_id, SERVICE_REQUEST))
+        )
+
+    return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
 
 __all__ = ["router"]
