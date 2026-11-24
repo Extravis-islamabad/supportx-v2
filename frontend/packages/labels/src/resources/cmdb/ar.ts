@@ -43,6 +43,7 @@ export const ar: LabelResource = {
   'cmdb.action.remove': 'إزالة',
   'cmdb.action.restore': 'استعادة',
   'cmdb.added': 'تمت إضافة {{id}}',
+  'cmdb.admin.triggers': 'مشغلات عناصر التهيئة',
   'cmdb.all_types': 'كل الأنواع',
   'cmdb.change_type_blocked':
     'لا تسمح لك أدوارك إلا بقراءة حقل سيحذف هذا التغيير قيمته، لذا لا يمكنك تغيير النوع.',

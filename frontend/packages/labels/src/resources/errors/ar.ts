@@ -313,6 +313,7 @@ export const ar: LabelResource = {
   'errors.erasure_storage_unavailable':
     'تعذّر الوصول إلى مخزن الملفات لحذف تصديرات التقارير. سيُعاد محاولة المسح.',
   'errors.field.above_maximum': 'الحد الأقصى هو {{max}}.',
+  'errors.field.action_not_offered': 'لا يمكن تطبيق هذا الإجراء على هذا النوع من السجلات.',
   'errors.field.address_not_allowed':
     'لا يمكن استخدام عنوان الخادم هذا. استخدم الاسم العام لخادم البريد.',
   'errors.field.already_has_parent': 'لهذا الحادث حادث رئيسي بالفعل؛ أزله من هناك أولًا.',
@@ -787,6 +788,7 @@ export const ar: LabelResource = {
   'errors.field.too_many_values': 'اختر {{max}} على الأكثر.',
   'errors.field.topic_too_deep': 'يمكن أن تصل المواضيع إلى {{max}} مستويات كحد أقصى.',
   'errors.field.topic_under_itself': 'لا يمكن وضع موضوع تحت نفسه أو تحت أحد مواضيعه الفرعية.',
+  'errors.field.trigger_event_not_offered': 'هذا النوع من السجلات لا يوفر هذا الحدث.',
   'errors.field.trusted_servers_too_many': 'اذكر 5 خوادم على الأكثر.',
   'errors.field.type_cannot_change': 'لا يمكن تغيير نوع الحقل. أضف حقلًا جديدًا وأوقف هذا الحقل.',
   'errors.field.unknown_article_type': 'نوع المقالة هذا غير موجود أو متوقف.',

@@ -46,6 +46,7 @@ export const ur: LabelResource = {
   'notification_area.asset': 'اثاثے',
   'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
+  'notification_area.cmdb_ci': 'کنفیگریشن آئٹمز',
   'notification_area.connector': 'کنیکٹرز',
   'notification_area.custom_field': 'اپنی مرضی کے خانے',
   'notification_area.incident': 'واقعات',
@@ -112,6 +113,7 @@ export const ur: LabelResource = {
   'notification_event.change.status_entered': 'تبدیلی ایک حالت میں داخل ہوئی',
   'notification_event.change.submitted': 'تبدیلی جمع ہوئی',
   'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
+  'notification_event.cmdb_ci.state_changed': 'کسی کنفیگریشن آئٹم کی حالت بدل گئی',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.custom_field.seal_paused': 'حساس فیلڈ کی قدروں کی مہر بندی رک گئی ہے',
@@ -220,6 +222,7 @@ export const ur: LabelResource = {
   'notification_recipient.cab_member': 'فیصلے کا منتظر بورڈ رکن',
   'notification_recipient.change_manager': 'تبدیلی مینیجر',
   'notification_recipient.change_owner': 'تبدیلی کا مالک',
+  'notification_recipient.ci_owner': 'کنفیگریشن آئٹم کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
   'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
@@ -233,12 +236,14 @@ export const ur: LabelResource = {
   'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.major_team': 'بڑے واقعات کی ٹیم',
+  'notification_recipient.managed_by_group': 'انتظامی گروپ',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
   'notification_recipient.new_investigator': 'شامل کیا گیا تفتیش کار',
   'notification_recipient.on_behalf_of': 'جس کے لیے ہے',
   'notification_recipient.other_tenant_admins': 'دیگر ٹیننٹ منتظمین',
   'notification_recipient.owner': 'مضمون کا مالک',
+  'notification_recipient.owner_group': 'مالک گروپ',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.reviewer': 'جائزہ کار',
@@ -461,6 +466,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} {{ window.start }} پر شروع ہوگی: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'جلد شروع: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی حالت اب {{ record.status }} ہے۔\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    '{{ record.display_id }} کی حالت اب {{ record.status }} ہے',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: حالت اب {{ record.status }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':

@@ -248,6 +248,7 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/automation/transitions` | `automation.view` | automation.view: all | `incident` (permission) |
 | DELETE | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all | `incident` (permission) |
 | PUT | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/trigger-events` | `automation.view` | automation.view: all | `incident` (permission) |
 | GET | `/api/v1/automation/triggers` | `automation.view` | automation.view: all | `incident` (permission) |
 | POST | `/api/v1/automation/triggers` | `automation.manage` | automation.manage: all | `incident` (permission) |
 | PUT | `/api/v1/automation/triggers-order` | `automation.manage` | automation.manage: all | `incident` (permission) |

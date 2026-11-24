@@ -302,6 +302,7 @@ export const queryKeys = {
     assignment: (groupId: string) => ['automation', 'assignment', groupId] as const,
     availability: (userIds: string[]) => ['automation', 'availability', ...userIds] as const,
     triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
+    triggerEvents: (recordType: string) => ['automation', 'trigger-events', recordType] as const,
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
   },
