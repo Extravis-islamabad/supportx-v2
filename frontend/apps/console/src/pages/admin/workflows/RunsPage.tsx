@@ -21,7 +21,7 @@ import {
   type OverviewRunOut,
   type RunsQuery,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   FilterBar,
   FiltersDrawer,
@@ -112,12 +112,18 @@ export function RunsPage() {
     { label: t('workflows.tab.runs') },
   ]);
   useListChannel(allowed ? 'workflows' : null, (m) => {
+    if (m.type === 'refresh') {
+      // The first-subscribe catch-up or a lost channel (architecture.md §8.3): runs and jobs.
+      refreshQueries(queryClient, ['workflows', 'runs']);
+      refreshQueries(queryClient, ['workflows', 'job']);
+      return;
+    }
     if (m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['workflows', 'runs'] });
+      refreshQueries(queryClient, ['workflows', 'runs']);
     }
     if (m.type === 'workflow_jobs.changed') {
       for (const id of m.ids) {
-        void queryClient.invalidateQueries({ queryKey: ['workflows', 'job', id] });
+        refreshQueries(queryClient, ['workflows', 'job', id]);
       }
     }
   });

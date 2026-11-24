@@ -18,7 +18,7 @@ import {
   toGraph,
   type WorkflowNode,
 } from '@supportx/flow';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   EmptyText,
   ToneTag,
@@ -277,10 +277,9 @@ export function RecordWorkflows({
   const allowed = can('workflows.run') || can('workflows.manage');
   const runs = useRecordWorkflows(recordType, recordId, allowed);
   useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
-    if (m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({
-        queryKey: ['workflows', 'record', recordType, recordId],
-      });
+    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
+    if (m.type === 'workflow_instances.changed' || m.type === 'refresh') {
+      refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
     }
   });
   if (!allowed) return null;
@@ -368,10 +367,9 @@ export function WorkflowFailureBanner({
   const runs = useRecordWorkflows(recordType, recordId, allowed);
   const retry = useRetryInstance();
   useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
-    if (m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({
-        queryKey: ['workflows', 'record', recordType, recordId],
-      });
+    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
+    if (m.type === 'workflow_instances.changed' || m.type === 'refresh') {
+      refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
     }
   });
   const failed = (runs.data ?? []).find((r) => r.instance.status === 'failed');

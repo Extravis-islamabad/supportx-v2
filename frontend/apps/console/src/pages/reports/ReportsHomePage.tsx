@@ -83,10 +83,10 @@ export function ReportsHomePage() {
     refreshList(queryClient, queryKeys.reports.library);
   };
   useTenantChannel((message) => {
-    if (message.type === 'reports.changed') refresh();
+    if (message.type === 'reports.changed' || message.type === 'refresh') refresh();
   });
   usePersonalChannel((message) => {
-    if (message.type === 'reports.changed') refresh();
+    if (message.type === 'reports.changed' || message.type === 'refresh') refresh();
   });
 
   const data = library.data;

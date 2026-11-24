@@ -60,10 +60,10 @@ function useDashboardsLive() {
     refreshList(queryClient, queryKeys.dashboards.all);
   };
   useTenantChannel((message) => {
-    if (message.type === 'dashboards.changed') refresh();
+    if (message.type === 'dashboards.changed' || message.type === 'refresh') refresh();
   });
   usePersonalChannel((message) => {
-    if (message.type === 'dashboards.changed') refresh();
+    if (message.type === 'dashboards.changed' || message.type === 'refresh') refresh();
   });
 }
 

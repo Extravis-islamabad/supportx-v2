@@ -25,7 +25,7 @@ import {
   useUnlinkKbArticle,
   type KbFromRecord,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import { reportError, useAccess, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -91,10 +91,13 @@ export function KnowledgeCard({
   const unlink = useUnlinkKbArticle();
   const [saving, setSaving] = useState(false);
   useRecordChannel(allowed ? 'wi' : 'none', allowed ? recordId : undefined, (message) => {
-    if (message.type === 'knowledge.link.saved' || message.type === 'knowledge.link.removed') {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.knowledge.recordArticles(recordType, recordId),
-      });
+    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
+    if (
+      message.type === 'knowledge.link.saved' ||
+      message.type === 'knowledge.link.removed' ||
+      message.type === 'refresh'
+    ) {
+      refreshQueries(queryClient, queryKeys.knowledge.recordArticles(recordType, recordId));
     }
   });
   if (!allowed) return null;

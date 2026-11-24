@@ -17,7 +17,7 @@ import {
   type KbLanguage,
 } from '@supportx/api-client';
 import { useJoinParts, useListFormat } from '@supportx/labels';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   NoAccess,
@@ -101,11 +101,11 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
       return;
     }
     void reload();
-    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.versions(article.id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.links(article.id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.history(article.id) });
+    refreshQueries(queryClient, queryKeys.knowledge.versions(article.id));
+    refreshQueries(queryClient, queryKeys.knowledge.links(article.id));
+    refreshQueries(queryClient, queryKeys.knowledge.history(article.id));
     // A vote anywhere refreshes the score here (REQ-KB-069 AC4).
-    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.votes(article.id) });
+    refreshQueries(queryClient, queryKeys.knowledge.votes(article.id));
   });
 
   // The path is part of the screen, so it reads in the screen's language (QA10-P4-35), as the

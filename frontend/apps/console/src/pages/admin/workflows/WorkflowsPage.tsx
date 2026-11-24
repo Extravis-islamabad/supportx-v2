@@ -13,7 +13,7 @@ import {
   useWorkflows,
   type WorkflowOut,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   EditDialog,
   FilterBar,
@@ -186,8 +186,13 @@ export function WorkflowsPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   usePageCrumbs([{ label: t('nav.admin_workflows') }]);
   useListChannel(allowed ? 'workflows' : null, (m) => {
-    if (m.type === 'workflows.changed' || m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['workflows', 'list'] });
+    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
+    if (
+      m.type === 'workflows.changed' ||
+      m.type === 'workflow_instances.changed' ||
+      m.type === 'refresh'
+    ) {
+      refreshQueries(queryClient, ['workflows', 'list']);
     }
   });
   if (!allowed) return <NoAccess titleKey="nav.admin_workflows" />;

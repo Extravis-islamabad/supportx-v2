@@ -10,7 +10,7 @@ import {
   useReleases,
   type ReleaseListItem,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   CellText,
   useAppearance,
@@ -149,7 +149,7 @@ export function ReleasesPage() {
   });
   usePageCrumbs([{ label: t('nav.releases') }]); // the tab's title too (QA6-REL-04)
   useListChannel('releases', () => {
-    void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
+    refreshQueries(queryClient, [...releaseKeys.all, 'list']);
   });
   useBulkRefresh('release', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });

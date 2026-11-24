@@ -13,7 +13,7 @@ import {
   useStagePanel,
   type StageMove,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import {
   StageRail,
   RecordHeader,
@@ -81,10 +81,10 @@ export function ReleasePage() {
   const [moving, setMoving] = useState<StageMove>();
   const [tab, setTab] = useState('details');
   useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
+    refreshQueries(queryClient, releaseKeys.detail(id));
     // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(id) });
+    refreshQueries(queryClient, queryKeys.incidents.tasks(id));
+    refreshQueries(queryClient, queryKeys.incidents.worklogs(id));
   });
   // Once per error, not on every render (lane A's review of #219).
   useEffect(() => {

@@ -65,7 +65,8 @@ export function AiSettingsPage() {
   const settings = useAiSettings(can('ai.manage'));
   const save = useSaveAiSettings();
   useTenantChannel((m) => {
-    if (m.type === 'ai.settings_changed') void settings.refetch();
+    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
+    if (m.type === 'ai.settings_changed' || m.type === 'refresh') void settings.refetch();
   });
   const saved = settings.data;
   // Template E (D-147): this page has a form field (retention days), so every setting on it,
