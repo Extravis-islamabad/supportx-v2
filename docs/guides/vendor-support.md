@@ -20,9 +20,13 @@ Granting and extending access ask you to confirm your sign-in. Every change to a
 
 ## What the engineer sees of people
 
-- **Names are shown.** They see who raised a record and who works on it, so they can follow its
-  history.
+- **Names are shown by default.** They see who raised a record and who works on it, so they can
+  follow its history. To hide names too, tick **Hide people's names too** when you grant access:
+  every person then reads "Person hidden", and searching for a person by name is refused. The
+  grant's details show whether names are hidden.
 - **E-mail addresses and phone numbers are never shown**, whatever the grant says.
+- **Other personal details:** fields your administrators marked as personal stay masked unless
+  you tick **Show other personal details**.
 - **Searching for a person:** the engineer can find people by name only. Typing an e-mail address,
   or part of one, finds nobody.
 

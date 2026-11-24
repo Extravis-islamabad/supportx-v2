@@ -130,6 +130,7 @@ describe('the one-time password of a call-back grant', () => {
           reason: 'A workflow is stuck',
           access: 'view',
           unmask_personal: false,
+          mask_names: false,
           verification: 'out_of_band',
           confirmation_note: 'Called back',
         },

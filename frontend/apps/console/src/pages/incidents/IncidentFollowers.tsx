@@ -23,6 +23,7 @@ import {
   type Mentionable,
 } from '@supportx/api-client';
 import { EmptyText, reportError, ToneTag, useLabel, WriteButton } from '@supportx/ui';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 /**
  * Follow or unfollow this incident (REQ-INC-056/151). Someone who follows only because they
@@ -84,6 +85,7 @@ export function FollowButton({ item, me }: { item: Incident; me: string | null }
 /** Who follows the incident and why; add (manage_followers) or remove people. */
 export function FollowersCard({ item, me }: { item: Incident; me: string | null }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const followers = useIncidentFollowers(item.id);
   const change = useFollowerChange(item.id);
   const [search, setSearch] = useState<Mentionable[]>([]);
@@ -121,7 +123,7 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
                 ? [
                     <RemoveFollower
                       key="remove"
-                      name={people[follower.user_id]?.display_name ?? ''}
+                      name={shownName(people[follower.user_id]?.display_name, hidden)}
                       self={follower.user_id === me}
                       losesAccess={follower.grants_access}
                       onRemove={() => {
@@ -134,7 +136,7 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
           >
             <Space direction="vertical" size={0}>
               <Typography.Text>
-                <bdi dir="auto">{people[follower.user_id]?.display_name ?? ''}</bdi>
+                <bdi dir="auto">{shownName(people[follower.user_id]?.display_name, hidden)}</bdi>
                 {follower.user_id === me ? ` ${t('followers.you')}` : ''}
               </Typography.Text>
               <Space size={4} wrap>
@@ -173,7 +175,7 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
               label: (
                 <Flex justify="space-between" gap={8}>
                   <span>
-                    <bdi dir="auto">{p.display_name}</bdi>{' '}
+                    <bdi dir="auto">{shownName(p.display_name, hidden)}</bdi>{' '}
                     <Typography.Text type="secondary">{p.email}</Typography.Text>
                   </span>
                   {!p.can_see && <Tag>{t('richtext.mention_cannot_see')}</Tag>}

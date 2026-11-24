@@ -1898,11 +1898,14 @@ export const ar: LabelResource = {
     'ينتهي الوصول تلقائيًا. بحد أقصى {{max}} ساعة إجمالًا، بما في ذلك التمديدات.',
   'vendor_support.field.ip_allowlist': 'من هذه العناوين فقط',
   'vendor_support.field.ip_allowlist_help': 'اختياري. عناوين IP أو نطاقات، مثل 203.0.113.0/24.',
+  'vendor_support.field.mask_names': 'إخفاء أسماء الأشخاص أيضًا',
+  'vendor_support.field.mask_names_help':
+    'تشغيل: يرى المهندس السجلات دون اسم أي شخص. البريد والهاتف مخفيان دائمًا.',
   'vendor_support.field.reason': 'السبب',
   'vendor_support.field.ticket_ref': 'مرجع تذكرة Extravis',
-  'vendor_support.field.unmask': 'إظهار أسماء الأشخاص وبيانات الاتصال',
+  'vendor_support.field.unmask': 'إظهار البيانات الشخصية الأخرى',
   'vendor_support.field.unmask_help':
-    'إيقاف: يرى المهندس السجلات دون اسم أي شخص أو بريده أو هاتفه.',
+    'إيقاف: تبقى الحقول المعلَّمة شخصية مقنّعة. تظهر الأسماء ما لم تُخفَ أدناه، ولا يظهر البريد والهاتف أبدًا.',
   'vendor_support.grant.action': 'منح الوصول',
   'vendor_support.grant.how_long': 'لأي مدة',
   'vendor_support.grant.link_sent': 'تم منح الوصول. أُرسل إلى المهندس رابط لتسجيل الدخول.',

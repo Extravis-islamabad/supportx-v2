@@ -1886,11 +1886,14 @@ export const en = {
   'vendor_support.field.ip_allowlist': 'Only from these addresses',
   'vendor_support.field.ip_allowlist_help':
     'Optional. IP addresses or ranges, such as 203.0.113.0/24.',
+  'vendor_support.field.mask_names': "Hide people's names too",
+  'vendor_support.field.mask_names_help':
+    "On: the engineer sees records without anyone's name. E-mail and phone are always hidden.",
   'vendor_support.field.reason': 'Reason',
   'vendor_support.field.ticket_ref': 'Extravis ticket reference',
-  'vendor_support.field.unmask': "Show people's names and contact details",
+  'vendor_support.field.unmask': 'Show other personal details',
   'vendor_support.field.unmask_help':
-    "Off: the engineer sees records without anyone's name, e-mail or phone.",
+    'Off: fields marked personal stay masked. Names show unless hidden below; e-mail and phone never show.',
   'vendor_support.grant.action': 'Give access',
   'vendor_support.grant.how_long': 'For how long',
   'vendor_support.grant.link_sent': 'Access given. The engineer has been sent a sign-in link.',

@@ -10,6 +10,8 @@ export interface RealtimeMessage {
   /** User ID of whoever made the change, when a person did. */
   by?: string;
   refresh?: boolean;
+  /** A first-subscribe catch-up `refresh` (catchup.ts): refetch only data older than going live. */
+  catchUp?: boolean;
 }
 
 /**

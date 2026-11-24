@@ -66,6 +66,9 @@ class SupportGrantOut(BaseModel):
     access: Literal["view", "view_and_change"]
     change_reason: str | None
     unmask_personal: bool
+    mask_names: bool = Field(
+        description="D-180: the engineer sees no person names either (e-mail and phone never)."
+    )
     ip_allowlist: list[str]
     starts_at: str
     ends_at: str
@@ -89,6 +92,7 @@ class SupportGrantOut(BaseModel):
             access=cast("Any", view.access),  # the column's check holds these codes
             change_reason=view.change_reason,
             unmask_personal=view.unmask_personal,
+            mask_names=view.mask_names,
             ip_allowlist=view.ip_allowlist,
             starts_at=view.starts_at.isoformat(),
             ends_at=view.ends_at.isoformat(),
@@ -124,6 +128,9 @@ class SupportGrantIn(BaseModel):
     access: Literal["view", "view_and_change"] = "view"
     change_reason: str | None = Field(default=None, max_length=rules.REASON_MAX)
     unmask_personal: bool = False
+    mask_names: bool = Field(
+        default=False, description="D-180: mask names too (e-mail and phone are always masked)."
+    )
     hours: int | None = Field(default=None, ge=1, le=72, description="Default 24.")
     ip_allowlist: list[str] = Field(default_factory=list, max_length=rules.IP_LIST_MAX)
     verification: Literal["email", "out_of_band"] = "email"
@@ -139,6 +146,7 @@ class SupportGrantIn(BaseModel):
             access=rules.Access(self.access),
             change_reason=self.change_reason,
             unmask_personal=self.unmask_personal,
+            mask_names=self.mask_names,
             hours=self.hours,
             ip_allowlist=self.ip_allowlist,
             verification=rules.Verification(self.verification),
@@ -275,6 +283,7 @@ async def create_grant(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             "verification": made.grant.verification,
             "delivery": made.delivery.value,
             "admin_could_act": made.admin_could_act,
+            "mask_names": made.grant.mask_names,  # D-180: what the engineer could read
         }
         out = SupportGrantMadeOut(
             **SupportGrantOut.of(made.grant).model_dump(),

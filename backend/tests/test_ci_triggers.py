@@ -583,3 +583,21 @@ def test_the_frontend_jobs_can_never_pass_the_required_check_by_being_skipped() 
     assert '[ "${pair#*=}" != success ]' in frontend  # checks and builds: success or fail
     assert "frontend checks=$CHECKS" in frontend
     assert "frontend builds=$BUILDS" in frontend
+
+
+def test_a_manual_stack_smoke_run_can_name_one_spec_and_only_a_spec() -> None:
+    """One spec alone on a fresh stack (the coordinator, field-access.spec), never a free argument.
+
+    The input is a name checked against tests/<name>.spec.ts and an existing file before it
+    reaches Playwright, so a flag or a path can't ride in. With it, one shard runs; without it
+    (PRs, the nightly), the three shards as before.
+    """
+    text = (WORKFLOWS / "stack-smoke.yml").read_text(encoding="utf-8")
+    dispatch = text.split("workflow_dispatch:", 1)[1].split("permissions:", 1)[0]
+    assert "spec:" in dispatch
+    assert "type: string" in dispatch
+    assert "shard: ${{ fromJSON(inputs.spec != '' && '[1]' || '[1, 2, 3]') }}" in text
+    step = text.split("name: This shard's spec files", 1)[1].split("- name:", 1)[0]
+    assert "ONE_SPEC: ${{ inputs.spec }}" in step  # through the environment, never inlined
+    assert "${{ inputs.spec }}" not in step.split("run: |", 1)[1]
+    assert r'[[ "$ONE_SPEC" =~ ^tests/[a-z0-9-]+\.spec\.ts$ ]] && [ -f "e2e/$ONE_SPEC" ]' in step

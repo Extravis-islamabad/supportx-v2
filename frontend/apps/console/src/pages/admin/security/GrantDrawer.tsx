@@ -40,6 +40,7 @@ interface Values {
   access: SupportGrantInput['access'];
   change_reason?: string;
   unmask_personal: boolean;
+  mask_names: boolean;
   hours: number;
   ip_allowlist: string[];
   verification: SupportGrantInput['verification'];
@@ -49,6 +50,7 @@ interface Values {
 const INITIAL: Partial<Values> = {
   access: 'view', // D-173 (6): view only is preselected
   unmask_personal: false,
+  mask_names: false, // D-180: names show by default
   hours: DEFAULT_HOURS,
   ip_allowlist: [],
   verification: 'email',
@@ -67,6 +69,7 @@ function body(values: Values): SupportGrantInput {
     access: values.access,
     change_reason: values.access === 'view_and_change' ? text(values.change_reason) : null,
     unmask_personal: values.unmask_personal,
+    mask_names: values.mask_names,
     hours: values.hours,
     ip_allowlist: values.ip_allowlist,
     verification: values.verification,
@@ -272,6 +275,15 @@ export function GrantDrawer({ open, onClose }: { open: boolean; onClose: () => v
           >
             <Checkbox data-testid="vendor-support-unmask">
               {t('vendor_support.field.unmask')}
+            </Checkbox>
+          </Form.Item>
+          <Form.Item
+            name="mask_names"
+            valuePropName="checked"
+            extra={t('vendor_support.field.mask_names_help')}
+          >
+            <Checkbox data-testid="vendor-support-mask-names">
+              {t('vendor_support.field.mask_names')}
             </Checkbox>
           </Form.Item>
           <Typography.Title level={5}>{t('vendor_support.grant.how_long')}</Typography.Title>

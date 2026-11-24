@@ -104,3 +104,14 @@ def test_a_support_request_without_its_facts_is_masked() -> None:
 
     grant, unmasked = judged_grant(uuid.uuid4(), uuid.uuid4())
     assert (grant, unmasked) == (None, False)
+
+
+def test_a_support_request_without_its_facts_has_names_masked_too() -> None:
+    """D-180 (0188): with no cached facts, names are masked as well (fails closed)."""
+    import uuid  # noqa: PLC0415 - this test only
+
+    from app.modules.identity_access.service.support_grants import (  # noqa: PLC0415
+        judged_names_masked,
+    )
+
+    assert judged_names_masked(uuid.uuid4(), uuid.uuid4()) is True
