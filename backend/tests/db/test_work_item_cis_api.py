@@ -32,8 +32,14 @@ __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
 INC = "/incidents"
 
 
-async def _a_ci(world: World, org: Org, name: str, **extra: Any) -> dict[str, Any]:  # noqa: ANN401
-    made = await _ci(world, org, name, **extra)
+async def _a_ci(
+    world: World,
+    org: Org,
+    name: str,
+    type_code: str = "server",
+    **extra: Any,  # noqa: ANN401 - JSON
+) -> dict[str, Any]:
+    made = await _ci(world, org, name, type_code, **extra)
     assert made.status_code == 201, made.text
     return dict(made.json())
 
@@ -301,3 +307,35 @@ async def test_the_counts_port_counts_open_and_total_per_type_through_each_view(
     assert seen[uuid.UUID(ci["id"])]["incident"] == Count(open=1, total=2)
     assert "service_request" not in seen[uuid.UUID(ci["id"])]  # nothing linked: left out
     assert hidden == {}  # no incidents view: no count includes a record they may not see
+
+
+async def test_a_hidden_business_service_on_a_downtime_is_refused_and_nothing_saved(
+    world: World,
+) -> None:
+    """Lane B's #607 review: services are CIs; a downtime may not name one the person can't see."""
+    a = world.a
+    service = await _a_ci(world, a, "Payroll service", "business_service")
+    [narrow] = await seed_users(world.db, a.tenant, [{"user_type": "technician"}])
+    inc_role = await role(
+        world, a, "Incidents only", [("incidents.view", "all"), ("incidents.edit", "all")]
+    )
+    assert (
+        await world.call("PUT", f"/users/{narrow}/roles/{inc_role}", a, a.admin)
+    ).status_code == 204
+    item = await world.create(a, a.admin)
+    path = f"{INC}/{item['id']}/downtimes"
+    refused = await world.call(
+        "POST",
+        path,
+        a,
+        narrow,
+        json={
+            "starts_at": "2026-11-24T09:00:00Z",
+            "ends_at": "2026-11-24T09:30:00Z",
+            "service_ids": [service["id"]],
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4()), **CONSOLE},
+    )
+    assert problem(refused)[0] == 422
+    assert (await world.call("GET", path, a, a.admin)).json() == []  # nothing saved
+    assert await _events(world, "work_items.downtime.changed", item["id"]) == []

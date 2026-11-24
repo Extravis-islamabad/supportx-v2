@@ -191,8 +191,9 @@ class WorkItemIn(BaseModel):
         default=None,
         max_length=50,
         description="CIs to link as the record is raised, whatever its template shows (WP-053 "
-        "S5, REQ-SR-019 AC1; incidents, requests, problems, changes and releases; the cmdb "
-        "feature; each one you may link).",
+        "S5, REQ-SR-019 AC1; incidents, requests, problems, changes and releases; each one you "
+        "may link). Without the cmdb feature in the plan, a create with ci_ids is refused "
+        "(403 entitlement_required).",
     )
     category_id: uuid.UUID | None = None
     impact: Impact | None = None

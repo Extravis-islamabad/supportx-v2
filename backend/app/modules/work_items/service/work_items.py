@@ -5427,13 +5427,31 @@ def _downtime_locked(wtype: WorkItemType, record: WorkItem) -> None:
         raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
 
 
-async def _unlinkable_cis(
-    session: AsyncSession, subject: Subject, ci_ids: Sequence[uuid.UUID]
+async def _downtime_link_problems(
+    session: AsyncSession,
+    subject: Subject,
+    current: Mapping[str, Any],
+    merged: Mapping[str, Any],
 ) -> list[tuple[str, str]]:
-    """CIs newly named on a downtime must be ones the person may link (cmdb.can_link)."""
+    """The CIs and business services a save newly names must be ones the person may link.
+
+    WP-053 S5 (lane B's #607 review): business services are CIs too, and the CMDB mirrors the
+    downtime onto each, so a hidden service is refused as a hidden CI is (ADR-053).
+    """
+    found: list[tuple[str, str]] = []
+    for name in ("ci_ids", "service_ids"):
+        added = [c for c in merged.get(name) or [] if c not in (current.get(name) or [])]
+        found += await _unlinkable_cis(session, subject, added, field=name)
+    return found
+
+
+async def _unlinkable_cis(
+    session: AsyncSession, subject: Subject, ci_ids: Sequence[uuid.UUID], *, field: str
+) -> list[tuple[str, str]]:
+    """CIs (or business services) newly named on a downtime must be ones the person may link."""
     for ci_id in ci_ids:
         if not await cmdb.can_link(session, subject, ci_id):
-            return [("ci_ids", "ci_not_linkable")]
+            return [(field, "ci_not_linkable")]
     return []
 
 
@@ -5480,8 +5498,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     given = {n: _clean_detail(n, v) for n, v in values.items() if n in DOWNTIME_FIELDS}
     merged = {**current, **given}
     problems = await _downtime_problems(session, wtype, merged)
-    added_cis = [c for c in merged.get("ci_ids") or [] if c not in (current.get("ci_ids") or [])]
-    problems += await _unlinkable_cis(session, subject, added_cis)
+    problems += await _downtime_link_problems(session, subject, current, merged)
     if problems:
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}
