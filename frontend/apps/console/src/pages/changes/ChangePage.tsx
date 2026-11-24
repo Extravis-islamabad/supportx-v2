@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   changeKeys,
+  queryKeys,
   useChange,
   useChangeDetails,
   useStagedApprovals,
@@ -108,9 +109,27 @@ export function ChangePage() {
   const [moving, setMoving] = useState<StageMove>();
   const [overriding, setOverriding] = useState(false);
   const { can } = useAccess();
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered !== true)
+        void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
+    },
+    {
+      // Everything the page shows: its parts sit under the detail key, but the shared
+      // conversation, history and files panels keep their own (no id: nothing joined or shown).
+      covers:
+        id === ''
+          ? []
+          : [
+              changeKeys.detail(id),
+              queryKeys.incidents.conversation(id),
+              [...queryKeys.incidents.all, 'history', id],
+              queryKeys.files.record('change', id),
+            ],
+    },
+  );
   useEffect(() => {
     if (record.error) reportError(record.error);
   }, [record.error]);

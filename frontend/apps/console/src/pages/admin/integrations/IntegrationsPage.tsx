@@ -145,14 +145,17 @@ export function IntegrationsPage() {
   const queryClient = useQueryClient();
   const catalogue = useConnectorCatalogue();
   const [query, setQuery] = useState('');
-  useTenantChannel((event) => {
-    if (
-      event.type === 'integrations.connectors_changed' ||
-      event.type === 'integrations.mailboxes_changed'
-    ) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.connectors.catalogue });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (
+        event.type === 'integrations.connectors_changed' ||
+        event.type === 'integrations.mailboxes_changed'
+      ) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.connectors.catalogue });
+      }
+    },
+    { covers: [queryKeys.connectors.catalogue] },
+  );
   const groups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     const found = (catalogue.data ?? []).filter(

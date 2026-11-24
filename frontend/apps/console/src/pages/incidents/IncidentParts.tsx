@@ -418,9 +418,15 @@ export function IncidentTime({ item }: { item: Incident }) {
   const found = useTimeAnalysis(item.id);
   const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
-  useRecordChannel('wi', item.id, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
-  });
+  useRecordChannel(
+    'wi',
+    item.id,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
+    },
+    { covers: [queryKeys.incidents.timeAnalysis(item.id)] },
+  );
   const data = found.data;
   const people = usePeople((data?.by_technician ?? []).map((row) => row.key));
   if (found.isError) return <EmptyText>{t('incidents.time.failed')}</EmptyText>;
@@ -553,12 +559,15 @@ export function IncidentWorklogs({
   const queryClient = useQueryClient();
   const timer = useRecordTimer(item.id, base, canEdit);
   const timerChange = useTimerChange(item.id, base);
-  usePersonalChannel((event) => {
-    if (event.type === MY_TIMERS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: timerKeys.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === MY_TIMERS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: timerKeys.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      }
+    },
+    { covers: [timerKeys.record(base, item.id), queryKeys.incidents.worklogs(item.id)] },
+  );
   const now = useNow(30_000);
   const running = timer.data ?? null;
   const stopTimer = () => {
@@ -1148,9 +1157,16 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   // The causing problem's own changes (marked a known error, retired) show here at once.
   const queryClient = useQueryClient();
   const cause = (found.data ?? []).find((l) => l.relation === 'caused_by')?.other_id ?? undefined;
-  useRecordChannel('wi', cause, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
-  });
+  useRecordChannel(
+    'wi',
+    cause,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+    },
+    // Joins nothing (so refreshes nothing) until a causing problem is linked.
+    { covers: [queryKeys.incidents.links(item.id)] },
+  );
   const [other, setOther] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const rows = found.data ?? [];

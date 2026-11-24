@@ -94,11 +94,14 @@ export function MailPage() {
   const [editing, setEditing] = useState<Mailbox | 'new' | null>(null);
   const [removing, setRemoving] = useState<Mailbox>();
   const [reviewing, setReviewing] = useState<string | null>(null);
-  useTenantChannel((event) => {
-    if (event.type === 'integrations.mailboxes_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.all });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'integrations.mailboxes_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.all });
+      }
+    },
+    { covers: [queryKeys.mailboxes.all] },
+  );
   const items = mailboxes.data ?? [];
   const live = (id: string | undefined) => items.find((m) => m.id === id);
 

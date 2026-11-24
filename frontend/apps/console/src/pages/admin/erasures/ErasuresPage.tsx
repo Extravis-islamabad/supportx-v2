@@ -52,13 +52,17 @@ export function ErasuresPage() {
   const [state, setState] = useState<ErasureState>();
   const found = useErasures({ states: state === undefined ? IN_VIEW[view] : [state] }, allowed);
   usePageCrumbs([{ label: t('people_erasure.title') }]);
-  useListChannel(allowed ? 'person_erasures' : null, (message) => {
-    if (message.type !== 'person_erasures.changed') return;
-    void queryClient.invalidateQueries({ queryKey: ['erasures', 'list'] });
-    for (const id of message.ids) {
-      void queryClient.invalidateQueries({ queryKey: erasureKeys.detail(id) });
-    }
-  });
+  useListChannel(
+    allowed ? 'person_erasures' : null,
+    (message) => {
+      if (message.type !== 'person_erasures.changed') return;
+      void queryClient.invalidateQueries({ queryKey: [...erasureKeys.all, 'list'] });
+      for (const id of message.ids) {
+        void queryClient.invalidateQueries({ queryKey: erasureKeys.detail(id) });
+      }
+    },
+    { covers: [[...erasureKeys.all, 'list']] },
+  );
   if (!allowed) return <NoAccess titleKey="people_erasure.title" />;
   const rows = found.data?.items ?? [];
   return (

@@ -1,5 +1,5 @@
 import { stripIsolates } from '@supportx/labels';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import {
   allOf,
@@ -325,22 +325,39 @@ const LISTS_CHANGED = 'work_items.lists_changed';
  * `ids`). `refresh` runs on that; the job's own progress drawer follows the job.
  */
 export function useBulkRefresh(type: string, refresh: () => void) {
-  useTenantChannel((message) => {
-    if (message.type === LISTS_CHANGED && message.ids.includes(type)) refresh();
-  });
+  useTenantChannel(
+    (message) => {
+      if (
+        message.covered === true ||
+        (message.type === LISTS_CHANGED && message.ids.includes(type))
+      )
+        refresh();
+    },
+    // The caller's `refresh` is what its screen shows, so it runs on a catch-up as well; the
+    // hook has no keys of its own to cover.
+    { covers: [] },
+  );
   useBulkLive();
 }
 
+/** Every list's bulk jobs (`bulkJobKey`'s shape without the id): progress may move unseen. */
+const BULK_JOBS: readonly QueryKey[] = (
+  ['incidents', 'changes', 'releases', 'service-requests'] as const
+).map((base) => [base, 'bulk-jobs']);
+
 export function useBulkLive() {
   const queryClient = useQueryClient();
-  usePersonalChannel((message) => {
-    if (message.type !== PROGRESS) return;
-    for (const id of message.ids) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJob(id) });
-      void queryClient.invalidateQueries({ queryKey: bulkJobKey('changes', id) });
-    }
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.covered === true || message.type !== PROGRESS) return;
+      for (const id of message.ids) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJob(id) });
+        void queryClient.invalidateQueries({ queryKey: bulkJobKey('changes', id) });
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.bulkJobs });
+    },
+    { covers: BULK_JOBS },
+  );
 }
 
 // --- export ---
