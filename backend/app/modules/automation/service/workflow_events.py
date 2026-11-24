@@ -37,7 +37,7 @@ from app.modules.automation.events import (
 )
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
 from app.modules.automation.service import functions, workflow_runtime, workflow_tests
-from app.modules.automation.service.registry import event_reader
+from app.modules.automation.service.registry import RecordEvent, event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared import egress
 from app.shared.clock import system_clock
@@ -65,8 +65,13 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         msg = "workflow events need the consumer's session"
         raise RuntimeError(msg)
     reader = event_reader(envelope.event_type)
-    happened = await reader(session, envelope) if reader is not None else None
-    if happened is None or happened.event is None:
+    for happened in await reader(session, envelope) if reader is not None else ():
+        await _heard(session, happened)  # each record on its own (S5d: both ends)
+
+
+async def _heard(session: AsyncSession, happened: RecordEvent) -> None:
+    """One record's instances hear what happened to it."""
+    if happened.event is None:
         return
     if happened.event == TriggerEvent.CREATED:
         await _start_from_template(session, happened.record_type, happened.record_id)

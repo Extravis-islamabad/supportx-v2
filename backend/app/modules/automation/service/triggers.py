@@ -104,7 +104,7 @@ async def check(
     description = _text(values.get("description"))
     if description is not None and len(description) > DESCRIPTION_MAX:
         problems.append(("description", "value_too_long", {"max_length": DESCRIPTION_MAX}))
-    problems += check_trigger(values, fields)
+    problems += check_trigger(values, fields, kind.offered_events)
     actions = values.get("actions") or []
     if not problems:
         settable = {a["field"]: a.get("value") for a in actions if a.get("kind") == "set"}
@@ -333,12 +333,17 @@ async def _recent_changes(session: AsyncSession, record_id: uuid.UUID) -> int:
 
 
 def _definitions(
-    triggers: Sequence[AutomationTrigger], happened: RecordEvent
+    triggers: Sequence[AutomationTrigger],
+    happened: RecordEvent,
+    offered: frozenset[TriggerEvent],
 ) -> list[tuple[ChainLink, AutomationTrigger | None, Mapping[str, Any] | None, list[Any]]]:
+    # Only the events the type still offers (WP-053 S5d, lane C's shape): a stored trigger on an
+    # event its type no longer offers is read here and never runs. The one place that decides.
+    codes = {e.value for e in offered}
     return [
         (ChainLink(str(t.id), t.name), t, t.conditions, list(t.actions))
         for t in triggers
-        if _fires(t.events, happened)
+        if _fires([e for e in t.events if e in codes], happened)
     ]
 
 
@@ -380,7 +385,7 @@ async def _transition_after(
 
 
 async def _candidates(
-    session: AsyncSession, happened: RecordEvent
+    session: AsyncSession, happened: RecordEvent, offered: frozenset[TriggerEvent]
 ) -> list[tuple[ChainLink, AutomationTrigger | None, Mapping[str, Any] | None, list[Any]]]:
     """A move's "after" actions first, then the enabled triggers for the event, in order."""
     triggers = await session.scalars(
@@ -392,7 +397,10 @@ async def _candidates(
         )
         .order_by(AutomationTrigger.position, AutomationTrigger.created_at, AutomationTrigger.id)
     )
-    return [*await _transition_after(session, happened), *_definitions(list(triggers), happened)]
+    return [
+        *await _transition_after(session, happened),
+        *_definitions(list(triggers), happened, offered),
+    ]
 
 
 def _applies(
@@ -415,13 +423,20 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     """Consumer: run the triggers (and a move's "after" actions) for one committed event."""
     assert session is not None  # noqa: S101 - transactional consumer
     reader = event_reader(envelope.event_type)
-    happened = await reader(session, envelope) if reader is not None else None
-    if happened is None:
-        return
+    found = await reader(session, envelope) if reader is not None else ()
+    # Each record on its own, in ID order, once each (WP-053 S5d, lane C's (b)): a loop stop or a
+    # record gone ends only that record, never the others the event touched.
+    once = {(h.record_type, h.record_id): h for h in found}
+    for key in sorted(once, key=lambda k: (k[0], str(k[1]))):
+        await _on_one(session, envelope, once[key])
+
+
+async def _on_one(session: AsyncSession, envelope: EventEnvelope, happened: RecordEvent) -> None:
+    """The triggers (and a move's "after" actions) for one record the event touched."""
     kind = registered(happened.record_type)
     if kind is None or kind.facts is None:
         return
-    candidates = await _candidates(session, happened)
+    candidates = await _candidates(session, happened, kind.offered_events)
     if not candidates:
         return
     cause = await _cause(session, envelope)

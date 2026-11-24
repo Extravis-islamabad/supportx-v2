@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.automation.domain.rules import JsonValue, RuleField
-from app.modules.automation.domain.triggers import TriggerEvent
+from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, TriggerEvent
 from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
 
@@ -75,6 +75,9 @@ class RecordType:
     record_migration: "MigrationRecorder | None" = None
     # Which of these IDs are the type's templates, here (a workflow's start templates).
     known_templates: "TemplateCheck | None" = None
+    # The trigger events this type offers (WP-053 S5d, lane C's shape): a trigger naming another
+    # is refused on save and never runs. Work item types keep today's seven by default.
+    offered_events: frozenset[TriggerEvent] = WORK_ITEM_EVENTS
 
 
 @dataclass(frozen=True)
@@ -127,7 +130,9 @@ class RecordEvent:
     action: str | None = None  # the life-cycle action of a status move
 
 
-EventReader = Callable[[AsyncSession, EventEnvelope], Awaitable[RecordEvent | None]]
+# One event, as triggers see it: a record each (WP-053 S5d, lane C's (b)). Most events touch one
+# record; a CI relationship touches both ends. Empty: nothing to react to.
+EventReader = Callable[[AsyncSession, EventEnvelope], Awaitable[Sequence[RecordEvent]]]
 _READERS: dict[str, EventReader] = {}
 
 

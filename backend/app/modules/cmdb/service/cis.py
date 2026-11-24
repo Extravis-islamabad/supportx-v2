@@ -513,6 +513,14 @@ def _check_codes(values: Mapping[str, Any]) -> list[domain.Problem]:
 
 
 async def _check_references(session: AsyncSession, values: Mapping[str, Any]) -> None:
+    if problems := await reference_problems(session, values):
+        raise invalid(problems)
+
+
+async def reference_problems(
+    session: AsyncSession, values: Mapping[str, Any]
+) -> list[domain.Problem]:
+    """The references among `values` that name nothing live (a rule's saved values too, S5d)."""
     problems: list[domain.Problem] = []
     if values.get("state_id") is not None:
         state = await session.scalar(
@@ -534,8 +542,7 @@ async def _check_references(session: AsyncSession, values: Mapping[str, Any]) ->
         session, [values["owner_user_id"]]
     ):
         problems.append(domain.Problem("owner_user_id", "not_found"))
-    if problems:
-        raise invalid(problems)
+    return problems
 
 
 async def _within_scope(
@@ -748,8 +755,13 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
     extra: Sequence[Change] = (),
     quiet: frozenset[str] = frozenset(),
     stamp_as: AttributeSource = AttributeSource.HAND,
+    automation_ref: Mapping[str, Any] | None = None,
+    causation_id: uuid.UUID | None = None,
 ) -> Ci:
     """One update: version, history, snapshot, attribute sources, event.
+
+    `automation_ref` and `causation_id` (WP-053 S5d): a rule's change names the rule in the
+    history (ADR-026) and its event carries the run, so the rule never re-triggers itself.
 
     `extra`: history lines of the caller's own; `quiet`: fields whose values never go into the
     history (a type change's dropped custom values, named by key in `extra` instead).
@@ -798,6 +810,7 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         kind="updated",
         changes=changes,
         source=source,
+        automation_ref=dict(automation_ref) if automation_ref is not None else None,
     )
     await _save_version(session, updated, subject)
     await record_event(
@@ -807,6 +820,7 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         ),
         aggregate_id=updated.id,
         aggregate_version=updated.version,
+        causation_id=causation_id,
     )
     return updated
 
@@ -1361,3 +1375,69 @@ async def add_imported(
         origin=domain.CiSource.IMPORT,
         stamp_as=AttributeSource.IMPORT,
     )
+
+
+# WP-053 S5d (REQ-CMDB-023): what a rule may set on a CI. Never the type (its preview and drop
+# rules are a person's), the name, the owner person or anything custom; never a delete.
+RULE_SETTABLE = frozenset(
+    {"state_id", "business_impact", "criticality", "owner_group_id", "managed_by_group_id"}
+)
+
+
+async def automated_update(
+    session: AsyncSession,
+    ci_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    automation_ref: Mapping[str, Any],
+    cause_id: uuid.UUID,
+) -> list[str]:
+    """A rule sets fields on a CI (the system's save path: no person's scope applies).
+
+    Only `RULE_SETTABLE` (lane C's C3): anything else is refused with `field_not_settable`,
+    even though a saved trigger can never name it. Checked as a person's edit is; stamped
+    `hand`, as the tenant's own decision a sync never overwrites. The fields that changed.
+    """
+    outside = sorted(set(values) - RULE_SETTABLE)
+    if outside:
+        raise invalid([domain.Problem(key, "field_not_settable") for key in outside])
+    record = await session.scalar(
+        select(Ci).where(Ci.id == ci_id, Ci.deleted_at.is_(None)).with_for_update()
+    )
+    if record is None:
+        return []  # deleted since the event: nothing to change
+    if problems := _check_codes(values):
+        raise invalid(problems)
+    columns = {k: v for k, v in values.items() if getattr(record, k) != v}
+    await _check_references(session, columns)
+    if not columns:
+        return []
+    await _save(
+        session,
+        None,
+        record,
+        expected_version=record.version,
+        columns=columns,
+        source="rule",
+        automation_ref=automation_ref,
+        causation_id=cause_id,
+    )
+    return sorted(columns)
+
+
+async def may_view(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
+    """Whether the person may see the CI (role scope and ADR-053 narrowing; WP-053 S5d)."""
+    try:
+        await _visible(session, subject, ci_id)
+    except NotFound:
+        return False
+    return True
+
+
+async def may_edit(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
+    """Whether the person may edit the CI (`cmdb.edit` or `cmdb.manage`, in scope; S5d)."""
+    try:
+        await _writable(session, subject, EDIT, ci_id)
+    except (NotFound, PermissionDenied):
+        return False
+    return True
