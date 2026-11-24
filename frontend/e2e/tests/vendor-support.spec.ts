@@ -110,6 +110,11 @@ test.describe('vendor support', () => {
     test.skip(skip !== null, skip ?? '');
     const email = `e2e.${RUN}@extravis.com`;
     await signInAs(page, 'admin', '/admin/security');
+    // A guard, not the fix: the page's live connection first, as the other live specs do. The
+    // console itself now catches up on a channel's first subscribe (packages/realtime, §8.3).
+    await expect(page.locator('html')).toHaveAttribute('data-realtime-status', 'connected', {
+      timeout: 8_000,
+    });
     const asked = Date.now();
     const made = await call(page, 'POST', '/identity/vendor-support/grants', {
       engineer_name: `QA-2026-11-20 E2E Engineer ${RUN}`,

@@ -661,6 +661,7 @@ class PolicyService:
                     SupportGrant.id,
                     SupportGrant.access,
                     SupportGrant.unmask_personal,
+                    SupportGrant.mask_names,
                     SupportGrant.state,
                     SupportGrant.starts_at,
                     SupportGrant.ends_at,
@@ -702,7 +703,9 @@ class PolicyService:
             raise AssertionError(msg)
         # D-180: e-mail and phone are always withheld from support; names only on the grant's
         # tick (0188). unmask_personal now governs the other personal fields alone (above).
-        return replace(subject, support_grant_id=grant.id, mask_contacts=True, mask_names=False)
+        return replace(
+            subject, support_grant_id=grant.id, mask_contacts=True, mask_names=grant.mask_names
+        )
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""

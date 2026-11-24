@@ -1884,11 +1884,14 @@ export const ur: LabelResource = {
     'رسائی خود ختم ہو جاتی ہے۔ زیادہ سے زیادہ کل {{max}} گھنٹے، توسیع سمیت۔',
   'vendor_support.field.ip_allowlist': 'صرف ان پتوں سے',
   'vendor_support.field.ip_allowlist_help': 'اختیاری۔ IP پتے یا رینج، جیسے 203.0.113.0/24۔',
+  'vendor_support.field.mask_names': 'لوگوں کے نام بھی چھپائیں',
+  'vendor_support.field.mask_names_help':
+    'آن: انجینئر ریکارڈ کسی کے نام کے بغیر دیکھتا ہے۔ ای میل اور فون ہمیشہ چھپے رہتے ہیں۔',
   'vendor_support.field.reason': 'وجہ',
   'vendor_support.field.ticket_ref': 'Extravis ٹکٹ حوالہ',
-  'vendor_support.field.unmask': 'لوگوں کے نام اور رابطے کی تفصیلات دکھائیں',
+  'vendor_support.field.unmask': 'دیگر ذاتی تفصیلات دکھائیں',
   'vendor_support.field.unmask_help':
-    'بند: انجینئر ریکارڈ کسی کے نام، ای میل یا فون کے بغیر دیکھتا ہے۔',
+    'بند: ذاتی نشان زدہ فیلڈز چھپی رہتی ہیں۔ نام دکھائی دیتے ہیں جب تک نیچے نہ چھپائے جائیں؛ ای میل اور فون کبھی نہیں دکھائے جاتے۔',
   'vendor_support.grant.action': 'رسائی دیں',
   'vendor_support.grant.how_long': 'کتنی دیر کے لیے',
   'vendor_support.grant.link_sent': 'رسائی دے دی گئی۔ انجینئر کو سائن اِن کا لنک بھیج دیا گیا ہے۔',

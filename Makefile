@@ -446,7 +446,8 @@ cluster-secrets: ## Create the chart's Secrets with random values (never overwri
 HELM_TEST = helm test supportx -n $(NAMESPACE) --logs --filter '!name=supportx-valkey-test-auth-existing'
 
 deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgrade the dev profile on k3d
-	k3d image import supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	# --mode direct, then checked on every node (k3d can fail a node and still exit 0).
+	bash deploy/k3d/import-images.sh $(K3D_CLUSTER) supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG)
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
 	$(HELM_TEST)
@@ -456,8 +457,8 @@ cluster-up-ha: ## Create the four-node k3d cluster for the HA smoke (WP-014b)
 
 deploy-ha: images chart-deps cluster-secrets ## Build, import and install the HA profile (small requests) on k3d
 	# --mode direct: with several nodes, the default shared-volume import races (a node deletes the
-	# tarball while others still read it, and k3d still reports success).
-	k3d image import --mode direct supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	# tarball while others still read it, and k3d still reports success); checked on every node.
+	bash deploy/k3d/import-images.sh $(K3D_CLUSTER) supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG)
 	# The database backups go to a store outside the k3d nodes, as production's go outside the
 	# cluster (D-166): its address, bucket, Secret and egress rule come in as one more values file.
 	backup_values="$$(K3D_CLUSTER=$(K3D_CLUSTER) SUPPORTX_NAMESPACE=$(NAMESPACE) bash deploy/k3d/ci-backup-store.sh up)" && \
