@@ -153,6 +153,16 @@ async def test_a_trigger_on_an_event_its_type_does_not_offer_is_refused(world: W
     assert fine.status_code == 201, fine.text
 
 
+async def test_a_ci_trigger_is_never_given_a_note_it_could_not_add(world: World) -> None:
+    """A CI has no notes: a note action is refused when saved, never failed on every run."""
+    a = world.a
+    refused = await _trigger(
+        world, a, name="Notes", events=["updated"], actions=[{"kind": "note", "text": "x"}]
+    )
+    assert refused.status_code == 422, refused.text
+    assert field_codes(refused)["actions.0.kind"] == "action_not_offered"
+
+
 async def test_a_rule_may_set_only_its_listed_fields(world: World) -> None:
     a = world.a
     refused = await _trigger(

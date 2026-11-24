@@ -110,6 +110,12 @@ async def check(
     if description is not None and len(description) > DESCRIPTION_MAX:
         problems.append(("description", "value_too_long", {"max_length": DESCRIPTION_MAX}))
     problems += check_trigger(values, fields, kind.offered_events)
+    if kind.add_note is None:  # WP-053 S5d: a type with no notes (a CI) is never given one
+        problems += [
+            (f"actions.{i}.kind", "action_not_offered", {"kind": TriggerActionKind.NOTE.value})
+            for i, action in enumerate(values.get("actions") or [])
+            if isinstance(action, Mapping) and action.get("kind") == TriggerActionKind.NOTE.value
+        ]
     actions = values.get("actions") or []
     if not problems:
         settable = {a["field"]: a.get("value") for a in actions if a.get("kind") == "set"}
