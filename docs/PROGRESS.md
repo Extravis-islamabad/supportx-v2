@@ -2680,8 +2680,13 @@ done, AC2 "below a cost" waits for the price), 18 to come.
     service accounts, seal states, the data key's date, failed and locked sign-ins), counts and
     codes only, plus the optional `SUPPORTX_DATA_REGION` (blank hides it). Weak-choice flags are
     recommendations, never enforced; the PR lists their thresholds.
-  - [ ] S4c: vendor support access (D-173; design note in
-    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
+  - [x] S4c: vendor support access (D-173), DONE: S4c-1 (#552: per-grant accounts, sign-in and
+    session checks), S4c-2 (the access allow-list), S4c-3 (#566: the vendor support screens, the
+    support account's profile, signing out when access ends) and the D-180 follow-up (migration
+    0188): a grant's "Hide people's names too" tick, off by default. On, the engineer's session
+    sees "Person hidden" wherever a person shows (incident parts routed through
+    `useHiddenPersonLabel`, lane A's OK) and person search is refused; e-mail and phone are never
+    shown. The downgrade refuses while a grant has the tick on.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
   - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
     e-mail domains, DONE.** Built:

@@ -118,6 +118,7 @@ class GrantRequest:
     ip_allowlist: Sequence[str]
     verification: Verification
     confirmation_note: str | None
+    mask_names: bool = False  # D-180: names withheld too (0188)
 
 
 def email_domain(email: str) -> str | None:

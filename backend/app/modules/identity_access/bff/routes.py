@@ -732,6 +732,7 @@ async def _describe(request: Request, session: Session) -> MeResponse:
                             SupportGrant.access,
                             SupportGrant.ends_at,
                             SupportGrant.unmask_personal,
+                            SupportGrant.mask_names,
                         )
                         .where(SupportGrant.support_user_id == session.user_uuid)
                         .order_by(SupportGrant.created_at.desc())
@@ -744,7 +745,7 @@ async def _describe(request: Request, session: Session) -> MeResponse:
                         "access": grant.access,
                         "ends_at": grant.ends_at,
                         "contacts_masked": True,  # D-180: always, whatever unmask_personal says
-                        "names_masked": False,  # the grant's "Mask names too" tick comes in 0188
+                        "names_masked": grant.mask_names,  # D-180: the grant's tick (0188)
                     }
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
