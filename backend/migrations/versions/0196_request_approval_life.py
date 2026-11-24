@@ -167,7 +167,7 @@ def upgrade() -> None:
         ),
         sa.Column("created_by", sa.Uuid(), nullable=True),
         sa.Column("updated_by", sa.Uuid(), nullable=True),
-        sa.Column("version", sa.Integer(), server_default="1", nullable=False),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["tenant_id"],

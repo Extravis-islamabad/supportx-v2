@@ -141,7 +141,11 @@ async def test_ac2_after_the_last_reminder_the_backup_is_added_and_the_primary_s
     added = next(r for r in rows if r["approver_id"] == str(a.tech_b))
     assert (primary["state"], added["state"]) == ("pending", "pending")
     assert (added["origin"], added["escalated_from_id"]) == ("escalated", primary["id"])
-    assert await _sweep(world, a, NEXT_MONDAY_TEN + timedelta(days=1)) == 0  # escalated once
+    # Escalated once: a later sweep may remind the added approver (their own plan), never
+    # escalate the primary again.
+    await _sweep(world, a, NEXT_MONDAY_TEN + timedelta(days=1))
+    later = await approvals(world, a, a.admin, record)
+    assert sum(1 for r in later if r["escalated_from_id"] == primary["id"]) == 1
     [said] = await _history(world, a, record, sweeper.ESCALATED_FIELD)
     assert (said["to"], said["count"], said["fallback"]) == ("backup", 1, False)
     audit = await world.sql(
