@@ -25,11 +25,14 @@ export function MyTasksPage() {
   const { format } = useDateTime();
   const queryClient = useQueryClient();
   const found = useAllMyTasks();
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.my_tasks_changed' || event.type === 'work_items.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.type === 'work_items.my_tasks_changed' || event.type === 'work_items.changed') {
+        void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      }
+    },
+    { covers: [['my-tasks']] },
+  ); // useAllMyTasks' key
   if (found.error) reportError(found.error);
   const rows = found.data ?? [];
   return (

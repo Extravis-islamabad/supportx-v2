@@ -48,6 +48,7 @@ import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
 import { CiMergeDrawer } from './CiMergeDrawer';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
+import { DowntimesTab } from './DowntimesTab';
 import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
 import { useSubscribersSection } from './useSubscribersSection';
@@ -57,7 +58,7 @@ import { refText } from './refNames';
 import { SourceLabel } from './SourceLabel';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
-const TABS = ['details', 'map', 'impact', 'versions'] as const;
+const TABS = ['details', 'map', 'impact', 'downtimes', 'versions'] as const;
 type TabKey = (typeof TABS)[number];
 
 /** The CI's references, named in the properties panel (CMDB polish). */
@@ -84,6 +85,8 @@ export function CiPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.versions(id) });
     // A business service's subscribers changed (0185): its own section refetches.
     void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.subscribers(id) });
+    // Its downtimes changed or moved state as time passed (S5b): the tab refetches.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.downtimes(id) });
   });
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
@@ -382,6 +385,11 @@ function CiRecord({ ci }: { ci: Ci }) {
             key: 'impact',
             label: t('cmdb.tab.impact'),
             children: tab === 'impact' ? <ImpactTab ciId={ci.id} /> : null,
+          },
+          {
+            key: 'downtimes',
+            label: t('cmdb.tab.downtimes'),
+            children: tab === 'downtimes' ? <DowntimesTab ciId={ci.id} /> : null,
           },
           {
             key: 'versions',

@@ -40,6 +40,7 @@ import {
   type CustomField,
   type ReplyMode,
   recordAssetKeys,
+  timerKeys,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
@@ -214,11 +215,17 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const me = useSession().data?.user.id ?? null;
   // The causing problem, narrowly (WP-044c D14); live on its channel for who may open it.
   const cause = useCausingProblem(item.id);
-  useRecordChannel('wi', cause.data?.may_open ? cause.data.id : undefined, () => {
-    void queryClient.invalidateQueries({
-      queryKey: [...queryKeys.incidents.links(item.id), 'cause'],
-    });
-  });
+  useRecordChannel(
+    'wi',
+    cause.data?.may_open ? cause.data.id : undefined,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.incidents.links(item.id), 'cause'],
+      });
+    },
+    { covers: [[...queryKeys.incidents.links(item.id), 'cause']] },
+  );
   // A record just made opens on Conversation, whatever tab was used last (QA6-INC-04).
   const justMade = (useLocation().state as { justMade?: boolean } | null)?.justMade === true;
   // A link to a tab (`?tab=tasks`) opens on it, as changes do (QA 2026-11-12 F-10); then a
@@ -266,97 +273,119 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       for (const timer of timers.values()) clearTimeout(timer);
     };
   }, []);
-  const viewers = useRecordChannel('wi', item.id, (event) => {
-    // Someone is writing (REQ-WI-006 AC2): shown until they stop, send, or go quiet.
-    if (event.type === 'work_items.typing') {
-      const by = event.by;
-      if (by === undefined || by === me) return;
-      if (event.fields?.[0] === 'stop') {
-        stopTyping(by);
+  const viewers = useRecordChannel(
+    'wi',
+    item.id,
+    (event) => {
+      // A catch-up: `covers` has refetched every part of the record shown here.
+      if (event.covered === true) return;
+      // Someone is writing (REQ-WI-006 AC2): shown until they stop, send, or go quiet.
+      if (event.type === 'work_items.typing') {
+        const by = event.by;
+        if (by === undefined || by === me) return;
+        if (event.fields?.[0] === 'stop') {
+          stopTyping(by);
+          return;
+        }
+        const name = others.current.find((v) => v.userId === by)?.name ?? t('live.someone');
+        const kind = event.fields?.[1] === 'reply' ? 'reply' : 'note';
+        setTyping((current) => ({ ...current, [by]: { name, kind } }));
+        clearTimeout(typingTimers.current.get(by));
+        typingTimers.current.set(
+          by,
+          setTimeout(() => {
+            stopTyping(by);
+          }, TYPING_SHOWN_MS),
+        );
         return;
       }
-      const name = others.current.find((v) => v.userId === by)?.name ?? t('live.someone');
-      const kind = event.fields?.[1] === 'reply' ? 'reply' : 'note';
-      setTyping((current) => ({ ...current, [by]: { name, kind } }));
-      clearTimeout(typingTimers.current.get(by));
-      typingTimers.current.set(
-        by,
-        setTimeout(() => {
-          stopTyping(by);
-        }, TYPING_SHOWN_MS),
-      );
-      return;
-    }
-    // The summary was made, or a newer entry made it stale (WP-038): refetch it only.
-    if (event.type === 'ai.summary_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.ai.summary('incident', item.id) });
-      return;
-    }
-    void queryClient.invalidateQueries({
-      queryKey: [...queryKeys.incidents.all, 'history', item.id],
-    });
-    // An approver was asked or decided (WP-046b S1): the Approvals tab refetches; the record
-    // too, as its approval status may have changed.
-    if (event.type === 'work_items.approvals_changed') {
-      void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.incidents.detail(item.id), 'approvals'],
-      });
-      if (editing.current === 0) void reload();
-      return;
-    }
-    // A reply or note was added or changed visibility: refetch the timeline (and the record's
-    // counts), never interrupting someone editing a field.
-    if (event.type === 'work_items.conversation_changed') {
-      if (event.by !== undefined) stopTyping(event.by);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.conversation(item.id) });
-      if (editing.current === 0) void reload();
-      return;
-    }
-    // A task, worklog or link changed (WP-020e): that part's list refetches.
-    if (event.type === 'work_items.part_changed') {
-      const part = event.fields?.[0];
-      if (part === 'task') {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
-      } else if (part === 'worklog') {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
-      } else if (part === 'checklist') {
-        // WP-046a S2: a checklist added, ticked or removed.
-        void queryClient.invalidateQueries({ queryKey: checklistKeys.of('incidents', item.id) });
-      } else if (part === 'asset') {
-        // REQ-AST-025: an asset linked or unlinked.
-        void queryClient.invalidateQueries({
-          queryKey: recordAssetKeys.of('incidents', item.id),
-        });
-      } else {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+      // The summary was made, or a newer entry made it stale (WP-038): refetch it only.
+      if (event.type === 'ai.summary_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.ai.summary('incident', item.id) });
+        return;
       }
-      return;
-    }
-    if (event.type === 'work_items.followers_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.followers(item.id) });
-      if (editing.current === 0) void reload();
-      return;
-    }
-    // A file was added, checked, blocked or removed (WP-022): refetch the record's files.
-    if (event.type === 'files.changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('incident', item.id) });
-      return;
-    }
-    if (event.type === 'refresh') {
-      void reload();
-      return;
-    }
-    const cached = queryClient.getQueryData<Incident>(queryKeys.incidents.detail(item.id));
-    if (event.version !== undefined && cached !== undefined && event.version <= cached.version) {
-      return; // our own save, already shown
-    }
-    if (editing.current === 0) {
-      void reload();
-      return;
-    }
-    behind.current = true;
-    setChangedBy(others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone'));
-  });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.incidents.all, 'history', item.id],
+      });
+      // An approver was asked or decided (WP-046b S1): the Approvals tab refetches; the record
+      // too, as its approval status may have changed.
+      if (event.type === 'work_items.approvals_changed') {
+        void queryClient.invalidateQueries({
+          queryKey: [...queryKeys.incidents.detail(item.id), 'approvals'],
+        });
+        if (editing.current === 0) void reload();
+        return;
+      }
+      // A reply or note was added or changed visibility: refetch the timeline (and the record's
+      // counts), never interrupting someone editing a field.
+      if (event.type === 'work_items.conversation_changed') {
+        if (event.by !== undefined) stopTyping(event.by);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.conversation(item.id) });
+        if (editing.current === 0) void reload();
+        return;
+      }
+      // A task, worklog or link changed (WP-020e): that part's list refetches.
+      if (event.type === 'work_items.part_changed') {
+        const part = event.fields?.[0];
+        if (part === 'task') {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
+        } else if (part === 'worklog') {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+        } else if (part === 'checklist') {
+          // WP-046a S2: a checklist added, ticked or removed.
+          void queryClient.invalidateQueries({ queryKey: checklistKeys.of('incidents', item.id) });
+        } else if (part === 'asset') {
+          // REQ-AST-025: an asset linked or unlinked.
+          void queryClient.invalidateQueries({
+            queryKey: recordAssetKeys.of('incidents', item.id),
+          });
+        } else {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+        }
+        return;
+      }
+      if (event.type === 'work_items.followers_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.followers(item.id) });
+        if (editing.current === 0) void reload();
+        return;
+      }
+      // A file was added, checked, blocked or removed (WP-022): refetch the record's files.
+      if (event.type === 'files.changed') {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.files.record('incident', item.id),
+        });
+        return;
+      }
+      const cached = queryClient.getQueryData<Incident>(queryKeys.incidents.detail(item.id));
+      if (event.version !== undefined && cached !== undefined && event.version <= cached.version) {
+        return; // our own save, already shown
+      }
+      if (editing.current === 0) {
+        void reload();
+        return;
+      }
+      behind.current = true;
+      setChangedBy(others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone'));
+    },
+    {
+      // Everything this page shows of the record (its detail key holds approvals, assets,
+      // announcements and the cancellation request; its history key the SLA and automation).
+      covers: [
+        queryKeys.incidents.detail(item.id),
+        [...queryKeys.incidents.all, 'history', item.id],
+        queryKeys.incidents.conversation(item.id),
+        queryKeys.incidents.followers(item.id),
+        queryKeys.incidents.tasks(item.id),
+        queryKeys.incidents.worklogs(item.id),
+        queryKeys.incidents.timeAnalysis(item.id),
+        queryKeys.incidents.links(item.id),
+        checklistKeys.of('incidents', item.id),
+        timerKeys.record('incidents', item.id),
+        queryKeys.files.record('incident', item.id),
+        queryKeys.ai.summary('incident', item.id),
+      ],
+    },
+  );
   useEffect(() => {
     others.current = viewers;
   }, [viewers]);

@@ -62,9 +62,15 @@ export function ChangePack() {
   const queryClient = useQueryClient();
   // Live (rule 5c, lane C's #384 review): any change to the record or its parts refetches the
   // pack; the parts' keys sit under the record's detail key.
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered !== true)
+        void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
+    },
+    { covers: id === '' ? [] : [changeKeys.detail(id)] }, // no id: nothing joined or shown
+  );
   const details = useChangeDetails(id).data;
   const plan = useStagedPlan('changes', id).data ?? [];
   const schedule = useStagedSchedule('changes', id).data ?? [];

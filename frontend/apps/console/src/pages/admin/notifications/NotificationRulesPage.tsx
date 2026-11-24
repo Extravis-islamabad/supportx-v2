@@ -62,11 +62,14 @@ export function NotificationRulesPage() {
   const save = useSaveNotificationRule();
   const reset = useResetNotificationRule();
   const { format } = useDateTime();
-  useTenantChannel((event) => {
-    if (event.type === 'notifications.rules_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.rules });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'notifications.rules_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.rules });
+      }
+    },
+    { covers: [queryKeys.notifications.rules] },
+  );
 
   const change = (rule: NotificationRule, changes: Partial<NotificationRuleInput>) => {
     save.mutate(

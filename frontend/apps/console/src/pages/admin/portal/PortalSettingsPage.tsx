@@ -16,6 +16,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import {
   ApiError,
+  catalogKeys,
+  queryKeys,
+  serviceRequestKeys,
   useCatalogSettings,
   useCatalogSettingsChange,
   useIncidentCatalogue,
@@ -80,11 +83,22 @@ export function PortalSettingsPage() {
   const { writable } = useLicence(); // read-only licence: nothing here saves (coverage §17)
   const queryClient = useQueryClient();
   // Another admin's change shows here at once (§8).
-  useTenantChannel((event) => {
-    if (event.type === 'work_items.portal_settings_changed') {
-      void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'work_items.portal_settings_changed') {
+        void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
+      }
+    },
+    {
+      // Every settings source this page edits: another admin may have saved any while we were away.
+      covers: [
+        portalSettingsKey,
+        serviceRequestKeys.settings,
+        queryKeys.incidents.catalogue,
+        catalogKeys.settings,
+      ],
+    },
+  );
   const portal = usePortalSettings();
   const portalChange = usePortalSettingsChange();
   const requests = useServiceRequestCatalogue();

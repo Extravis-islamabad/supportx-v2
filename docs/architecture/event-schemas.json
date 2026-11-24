@@ -2886,6 +2886,49 @@
         "type": "object"
       }
     },
+    "cmdb.downtime.changed": {
+      "1": {
+        "description": "A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).\n\n`change` is added, updated, removed or state (the sweep moved it: `state` is the new one).\nIDs and codes only; the CI's screens refetch its downtimes (§8.3), and automation reads the\nstarted ones (S5d's `downtime_started`).",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "downtime_id": {
+            "format": "uuid",
+            "title": "Downtime Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ci_id",
+          "downtime_id",
+          "change",
+          "state",
+          "source",
+          "version"
+        ],
+        "title": "DowntimeChanged",
+        "type": "object"
+      }
+    },
     "cmdb.import.progressed": {
       "1": {
         "description": "An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.\n\nIDs, a status code and counts only (rule c).",
