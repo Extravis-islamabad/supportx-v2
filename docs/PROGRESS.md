@@ -146,6 +146,13 @@ decisions D1-D13 (D-038).
    runs nginx-unprivileged **1.31.7** (mainline, digest-pinned), because stable 1.30.6 has six
    fixable HIGH/CRITICAL nginx CVEs and no stable 1.30.7 image was published. Move back to the
    stable line once 1.30.7 or later is published. Check it at each Monday re-check.
+9. **Release note: CI delete is its own right (lane B, 2026-11-24, #610, a security fix):** vendor
+   support could delete, restore and merge CIs through `cmdb.manage` (D-173); `cmdb.manage` is
+   now never for support, and for every role `cmdb.manage` no longer stands in for
+   `cmdb.delete`. No built-in role changes (the asset manager holds both). **A tenant's custom
+   role with `cmdb.manage` but without `cmdb.delete` can no longer delete or restore CIs**: add
+   `cmdb.delete` to it. Asset delete by vendor support waits on the product owner's decision
+   (`assets.delete`, or `assets.manage` never).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
