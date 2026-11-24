@@ -37,12 +37,22 @@ COOKIES="$(mktemp)"  # the session's Cookie header, mode 600
 BODY="$(mktemp)"     # the last API answer
 STOPPED=""
 CORDONED=""
+LOOKUP_WATCH=""           # the background lookup watcher's PID while the node is down
+LOOKUP_TRACE="$(mktemp)"  # its lines: when, which API pod, the master's name, how long the lookup took
 CASE="${VALKEY_NODE_LOSS_CASE:-master}"
 case "$CASE" in master|master-with-dns) ;; *) echo "unknown VALKEY_NODE_LOSS_CASE $CASE"; exit 2 ;; esac
 # shellcheck source=deploy/k3d/ha-lib.sh
 . "$ROOT/deploy/k3d/ha-lib.sh"
+stop_lookups() {  # the watcher and its children (an in-flight kubectl exec, its pipeline, sleep)
+  [ -n "$LOOKUP_WATCH" ] || return 0
+  pkill -P "$LOOKUP_WATCH" 2>/dev/null || true
+  kill "$LOOKUP_WATCH" 2>/dev/null || true
+  wait "$LOOKUP_WATCH" 2>/dev/null || true  # reaped quietly: no "Terminated" line in the log
+  LOOKUP_WATCH=""
+}
 cleanup() {
-  rm -f "$COOKIES" "$BODY" "$SETTLE_REASON"
+  stop_lookups
+  rm -f "$COOKIES" "$BODY" "$SETTLE_REASON" "$PHASES" "$LOOKUP_TRACE"
   for n in $CORDONED; do kubectl uncordon "$n" >/dev/null 2>&1 || true; done
   for pod in $VALKEY_PODS; do vcli "$pod" valkey CONFIG SET replica-priority 100 >/dev/null 2>&1 || true; done
   # Never leave a node stopped (a local cluster is reused, and node-loss.sh runs next).
@@ -54,6 +64,45 @@ cleanup() {
 trap cleanup EXIT
 
 pg() { kubectl -n "$NAMESPACE" get "clusters.postgresql.cnpg.io/$PG_CLUSTER" -o "jsonpath=$1"; }
+
+# A diagnostic, never a check (it cannot fail the test): while the node is down, every 3 s, the
+# master's host name as a live sentinel announces it, looked up from each API pod on a live node
+# the way the API's Valkey client does (getaddrinfo, which no socket timeout bounds). With the
+# request phases in the write trace, the nightly says whether a slow write waited on DNS or on the
+# API itself (lane B's 2026-11-24 local proof: the client is bounded, about 15.5 s a failover).
+LOOKUP='import socket, sys, time
+t = time.monotonic()
+try:
+    socket.getaddrinfo(sys.argv[1], 6379)
+    r = "ok"
+except OSError as e:
+    r = type(e).__name__
+print(f"{time.monotonic() - t:.1f}s {r}")'
+watch_lookups() {  # watch_lookups <stopped node>: runs in the background until killed
+  local stopped="$1" sentinel host pod node took
+  # Its own subshell: a failed kubectl while the node is down is what it reports, so it must
+  # not end the watcher (the script's set -e), and it never touches the test's own exit.
+  set +e
+  while :; do
+    sentinel=""
+    for pod in $VALKEY_PODS; do [ "$(node_of "$pod")" = "$stopped" ] || { sentinel="$pod"; break; }; done
+    host="$(vcli "$sentinel" sentinel SENTINEL get-master-addr-by-name supportx | head -n 1)"
+    kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/component=api \
+      -o jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' 2>/dev/null |
+      while read -r pod node; do
+        [ "$node" = "$stopped" ] && continue
+        took="$(kubectl -n "$NAMESPACE" exec --request-timeout=30s "$pod" -c api -- \
+          python -c "$LOOKUP" "${host:-unknown}" 2>/dev/null | tr -d '\r')"
+        echo "t+${SECONDS}s $pod ${host:-<no master named>}: ${took:-no answer in 30 s}" >> "$LOOKUP_TRACE"
+      done
+    sleep 3
+  done
+}
+show_lookups() {  # the watcher's lines, each change once per pod
+  [ -s "$LOOKUP_TRACE" ] || return 0
+  echo "master lookups from the API pods while the node was down (pod, name: time, result):"
+  awk '{key=$2" "$3" "$5} key!=last[$2] {print "  "$0; last[$2]=key}' "$LOOKUP_TRACE" | tail -n 40
+}
 three_ready() { [ "$(pg '{.status.readyInstances}')" = 3 ]; }
 valkey_ready() {
   kubectl -n "$NAMESPACE" wait --for=condition=Ready pod -l app.kubernetes.io/component=valkey \
@@ -183,6 +232,10 @@ echo "== stop $node (Valkey master $master; also on it:" \
 STOPPED="$node"
 STOPPED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 k3d node stop "$node"
+# Its own stdin and output (lane C, #611): it writes only its trace file, and a child still
+# running after the step cannot print into the log or hold the output open.
+watch_lookups "$node" </dev/null >/dev/null 2>&1 &
+LOOKUP_WATCH=$!
 
 # 60 s (D-163): NodeLocal DNSCache (deploy/k3s/node-local-dns.sh) answers the sentinels'
 # lookups from every node's own cache, so a lost node's CoreDNS copy no longer stalls them
@@ -215,9 +268,11 @@ for pod in $VALKEY_PODS; do
 done
 echo "Sentinel promoted $promoted (on $(node_of "$promoted")) after ${took}s"
 took="$(until_ok 120 save_locale '"ar"')" ||
-  { echo "the session or the write did not come back within 120 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; exit 1; }
+  { echo "the session or the write did not come back within 120 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; show_lookups; exit 1; }
 echo "the same session writes again after ${took}s more"
 show_write_trace
+stop_lookups
+show_lookups
 
 echo "== $node starts again"
 k3d node start "$node"

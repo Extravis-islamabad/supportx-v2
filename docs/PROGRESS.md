@@ -153,6 +153,15 @@ decisions D1-D13 (D-038).
    role with `cmdb.manage` but without `cmdb.delete` can no longer delete or restore CIs**: add
    `cmdb.delete` to it. Asset delete by vendor support waits on the product owner's decision
    (`assets.delete`, or `assets.manage` never).
+10. **Known failover latency: Valkey (lane B, 2026-11-24, measured):** while Sentinel fails over,
+   a request that checks its session waits up to about **15.5 s**, then answers. That is the API's
+   Valkey client (`app/core/valkey.py`, valkey-py 6.2.0): its default 5 s socket timeout (the
+   connect timeout falls back to it) times 3 retries, plus the backoff. It is bounded: measured
+   on a throwaway master, replica and three sentinels at the chart's 10 s down-after, the master
+   paused or black-holed, the read came back from the promoted replica after 15.5 s. Not tuned
+   now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
+   phases) and times the master's name lookup from the API pods, so the nightly shows whether a
+   slower write is DNS or this latency.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
