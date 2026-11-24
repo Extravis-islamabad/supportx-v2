@@ -38,7 +38,9 @@ from app.shared.notifications.ports import (
 
 RECORD_TYPE = "cmdb_ci"
 STATE_CHANGED = "cmdb_ci.state_changed"
-OWNER = "owner"
+# Recipient kinds are labelled by code across every source: "owner" is the knowledge
+# article's, so a CI's owner has its own (CI notifications, S5d).
+OWNER = "ci_owner"
 OWNER_GROUP = "owner_group"
 MANAGED_BY_GROUP = "managed_by_group"
 RECIPIENT_KINDS = (OWNER, OWNER_GROUP, MANAGED_BY_GROUP)

@@ -398,7 +398,7 @@ async def test_ac1_the_owner_hears_once_and_someone_who_cannot_see_it_hears_noth
         a,
         a.admin,
         json={
-            "recipients": ["owner"],
+            "recipients": ["ci_owner"],
             "channels": view["channels"],
             "group_ids": view["group_ids"],
             "enabled": True,
