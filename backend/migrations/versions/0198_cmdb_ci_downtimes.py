@@ -14,7 +14,7 @@ The downgrade refuses while any tenant has a downtime (rule 5h), per tenant with
 set.
 
 Revision ID: 0198
-Revises: 0188 (main's head now; re-pointed at its queue turn)
+Revises: 0199
 Created: 2026-11-24
 """
 
@@ -26,7 +26,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app, grant_report
 
 revision: str = "0198"
-down_revision: str | None = "0188"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0199"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

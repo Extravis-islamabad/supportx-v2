@@ -223,6 +223,8 @@ export const ur: LabelResource = {
   'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
   'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
   'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
+  'errors.clarification_open':
+    'اس منظوری پر ایک سوال ابھی کھلا ہے۔ جواب کا انتظار کریں، یا فیصلہ کریں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -449,6 +451,7 @@ export const ur: LabelResource = {
   'errors.field.child_has_children':
     'اس واقعے کے اپنے ذیلی واقعات ہیں، اس لیے یہ ذیلی نہیں بن سکتا۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
+  'errors.field.ci_not_linkable': 'آپ یہ کنفیگریشن آئٹم منسلک نہیں کر سکتے، یا یہ موجود نہیں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
@@ -575,6 +578,8 @@ export const ur: LabelResource = {
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
   'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
+  'errors.field.incident_actual_only':
+    'انسیڈنٹ اپنی وجہ سے ہونے والا ڈاؤن ٹائم درج کرتا ہے: صرف اصل اوقات۔',
   'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
   'errors.field.invalid_code': 'حروف، اعداد، نقطے یا ڈیش استعمال کریں (زیادہ سے زیادہ 50)۔',
   'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
@@ -606,6 +611,7 @@ export const ur: LabelResource = {
   'errors.field.ip_allow_locks_you_out':
     'یہ فہرست آپ کو باہر کر دے گی: آپ کا پتہ {{address}} اس میں نہیں۔ اسے، یا اسے شامل کرنے والی رینج، شامل کریں۔',
   'errors.field.ip_allow_too_many': 'زیادہ سے زیادہ {{max}} اندراجات استعمال کریں۔',
+  'errors.field.is_you': 'آپ خود سے سوال نہیں پوچھ سکتے۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
@@ -646,6 +652,7 @@ export const ur: LabelResource = {
   'errors.field.needs_collapsible': 'صرف سمیٹا جانے والا حصہ بند حالت میں شروع ہو سکتا ہے۔',
   'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.no_technician': 'اس درخواست پر ابھی کسی کو مقرر نہیں کیا گیا۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_form_field': 'یہ فیلڈ فارم میں نہیں ہے۔',
   'errors.field.not_a_person_question':
@@ -706,6 +713,7 @@ export const ur: LabelResource = {
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.quantity_over_max': 'آپ زیادہ سے زیادہ {{max}} مانگ سکتے ہیں۔',
+  'errors.field.question_too_long': 'سوال زیادہ سے زیادہ 2,000 حروف کا ہو سکتا ہے۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
   'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
@@ -828,6 +836,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_assets': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} اثاثے ہو سکتے ہیں۔',
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
+  'errors.field.too_many_cis': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} کنفیگریشن آئٹمز ہو سکتے ہیں۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
   'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
@@ -1391,6 +1400,7 @@ export const ur: LabelResource = {
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
   'errors.work_item_asset_not_found': 'یہ اثاثہ اب ریکارڈ سے منسلک نہیں۔',
+  'errors.work_item_ci_not_found': 'یہ کنفیگریشن آئٹم اب ریکارڈ سے منسلک نہیں ہے۔',
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',

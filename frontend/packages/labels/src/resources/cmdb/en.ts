@@ -628,6 +628,7 @@ export const en = {
   'event_type.cmdb.ci.restored': 'Configuration item restored',
   'event_type.cmdb.ci.updated': 'Configuration item changed',
   'event_type.cmdb.config.changed': 'CMDB settings changed',
+  'event_type.cmdb.downtime.changed': 'Configuration item downtime changed',
   'event_type.cmdb.relationship.changed': 'Configuration item relationships changed',
   'event_type.cmdb.sync_rule.changed': 'Sync rule changed',
   'event_type.cmdb.sync_run.changed': 'Sync run changed',

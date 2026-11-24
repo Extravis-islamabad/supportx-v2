@@ -493,13 +493,13 @@ async def test_neighbours_follow_depth_and_type_filters(world: World) -> None:
     assert {n["key"] for n in one["nodes"]} == {service["id"], app["id"]}
     assert one["truncated"] is False
     assert one["node_max"] == 500
-    assert one["counts_available"] is False  # the S5 port is not registered yet
+    assert one["counts_available"] is True  # work_items registers the S5 port (lane A, 0199)
     two = (await _neighbours(world, a, service, a.admin, depth=2)).json()
     assert {n["key"] for n in two["nodes"]} == {service["id"], app["id"], db["id"], host["id"]}
     node = next(n for n in two["nodes"] if n["key"] == db["id"])
     assert node["type_label_key"] == "cmdb_ci_type.database"
     assert node["state_category"] == "active"
-    assert node["counts"] is None
+    assert node["counts"] == {"incident": 0, "problem": 0, "change": 0}  # nothing linked
     types = await _rel_types(world, a)
     only = await _neighbours(world, a, service, a.admin, depth=2, types=[types["depends_on"]["id"]])
     assert host["id"] not in {n["key"] for n in only.json()["nodes"]}

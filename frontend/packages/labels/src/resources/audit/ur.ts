@@ -479,6 +479,7 @@ export const ur: LabelResource = {
   'audit.action.security.session_key_rotated': 'تنصیب کی سائن اِن کلید بدلی گئی',
   'audit.action.service_request.access_changed': 'سروس کی درخواست تک رسائی رکھنے والے بدلے',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
+  'audit.action.service_request.approval_escalated': 'سروس درخواست کی منظوری آگے بڑھائی گئی',
   'audit.action.service_request.approval_requested':
     'سروس درخواست کی منظوری کے لیے مخصوص لوگوں سے کہا',
   'audit.action.service_request.approved_automatically':
@@ -493,6 +494,9 @@ export const ur: LabelResource = {
   'audit.action.service_request.category_created': 'سروس کی درخواست کا زمرہ شامل کیا',
   'audit.action.service_request.checklist_library_changed': 'لائبریری کی چیک لسٹ تبدیل کی',
   'audit.action.service_request.checklist_library_created': 'لائبریری میں چیک لسٹ شامل کی',
+  'audit.action.service_request.clarification_answered':
+    'سروس درخواست پر منظوری دہندہ کے سوال کا جواب دیا گیا',
+  'audit.action.service_request.clarification_asked': 'منظوری دہندہ نے سروس درخواست پر سوال پوچھا',
   'audit.action.service_request.closed': 'سروس کی درخواست کو بند کیا',
   'audit.action.service_request.closed_record_edited': 'بند سروس کی درخواست میں ترمیم کی',
   'audit.action.service_request.converted': 'سروس درخواست کو واقعے میں تبدیل کیا',
@@ -1227,6 +1231,7 @@ export const ur: LabelResource = {
   'event_type.system.mail.queued': 'ای میل قطار میں',
   'event_type.system.mail.state_changed': 'ای میل بھیجی گئی، دوبارہ کوشش ہوئی یا ناکام',
   'event_type.work_items.approval.changed': 'منظوری کھلی یا فیصلہ ہوا',
+  'event_type.work_items.approval.clarification': 'منظوری پر سوال پوچھا گیا یا اس کا جواب دیا گیا',
   'event_type.work_items.approval_settings.changed': 'منظوری کی ترتیبات بدلیں',
   'event_type.work_items.asset_link.changed': 'اثاثہ منسلک یا الگ کیا گیا',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',
@@ -1236,10 +1241,12 @@ export const ur: LabelResource = {
   'event_type.work_items.change.reminder_due': 'تبدیلی کی یاد دہانی کا وقت',
   'event_type.work_items.change_board.changed': 'تبدیلیوں کا مشاورتی بورڈ تبدیل ہوا',
   'event_type.work_items.change_window.changed': 'تبدیلی ونڈو بدلی',
+  'event_type.work_items.ci_link.changed': 'کنفیگریشن آئٹم منسلک یا الگ کیا گیا',
   'event_type.work_items.conversation.added': 'جواب یا نوٹ شامل کیا گیا',
   'event_type.work_items.conversation.delivery_changed': 'جواب کی ترسیل کی حالت بدلی',
   'event_type.work_items.conversation.redacted': 'جواب یا نوٹ سے نام ہٹایا گیا',
   'event_type.work_items.conversation.visibility_changed': 'نوٹ کو عوامی یا نجی بنایا گیا',
+  'event_type.work_items.downtime.changed': 'ڈاؤن ٹائم ونڈو شامل، تبدیل یا ہٹائی گئی',
   'event_type.work_items.draft.changed': 'محفوظ مسودہ بدلا',
   'event_type.work_items.follower.added': 'فالوور شامل کیا گیا',
   'event_type.work_items.follower.removed': 'فالوور ہٹایا گیا',

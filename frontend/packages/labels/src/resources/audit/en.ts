@@ -479,6 +479,7 @@ export const en = {
   'audit.action.security.session_key_rotated': 'The installation’s sign-in key was rotated',
   'audit.action.service_request.access_changed': 'Changed who can see or work on a service request',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
+  'audit.action.service_request.approval_escalated': 'A service request approval was escalated',
   'audit.action.service_request.approval_requested':
     'Asked named people to approve a service request',
   'audit.action.service_request.approved_automatically':
@@ -493,6 +494,10 @@ export const en = {
   'audit.action.service_request.category_created': 'Added a service request category',
   'audit.action.service_request.checklist_library_changed': 'Changed a library checklist',
   'audit.action.service_request.checklist_library_created': 'Added a library checklist',
+  'audit.action.service_request.clarification_answered':
+    "An approver's question on a service request was answered",
+  'audit.action.service_request.clarification_asked':
+    'An approver asked a question on a service request',
   'audit.action.service_request.closed': 'Closed a service request',
   'audit.action.service_request.closed_record_edited': 'Edited a closed service request',
   'audit.action.service_request.converted': 'Converted a service request into an incident',
@@ -1225,6 +1230,7 @@ export const en = {
   'event_type.system.mail.queued': 'Email queued',
   'event_type.system.mail.state_changed': 'Email sent, retried or failed',
   'event_type.work_items.approval.changed': 'Approval opened or decided',
+  'event_type.work_items.approval.clarification': 'A question on an approval was asked or answered',
   'event_type.work_items.approval_settings.changed': 'Approval settings changed',
   'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
@@ -1234,10 +1240,12 @@ export const en = {
   'event_type.work_items.change.reminder_due': 'Change reminder due',
   'event_type.work_items.change_board.changed': 'Change advisory board changed',
   'event_type.work_items.change_window.changed': 'Change window changed',
+  'event_type.work_items.ci_link.changed': 'Configuration item linked or unlinked',
   'event_type.work_items.conversation.added': 'Reply or note added',
   'event_type.work_items.conversation.delivery_changed': 'Reply delivery changed',
   'event_type.work_items.conversation.redacted': 'Name removed from a reply or note',
   'event_type.work_items.conversation.visibility_changed': 'Note made public or private',
+  'event_type.work_items.downtime.changed': 'Downtime window added, changed or removed',
   'event_type.work_items.draft.changed': 'Kept draft changed',
   'event_type.work_items.follower.added': 'Follower added',
   'event_type.work_items.follower.removed': 'Follower removed',

@@ -97,15 +97,20 @@ export function AnnouncementsPage() {
   const refresh = () => {
     refreshList(queryClient, [...queryKeys.announcements.all, 'list']);
   };
-  useListChannel(allowed ? 'announcements' : null, (message) => {
-    refresh();
-    for (const id of message.ids) {
-      refreshRecord(queryClient, queryKeys.announcements.detail(id), message);
-    }
-  });
-  useTenantChannel((message) => {
-    if (message.type === 'refresh') refresh();
-  });
+  const listKey = [...queryKeys.announcements.all, 'list'];
+  useListChannel(
+    allowed ? 'announcements' : null,
+    (message) => {
+      if (message.covered === true) return;
+      refresh();
+      for (const id of message.ids) {
+        refreshRecord(queryClient, queryKeys.announcements.detail(id), message);
+      }
+    },
+    { covers: [listKey] },
+  );
+  // The tenant channel matters here only for its refresh, which the hook covers.
+  useTenantChannel(() => undefined, { covers: [listKey] });
   const firstPage = list.data?.pages[0];
   useRefetchAfter(firstPage?.next_change_in_seconds, list.dataUpdatedAt, refresh);
 
@@ -389,11 +394,14 @@ function FourEyesSetting() {
   const settings = useAnnouncementSettings();
   const update = useUpdateAnnouncementSettings();
   const queryClient = useQueryClient();
-  useTenantChannel((event) => {
-    if (event.type === 'announcements.settings_changed' || event.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.settings });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'announcements.settings_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.settings });
+      }
+    },
+    { covers: [queryKeys.announcements.settings] },
+  );
   // The rule as it was when switched, and the switch someone else beat (409): the shared dialog.
   const conflict = useConflict();
   const [tried, setTried] = useState<{ checked: boolean; opened: AnnouncementSettings }>();

@@ -628,6 +628,7 @@ export const ur: LabelResource = {
   'event_type.cmdb.ci.restored': 'کنفیگریشن آئٹم بحال کیا گیا',
   'event_type.cmdb.ci.updated': 'کنفیگریشن آئٹم تبدیل ہوا',
   'event_type.cmdb.config.changed': 'CMDB کی ترتیبات تبدیل ہوئیں',
+  'event_type.cmdb.downtime.changed': 'کنفیگریشن آئٹم کا ڈاؤن ٹائم بدل گیا',
   'event_type.cmdb.relationship.changed': 'کنفیگریشن آئٹم کے تعلقات تبدیل ہوئے',
   'event_type.cmdb.sync_rule.changed': 'مطابقت کا اصول بدلا',
   'event_type.cmdb.sync_run.changed': 'مطابقت کا عمل بدلا',

@@ -32,6 +32,8 @@ from app.modules.work_items.api.checklist_routes import (
     add_checklist_routes,
 )
 from app.modules.work_items.api.children_routes import add_children_routes
+from app.modules.work_items.api.ci_routes import add_ci_routes
+from app.modules.work_items.api.clarification_routes import add_clarification_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -105,6 +107,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory, Work
 from app.modules.work_items.service import (
     asset_links,
     change_links,
+    ci_links,
     custom_values,
     drafts,
     reads,
@@ -184,6 +187,14 @@ class WorkItemIn(BaseModel):
         default=None,
         max_length=20,
         description="Assets to link (REQ-AST-025; incidents and requests, the assets feature).",
+    )
+    ci_ids: list[uuid.UUID] | None = Field(
+        default=None,
+        max_length=50,
+        description="CIs to link as the record is raised, whatever its template shows (WP-053 "
+        "S5, REQ-SR-019 AC1; incidents, requests, problems, changes and releases; each one you "
+        "may link). Without the cmdb feature in the plan, a create with ci_ids is refused "
+        "(403 entitlement_required).",
     )
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
@@ -1398,6 +1409,21 @@ class WorkItemCatalogueOut(BaseModel):
         description="Requests: someone who approved an earlier stage is not asked again "
         "(REQ-SR-033; off; an item's own setting overrides it). Professional.",
     )
+    approval_reminder_after_days: int = Field(
+        default=2,
+        description="Requests: a pending approver's first reminder after this many working "
+        "days (REQ-SR-034; 1-30).",
+    )
+    approval_reminder_count: int = Field(
+        default=3,
+        description="Requests: reminders sent, one a working day; after the last the stage "
+        "escalates (REQ-SR-034; 0-10).",
+    )
+    approval_reminder_minute: int = Field(
+        default=600,
+        description="Requests: the time of day reminders go out, in minutes after midnight in "
+        "the approver's time zone (REQ-SR-034; 600 = 10:00).",
+    )
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
@@ -1490,6 +1516,9 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             auto_approve_earlier=cat.auto_approve_earlier,
+            approval_reminder_after_days=cat.approval_reminder_after_days,
+            approval_reminder_count=cat.approval_reminder_count,
+            approval_reminder_minute=cat.approval_reminder_minute,
             portal_show_due_time=cat.portal_show_due_time,
             requester_cancel=RequesterCancel(cat.requester_cancel),
             requester_edit_fields=sorted(cat.requester_edit_fields),
@@ -1650,6 +1679,9 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     auto_approve_earlier: bool | None = Field(default=None, description="Requests only.")
+    approval_reminder_after_days: int | None = Field(default=None, description="Requests only.")
+    approval_reminder_count: int | None = Field(default=None, description="Requests only.")
+    approval_reminder_minute: int | None = Field(default=None, description="Requests only.")
     portal_show_due_time: bool | None = None
     requester_cancel: RequesterCancel | None = None
     requester_edit_fields: list[str] | None = Field(default=None, max_length=40)
@@ -3085,6 +3117,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
         add_approver_change_routes(router, wtype)  # WP-047a S2b (REQ-SR-042)
+        add_clarification_routes(router, wtype)  # WP-047a S3a (REQ-SR-037)
     elif wtype.code in {
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,
@@ -3150,6 +3183,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             asset_ids = values.pop("asset_ids", None) or []
             if asset_ids and wtype.code not in _WITH_ASSETS:
                 raise service.field_errors([("asset_ids", "not_allowed")])
+            ci_ids = values.pop("ci_ids", None) or []
+            if ci_ids and not ci_links.links_cis(wtype):
+                raise service.field_errors([("ci_ids", "not_allowed")])
             view = await service.create(
                 session,
                 subject,
@@ -3165,6 +3201,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
             if asset_ids:  # REQ-AST-025: in the same transaction as the record
                 await asset_links.link_new(
                     session, subject, view.record, asset_ids, source=source_of(request)
+                )
+            if ci_ids:  # WP-053 S5 (REQ-SR-019 AC1): attached even with no CI field shown
+                await ci_links.link_new(
+                    session, subject, view.record, ci_ids, source=source_of(request)
                 )
             # REQ-INC-019: the sender's own kept draft of the form goes with the save (lane B 8).
             await drafts.saved(session, subject.user_id, draft_form_key)
@@ -3300,68 +3340,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
 
-    if wtype.stages is not None:  # ADR-041: staged types move by listed status transitions
-
-        @router.get("/{record_id}/stages", summary="The stage rail and the moves from here")
-        async def stage_panel(
-            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
-        ) -> StagePanelOut:
-            """Each stage on the record's path (done, current, skipped, future) and its moves."""
-            panel = await service.stage_panel(session, subject, wtype, record_id)
-            set_etag(response, panel.record.version)
-            return StagePanelOut.of(panel)
-
-        @router.get("/{record_id}/schedule", summary="Each stage's dates and outcome")
-        async def get_schedule(
-            record_id: uuid.UUID, session: TenantSession, subject: View
-        ) -> list[StageScheduleOut]:
-            """The stages on the record's path, in order; actual dates are set by the engine."""
-            _record, rows = await service.stage_schedules(session, subject, wtype, record_id)
-            return [
-                StageScheduleOut(
-                    stage=stage,
-                    **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
-                    version=row.version if row else 0,
-                    overdue=service.schedule_overdue(row),
-                )
-                for stage, row in rows
-            ]
-
-        @router.patch(
-            "/{record_id}/schedule/{stage}",
-            summary="Change a stage's dates or outcome",
-            responses=CONFLICT,
-        )
-        async def patch_schedule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-            record_id: uuid.UUID,
-            stage: str,
-            body: StageScheduleIn,
-            version: ExpectedVersion,
-            session: TenantSession,
-            subject: Edit,
-            response: Response,
-            request: Request,
-        ) -> StageScheduleOut:
-            """If-Match: the stage row's version (0 before anything is set)."""
-            sent = body.model_dump(include=body.model_fields_set - {"reason"})
-            row = await service.update_stage_schedule(
-                session,
-                subject,
-                wtype,
-                record_id,
-                stage,
-                values=sent,
-                expected_version=version,
-                reason=body.reason,
-                source=source_of(request),
-            )
-            await _audit_reapproval(session, request, wtype, record_id)
-            set_etag(response, row.version)
-            return StageScheduleOut(
-                stage=stage,
-                **{n: getattr(row, n) for n in service.SCHEDULE_FIELDS},
-                version=row.version,
-            )
+    # Downtime windows: planned and actual on changes and releases (REQ-REL-027); WP-053 S5
+    # (REQ-CMDB-020 AC3): an incident records the actual, unplanned downtime it caused.
+    if wtype.stages is not None or wtype.code is WorkItemTypeCode.INCIDENT:
 
         @router.get("/{record_id}/downtimes", summary="Downtime windows")
         async def get_downtimes(
@@ -3457,6 +3438,69 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
                 source=source_of(request),
             )
             return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    if wtype.stages is not None:  # ADR-041: staged types move by listed status transitions
+
+        @router.get("/{record_id}/stages", summary="The stage rail and the moves from here")
+        async def stage_panel(
+            record_id: uuid.UUID, session: TenantSession, subject: View, response: Response
+        ) -> StagePanelOut:
+            """Each stage on the record's path (done, current, skipped, future) and its moves."""
+            panel = await service.stage_panel(session, subject, wtype, record_id)
+            set_etag(response, panel.record.version)
+            return StagePanelOut.of(panel)
+
+        @router.get("/{record_id}/schedule", summary="Each stage's dates and outcome")
+        async def get_schedule(
+            record_id: uuid.UUID, session: TenantSession, subject: View
+        ) -> list[StageScheduleOut]:
+            """The stages on the record's path, in order; actual dates are set by the engine."""
+            _record, rows = await service.stage_schedules(session, subject, wtype, record_id)
+            return [
+                StageScheduleOut(
+                    stage=stage,
+                    **{n: getattr(row, n) if row else None for n in service.SCHEDULE_FIELDS},
+                    version=row.version if row else 0,
+                    overdue=service.schedule_overdue(row),
+                )
+                for stage, row in rows
+            ]
+
+        @router.patch(
+            "/{record_id}/schedule/{stage}",
+            summary="Change a stage's dates or outcome",
+            responses=CONFLICT,
+        )
+        async def patch_schedule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+            record_id: uuid.UUID,
+            stage: str,
+            body: StageScheduleIn,
+            version: ExpectedVersion,
+            session: TenantSession,
+            subject: Edit,
+            response: Response,
+            request: Request,
+        ) -> StageScheduleOut:
+            """If-Match: the stage row's version (0 before anything is set)."""
+            sent = body.model_dump(include=body.model_fields_set - {"reason"})
+            row = await service.update_stage_schedule(
+                session,
+                subject,
+                wtype,
+                record_id,
+                stage,
+                values=sent,
+                expected_version=version,
+                reason=body.reason,
+                source=source_of(request),
+            )
+            await _audit_reapproval(session, request, wtype, record_id)
+            set_etag(response, row.version)
+            return StageScheduleOut(
+                stage=stage,
+                **{n: getattr(row, n) for n in service.SCHEDULE_FIELDS},
+                version=row.version,
+            )
 
         @router.post("/{record_id}/moves", summary="Move to a listed status", responses=CONFLICT)
         async def move(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -4318,4 +4362,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     # REQ-AST-025: assets on incidents and requests (the forms and the e-mail ask for them).
     if wtype.code in _WITH_ASSETS:
         add_asset_routes(router, wtype)
+    # WP-053 S5 (REQ-CMDB-019): CIs on incidents, requests, problems, changes and releases.
+    if ci_links.links_cis(wtype):
+        add_ci_routes(router, wtype)
     return router

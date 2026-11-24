@@ -178,6 +178,21 @@ class ApprovalStage:
     # approve the stage at once when one holds.
     auto_earlier: bool | None = None
     auto_rules: Sequence["AutoRule"] = ()
+    # WP-047a S3a (REQ-SR-034, Essentials): where the approval goes after its last reminder.
+    escalate_to: "EscalationTarget" = field(default_factory=lambda: EscalationTarget.BACKUP)
+
+
+class EscalationTarget(StrEnum):
+    """Where a stage's pending approval goes after its last reminder (REQ-SR-034).
+
+    The primary approver keeps their approval as well (REQ-SR-036 AC2). Nobody there: the
+    approval administrators, recorded (the coordinator's S3 condition 2).
+    """
+
+    BACKUP = "backup"  # the stage's backup approver (the default)
+    APPROVER_MANAGER = "approver_manager"  # the pending approver's own manager
+    FULFILMENT_GROUP = "fulfilment_group"  # the members of the request's group
+    NONE = "none"  # reminders only
 
 
 @dataclass(frozen=True)

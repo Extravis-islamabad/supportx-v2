@@ -31,6 +31,7 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.assets import register_linked_records, register_ticket_requesters
+from app.modules.cmdb import register_ci_links, register_open_counts
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -77,6 +78,8 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    ci_links,
+    clarifications,
     drafts,
     field_catalogue,
     inbound_mail,
@@ -93,6 +96,7 @@ from app.modules.work_items.service import (
     reminders,
     repeat_rules,
     report_names,
+    request_approval_reminders,
     request_notifications,
     resolution,
     rule_step_notifications,
@@ -198,6 +202,10 @@ register_record_usage()
 # The asset page's linked records (REQ-AST-044, lane B's WP-049b s4a; lane A agreed, rule 8):
 # assets ask through their port, answered by this module's visible-only queries.
 register_linked_records(ASSET_LINK_PORT)
+# WP-053 S5: a CMDB merge moves the records' CI links (cmdb/service/links.py contract).
+register_ci_links(ci_links.repoint_ci_links)
+# WP-053 S5 (REQ-CMDB-009, -019): open and total linked records per CI, each type's own view.
+register_open_counts(ci_links.COUNTS_PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
@@ -299,6 +307,7 @@ module = ModuleSpec(
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
     consumers=[
         APPROVER_LEFT,
+        clarifications.ANSWERS,  # WP-047a S3a (REQ-SR-037 AC2): an answer ends the question
         KEPT_INFORMED,
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
@@ -330,6 +339,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-047a S3a (REQ-SR-034): request approval reminders and escalation, each slot once.
+        ScheduleSpec(
+            "work_items__request_approval_reminders",
+            request_approval_reminders.EVERY_SECONDS,
+            request_approval_reminders.reminders_schedule,
         ),
         # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
         ScheduleSpec(

@@ -642,6 +642,7 @@ export const ar: LabelResource = {
   'event_type.cmdb.ci.restored': 'استُعيد عنصر تهيئة',
   'event_type.cmdb.ci.updated': 'تغيّر عنصر تهيئة',
   'event_type.cmdb.config.changed': 'تغيّرت إعدادات قاعدة بيانات التهيئة',
+  'event_type.cmdb.downtime.changed': 'تغيرت فترة توقف عنصر التهيئة',
   'event_type.cmdb.relationship.changed': 'تغيّرت علاقات عنصر تهيئة',
   'event_type.cmdb.sync_rule.changed': 'تغيّرت قاعدة مزامنة',
   'event_type.cmdb.sync_run.changed': 'تغيّر تشغيل مزامنة',

@@ -224,6 +224,8 @@ export const en = {
   'errors.checklist_library_not_found':
     'This library checklist is no longer there or is no longer offered.',
   'errors.checklist_not_found': 'This checklist is no longer there.',
+  'errors.clarification_open':
+    'A question on this approval is still open. Wait for the answer, or decide.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -450,6 +452,7 @@ export const en = {
   'errors.field.child_has_children':
     'That incident has children of its own, so it cannot become a child.',
   'errors.field.choices_required': 'Add at least one choice.',
+  'errors.field.ci_not_linkable': 'You may not link this configuration item, or it does not exist.',
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
@@ -571,6 +574,8 @@ export const en = {
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
   'errors.field.ical_too_many_lines': 'The file has more than 20,000 lines.',
+  'errors.field.incident_actual_only':
+    'An incident records the downtime it caused: actual times only.',
   'errors.field.invalid_choice': 'This is not one of the allowed values.',
   'errors.field.invalid_code': 'Use letters, digits, dots, dashes or underscores (up to 50).',
   'errors.field.invalid_colour': 'Choose a colour such as #1677ff.',
@@ -602,6 +607,7 @@ export const en = {
   'errors.field.ip_allow_locks_you_out':
     'This list would shut you out: your address {{address}} is not in it. Add it, or a range that holds it.',
   'errors.field.ip_allow_too_many': 'Use at most {{max}} entries.',
+  'errors.field.is_you': "You can't ask yourself.",
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
@@ -642,6 +648,7 @@ export const en = {
   'errors.field.needs_collapsible': 'Only a collapsible section can start closed.',
   'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.no_technician': 'Nobody is assigned to this request yet.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_form_field': 'This field is not on the form.',
   'errors.field.not_a_person_question': 'Choose a question of this form that asks for a person.',
@@ -698,6 +705,7 @@ export const en = {
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.field.quantity_over_max': 'You can ask for at most {{max}}.',
+  'errors.field.question_too_long': 'A question can be at most 2,000 characters.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
@@ -819,6 +827,7 @@ export const en = {
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
+  'errors.field.too_many_cis': 'A record can have at most {{max}} configuration items.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
@@ -1377,6 +1386,7 @@ export const en = {
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
+  'errors.work_item_ci_not_found': 'This configuration item is no longer linked to the record.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

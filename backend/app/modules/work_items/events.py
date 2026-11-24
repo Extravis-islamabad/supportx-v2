@@ -425,6 +425,25 @@ class WorkItemAssetLinkChanged(DomainEvent):
     at_creation: bool = False
 
 
+class WorkItemCiLinkChanged(DomainEvent):
+    """A CI was linked to a record or unlinked (WP-053 S5; REQ-CMDB-019). IDs only.
+
+    The CMDB keeps the CI's Associations counters live from it (lane B); the record's screens
+    refresh its CIs. `type` lets a counter know which type changed without reading the record.
+    """
+
+    event_type: ClassVar[str] = "work_items.ci_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    ci_id: uuid.UUID
+    change: Literal["added", "removed"]
+    at_creation: bool = False
+    version: int
+
+
 class WorkItemPartChangedV2(DomainEvent):
     """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
 
@@ -444,6 +463,33 @@ class WorkItemPartChangedV2(DomainEvent):
 
 
 ApprovalChange = Literal["opened", "decided", "closed"]
+
+
+class WorkItemDowntimeChanged(DomainEvent):
+    """A downtime window was added, changed or removed (WP-053 S5; REQ-CMDB-020).
+
+    One row: planned or actual, its kind, its UTC times and the CIs and services it names, for
+    the CMDB's own downtime list (lane B's consumer, idempotent by event ID and version). An
+    incident's actual downtime names the incident as `source_work_item_id`. No state (derived
+    from the times) and no free text: the description stays on the record (§8 rule c).
+    """
+
+    event_type: ClassVar[str] = "work_items.downtime.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    downtime_id: uuid.UUID
+    version: int
+    phase: str
+    kind: str | None
+    starts_at: datetime
+    ends_at: datetime
+    ci_ids: list[uuid.UUID]
+    service_ids: list[uuid.UUID]
+    source_work_item_id: uuid.UUID | None
+    deleted: bool
 
 
 class WorkItemPartChangedV3(DomainEvent):
@@ -492,6 +538,29 @@ class WorkItemApprovalChanged(DomainEvent):
     approver_id: uuid.UUID | None
     state: str
     change: ApprovalChange
+
+
+ClarificationChange = Literal["asked", "answered", "ended"]
+
+
+class WorkItemApprovalClarification(DomainEvent):
+    """An approver's question on a request approval was asked, answered or ended (REQ-SR-037).
+
+    WP-047a S3a. `approver_id` is the person who asked. IDs and codes only: never the question
+    or the answer, which their screens read through the API (the coordinator's condition 4).
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.clarification"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    approval_id: uuid.UUID
+    approver_id: uuid.UUID
+    clarification_id: uuid.UUID
+    addressee: str
+    change: ClarificationChange
 
 
 class ChangeBoardChanged(DomainEvent):
@@ -703,8 +772,11 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemPartChangedV3,
+    WorkItemDowntimeChanged,
+    WorkItemCiLinkChanged,
     WorkItemReminderDue,
     WorkItemApprovalChanged,
+    WorkItemApprovalClarification,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,

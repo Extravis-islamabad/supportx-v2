@@ -719,6 +719,35 @@ jobs:
       - name: Lint (ESLint, Prettier check)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make frontend-lint
+      - name: The channel-covers exemption list only shrinks against the target branch
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Read through the API: this job checks out shallow, without credentials (§8.3, #609).
+          # A missing file (404) is an answer; any other error fails, never passing unchecked.
+          base_ref="${GITHUB_BASE_REF:-main}"
+          plugin=frontend/packages/eslint-plugin
+          fetch() {  # <path> <out>: 0 found, 1 not on the target branch; exits on any other error
+            if gh api -H 'Accept: application/vnd.github.raw' \
+                "repos/$REPO/contents/$1?ref=$base_ref" > "$2" 2> "$RUNNER_TEMP/gh.err"; then
+              return 0
+            fi
+            grep -q 'HTTP 404' "$RUNNER_TEMP/gh.err" && return 1
+            cat "$RUNNER_TEMP/gh.err" >&2
+            exit 1
+          }
+          base_list=-
+          if fetch "$plugin/channel-covers-pending.json" "$RUNNER_TEMP/pending.base.json"; then
+            base_list="$RUNNER_TEMP/pending.base.json"
+          fi
+          has_rule=no
+          if fetch "$plugin/index.js" "$RUNNER_TEMP/plugin.base.js" \
+              && grep -q "'channel-covers'" "$RUNNER_TEMP/plugin.base.js"; then
+            has_rule=yes
+          fi
+          node frontend/scripts/covers-pending-shrinks.js "$base_list" "$has_rule"
       - name: Type-check (tsc strict)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make frontend-typecheck

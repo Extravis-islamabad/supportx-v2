@@ -45,6 +45,7 @@ from app.modules.work_items.domain.approvals import (
     RouteReason,
     SkipReason,
 )
+from app.modules.work_items.domain.clarifications import Addressee, ClarificationEnd
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.conversation import (
     DeliveryReason,
@@ -109,6 +110,14 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
         CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
         CheckConstraint("first_contact_minutes BETWEEN 0 AND 1440", name="first_contact_minutes"),
+        # WP-047a S3a (0196; REQ-SR-034): the reminder schedule's limits.
+        CheckConstraint(
+            "approval_reminder_after_days BETWEEN 1 AND 30", name="approval_reminder_after_days"
+        ),
+        CheckConstraint("approval_reminder_count BETWEEN 0 AND 10", name="approval_reminder_count"),
+        CheckConstraint(
+            "approval_reminder_minute BETWEEN 0 AND 1439", name="approval_reminder_minute"
+        ),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
@@ -162,6 +171,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # REQ-SR-033 (WP-047a S2b, 0195): a stage's approver who approved an earlier stage of the
     # same request is not asked again; off by default, and an item's own setting overrides it.
     auto_approve_earlier: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # REQ-SR-034 (WP-047a S3a, 0196): pending request approvers are reminded after this many
+    # working days, then daily up to the count, at this minute of the day in their time zone
+    # (Appendix A: 2 days, 3 reminders, 10:00); after the last, the stage escalates.
+    approval_reminder_after_days: Mapped[int] = mapped_column(SmallInteger, server_default="2")
+    approval_reminder_count: Mapped[int] = mapped_column(SmallInteger, server_default="3")
+    approval_reminder_minute: Mapped[int] = mapped_column(SmallInteger, server_default="600")
     # D-154c: ticking a request's first fulfilment task starts the work (requests only; on).
     first_task_starts_work: Mapped[bool] = mapped_column(Boolean, server_default="true")
     # REQ-INC-147 (WP-028 D5): requesters see the expected resolution time; off by default.
@@ -1052,6 +1067,40 @@ class WorkItemAsset(TenantEntity):
     work_item_id: Mapped[uuid.UUID]
     asset_id: Mapped[uuid.UUID]
     source: Mapped[str] = mapped_column(String(20), server_default="ui")
+
+
+class WorkItemCi(TenantEntity):
+    """A configuration item linked to a work item (WP-053 S5; REQ-CMDB-019). Unlinking soft-deletes.
+
+    Only the CI's ID: work items never read CMDB tables (CLAUDE.md rule e). A CI is named through
+    `cmdb.ci_refs` when read, so a CI the reader may not see is never named, in the record or in
+    its history. `at_creation`: linked as the record was raised (a CI's "Raise" menu, AC1).
+    """
+
+    __tablename__ = "work_item_cis"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_cis_work_item"),
+        Index(
+            "uq_wic_tenant_item_ci",
+            "tenant_id",
+            "work_item_id",
+            "ci_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wic_tenant_ci",
+            "tenant_id",
+            "ci_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    ci_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20), server_default="ui")
+    at_creation: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemAnnouncement(TenantEntity):
@@ -1950,6 +1999,19 @@ class WorkItemApproval(TenantEntity):
             postgresql_where=text("workflow_instance_id IS NOT NULL"),
         ),
         Index("ix_wia_tenant_item", "tenant_id", "work_item_id", "stage", "id"),
+        # WP-047a S3a (0196): rows escalated from a primary, and clarifications, point here.
+        UniqueConstraint("tenant_id", "id", name="uq_work_item_approvals_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "escalated_from_id"],
+            ["work_item_approvals.tenant_id", "work_item_approvals.id"],
+            name="fk_wia_escalated_from",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("paused_seconds >= 0", name="paused_seconds_positive"),
+        CheckConstraint(
+            "escalated_from_id IS NULL OR origin IN ('escalated', 'administrators')",
+            name="escalated_origin",
+        ),
         Index(
             "ix_wia_tenant_approver_pending",
             "tenant_id",
@@ -1994,6 +2056,69 @@ class WorkItemApproval(TenantEntity):
     workflow_instance_id: Mapped[uuid.UUID | None]
     # The approval node's command (its decision continues that node, 0106).
     workflow_command: Mapped[str | None] = mapped_column(String(20))
+    # WP-047a S3a (REQ-SR-034, -036 AC2): the primary row this one was escalated from (the
+    # primary stays open; the two count as one vote), and the time spent waiting on a
+    # clarification (REQ-SR-037), which pushes the reminder plan back.
+    escalated_from_id: Mapped[uuid.UUID | None]
+    paused_seconds: Mapped[int] = mapped_column(Integer, server_default="0")
+
+
+class ApprovalClarification(TenantEntity):
+    """A question an approver asked instead of deciding (WP-047a S3a, 0196; REQ-SR-037).
+
+    At most one open per approval row. The question and the answer are conversation entries on
+    the request (the question public for the requester, an internal note for the technician), so
+    who may read them is the conversation's rule; this row only ties them to the approval.
+    """
+
+    __tablename__ = "approval_clarifications"
+    __table_args__ = (
+        _work_item_fk("fk_approval_clarifications_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "approval_id"],
+            ["work_item_approvals.tenant_id", "work_item_approvals.id"],
+            name="fk_approval_clarifications_approval",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "asked_by"],
+            ["users.tenant_id", "users.id"],
+            name="fk_approval_clarifications_asked_by",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "addressee_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_approval_clarifications_addressee",
+        ),
+        CheckConstraint(_codes("addressee", Addressee), name="addressee_code"),
+        CheckConstraint(
+            "ended_how IS NULL OR " + _codes("ended_how", ClarificationEnd), name="ended_code"
+        ),
+        CheckConstraint("(ended_at IS NULL) = (ended_how IS NULL)", name="ended_together"),
+        CheckConstraint(
+            "(ended_how = 'answered') = (answer_entry_id IS NOT NULL)", name="answered_entry"
+        ),
+        Index(
+            "uq_approval_clarifications_open",
+            "tenant_id",
+            "approval_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL AND deleted_at IS NULL"),
+        ),
+        Index("ix_approval_clarifications_tenant_item", "tenant_id", "work_item_id"),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    approval_id: Mapped[uuid.UUID]
+    asked_by: Mapped[uuid.UUID]
+    addressee: Mapped[str] = mapped_column(String(20))
+    addressee_id: Mapped[uuid.UUID]
+    # The conversation entries (by ID: the question, and the reply that answered it).
+    question_entry_id: Mapped[uuid.UUID]
+    answer_entry_id: Mapped[uuid.UUID | None]
+    asked_at: Mapped[datetime]
+    ended_at: Mapped[datetime | None]
+    ended_how: Mapped[str | None] = mapped_column(String(20))
 
 
 class WorkItemApprovalSettings(Timestamps, Actors, Versioned, Base):

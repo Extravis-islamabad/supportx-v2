@@ -171,6 +171,7 @@ export const ar: LabelResource = {
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
+  'notification_event.service_request.clarification_answered': 'أُجيب عن سؤالك على طلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
   'notification_event.service_request.public_reply': 'رد على مقدم الطلب',
   'notification_event.service_request.ready_to_fulfil': 'طلب جاهز للتنفيذ',
@@ -790,6 +791,12 @@ export const ar: LabelResource = {
     'تمت الموافقة على {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.approved.subject':
     'تمت الموافقة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.clarification_answered.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُجيب عن سؤالك على {{ record.display_id }} "{{ record.title }}". افتح الطلب لقراءة الإجابة واتخاذ القرار.',
+  'notification_template.service_request.clarification_answered.in_app':
+    'أُجيب عن سؤالك على {{ record.display_id }}',
+  'notification_template.service_request.clarification_answered.subject':
+    'تمت الإجابة: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.fulfilled.body':
     'مرحبًا {{ recipient.name }}،\n\nنُفّذ طلبك {{ record.display_id }} «{{ record.title }}». يرجى تأكيد الاستلام أو إخبارنا إن كان ينقصه شيء.',
   'notification_template.service_request.fulfilled.in_app':

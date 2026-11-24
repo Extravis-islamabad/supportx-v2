@@ -428,6 +428,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "StageRule": "approval_rule",  # WP-047a S2a: the level engine's codes (LevelRule)
     "SkipReason": "approval_skip_reason",
     "AutoReason": "approval_auto_reason",  # WP-047a S2b (REQ-SR-033)
+    # WP-047a S3a (REQ-SR-034, -037)
+    "Addressee": "approval_clarification_addressee",
+    "ClarificationState": "approval_clarification_state",
+    "EscalationTarget": "approval_escalate_to",
     # catalog administration (WP-031)
     "ItemKind": "catalog_item_kind",
     "ItemStatus": "catalog_item_status",

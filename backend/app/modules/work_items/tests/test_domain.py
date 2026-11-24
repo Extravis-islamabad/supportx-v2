@@ -9,6 +9,7 @@ import pytest
 
 from app.modules.work_items.domain.change_boards import FIELD_PROBLEMS as BOARD_PROBLEMS
 from app.modules.work_items.domain.changes import CHANGE_MODEL
+from app.modules.work_items.domain.clarifications import FIELD_PROBLEMS as CLARIFICATION_PROBLEMS
 from app.modules.work_items.domain.classification import (
     DEFAULT_MATRIX,
     SCALE_CODES,
@@ -303,6 +304,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "close_requires",
         "worklog_type",
         "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
+        "service_ids",  # a downtime's two CI fields, ("ci_ids", "service_ids") (WP-053 S5)
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)
@@ -330,6 +332,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | KEPT_PROBLEMS
         | CHILD_PROBLEMS
         | APPROVER_CHANGE_PROBLEMS
+        | CLARIFICATION_PROBLEMS
     )
     # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
     found -= set(get_args(Relation))

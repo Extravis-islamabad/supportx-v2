@@ -20,17 +20,23 @@ export const PERSONAL_CHANGED = 'announcements.personal_changed';
 export function useLiveAnnouncementFeed(enabled = true) {
   const queryClient = useQueryClient();
   const feed = useAnnouncementFeed(enabled);
-  useTenantChannel((message) => {
-    if (message.type === FEED_CHANGED || message.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.type === FEED_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
+      }
+    },
+    { covers: [queryKeys.announcements.feed] },
+  );
   // My own dismissals and follows from another device (WP-032 D7): on my channel only.
-  usePersonalChannel((message) => {
-    if (message.type === PERSONAL_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
-    }
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.type === PERSONAL_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.feed });
+      }
+    },
+    { covers: [queryKeys.announcements.feed] },
+  );
   useRefetchAfter(feed.data?.next_change_in_seconds, feed.dataUpdatedAt, () => {
     void feed.refetch();
   });

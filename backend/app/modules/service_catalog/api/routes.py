@@ -31,6 +31,7 @@ from app.modules.identity_access import Subject
 from app.modules.service_catalog.domain.catalog import ItemKind, ItemStatus
 from app.modules.service_catalog.domain.items import (
     ApproverKind,
+    EscalationTarget,
     ItemAudience,
     QuestionAudience,
     QuestionKind,
@@ -129,6 +130,11 @@ class ApprovalStageIO(BaseModel):
         max_length=5,
         description="Rules that approve the stage at once when one holds (REQ-SR-033). "
         "Professional.",
+    )
+    escalate_to: EscalationTarget = Field(
+        default=EscalationTarget.BACKUP,
+        description="Where a pending approval goes after its last reminder (REQ-SR-034): the "
+        "backup, the approver's manager, the request's group, or none. The approver keeps it too.",
     )
 
 

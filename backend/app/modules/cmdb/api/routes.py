@@ -48,7 +48,8 @@ router = APIRouter(
 View = Annotated[Subject, Depends(require_permission(catalogue.VIEW))]
 Add = Annotated[Subject, Depends(require_permission(catalogue.ADD, catalogue.MANAGE))]
 Edit = Annotated[Subject, Depends(require_permission(catalogue.EDIT, catalogue.MANAGE))]
-Delete = Annotated[Subject, Depends(require_permission(catalogue.DELETE, catalogue.MANAGE))]
+# Delete and restore need the right itself: cmdb.manage never stands in for it (cis.writer).
+Delete = Annotated[Subject, Depends(require_permission(catalogue.DELETE))]
 Configure = Annotated[Subject, Depends(require_permission(catalogue.CONFIGURE))]
 CisQuery = Annotated[ListQuery, Depends(list_query(cis.CI_FIELDS))]
 # `type_tree` (this type and the types below it) is read by the list route itself.

@@ -27,9 +27,11 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import service_catalog
 from app.modules.identity_access import Subject, person_placement
+from app.modules.work_items.domain import approval_reminders as rules_reminders
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import service_requests as sr_rules
+from app.modules.work_items.domain.clarifications import ClarificationEnd
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import (
@@ -42,6 +44,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import (
     change_freeze,
+    clarification_rows,
     fulfilment,
     request_stages,
     stage_approvals,
@@ -186,6 +189,12 @@ async def list_for_record(
         if hidden and not _staff(subject, wtype):
             return []  # REQ-SR-024 AC3: the record's own status still says it waits
     return [_shown(subject, wtype, record, r) for r in found]
+
+
+# WP-047a S3a (REQ-SR-037): the clarification service checks and answers as deciding does.
+record_of = _record
+may_decide = _may_decide
+view_of = _shown
 
 
 ModifyRefused = Literal["no_permission", "out_of_scope", "approval_not_running"]
@@ -340,6 +349,8 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await session.flush()
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
+    await clarification_rows.end_open(session, record, [row.id], ClarificationEnd.DECIDED)
+    await close_family(session, record, row)  # REQ-SR-036 AC2: the first of them settles it
     await _after_vote(session, wtype, record, row, approved=approved, source=source)
     if approved:
         await session.refresh(record)
@@ -451,6 +462,41 @@ async def _close_others(
     for r in others:
         await approval_event(session, record, r, "closed")
         await action_links.revoke_for(session, LINK_OBJECT, r.id)  # REQ-SR-061 AC2
+    await clarification_rows.end_open(  # WP-047a S3a: a closed approval asks nothing more
+        session, record, [r.id for r in others], ClarificationEnd.CLOSED
+    )
+
+
+async def close_family(session: AsyncSession, record: WorkItem, decided: WorkItemApproval) -> int:
+    """Close the rest of a decided row's family: its primary and the rows escalated from it.
+
+    WP-047a S3a (REQ-SR-036 AC2): an escalation keeps the primary's approval open until one of
+    them decides; that decision is the family's one vote, so the others are not needed (their
+    events sent, their links revoked). How many were closed.
+    """
+    root = rules_reminders.family_of(decided)
+    others = [
+        r
+        for r in await _rows(session, record.id)
+        if r.id != decided.id
+        and rules_reminders.family_of(r) == root
+        and r.state == rules.ApprovalState.PENDING
+    ]
+    if not others:
+        return 0
+    await session.execute(
+        update(WorkItemApproval)
+        .where(WorkItemApproval.id.in_([r.id for r in others]))
+        .values(state=rules.ApprovalState.NOT_NEEDED.value, version=WorkItemApproval.version + 1)
+        .execution_options(synchronize_session="fetch")
+    )
+    for r in others:
+        await approval_event(session, record, r, "closed")
+        await action_links.revoke_for(session, LINK_OBJECT, r.id)
+    await clarification_rows.end_open(
+        session, record, [r.id for r in others], ClarificationEnd.CLOSED
+    )
+    return len(others)
 
 
 async def withdraw_pending(session: AsyncSession, record: WorkItem) -> int:

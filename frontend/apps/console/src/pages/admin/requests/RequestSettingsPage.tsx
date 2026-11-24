@@ -1,5 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { App, Flex, Form, Select, Skeleton, Switch, Typography } from 'antd';
+import {
+  App,
+  Flex,
+  Form,
+  InputNumber,
+  Select,
+  Skeleton,
+  Switch,
+  TimePicker,
+  Typography,
+} from 'antd';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 
 import {
@@ -44,6 +55,9 @@ export function RequestSettingsPage() {
     signIn: boolean;
     starts: boolean;
     earlier: boolean;
+    after: number;
+    count: number;
+    minute: number;
     version: number;
   }>();
   if (catalogue.isLoading || catalogue.data === undefined) return <Skeleton active />;
@@ -53,6 +67,10 @@ export function RequestSettingsPage() {
   const signIn = draft?.signIn ?? saved.approvals_require_sign_in;
   const starts = draft?.starts ?? saved.first_task_starts_work;
   const earlier = draft?.earlier ?? saved.auto_approve_earlier;
+  // WP-047a S3a (REQ-SR-034): the approval reminder schedule.
+  const after = draft?.after ?? saved.approval_reminder_after_days;
+  const count = draft?.count ?? saved.approval_reminder_count;
+  const minute = draft?.minute ?? saved.approval_reminder_minute;
   const edit = (
     next: Partial<{
       scope: OnBehalfScope;
@@ -60,6 +78,9 @@ export function RequestSettingsPage() {
       signIn: boolean;
       starts: boolean;
       earlier: boolean;
+      after: number;
+      count: number;
+      minute: number;
     }>,
   ) => {
     setDraft({
@@ -68,6 +89,9 @@ export function RequestSettingsPage() {
       signIn,
       starts,
       earlier,
+      after,
+      count,
+      minute,
       version: draft?.version ?? saved.version,
       ...next,
     });
@@ -81,6 +105,9 @@ export function RequestSettingsPage() {
           draft.signIn !== saved.approvals_require_sign_in,
           draft.starts !== saved.first_task_starts_work,
           draft.earlier !== saved.auto_approve_earlier,
+          draft.after !== saved.approval_reminder_after_days,
+          draft.count !== saved.approval_reminder_count,
+          draft.minute !== saved.approval_reminder_minute,
         ].filter(Boolean).length;
   const submit = () => {
     if (draft === undefined) return;
@@ -99,6 +126,15 @@ export function RequestSettingsPage() {
           }),
           ...(draft.earlier !== saved.auto_approve_earlier && {
             auto_approve_earlier: draft.earlier,
+          }),
+          ...(draft.after !== saved.approval_reminder_after_days && {
+            approval_reminder_after_days: draft.after,
+          }),
+          ...(draft.count !== saved.approval_reminder_count && {
+            approval_reminder_count: draft.count,
+          }),
+          ...(draft.minute !== saved.approval_reminder_minute && {
+            approval_reminder_minute: draft.minute,
           }),
         },
         version: draft.version,
@@ -206,6 +242,61 @@ export function RequestSettingsPage() {
             />
           </Form.Item>
         </Form>
+      </SettingsCard>
+      <SettingsCard title={t('requests.settings.approval_reminders')}>
+        <Typography.Paragraph type="secondary">
+          {t('requests.settings.approval_reminders_help')}
+        </Typography.Paragraph>
+        <Flex gap={24} wrap>
+          <Form layout="vertical" component="div">
+            <Form.Item
+              label={t('requests.settings.reminder_after_days')}
+              htmlFor="sr-reminder-after-days"
+            >
+              <InputNumber
+                id="sr-reminder-after-days"
+                min={1}
+                max={30}
+                precision={0}
+                value={after}
+                onChange={(value) => {
+                  if (value != null) edit({ after: value });
+                }}
+                data-testid="sr-reminder-after-days"
+              />
+            </Form.Item>
+          </Form>
+          <Form layout="vertical" component="div">
+            <Form.Item label={t('requests.settings.reminder_count')} htmlFor="sr-reminder-count">
+              <InputNumber
+                id="sr-reminder-count"
+                min={0}
+                max={10}
+                precision={0}
+                value={count}
+                onChange={(value) => {
+                  if (value != null) edit({ count: value });
+                }}
+                data-testid="sr-reminder-count"
+              />
+            </Form.Item>
+          </Form>
+          <Form layout="vertical" component="div">
+            <Form.Item label={t('requests.settings.reminder_at')} htmlFor="sr-reminder-at">
+              <TimePicker
+                id="sr-reminder-at"
+                format="HH:mm"
+                minuteStep={5}
+                allowClear={false}
+                value={dayjs().startOf('day').add(minute, 'minute')}
+                onChange={(value) => {
+                  edit({ minute: value.hour() * 60 + value.minute() });
+                }}
+                data-testid="sr-reminder-at"
+              />
+            </Form.Item>
+          </Form>
+        </Flex>
       </SettingsCard>
       <SettingsCard title={t('requests.settings.fulfilment')}>
         <Form layout="vertical" component="div">

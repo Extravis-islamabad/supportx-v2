@@ -183,11 +183,14 @@ export function MyExportsButton({
     onOpenChange?.(next);
   };
   const exports = useMyExports(open);
-  usePersonalChannel((message) => {
-    if (message.type === 'reports.export_finished') {
-      refreshList(queryClient, queryKeys.reports.exports);
-    }
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.type === 'reports.export_finished') {
+        refreshList(queryClient, queryKeys.reports.exports);
+      }
+    },
+    { covers: [queryKeys.reports.exports] },
+  );
 
   return (
     <>
