@@ -141,6 +141,26 @@ class CiImportProgressed(DomainEvent):
     total: int
 
 
+class DowntimeChanged(DomainEvent):
+    """A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).
+
+    `change` is added, updated, removed or state (the sweep moved it: `state` is the new one).
+    IDs and codes only; the CI's screens refetch its downtimes (§8.3), and automation reads the
+    started ones (S5d's `downtime_started`).
+    """
+
+    event_type: ClassVar[str] = "cmdb.downtime.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "ci"
+
+    ci_id: uuid.UUID
+    downtime_id: uuid.UUID
+    change: str
+    state: str
+    source: str
+    version: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     CiCreated,
     CiUpdated,
@@ -152,4 +172,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SyncRuleChanged,
     SyncRunChanged,
     CiImportProgressed,
+    DowntimeChanged,
 )

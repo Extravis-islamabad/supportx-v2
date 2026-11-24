@@ -4,12 +4,14 @@ from app.modules.automation.domain.rules import FieldKind, RuleField, matches
 from app.modules.automation.domain.triggers import (
     DEPTH_CAP,
     RATE_CAP,
+    WORK_ITEM_EVENTS,
     Cause,
     ChainLink,
     LoopStop,
     People,
     Relative,
     TransitionRule,
+    TriggerEvent,
     before_from,
     change_fields,
     check_after_actions,
@@ -68,7 +70,7 @@ def test_req_rul_029_a_trigger_is_checked_when_saved() -> None:
             {"kind": "note", "text": "x"},
         ],
     }
-    assert check_trigger(good, FIELDS) == []
+    assert check_trigger(good, FIELDS, WORK_ITEM_EVENTS) == []
     bad = {
         "events": ["nonsense"],
         "conditions": {"field": "priority", "op": "changed_from", "value": "p1"},
@@ -77,7 +79,7 @@ def test_req_rul_029_a_trigger_is_checked_when_saved() -> None:
             {"kind": "set", "field": "status", "value": "new"},
         ],
     }
-    codes = {(path, code) for path, code, _ in check_trigger(bad, FIELDS)}
+    codes = {(path, code) for path, code, _ in check_trigger(bad, FIELDS, WORK_ITEM_EVENTS)}
     assert codes == {
         ("events", "invalid_choice"),
         ("conditions", "operator_not_allowed"),
@@ -125,3 +127,48 @@ def test_req_wf_003_offered_when_names_change_operators_to_refuse() -> None:
         ]
     }
     assert change_fields(tree) == ["status"]
+
+
+# WP-053 S5d (lane C's shape): each record type offers its own events.
+CI_ONLY = {
+    TriggerEvent.RELATIONSHIP_ADDED,
+    TriggerEvent.RELATIONSHIP_REMOVED,
+    TriggerEvent.DOWNTIME_STARTED,
+}
+
+
+def _trigger(*events: str) -> dict[str, object]:
+    return {
+        "events": list(events),
+        "actions": [{"kind": "note", "text": "Looked at"}],
+    }
+
+
+def test_the_work_item_default_is_todays_seven_and_never_a_ci_event() -> None:
+    assert {e.value for e in WORK_ITEM_EVENTS} == {
+        "created",
+        "updated",
+        "status_changed",
+        "assigned",
+        "note_added",
+        "requester_replied",
+        "stage_entered",
+    }
+    assert not (WORK_ITEM_EVENTS & CI_ONLY)
+
+
+def test_an_event_the_type_does_not_offer_is_refused_by_name_in_a_stable_order() -> None:
+    found = check_trigger(
+        _trigger("downtime_started", "created", "relationship_added"), FIELDS, WORK_ITEM_EVENTS
+    )
+    assert [(p, c, d) for p, c, d in found if c == "trigger_event_not_offered"] == [
+        ("events", "trigger_event_not_offered", {"event": "downtime_started"}),
+        ("events", "trigger_event_not_offered", {"event": "relationship_added"}),
+    ]
+
+
+def test_an_offered_event_passes_and_an_unknown_one_is_still_an_invalid_choice() -> None:
+    ci = frozenset({TriggerEvent.CREATED, TriggerEvent.DOWNTIME_STARTED})
+    assert check_trigger(_trigger("downtime_started"), FIELDS, ci) == []
+    found = check_trigger(_trigger("exploded"), FIELDS, ci)
+    assert [(p, c) for p, c, _ in found] == [("events", "invalid_choice")]

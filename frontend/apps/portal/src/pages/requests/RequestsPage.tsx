@@ -15,6 +15,9 @@ import { EmptyText, reportError, useDateTime, useLabel } from '@supportx/ui';
 
 import { PortalStatusTag } from './PortalStatusTag';
 
+// Every page of "My requests", whatever the filters (§8.3).
+const LIST = [...portalKeys.all, 'list'] as const;
+
 const STATES: (PortalState | 'all')[] = ['open', 'closed', 'all'];
 const WIDER: PortalReach[] = ['reports', 'department', 'site', 'all'];
 
@@ -37,11 +40,14 @@ export function RequestsPage() {
     reach,
     q: search.trim() === '' ? undefined : search.trim(),
   });
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.changed') {
-      void queryClient.invalidateQueries({ queryKey: [...portalKeys.all, 'list'] });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === 'work_items.changed') {
+        void queryClient.invalidateQueries({ queryKey: LIST });
+      }
+    },
+    { covers: [LIST] },
+  );
   if (page.error) reportError(page.error);
   const items = (page.data?.pages ?? []).flatMap((p) => p.items);
   const wider = items.some((i) => i.reach !== 'own') || reach !== undefined;

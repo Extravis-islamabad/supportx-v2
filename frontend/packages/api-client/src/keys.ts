@@ -163,6 +163,7 @@ export const queryKeys = {
     neighboursOf: (id: string) => ['cmdb', 'neighbours', id] as const,
     neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
     subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
+    downtimes: (id: string) => ['cmdb', 'downtimes', id] as const,
     impactOf: (id: string) => ['cmdb', 'impact', id] as const,
     impact: (id: string, direction: string, depth: number) =>
       ['cmdb', 'impact', id, direction, depth] as const,
@@ -302,6 +303,7 @@ export const queryKeys = {
     assignment: (groupId: string) => ['automation', 'assignment', groupId] as const,
     availability: (userIds: string[]) => ['automation', 'availability', ...userIds] as const,
     triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
+    triggerEvents: (recordType: string) => ['automation', 'trigger-events', recordType] as const,
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
   },

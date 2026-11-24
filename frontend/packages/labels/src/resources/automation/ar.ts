@@ -167,6 +167,7 @@ export const ar: LabelResource = {
   'automation.triggers.conditions_help':
     '“تغيّر من” متاح للحالة فقط: الأحداث الأخرى تذكر الحقول التي تغيّرت لا قيمها السابقة.',
   'automation.triggers.edit': 'تعديل المشغل',
+  'automation.triggers.event_not_offered': 'لم يعد ينطبق',
   'automation.triggers.explain':
     'تعمل المشغلات بعد حفظ التغيير، بهذا الترتيب. تظهر نتيجة كل إجراء على السجل، ولا يُلغي الإجراء الفاشل الإجراءات الأخرى. وإذا ظلت المشغلات تُطلق بعضها بعضًا، تُوقف بعد 5 خطوات ويذكر السجل أيها.',
   'automation.triggers.none': 'لا مشغلات بعد.',
@@ -286,7 +287,10 @@ export const ar: LabelResource = {
   'trigger_action_kind.start_workflow': 'بدء سير عمل',
   'trigger_event.assigned': 'عند الإسناد',
   'trigger_event.created': 'عند الإنشاء',
+  'trigger_event.downtime_started': 'عند بدء فترة توقف',
   'trigger_event.note_added': 'عند إضافة ملاحظة',
+  'trigger_event.relationship_added': 'عند إضافة علاقة',
+  'trigger_event.relationship_removed': 'عند إزالة علاقة',
   'trigger_event.requester_replied': 'عند رد مقدّم الطلب',
   'trigger_event.stage_entered': 'عند دخوله مرحلة',
   'trigger_event.status_changed': 'عند تغيّر الحالة',

@@ -20,6 +20,7 @@ import httpx
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_change_windows_api import a_window, schedule
 from tests.db.test_changes_api import CHG, new_change
+from tests.db.test_cmdb_api import _ci
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 from tests.db.test_release_templates_api import field_codes
 from tests.db.test_releases_api import REL, new_release
@@ -195,7 +196,10 @@ async def test_req_rel_041_ac1_ac2_releases_and_changes_meet_and_part_live(world
 async def test_req_rel_041_a_shared_ci_and_a_double_booked_manager_conflict(world: World) -> None:
     a = world.a
     at = datetime(2034, 5, 6, 9, tzinfo=UTC)
-    ci = str(uuid.uuid4())
+    # A real CI: a downtime names only CIs one may link (WP-053 S5, #607).
+    made_ci = await _ci(world, a, "Shared database")
+    assert made_ci.status_code == 201, made_ci.text
+    ci = made_ci.json()["id"]
     one = await _release(world, a, group_id=str(a.ga))
     two = await _release(world, a, group_id=str(a.gb))
     for release in (one, two):

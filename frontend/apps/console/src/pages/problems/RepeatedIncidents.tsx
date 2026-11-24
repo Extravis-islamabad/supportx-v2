@@ -33,10 +33,13 @@ export function RepeatedIncidents({ enabled }: { enabled: boolean }) {
   const categories = useIncidentCategories(enabled);
   const sites = useUnits('sites');
   const handle = useHandleRepeatHit();
-  useTenantChannel((message) => {
-    if (message.type === CHANGED)
-      void queryClient.invalidateQueries({ queryKey: problemKeys.repeats });
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered !== true && message.type === CHANGED)
+        void queryClient.invalidateQueries({ queryKey: problemKeys.repeats });
+    },
+    { covers: [problemKeys.repeats] },
+  );
   const rows = hits.data ?? [];
   if (!enabled || rows.length === 0) return null;
   const where = (hit: RepeatHit) => {

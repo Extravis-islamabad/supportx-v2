@@ -44,6 +44,7 @@ import {
 
 import { nameOf, typeTree } from '../../cmdb/names';
 import { ciTypeFieldsHref } from './links';
+import { TriggersTab } from '../automation/TriggersTab';
 import { RelationshipTypesBlock } from './RelationshipTypesBlock';
 import { SourceOrderBlock } from './SourceOrderBlock';
 
@@ -72,15 +73,15 @@ export function CmdbAdminPage() {
   const { can } = useAccess();
   const allowed = can('cmdb.configure');
   const queryClient = useQueryClient();
-  useTenantChannel((message) => {
-    if (
-      message.type === 'cmdb.config_changed' ||
-      message.type === 'cmdb.sync_changed' ||
-      message.type === 'refresh'
-    ) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'cmdb.config_changed' || message.type === 'cmdb.sync_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.all] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_cmdb" />;
   return (
     <Flex vertical gap={16} data-testid="cmdb-admin">
@@ -93,7 +94,21 @@ export function CmdbAdminPage() {
       <StatesBlock />
       <RelationshipTypesBlock />
       <SourceOrderBlock />
+      {can('automation.view') && <CiTriggersBlock />}
     </Flex>
+  );
+}
+
+/**
+ * Triggers on configuration items (WP-053 S5d, REQ-CMDB-023): a CI's state, relationships or
+ * downtime can set its own fields. Only "set a field": a CI has no notes.
+ */
+function CiTriggersBlock() {
+  const t = useLabel();
+  return (
+    <SettingsCard title={t('cmdb.admin.triggers')} testId="cmdb-triggers">
+      <TriggersTab recordType="cmdb_ci" actionKinds={['set']} />
+    </SettingsCard>
   );
 }
 

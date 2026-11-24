@@ -2886,6 +2886,49 @@
         "type": "object"
       }
     },
+    "cmdb.downtime.changed": {
+      "1": {
+        "description": "A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).\n\n`change` is added, updated, removed or state (the sweep moved it: `state` is the new one).\nIDs and codes only; the CI's screens refetch its downtimes (§8.3), and automation reads the\nstarted ones (S5d's `downtime_started`).",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "downtime_id": {
+            "format": "uuid",
+            "title": "Downtime Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ci_id",
+          "downtime_id",
+          "change",
+          "state",
+          "source",
+          "version"
+        ],
+        "title": "DowntimeChanged",
+        "type": "object"
+      }
+    },
     "cmdb.import.progressed": {
       "1": {
         "description": "An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.\n\nIDs, a status code and counts only (rule c).",
@@ -6731,6 +6774,53 @@
         "type": "object"
       }
     },
+    "work_items.ci_link.changed": {
+      "1": {
+        "description": "A CI was linked to a record or unlinked (WP-053 S5; REQ-CMDB-019). IDs only.\n\nThe CMDB keeps the CI's Associations counters live from it (lane B); the record's screens\nrefresh its CIs. `type` lets a counter know which type changed without reading the record.",
+        "properties": {
+          "at_creation": {
+            "default": false,
+            "title": "At Creation",
+            "type": "boolean"
+          },
+          "change": {
+            "enum": [
+              "added",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "ci_id",
+          "change",
+          "version"
+        ],
+        "title": "WorkItemCiLinkChanged",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
@@ -6912,6 +7002,104 @@
           "from_visibility"
         ],
         "title": "WorkItemConversationVisibilityChanged",
+        "type": "object"
+      }
+    },
+    "work_items.downtime.changed": {
+      "1": {
+        "description": "A downtime window was added, changed or removed (WP-053 S5; REQ-CMDB-020).\n\nOne row: planned or actual, its kind, its UTC times and the CIs and services it names, for\nthe CMDB's own downtime list (lane B's consumer, idempotent by event ID and version). An\nincident's actual downtime names the incident as `source_work_item_id`. No state (derived\nfrom the times) and no free text: the description stays on the record (§8 rule c).",
+        "properties": {
+          "ci_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Ci Ids",
+            "type": "array"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "downtime_id": {
+            "format": "uuid",
+            "title": "Downtime Id",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "service_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Service Ids",
+            "type": "array"
+          },
+          "source_work_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Work Item Id"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "downtime_id",
+          "version",
+          "phase",
+          "kind",
+          "starts_at",
+          "ends_at",
+          "ci_ids",
+          "service_ids",
+          "source_work_item_id",
+          "deleted"
+        ],
+        "title": "WorkItemDowntimeChanged",
         "type": "object"
       }
     },

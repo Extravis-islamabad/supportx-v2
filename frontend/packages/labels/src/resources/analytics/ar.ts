@@ -265,6 +265,11 @@ export const ar: LabelResource = {
   'measure.change.success_rate': 'معدل النجاح',
   'measure.change.success_rate.help':
     'نسبة التغييرات التي نجح تنفيذها، من بين التغييرات التي لتنفيذها نتيجة. لا نتيجة بعد يعني لا معدل.',
+  'measure.cmdb_ci.count': 'عناصر التهيئة',
+  'measure.cmdb_ci.count.help': 'كل عنصر تهيئة يطابق عوامل التصفية ويمكنك رؤيته.',
+  'measure.cmdb_relationship.count': 'العلاقات',
+  'measure.cmdb_relationship.count.help':
+    'كل علاقة تطابق عوامل التصفية ويمكنك رؤية عنصري التهيئة فيها.',
   'measure.incident.average_reassignments': 'متوسط مرات إعادة الإسناد',
   'measure.incident.average_reassignments.help':
     'متوسط عدد مرات نقل الحادثة إلى مجموعة أو فني آخر.',
@@ -386,6 +391,11 @@ export const ar: LabelResource = {
   'report.changes_success_rate_by_type': 'معدل النجاح حسب نوع التغيير',
   'report.changes_success_rate_by_type.description':
     'معدل النجاح وعدد التغييرات المطلوبة في آخر 90 يومًا حسب نوع التغيير.',
+  'report.cmdb_cis_by_type_and_state': 'عناصر التهيئة حسب النوع والحالة',
+  'report.cmdb_cis_by_type_and_state.description': 'كل عنصر تهيئة يمكنك رؤيته حسب نوعه وحالته.',
+  'report.cmdb_relationships_by_type': 'علاقات عناصر التهيئة',
+  'report.cmdb_relationships_by_type.description':
+    'العلاقات بين عناصر التهيئة التي يمكنك رؤيتها حسب نوعها.',
   'report.incidents_all': 'جميع الحوادث',
   'report.incidents_all.description': 'كل حادثة أُنشئت في الفترة، حسب الحالة.',
   'report.incidents_by_status': 'الحوادث حسب الحالة',
@@ -590,6 +600,7 @@ export const ar: LabelResource = {
   'report_field.warranty_expires_on': 'تاريخ انتهاء الضمان',
   'report_folder.assets': 'الأصول',
   'report_folder.changes': 'التغييرات',
+  'report_folder.cmdb': 'قاعدة بيانات التهيئة',
   'report_folder.incidents': 'الحوادث',
   'report_folder.problems': 'المشكلات',
   'report_folder.releases': 'الإصدارات',

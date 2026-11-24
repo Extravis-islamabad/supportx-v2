@@ -344,6 +344,7 @@ export const en = {
   'errors.erasure_storage_unavailable':
     'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
+  'errors.field.action_not_offered': 'This kind of record cannot take this action.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
   'errors.field.already_has_parent': 'That incident already has a parent; remove it there first.',
@@ -452,6 +453,7 @@ export const en = {
   'errors.field.child_has_children':
     'That incident has children of its own, so it cannot become a child.',
   'errors.field.choices_required': 'Add at least one choice.',
+  'errors.field.ci_not_linkable': 'You may not link this configuration item, or it does not exist.',
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
@@ -573,6 +575,8 @@ export const en = {
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
   'errors.field.ical_too_many_lines': 'The file has more than 20,000 lines.',
+  'errors.field.incident_actual_only':
+    'An incident records the downtime it caused: actual times only.',
   'errors.field.invalid_choice': 'This is not one of the allowed values.',
   'errors.field.invalid_code': 'Use letters, digits, dots, dashes or underscores (up to 50).',
   'errors.field.invalid_colour': 'Choose a colour such as #1677ff.',
@@ -824,6 +828,7 @@ export const en = {
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
+  'errors.field.too_many_cis': 'A record can have at most {{max}} configuration items.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
@@ -840,6 +845,7 @@ export const en = {
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trigger_event_not_offered': 'This kind of record does not offer that event.',
   'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",
@@ -1382,6 +1388,7 @@ export const en = {
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
+  'errors.work_item_ci_not_found': 'This configuration item is no longer linked to the record.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

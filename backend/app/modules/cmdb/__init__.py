@@ -30,6 +30,7 @@ links on a merge (IDs only).
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
+from app.modules.cmdb.api.downtime_routes import router as downtime_router
 from app.modules.cmdb.api.graph_routes import router as graph_router
 from app.modules.cmdb.api.merge_routes import router as merge_router
 from app.modules.cmdb.api.routes import router
@@ -37,13 +38,24 @@ from app.modules.cmdb.api.sync_routes import router as sync_router
 from app.modules.cmdb.domain.impact import ImpactDirection
 from app.modules.cmdb.events import EVENTS
 from app.modules.cmdb.service import access_criteria as _access_criteria
+from app.modules.cmdb.service import automation as _automation
 from app.modules.cmdb.service import field_catalogue as _field_catalogue
+from app.modules.cmdb.service import notifications as _notifications
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
 from app.modules.cmdb.service import reporting as _reporting
 from app.modules.cmdb.service import type_tree as _type_tree
 from app.modules.cmdb.service.approver_owners import Owner, owners_of
-from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
+from app.modules.cmdb.service.catalogue import (
+    ADD,
+    CONFIGURE,
+    DELETE,
+    EDIT,
+    MANAGE,
+    RECORD_DOWNTIME,
+    VIEW,
+)
+from app.modules.cmdb.service.downtimes import on_downtime_changed, run_downtime_states
 from app.modules.cmdb.service.impact import (
     AffectedUsers,
     Impact,
@@ -68,6 +80,11 @@ from app.shared.schedules import ScheduleSpec
 
 FEATURE = "cmdb"
 _ASSET_MANAGER: tuple[tuple[str, Scope], ...] = (("asset_manager", "all"),)
+# A downtime by hand on a CI (S5b): those who run the desk and those who keep the CIs.
+_DOWNTIME_RECORDERS: tuple[tuple[str, Scope], ...] = (
+    ("service_desk_manager", "all"),
+    ("asset_manager", "all"),
+)
 
 # Plain role scopes (D-172): all, the person's own sites (the CI's site), own groups (its owning
 # or managing group) and own (they own it), on Professional too; only the later custom rule
@@ -83,6 +100,7 @@ PERMISSIONS = (
     PermissionSpec(EDIT, FEATURE, ALL_SCOPES, defaults=_ASSET_MANAGER),
     PermissionSpec(DELETE, FEATURE, ALL_SCOPES, defaults=_ASSET_MANAGER),
     PermissionSpec(MANAGE, FEATURE),
+    PermissionSpec(RECORD_DOWNTIME, FEATURE, ALL_SCOPES, defaults=_DOWNTIME_RECORDERS),
     # The type tree, the states and the settings: admins and custom roles.
     PermissionSpec(CONFIGURE, FEATURE),
 )
@@ -91,7 +109,7 @@ module = ModuleSpec(
     name="cmdb",
     # The sync routes first: /cmdb/sync-rules is not under /cmdb/cis/{id}, but keep fixed paths
     # ahead of the parameterised ones as the other modules do.
-    routers=[sync_router, router, graph_router, merge_router],
+    routers=[sync_router, router, graph_router, merge_router, downtime_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -104,11 +122,19 @@ module = ModuleSpec(
             event_types=("assets.asset.changed",),
             handler=on_asset_changed,
         ),
+        # S5b: a work item's downtime onto each CI it names (REQ-CMDB-020; lane A's event).
+        ConsumerSpec(
+            name="cmdb__downtimes",
+            event_types=("work_items.downtime.changed",),
+            handler=on_downtime_changed,
+        ),
     ],
     # Queued, hourly and incremental sync runs, claimed once per tenant (S4a); queued imports (S4b).
     schedules=[
         ScheduleSpec("cmdb__sync_runs", 30, run_sync_rules),
         ScheduleSpec("cmdb__imports", 5, run_cmdb_imports),
+        # S5b: downtimes become active and completed as time passes (REQ-CMDB-020 AC1).
+        ScheduleSpec("cmdb__downtime_states", 60, run_downtime_states),
     ],
 )
 
@@ -119,6 +145,8 @@ _type_tree.register()  # custom fields scoped to a CI type subtree (0175 part 2)
 _field_catalogue.register()  # CI custom fields an admin may restrict per role (ADR-047)
 _access_criteria.register()  # what fine-grained access rules may narrow CIs to (ADR-053)
 _reporting.register()  # CIs and relationships for reports and dashboards (REQ-CMDB-032, S5a)
+_automation.register()  # CIs as trigger sources and targets (WP-053 S5d)
+_notifications.register()  # a CI's state change, to its owner and groups (S5d)
 
 __all__ = [
     "LINKED_TYPES",

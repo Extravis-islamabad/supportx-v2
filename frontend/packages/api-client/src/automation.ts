@@ -42,6 +42,20 @@ export function useRuleFields(recordType: string, enabled = true) {
   });
 }
 
+/** The trigger events a record type offers (WP-053 S5d): the editor lists only these. */
+export function useTriggerEvents(recordType: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.automation.triggerEvents(recordType),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/automation/trigger-events', {
+          params: { query: { record_type: recordType } },
+        }),
+      ),
+    enabled,
+  });
+}
+
 /** A record type's business rules, in order (drafts and disabled ones included). */
 export function useBusinessRules(recordType: string, enabled = true) {
   return useQuery({

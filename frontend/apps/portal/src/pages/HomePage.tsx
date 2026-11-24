@@ -31,6 +31,9 @@ import {
 
 import { Grid } from './catalog/cards';
 
+// The home page's counts, refreshed live and on every catch-up (§8.3).
+const SUMMARY = [...portalKeys.all, 'summary'] as const;
+
 const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as const;
 
 /** One of the three starting points (REQ-PRT-002 AC2). */
@@ -153,9 +156,13 @@ export function HomePage() {
   const [params] = useSearchParams();
   const fromConsole = `from=${params.get('from') ?? ''}` === FROM_CONSOLE;
   // Anything about my records or approvals: the counts follow within a second (AC1).
-  usePersonalChannel(() => {
-    void queryClient.invalidateQueries({ queryKey: [...portalKeys.all, 'summary'] });
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed the counts already (§8.3)
+      void queryClient.invalidateQueries({ queryKey: SUMMARY });
+    },
+    { covers: [SUMMARY] },
+  );
   const feed = useLiveAnnouncementFeed(licence.has('incident'));
   const follow = useFollowAnnouncement();
   const items = feed.data?.items ?? [];
