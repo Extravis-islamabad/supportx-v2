@@ -15,7 +15,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0194"  # 0188's down revision (re-pointed with it at the lane's queue turn)
+BEFORE = "0195"  # 0188's down revision (re-pointed with it at the lane's queue turn)
 
 
 async def _has_column(url: str) -> bool:

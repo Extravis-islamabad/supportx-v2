@@ -9,7 +9,7 @@ The downgrade refuses while any tenant has a grant with the tick on, counting pe
 engineers the names the admin chose to hide.
 
 Revision ID: 0188
-Revises: 0194 (main's head now; re-pointed at its queue turn)
+Revises: 0195 (main's head at its queue turn: … 0194 → 0192 → 0195 → 0188)
 Created: 2026-11-24
 """
 
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0188"
-down_revision: str | None = "0194"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0195"  # main's head at its queue turn (… 0192 → 0195)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
