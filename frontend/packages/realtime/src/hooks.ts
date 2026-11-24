@@ -1,4 +1,9 @@
-import { useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import {
+  QueryClientContext,
+  useQuery,
+  type QueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import {
   useContext,
   useEffect,
@@ -16,6 +21,46 @@ import { RealtimeContext } from './context';
 import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types';
 
 type Listener = (message: RealtimeMessage) => void;
+
+/**
+ * What a channel's screen shows, so no `refresh` is ever dropped (architecture.md §8.3).
+ *
+ * On a refresh (the first-subscribe catch-up or a lost channel), the hook calls `refreshQueries`
+ * on every key in `covers` **before** the screen's handler runs, so a handler that filters on
+ * message types can't drop it. Each key is a **prefix**, as in `refreshQueries`:
+ * `[...keys.all, 'list']` covers every page of a list. The latest `covers` is read at delivery
+ * (keys may change with props) and never re-subscribes. The handler then still gets the message,
+ * marked `covered: true`, so it needn't refresh those keys again; it may react in other ways
+ * (a dirty draft marked stale). `covers: []` says there is nothing to catch up (a signal-only
+ * handler) and needs a comment saying why. A record hook with no id yet joins nothing, so it
+ * refreshes nothing either.
+ */
+export interface ChannelOptions {
+  covers: readonly QueryKey[];
+}
+
+/** A refresh: refetch everything you show (the first-subscribe catch-up or a lost channel). */
+export function isRefresh(message: RealtimeMessage): boolean {
+  return message.type === 'refresh' || message.refresh === true;
+}
+
+/** The handler, preceded on a refresh by `covers` (read at delivery, through a ref). */
+function useCovered(onMessage: Listener, options: ChannelOptions | undefined): Listener {
+  const queryClient = useContext(QueryClientContext);
+  const covers = useRef(options?.covers);
+  useLayoutEffect(() => {
+    covers.current = options?.covers;
+  });
+  return (message) => {
+    const keys = covers.current;
+    if (keys !== undefined && queryClient !== undefined && isRefresh(message)) {
+      for (const key of keys) refreshQueries(queryClient, key);
+      onMessage({ ...message, covered: true });
+      return;
+    }
+    onMessage(message);
+  };
+}
 
 /** The latest `listener` without re-subscribing when it changes identity. */
 function useLatest(listener: Listener): { current: Listener } {
@@ -38,9 +83,13 @@ export function useRealtimeStatus(): ConnectionStatus {
 }
 
 /** Follow one channel (null: none). Messages carry IDs and field names, never data. */
-export function useChannel(channel: string | null, onMessage: Listener): void {
+export function useChannel(
+  channel: string | null,
+  onMessage: Listener,
+  options?: ChannelOptions,
+): void {
   const context = useContext(RealtimeContext);
-  const latest = useLatest(onMessage);
+  const latest = useLatest(useCovered(onMessage, options));
   useEffect(() => {
     if (context === null || channel === null) return;
     return context.connection.join(channel, (message) => {
@@ -53,27 +102,35 @@ export function useChannel(channel: string | null, onMessage: Listener): void {
  * Follow the tenant-wide channel: signals for everyone in the tenant ("announcements changed",
  * "plan changed"). They never carry IDs: the listener refetches and the API filters.
  */
-export function useTenantChannel(onMessage: Listener): void {
+export function useTenantChannel(onMessage: Listener, options?: ChannelOptions): void {
   const context = useContext(RealtimeContext);
-  useChannel(context === null ? null : `t:${context.tenantId}:broadcast`, onMessage);
+  useChannel(context === null ? null : `t:${context.tenantId}:broadcast`, onMessage, options);
 }
 
 /**
  * Follow the signed-in user's own channel (`t:{tenant}:user:{id}`): what concerns only them, such
  * as the scan state of the images they just pasted into an editor (WP-022).
  */
-export function usePersonalChannel(onMessage: Listener): void {
+export function usePersonalChannel(onMessage: Listener, options?: ChannelOptions): void {
   const context = useContext(RealtimeContext);
-  useChannel(context === null ? null : `t:${context.tenantId}:user:${context.userId}`, onMessage);
+  useChannel(
+    context === null ? null : `t:${context.tenantId}:user:${context.userId}`,
+    onMessage,
+    options,
+  );
 }
 
 /**
  * Follow a list (`users`, `roles`…): the API says which channels this user may join (one per
  * audience: everyone, their sites, their groups, their own records), then all are followed.
  */
-export function useListChannel(list: string | null, onMessage: Listener): void {
+export function useListChannel(
+  list: string | null,
+  onMessage: Listener,
+  options?: ChannelOptions,
+): void {
   const context = useContext(RealtimeContext);
-  const latest = useLatest(onMessage);
+  const latest = useLatest(useCovered(onMessage, options));
   const channels = useQuery({
     queryKey: listChannelsKey(context?.tenantId ?? '', list ?? ''),
     queryFn: () => fetchListChannels(list ?? ''),
@@ -101,13 +158,19 @@ export function useListChannel(list: string | null, onMessage: Listener): void {
  * Follow a record channel for its messages only, with no presence: the portal's requester
  * channel (`portal_wi`, WP-028), where staff are never shown and the server grants no presence.
  */
-export function useRecordEvents(kind: string, id: string | undefined, onMessage: Listener): void {
+export function useRecordEvents(
+  kind: string,
+  id: string | undefined,
+  onMessage: Listener,
+  options?: ChannelOptions,
+): void {
   const context = useContext(RealtimeContext);
   useChannel(
     context === null || id === undefined || id === ''
       ? null
       : `t:${context.tenantId}:${kind}:${id}`,
     onMessage,
+    options,
   );
 }
 
@@ -120,11 +183,12 @@ export function useRecordChannel(
   kind: string,
   id: string | undefined,
   onMessage: Listener,
+  options?: ChannelOptions,
 ): PresenceMember[] {
   const context = useContext(RealtimeContext);
   const channel =
     context === null || id === undefined ? null : `t:${context.tenantId}:${kind}:${id}`;
-  const latest = useLatest(onMessage);
+  const latest = useLatest(useCovered(onMessage, options));
   const [viewers, setViewers] = useState<PresenceMember[]>([]);
   useEffect(() => {
     if (context === null || channel === null) return;

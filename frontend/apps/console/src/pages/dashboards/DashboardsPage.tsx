@@ -59,12 +59,18 @@ function useDashboardsLive() {
   const refresh = () => {
     refreshList(queryClient, queryKeys.dashboards.all);
   };
-  useTenantChannel((message) => {
-    if (message.type === 'dashboards.changed') refresh();
-  });
-  usePersonalChannel((message) => {
-    if (message.type === 'dashboards.changed') refresh();
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.type === 'dashboards.changed') refresh();
+    },
+    { covers: [queryKeys.dashboards.all] },
+  );
+  usePersonalChannel(
+    (message) => {
+      if (message.type === 'dashboards.changed') refresh();
+    },
+    { covers: [queryKeys.dashboards.all] },
+  );
 }
 
 /** /dashboards: the picker (REQ-DSH-005); /dashboards/:ref: one dashboard. */

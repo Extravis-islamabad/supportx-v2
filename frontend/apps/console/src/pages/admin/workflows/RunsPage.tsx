@@ -21,7 +21,7 @@ import {
   type OverviewRunOut,
   type RunsQuery,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   FilterBar,
   FiltersDrawer,
@@ -111,16 +111,25 @@ export function RunsPage() {
     { label: t('nav.admin_workflows'), path: '/admin/workflows' },
     { label: t('workflows.tab.runs') },
   ]);
-  useListChannel(allowed ? 'workflows' : null, (m) => {
-    if (m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['workflows', 'runs'] });
-    }
-    if (m.type === 'workflow_jobs.changed') {
-      for (const id of m.ids) {
-        void queryClient.invalidateQueries({ queryKey: ['workflows', 'job', id] });
+  useListChannel(
+    allowed ? 'workflows' : null,
+    (m) => {
+      if (m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'runs']);
       }
-    }
-  });
+      if (m.type === 'workflow_jobs.changed') {
+        for (const id of m.ids) {
+          refreshQueries(queryClient, ['workflows', 'job', id]);
+        }
+      }
+    },
+    {
+      covers: [
+        ['workflows', 'runs'],
+        ['workflows', 'job'],
+      ],
+    },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_workflows" />;
 
   const rows = runs.data?.items ?? [];

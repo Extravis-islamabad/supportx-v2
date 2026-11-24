@@ -86,12 +86,18 @@ export function ReportsHomePage() {
   const refresh = () => {
     refreshList(queryClient, queryKeys.reports.library);
   };
-  useTenantChannel((message) => {
-    if (message.type === 'reports.changed') refresh();
-  });
-  usePersonalChannel((message) => {
-    if (message.type === 'reports.changed') refresh();
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.type === 'reports.changed') refresh();
+    },
+    { covers: [queryKeys.reports.library] },
+  );
+  usePersonalChannel(
+    (message) => {
+      if (message.type === 'reports.changed') refresh();
+    },
+    { covers: [queryKeys.reports.library] },
+  );
 
   const data = library.data;
   const entries = useMemo<Entry[]>(() => {

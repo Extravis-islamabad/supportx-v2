@@ -50,9 +50,15 @@ export function ReleaseBoardPage() {
     { label: t('nav.releases'), path: '/releases' },
     { label: t('releases.board.title') },
   ]);
-  useListChannel('releases', () => {
-    void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
-  });
+  useListChannel(
+    'releases',
+    (m) => {
+      if (m.covered !== true) {
+        void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
+      }
+    },
+    { covers: [[...releaseKeys.all, 'list']] },
+  );
   useEffect(() => {
     if (list.error) reportError(list.error);
   }, [list.error]);
