@@ -491,6 +491,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
@@ -1520,6 +1524,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | asset_manager | `cmdb.delete` | all | all |
 | asset_manager | `cmdb.edit` | all | all |
 | asset_manager | `cmdb.manage` | all | all |
+| asset_manager | `cmdb.record_downtime` | all | all |
 | asset_manager | `cmdb.view` | all | all |
 | asset_manager | `groups.view` | all | all |
 | asset_manager | `profile.edit` | own | own |
@@ -1654,6 +1659,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `changes.take` | all | all |
 | service_desk_manager | `changes.view` | all | all |
 | service_desk_manager | `changes.view_costs` | all | all |
+| service_desk_manager | `cmdb.record_downtime` | all | all |
 | service_desk_manager | `config.announcements` | all | all |
 | service_desk_manager | `config.service_desk` | all | all |
 | service_desk_manager | `dashboards.create` | own | own |
@@ -2048,6 +2054,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `cmdb.delete` | all | all |
 | tenant_admin | `cmdb.edit` | all | all |
 | tenant_admin | `cmdb.manage` | all | all |
+| tenant_admin | `cmdb.record_downtime` | all | all |
 | tenant_admin | `cmdb.view` | all | all |
 | tenant_admin | `config.announcements` | all | all |
 | tenant_admin | `config.assets` | all | all |
