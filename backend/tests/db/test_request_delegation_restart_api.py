@@ -149,6 +149,47 @@ async def test_ac3_ending_it_moves_pending_approvals_back(world: World) -> None:
     assert changes == ["created", "ended"]  # both people are told each time (condition 1)
 
 
+async def test_a_window_that_no_longer_covers_now_gives_approvals_back(world: World) -> None:
+    """Lane C's #612 note: moved to start later, pending approvals move back; audited, both told."""
+    a = world.a
+    await _end_all(world, a)
+    made = (await _delegate(world, a, a.tech_a, a.tech_b)).json()
+    record = await _raised(world, a, a.tech_a)
+    [routed] = await approvals(world, a, a.admin, record)
+    assert routed["approver_id"] == str(a.tech_b)
+    later = await world.call(
+        "PATCH",
+        f"{DEL}/{made['id']}",
+        a,
+        a.tech_a,
+        json=_window(days=3, start=2),
+        headers={"If-Match": f'"{made["version"]}"', **CONSOLE},
+    )
+    assert later.status_code == 200, later.text
+    [row] = await approvals(world, a, a.admin, record)
+    assert (row["approver_id"], row["on_behalf_of_id"]) == (str(a.tech_a), None)
+    audit = await world.sql(
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = $2 AND object_id = $3",
+        a.tenant,
+        delegations.AUDIT_CHANGED,
+        made["id"],
+    )
+    assert len(audit) == 1
+    events = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE event_type ="
+        " 'work_items.approval_delegation.changed'"
+    )
+    changed = [
+        p
+        for e in events
+        if (p := json.loads(e["envelope"])["payload"])["delegation_id"] == made["id"]
+        and p["change"] == "changed"
+    ]
+    assert [(c["delegator_id"], c["delegate_id"]) for c in changed] == [
+        (str(a.tech_a), str(a.tech_b))
+    ]  # the notice goes to both people (delegation_notifications)
+
+
 async def test_ac3_an_expired_delegation_gives_approvals_back(world: World) -> None:
     a = world.a
     await _end_all(world, a)

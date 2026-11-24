@@ -525,6 +525,32 @@ async def _approval_settings_changed(
     )
 
 
+DELEGATIONS_CHANGED = "work_items.delegations_changed"
+
+
+async def _delegation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A delegation was set, changed or ended (WP-047a S3b): both people's open pages refetch.
+
+    IDs and the version only, on each person's own channel; the page reads through the API.
+    """
+    del session
+    payload = envelope.payload
+    ids = (str(payload["delegation_id"]),)
+    people = {_uuid(payload.get("delegator_id")), _uuid(payload.get("delegate_id"))}
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person),
+                DELEGATIONS_CHANGED,
+                ids=ids,
+                version=int(payload["version"]),
+            )
+            for person in people
+            if person is not None
+        ]
+    )
+
+
 async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user's list settings changed: their other windows reload them."""
     del session
@@ -724,6 +750,8 @@ ROUTES = [
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
     RealtimeRoute(("work_items.approval_settings.changed",), _approval_settings_changed),
+    # WP-047a S3b (REQ-SR-035): the Delegations page, live for both people.
+    RealtimeRoute(("work_items.approval_delegation.changed",), _delegation_changed),
     RealtimeRoute(("work_items.change_board.changed",), _change_board_changed),
     RealtimeRoute(("work_items.change_window.changed",), _change_window_changed),
     RealtimeRoute(

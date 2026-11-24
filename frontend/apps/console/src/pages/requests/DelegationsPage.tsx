@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { DatePicker, Flex, Form, Input, Table, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 
 import {
+  delegationKeys,
   useCreateDelegation,
   useDelegations,
   useEndDelegation,
@@ -20,10 +22,13 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { refreshQueries, usePersonalChannel } from '@supportx/realtime';
+
 import { PersonName } from '../admin/erasures/words';
 import { UserPicker } from '../incidents/pickers';
 
 const MAX_DAYS = 90; // as the server's (the coordinator's condition 1)
+const DELEGATIONS_CHANGED = 'work_items.delegations_changed';
 const REASON_MAX = 500;
 type State = 'active' | 'upcoming' | 'ended';
 
@@ -46,6 +51,14 @@ export function DelegationsPage() {
   const { can } = useAccess();
   const manages = can('requests.manage_delegations');
   const list = useDelegations();
+  const queryClient = useQueryClient();
+  // Live (rule 5c; lane C's #612 review): a change by the other person, an administrator or
+  // the sweep's expiry arrives on your own channel as IDs only, and the list refetches.
+  usePersonalChannel((message) => {
+    if (message.type === DELEGATIONS_CHANGED || message.type === 'refresh') {
+      refreshQueries(queryClient, delegationKeys.all);
+    }
+  });
   const create = useCreateDelegation();
   const end = useEndDelegation();
   const [delegator, setDelegator] = useState<string | null>(null);

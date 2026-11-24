@@ -296,7 +296,9 @@ async def change(  # noqa: PLR0913 - the delegation, its new values and context,
     )
     row.version += 1
     await session.flush()
-    if delegate != old_delegate:  # what the old delegate held goes back to the approver
+    # What the old delegate held goes back to the approver: a new delegate, or a window that no
+    # longer covers now (moved later, or ended earlier; lane C's #612 note).
+    if delegate != old_delegate or not window.active_at(_now()):
         await move_back(session, row, delegate_id=old_delegate, source="ui")
     await _audit(session, row, AUDIT_CHANGED, facts)
     await _event(session, row, "changed")
