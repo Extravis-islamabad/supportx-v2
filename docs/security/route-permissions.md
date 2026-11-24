@@ -1377,6 +1377,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/approvals/reminders` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/approvals/stages` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/clarification` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own |

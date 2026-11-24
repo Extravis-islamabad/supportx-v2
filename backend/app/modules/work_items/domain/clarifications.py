@@ -9,6 +9,15 @@ answers it and the approver is told. A decision, or the stage closing, ends it t
 from enum import StrEnum
 
 QUESTION_MAX = 2000
+# The field problems a question can have (each needs an `errors.field.*` label).
+FIELD_PROBLEMS = frozenset(
+    {
+        "required",
+        "question_too_long",
+        "no_technician",
+        "is_you",
+    }
+)
 
 
 class Addressee(StrEnum):
@@ -46,5 +55,5 @@ def question_problems(question: str) -> list[tuple[str, str]]:
     if not text:
         return [("question", "required")]
     if len(text) > QUESTION_MAX:
-        return [("question", "too_long")]
+        return [("question", "question_too_long")]
     return []
