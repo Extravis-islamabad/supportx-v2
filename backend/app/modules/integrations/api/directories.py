@@ -8,7 +8,7 @@ No business logic here.
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -107,6 +107,13 @@ class DirectoryIn(BaseModel):
     # is told apart by model_fields_set: then a new directory takes the tenant's default (D-041).
     interval_minutes: int = Field(default=30, ge=15, le=1440)
     enabled: bool = True
+    on_held: Literal["keep", "remove"] | None = Field(
+        default=None,
+        description=(
+            "A group mapping left out of `group_mappings` that people hold access through: keep "
+            "that access as hand-made, or remove it now. Required when it applies (WP-057 S5c)."
+        ),
+    )
 
 
 class SecretOut(BaseModel):
@@ -158,7 +165,7 @@ class DirectoryOut(BaseModel):
             ),
             scope=SyncScope(row.scope),
             scope_groups=list(row.scope_groups),
-            group_mappings=list(row.group_mappings),
+            group_mappings=list(view.group_mappings),
             mapping=dict(row.mapping),
             interval_minutes=row.interval_minutes,
             enabled=row.enabled,
@@ -251,6 +258,7 @@ async def update_directory(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         expected_version=version,
         credential=body.credential,
         by=subject,
+        on_held=body.on_held,
     )
     set_etag(response, view.row.version)
     return DirectoryOut.of(view)

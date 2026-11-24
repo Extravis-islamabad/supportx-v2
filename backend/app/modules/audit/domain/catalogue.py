@@ -111,6 +111,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("idp_group_mapping.changed", AuditCategory.ACCESS, "identity_access"),
     ("idp_group_mapping.removed", AuditCategory.ACCESS, "identity_access"),
     ("idp_group_mapping.kept_last_admin", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.privileged_opt_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("organization.settings_changed", AuditCategory.CONFIGURATION, "organization"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013

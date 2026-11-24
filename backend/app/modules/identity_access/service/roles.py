@@ -846,6 +846,14 @@ async def check_group_grantable(
         await _assignable(session, _POLICY[0], subject, role_id)
 
 
+def running_catalogue() -> Catalogue:
+    """The started policy service's permission catalogue (callers outside a route, WP-057 S5c)."""
+    if not _POLICY:
+        msg = "the permission catalogue is read before the policy service started"
+        raise RuntimeError(msg)
+    return _POLICY[0].catalogue
+
+
 SUPPORT_NO_ROLES = "vendor_support_roles_from_grant"
 
 

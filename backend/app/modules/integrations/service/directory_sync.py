@@ -37,11 +37,14 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import (
     ErasedPerson,
+    GroupSourceKind,
     LeaverOutcome,
     SyncedPerson,
     TenantSessionEnder,
     directory_leaver,
     directory_returner,
+    follow_groups,
+    mapped_external_groups,
     sync_directory_person,
     worker_session_ender,
 )
@@ -55,7 +58,6 @@ from app.modules.integrations.domain.directory import (
     SkipReason,
     SyncScope,
     from_graph,
-    group_mappings_from_json,
     groups_from_json,
     mapping_from_json,
 )
@@ -77,11 +79,8 @@ from app.modules.integrations.service import identities, runs, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
 from app.modules.integrations.service.entra_app import ENTRA, entra_app
 from app.modules.organization import (
-    SYSTEM_PATH,
-    add_member,
     find_department,
     find_site,
-    remove_member,
 )
 from app.shared.files.keyring import KeyRing
 
@@ -101,7 +100,8 @@ class _Config:
     client: Client | None
     scope: SyncScope
     scope_groups: frozenset[str]
-    mapped: Mapping[str, uuid.UUID]  # directory group -> SupportX group
+    # The directory groups this connector's mappings name (identity_access owns the mappings).
+    mapped: frozenset[str]
     mapping: AttributeMapping
     users_link: str | None
     groups_link: str | None
@@ -154,10 +154,7 @@ async def _config(session: AsyncSession, row: DirectoryConnector, ring: KeyRing)
         client=client,
         scope=SyncScope(row.scope),
         scope_groups=frozenset(g.external_id for g in groups_from_json(row.scope_groups)),
-        mapped={
-            m.external_id: uuid.UUID(m.group_id)
-            for m in group_mappings_from_json(row.group_mappings)
-        },
+        mapped=await mapped_external_groups(session, GroupSourceKind.DIRECTORY, row.id),
         mapping=mapping_from_json(row.mapping),
         users_link=row.users_delta_link,
         groups_link=row.groups_delta_link,
@@ -411,8 +408,25 @@ class _Sync:
         )
         if outcome is LeaverOutcome.LEFT:
             self.run.counts["left"] += 1
+            # Gone from this directory: what its mappings gave goes too (lane A's point 1).
+            await self._follow(session, user_id, frozenset())
         elif outcome is LeaverOutcome.LAST_ADMIN_KEPT:
             self.run.skip(SkipReason.LAST_ADMIN)
+
+    async def _follow(
+        self, session: AsyncSession, user_id: uuid.UUID, groups: frozenset[str]
+    ) -> None:
+        """The person's mapped roles and groups follow their groups here (WP-057 S5c)."""
+        changed = await follow_groups(
+            session,
+            source_kind=GroupSourceKind.DIRECTORY,
+            source_id=self.config.id,
+            user_id=user_id,
+            group_ids=groups,
+        )
+        if changed is not None:
+            self.run.counts["mapped_added"] += len(changed.gain)
+            self.run.counts["mapped_removed"] += len(changed.lose)
 
     # --- after the round ------------------------------------------------------------------------
 
@@ -469,23 +483,28 @@ class _Sync:
                     self.run.skip(SkipReason.REFUSED)  # e.g. a manager loop in the directory
 
     async def mapped_groups(self) -> None:
-        """The mapped SupportX groups follow their directory groups' membership changes."""
+        """Mapped roles and groups follow each changed person's groups (WP-057 S5c, `follow`).
+
+        The person's whole set of this connector's mapped groups goes in, never a delta, so a
+        hand-made membership is never removed (only what a mapping gave), and a person out of
+        their last mapped group gets an empty set (lane A's point 1).
+        """
         if not self.config.mapped:
             return
+        people = sorted({p for _, p in self.run.joined} | {p for _, p in self.run.left})
         async with self._session() as session:
-            for changes, member in ((self.run.joined, True), (self.run.left, False)):
-                for group, person in changes:
-                    target = self.config.mapped.get(group)
-                    link = await self._link(session, person) if target else None
-                    if target is None or link is None:
-                        continue
-                    try:
-                        if member:
-                            await add_member(session, "group", target, link.user_id, by=SYSTEM_PATH)
-                        else:
-                            await remove_member(session, "group", target, link.user_id)
-                    except NotFound:
-                        self.run.skip(SkipReason.REFUSED)  # the SupportX group was removed
+            for person in people:
+                link = await self._link(session, person)
+                if link is None:
+                    continue
+                groups = await session.scalars(
+                    select(DirectoryMembership.group_external_id).where(
+                        DirectoryMembership.connector_id == self.config.id,
+                        DirectoryMembership.external_id == person,
+                        DirectoryMembership.group_external_id.in_(self.config.mapped),
+                    )
+                )
+                await self._follow(session, link.user_id, frozenset(groups))
 
 
 async def sync_directory(  # noqa: PLR0913 - the connector and its collaborators, explicit

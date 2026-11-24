@@ -445,6 +445,10 @@ class AccessSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
 
     technician_scope: Mapped[str] = mapped_column(String(20), server_default="group")
     answered_at: Mapped[datetime | None]
+    # WP-057 S5c (0201): a group mapping may give tenant admin or a never_via_idp right.
+    mappings_may_grant_privileged: Mapped[bool] = mapped_column(server_default=text("false"))
+    mappings_privileged_set_at: Mapped[datetime | None]
+    mappings_privileged_set_by: Mapped[uuid.UUID | None]
 
 
 IMPORT_STATUSES = ("queued", "running", "done", "failed")

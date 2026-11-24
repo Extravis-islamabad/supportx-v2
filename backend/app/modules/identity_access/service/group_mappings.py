@@ -13,6 +13,7 @@ import uuid
 from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +36,7 @@ from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import Catalogue
 from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.infra.models import (
+    AccessSettings,
     AccessSource,
     GroupRole,
     IdpGroupMapping,
@@ -57,6 +59,7 @@ MEMBER_MAPPED = "group.member_mapped"
 KEPT_LAST_ADMIN = "idp_group_mapping.kept_last_admin"
 CREATED = "idp_group_mapping.created"
 REMOVED = "idp_group_mapping.removed"
+OPT_IN_CHANGED = "idp_group_mapping.privileged_opt_in_changed"
 NEVER_FOLLOWED = frozenset({SUPPORT_USER_TYPE, UserType.SERVICE.value})
 
 
@@ -273,7 +276,6 @@ async def list_mappings(
 
 async def create_mapping(  # noqa: PLR0913 - the source, the group and its one target, explicit
     session: AsyncSession,
-    catalogue: Catalogue,
     *,
     source_kind: SourceKind,
     source_id: uuid.UUID,
@@ -290,10 +292,12 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
     external = external_group_id.strip()
     if not 1 <= len(external) <= MAX_GROUP_ID:
         raise ValidationFailed(errors=[_error("external_group_id", "invalid_value")])
-    if role_id is not None and await role_is_privileged(session, catalogue, role_id):
-        raise Conflict(code=PRIVILEGED_CODE)
-    if group_id is not None and await group_is_privileged(session, catalogue, group_id):
-        raise Conflict(code=PRIVILEGED_CODE)
+    if not await privileged_allowed(session):
+        catalogue = roles.running_catalogue()
+        if role_id is not None and await role_is_privileged(session, catalogue, role_id):
+            raise Conflict(code=PRIVILEGED_CODE)
+        if group_id is not None and await group_is_privileged(session, catalogue, group_id):
+            raise Conflict(code=PRIVILEGED_CODE)
     mapping = IdpGroupMapping(
         tenant_id=_tenant(session),
         source_kind=source_kind.value,
@@ -317,6 +321,49 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
         details={"source": source_kind.value, "external_group_id": external},
     )
     return mapping
+
+
+async def privileged_allowed(session: AsyncSession) -> bool:
+    """Whether this tenant lets a mapping give tenant admin or a never_via_idp right (opt-in)."""
+    found = await session.scalar(select(AccessSettings.mappings_may_grant_privileged))
+    return bool(found)
+
+
+async def set_privileged_allowed(session: AsyncSession, *, allowed: bool) -> bool:
+    """Turn the opt-in on or off (the route asks for a recent sign-in). True if it changed.
+
+    Turning it off removes nothing: existing mappings keep working, and new privileged ones are
+    refused again. Audited either way, with who and when kept on the settings row.
+    """
+    context = session.info[SESSION_TENANT_KEY]
+    before = await privileged_allowed(session)
+    if before == allowed:
+        return False
+    now = system_clock.now()
+    values = {
+        "mappings_may_grant_privileged": allowed,
+        "mappings_privileged_set_at": now,
+        "mappings_privileged_set_by": context.user_id,
+        "updated_at": now,
+        "updated_by": context.user_id,
+    }
+    await session.execute(
+        insert(AccessSettings)
+        .values(tenant_id=context.tenant_id, created_by=context.user_id, version=1, **values)
+        .on_conflict_do_update(
+            index_elements=[AccessSettings.tenant_id],
+            set_={**values, "version": AccessSettings.version + 1},
+        )
+    )
+    await record(
+        session,
+        action_code=OPT_IN_CHANGED,
+        facts=WORKER,
+        object_type="access_settings",
+        object_id=context.tenant_id,
+        details={"allowed": allowed},
+    )
+    return True
 
 
 async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:

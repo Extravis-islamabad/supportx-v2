@@ -222,12 +222,36 @@ def upgrade() -> None:
             table,
             sa.Column("managed", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         )
+    # The tenant's opt-in: a mapping may give tenant admin or another never_via_idp right (lane
+    # B's condition 4; off by default, turned on with a recent sign-in, audited).
+    op.add_column(
+        "access_settings",
+        sa.Column(
+            "mappings_may_grant_privileged",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
+        ),
+    )
+    op.add_column(
+        "access_settings",
+        sa.Column("mappings_privileged_set_at", sa.DateTime(timezone=True), nullable=True),
+    )
+    op.add_column(
+        "access_settings", sa.Column("mappings_privileged_set_by", sa.Uuid(), nullable=True)
+    )
     op.execute(BACKFILL)
 
 
 def downgrade() -> None:
     """Back to before: the JSON rebuilt from the table (refused while it can't hold them)."""
     op.execute(REBUILD)
+    for column in (
+        "mappings_privileged_set_by",
+        "mappings_privileged_set_at",
+        "mappings_may_grant_privileged",
+    ):
+        op.drop_column("access_settings", column)
     for table in ("group_members", "user_roles"):
         op.drop_column(table, "managed")
     op.drop_table(SOURCES)
