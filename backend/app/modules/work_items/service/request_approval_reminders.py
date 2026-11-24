@@ -47,7 +47,7 @@ from app.modules.work_items.infra.models import (
     WorkItemApproval,
     WorkItemTypeSettings,
 )
-from app.modules.work_items.service import request_stages
+from app.modules.work_items.service import approval_rows, delegations, request_stages
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
 from app.modules.work_items.service.followers import RECORD_TYPE
 from app.shared.clock import Clock, SystemClock
@@ -282,6 +282,7 @@ async def escalate(
         if people
         else [_like(row, None, fallback=True)]
     )
+    await approval_rows.prepare(session, record, added)  # WP-047a S3b: round, delegation
     session.add_all(added)
     record.version += 1  # rule 5g: the record's approvals changed
     record.updated_at = datetime.now(UTC)
@@ -373,5 +374,8 @@ async def reminders_schedule(database: Database, settings: Settings) -> None:
             async with database.tenant_session(TenantContext(tenant)) as session:
                 if acted := await sweep(session, clock):
                     log.info("request_approval_reminders", tenant_id=str(tenant), count=acted)
+                # WP-047a S3b (REQ-SR-035 AC3): delegations whose end came give approvals back.
+                if ended := await delegations.expire(session, clock.now()):
+                    log.info("approval_delegations_expired", tenant_id=str(tenant), count=ended)
         except Exception:
             log.warning("request_approval_reminders_failed", tenant_id=str(tenant), exc_info=True)

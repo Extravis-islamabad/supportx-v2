@@ -517,6 +517,23 @@ class WorkItemApprovalClarification(DomainEvent):
     change: ClarificationChange
 
 
+class ApprovalDelegationChanged(DomainEvent):
+    """An approval delegation was set, changed or ended (WP-047a S3b; REQ-SR-035). IDs only.
+
+    Both people are told (the coordinator's condition 1); their screens refresh.
+    """
+
+    event_type: ClassVar[str] = "work_items.approval_delegation.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "approval_delegation"
+
+    delegation_id: uuid.UUID
+    delegator_id: uuid.UUID
+    delegate_id: uuid.UUID
+    change: Literal["created", "changed", "ended", "expired"]
+    version: int
+
+
 class ChangeBoardChanged(DomainEvent):
     """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
 
@@ -729,6 +746,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemReminderDue,
     WorkItemApprovalChanged,
     WorkItemApprovalClarification,
+    ApprovalDelegationChanged,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,
