@@ -39,7 +39,7 @@ class Dns:
 
     async def lookup(self, name: str) -> list[str]:
         if self.down:
-            raise domains.DnsUnreachable
+            raise rules.DnsUnreachable
         return list(self.records.get(name, []))
 
 
@@ -259,8 +259,8 @@ async def test_without_a_lookup_installed_nothing_lapses(
     world: World,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The coordinator: until the TXT lookup is installed, a check says automatic checking isn't
-    available (never a network fault), and that never counts towards a lapse."""
+    """The coordinator: with no resolver configured (an air-gapped host), a check says automatic
+    checking isn't possible (never a network fault), and that never counts towards a lapse."""
     monkeypatch.setattr(domains, "resolver", domains._no_resolver)  # noqa: SLF001 - the default
     added = await _add(world, world.a, "unavailable.test")
     checked = await world.call("POST", f"{BASE}/{added['id']}/check", world.a)

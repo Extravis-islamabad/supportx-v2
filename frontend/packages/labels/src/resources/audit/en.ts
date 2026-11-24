@@ -479,8 +479,13 @@ export const en = {
   'audit.action.security.session_key_rotated': 'The installation’s sign-in key was rotated',
   'audit.action.service_request.access_changed': 'Changed who can see or work on a service request',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
+  'audit.action.service_request.approval_requested':
+    'Asked named people to approve a service request',
+  'audit.action.service_request.approved_automatically':
+    'A service request stage was approved automatically',
   'audit.action.service_request.approver_was_requester':
     'Left the requester out of their own request’s approvers',
+  'audit.action.service_request.approvers_modified': 'Changed the approvers of a service request',
   'audit.action.service_request.assigned': 'Changed who a service request is assigned to',
   'audit.action.service_request.bulk_started': 'Started a bulk change of service requests',
   'audit.action.service_request.canceled': 'Cancelled a service request',
@@ -676,6 +681,8 @@ export const en = {
   'audit.object.change_task_template': 'Change task template',
   'audit.object.change_template': 'Change template',
   'audit.object.change_window': 'Change window',
+  'audit.object.ci': 'Configuration item',
+  'audit.object.cmdb_import': 'CMDB import from a file',
   'audit.object.connector_settings': 'Connector settings',
   'audit.object.custom_field': 'Custom field',
   'audit.object.department': 'Department',
@@ -1113,6 +1120,7 @@ export const en = {
   'event_type.automation.workflow.webhook_requested': 'Workflow asked for a webhook call',
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.automation.workflow_job.progressed': 'Workflow job progressed',
+  'event_type.cmdb.import.progressed': 'CMDB import moved on',
   'event_type.identity_access.access_settings.changed': 'Technician visibility changed',
   'event_type.identity_access.account_security.changed':
     'Account locked, or its password or MFA changed',

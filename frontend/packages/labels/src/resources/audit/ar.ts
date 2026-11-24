@@ -473,7 +473,11 @@ export const ar: LabelResource = {
   'audit.action.security.session_key_rotated': 'تم تدوير مفتاح تسجيل الدخول الخاص بالتثبيت',
   'audit.action.service_request.access_changed': 'غيّر صلاحيات الوصول إلى طلب خدمة',
   'audit.action.service_request.approval_decided': 'وافق على طلب خدمة أو رفضه',
+  'audit.action.service_request.approval_requested': 'طلب من أشخاص محددين الموافقة على طلب خدمة',
+  'audit.action.service_request.approved_automatically':
+    'تمت الموافقة تلقائيًا على مرحلة من طلب خدمة',
   'audit.action.service_request.approver_was_requester': 'استبعد مقدّم الطلب من معتمدي طلبه',
+  'audit.action.service_request.approvers_modified': 'غيّر الموافقين على طلب خدمة',
   'audit.action.service_request.assigned': 'غيّر إسناد طلب خدمة',
   'audit.action.service_request.bulk_started': 'بدأ تغييرًا جماعيًا لطلبات الخدمة',
   'audit.action.service_request.canceled': 'ألغى طلب خدمة',
@@ -665,6 +669,8 @@ export const ar: LabelResource = {
   'audit.object.change_task_template': 'قالب مهام التغييرات',
   'audit.object.change_template': 'قالب تغييرات',
   'audit.object.change_window': 'نافذة التغيير',
+  'audit.object.ci': 'عنصر تهيئة',
+  'audit.object.cmdb_import': 'استيراد من ملف لقاعدة إدارة التهيئة',
   'audit.object.connector_settings': 'إعدادات الموصل',
   'audit.object.custom_field': 'حقل مخصص',
   'audit.object.department': 'قسم',
@@ -1107,6 +1113,7 @@ export const ar: LabelResource = {
   'event_type.automation.workflow.webhook_requested': 'طلب سير العمل استدعاء خطاف ويب',
   'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.automation.workflow_job.progressed': 'تقدّمت مهمة سير عمل',
+  'event_type.cmdb.import.progressed': 'تقدّم استيراد قاعدة إدارة التهيئة',
   'event_type.identity_access.access_settings.changed': 'تغيّر نطاق رؤية الفنيين',
   'event_type.identity_access.account_security.changed':
     'قُفل حساب أو تغيّرت كلمة مروره أو تحقق دخوله',

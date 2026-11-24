@@ -765,3 +765,123 @@ describe('console: service request stages', () => {
     expect(within(waiting).getByText('Omar Manager')).toBeDefined();
   });
 });
+
+describe('console: automatic approval and changing approvers (WP-047a S2b)', () => {
+  it('REQ-SR-033: says which stage or rule approved it automatically, never the keys as codes', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            { ...pendingApproval, state: 'approved', can_decide: false },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a021',
+              stage: 2,
+              state: 'approved',
+              channel: 'automatic',
+              auto_reason: 'approved_earlier',
+              auto_ref: 1,
+              decided_at: '2026-11-24T09:00:00Z',
+              can_decide: false,
+            },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a022',
+              stage: 3,
+              approver_id: null,
+              origin: 'administrators',
+              state: 'approved',
+              channel: 'automatic',
+              auto_reason: 'rule_matched',
+              auto_ref: 1,
+              auto_rule: { en: 'Air laptops are pre-approved' },
+              auto_keys: ['model'],
+              decided_at: '2026-11-24T09:00:00Z',
+              can_decide: false,
+            },
+          ],
+          people: approvalsBody.people,
+          modify_refused: 'approval_not_running',
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const earlier = await screen.findByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a021');
+    expect(within(earlier).getByTestId('approval-auto-reason').textContent).toBe(
+      'Approved automatically: already approved at stage 1',
+    );
+    const ruled = screen.getByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a022');
+    const why = within(ruled).getByTestId('approval-auto-reason').textContent;
+    expect(why).toContain('Approved automatically: Air laptops are pre-approved');
+    expect(why).toContain('Model'); // the question's label
+    expect(why).not.toContain('model'); // never its key
+  });
+
+  it('REQ-SR-042 AC2: without the right the actions stay visible, disabled, with the reason', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: 'no_permission' },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const add = await screen.findByTestId('approvers-add');
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    const replace = screen.getByTestId('approver-replace');
+    expect((replace as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.mouseEnter(add.closest("[data-testid='disabled-why']") ?? add);
+    expect(
+      await screen.findByText('You need the right to change approvers to do this.'),
+    ).toBeDefined();
+  });
+
+  it('REQ-SR-042: replacing an approver sends the person and the reason with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: null },
+      },
+      'GET /api/v1/users': {
+        body: {
+          items: [
+            {
+              id: '01a1a2b3-0000-7000-8000-00000000b002',
+              display_name: 'Sara Second',
+              email: 'sara@example.com',
+              status: 'active',
+            },
+          ],
+          next_cursor: null,
+          has_more: false,
+        },
+      },
+      [`POST /api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/replace`]: {
+        body: approvalsBody,
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    fireEvent.click(await screen.findByTestId('approver-replace'));
+    const picker = await screen.findByRole('combobox', { name: 'Approver' });
+    fireEvent.mouseDown(picker);
+    fireEvent.click(await screen.findByText('Sara Second'));
+    fireEvent.change(screen.getByTestId('approvers-reason'), {
+      target: { value: 'Omar is away' },
+    });
+    fireEvent.click(screen.getByTestId('approvers-send'));
+    await waitFor(() => {
+      const [sent] = fake.find(
+        'POST',
+        `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/replace`,
+      );
+      expect(sent?.body).toEqual({
+        approver_id: '01a1a2b3-0000-7000-8000-00000000b002',
+        reason: 'Omar is away',
+      });
+      expect(sent?.headers.get('If-Match')).toBe(`"${String(request.version)}"`);
+    });
+  });
+});

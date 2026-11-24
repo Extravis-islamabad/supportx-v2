@@ -15,13 +15,19 @@ the item never moves a request already in flight (in the spirit of REQ-SR-022 AC
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app.modules.work_items.domain.approvals import (
+    ApprovalState,
     ApproverOrigin,
     Assignment,
+    AutoReason,
     LevelOutcome,
+    LevelRule,
     RouteReason,
+    level_outcome,
 )
+from app.shared.conditions import condition_fields, matches
 
 
 @dataclass(frozen=True)
@@ -151,3 +157,61 @@ def assign(
     if backup_id is not None and backup_id != requester and eligible.get(backup_id, False):
         return [Assignment(backup_id, ApproverOrigin.BACKUP, reason)], dropped_requester
     return [Assignment(None, ApproverOrigin.ADMINISTRATORS, reason)], dropped_requester
+
+
+# --- automatic approval (WP-047a S2b; REQ-SR-033) --------------------------------------------
+
+
+@dataclass(frozen=True)
+class Opened:
+    """One approval a stage opens with: pending, approved automatically, or not needed."""
+
+    assignment: Assignment
+    state: ApprovalState
+    auto_reason: AutoReason | None = None
+    auto_ref: int | None = None  # the earlier stage's number
+
+
+def first_matching_rule(
+    conditions: Sequence[Mapping[str, Any]], values: Mapping[str, Any]
+) -> int | None:
+    """The 1-based number of the first rule whose condition holds, or None."""
+    return next((n for n, c in enumerate(conditions, start=1) if matches(c, values)), None)
+
+
+def matched_keys(condition: Mapping[str, Any]) -> list[str]:
+    """The keys a rule read, sorted: what the record and the audit name.
+
+    Never the values (the coordinator's S2b condition 2).
+    """
+    return sorted(condition_fields(condition))
+
+
+def open_with_earlier(
+    assignments: Sequence[Assignment],
+    rule: LevelRule,
+    earlier: Mapping[uuid.UUID, int],
+) -> list[Opened]:
+    """The stage's approvals when "approved earlier" is on (REQ-SR-033 AC1).
+
+    `earlier` maps each person who approved an earlier stage of this request themselves (never
+    automatically) to the first such stage. The assignments are already checked as eligible now
+    (`assign`: active, of this tenant, able to sign in, never the requester), so an approval by
+    someone who has since lost that never carries over (the coordinator's S2b condition 1).
+    Such a person's approval is given automatically; once that decides the stage by its rule,
+    the others are not needed.
+    """
+    opened = [
+        Opened(a, ApprovalState.APPROVED, AutoReason.APPROVED_EARLIER, earlier[a.approver_id])
+        if a.approver_id is not None and a.approver_id in earlier
+        else Opened(a, ApprovalState.PENDING)
+        for a in assignments
+    ]
+    if level_outcome(rule, [o.state for o in opened]) is LevelOutcome.PENDING:
+        return opened
+    return [
+        o
+        if o.state is not ApprovalState.PENDING
+        else Opened(o.assignment, ApprovalState.NOT_NEEDED)
+        for o in opened
+    ]

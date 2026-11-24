@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Flex, List, Modal, Result, TreeSelect, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -46,6 +46,7 @@ import { CustomFieldValue } from '../customFields/fields';
 import { fieldName, filled as hasValue } from '../customFields/values';
 import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
+import { CiMergeDrawer } from './CiMergeDrawer';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
 import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
@@ -87,6 +88,12 @@ export function CiPage() {
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
   if (found.isPending) return null;
+  // A merged CI's ID opens its survivor, when the reader may see it (REQ-CMDB-017 AC2).
+  const survivor =
+    found.error instanceof ApiError && found.error.code === 'cmdb_ci_merged'
+      ? found.error.params.survivor_id
+      : undefined;
+  if (typeof survivor === 'string') return <Navigate to={`/cmdb/${survivor}`} replace />;
   if (found.isError) return <Result status="404" title={t('errors.cmdb_ci_not_found')} />;
   // Never keyed by version: someone else's save must not throw away an open edit (lane C's
   // #524 review); the edit resolves through the ConflictDialog instead.
@@ -104,6 +111,8 @@ function CiRecord({ ci }: { ci: Ci }) {
   const states = useCiStates();
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const { can } = useAccess();
   // The CI as it read when the edit began: its version is the one the save sends (If-Match).
   const [opened, setOpened] = useState<Ci>(ci);
   const conflict = useConflict();
@@ -232,6 +241,18 @@ function CiRecord({ ci }: { ci: Ci }) {
                     testId: 'ci-change-type',
                     onClick: () => {
                       setMoving(true);
+                    },
+                  },
+                ]
+              : []),
+            ...(can('cmdb.manage')
+              ? [
+                  {
+                    key: 'merge',
+                    label: t('cmdb.action.merge'),
+                    testId: 'ci-merge',
+                    onClick: () => {
+                      setMerging(true);
                     },
                   },
                 ]
@@ -389,6 +410,14 @@ function CiRecord({ ci }: { ci: Ci }) {
           void save(version);
         }}
       />
+      {merging && (
+        <CiMergeDrawer
+          ci={ci}
+          onClose={() => {
+            setMerging(false);
+          }}
+        />
+      )}
       {moving && (
         <ChangeType
           ci={ci}

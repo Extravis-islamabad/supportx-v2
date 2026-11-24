@@ -20,6 +20,7 @@ import math
 import socket
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 import nats
 import nats.errors
@@ -142,6 +143,36 @@ PING_INTERVAL_SECONDS = 10
 PING_MAX = 3
 
 
+def initial_connect_seconds(connect_timeout: int) -> float:
+    """How long one first connect may take before it counts as a failed attempt.
+
+    Two server attempts' worth of `connect_timeout` and a reconnect wait, plus a second.
+    """
+    return 2.0 * connect_timeout + 2.0
+
+
+async def _first_connect(url: str, within: float, **options: Any) -> NatsClient:  # noqa: ANN401 - nats-py's connect options
+    """`nats.connect`, bounded: the first connect gives up after `within` seconds.
+
+    While no server answers, nats-py's first connect neither raises nor returns: it keeps
+    reconnecting inside the call (even with the default `max_reconnect_attempts`, for minutes).
+    So `connect_until_ready` would never log, back off or give up (`worker_give_up_seconds`),
+    and the worker would hang silently, as the fan-out did after a node loss (#566's Cluster run
+    45217683176). Bounded, the call raises TimeoutError, which `connect_until_ready` counts as an
+    outage. The half-made client is closed, so no reconnect task outlives the attempt.
+    """
+    client = NatsClient()
+    try:
+        async with asyncio.timeout(within):
+            await client.connect(url, **options)
+    except BaseException:
+        # Never mask the timeout (or a cancellation) with a close error.
+        with contextlib.suppress(Exception):
+            await client.close()
+        raise
+    return client
+
+
 async def connect(settings: Settings, component: str) -> Bus:
     """Connect (reconnecting forever on drops), then provision the streams."""
     if settings.nats_url is None:
@@ -149,8 +180,10 @@ async def connect(settings: Settings, component: str) -> Bus:
         raise RuntimeError(msg)
     url = settings.nats_url.get_secret_value()
     tls, tls_hostname = nats_tls(url, settings.nats_tls_ca_file)
-    client = await nats.connect(
+    connect_timeout = max(1, math.ceil(settings.readiness_timeout_seconds))
+    client = await _first_connect(
         url,
+        initial_connect_seconds(connect_timeout),
         tls=tls,
         tls_hostname=tls_hostname,
         name=f"{component}@{socket.gethostname()}",
@@ -161,7 +194,7 @@ async def connect(settings: Settings, component: str) -> Bus:
         # server. Matches the servers' own ping_interval / ping_max (the chart's nats values).
         ping_interval=PING_INTERVAL_SECONDS,
         max_outstanding_pings=PING_MAX,
-        connect_timeout=max(1, math.ceil(settings.readiness_timeout_seconds)),
+        connect_timeout=connect_timeout,
         error_cb=_error_logger(component),
     )
     js = client.jetstream()

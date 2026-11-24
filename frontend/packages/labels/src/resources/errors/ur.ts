@@ -46,6 +46,8 @@ export const ur: LabelResource = {
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
+  'errors.approval_not_running':
+    '{{display_id}} پر کوئی منظوری زیرِ انتظار نہیں، اس لیے منظور کنندگان اب نہیں بدلے جا سکتے۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
   'errors.archive_busy': 'آپ کے دو ڈاؤن لوڈ پہلے سے چل رہے ہیں۔ ایک منٹ بعد دوبارہ کوشش کریں۔',
@@ -353,6 +355,7 @@ export const ur: LabelResource = {
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.field.approver_already_named': 'یہ شخص اس مرحلے کا پہلے سے منظور کنندہ ہے۔',
   'errors.field.approver_is_requester': 'آپ اپنی درخواست منظور نہیں کر سکتے؛ کسی اور کا نام دیں۔',
   'errors.field.approver_not_active': 'کوئی فعال فرد چنیں۔',
   'errors.field.approver_not_eligible':
@@ -643,6 +646,8 @@ export const ur: LabelResource = {
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_form_field': 'یہ فیلڈ فارم میں نہیں ہے۔',
+  'errors.field.not_a_person_question':
+    'اس فارم کا کوئی ایسا سوال چنیں جو کسی شخص کے بارے میں پوچھے۔',
   'errors.field.not_a_technician':
     'صرف وہی ٹیکنیشن جو مسائل پر کام کرتا ہے کسی مسئلے کی تفتیش کر سکتا ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
@@ -788,6 +793,8 @@ export const ur: LabelResource = {
     'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
   'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
   'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
+  'errors.field.stage_not_open':
+    'منظور کنندگان صرف اسی مرحلے میں شامل کیے جا سکتے ہیں جو ابھی زیرِ انتظار ہو۔',
   'errors.field.support_email_domain_not_allowed':
     'سپورٹ انجینئرز کو Extravis کے کسی اجازت یافتہ ڈومین کا پتہ استعمال کرنا ہوگا۔',
   'errors.field.support_email_invalid': 'ایک ای میل پتہ درج کریں۔',
@@ -829,6 +836,9 @@ export const ur: LabelResource = {
   'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
   'errors.field.too_many_recipients': 'زیادہ سے زیادہ 50 افراد اور 20 گروپ۔',
   'errors.field.too_many_records': 'زیادہ سے زیادہ {{max}} ریکارڈ منتخب کریں۔',
+  'errors.field.too_many_rules':
+    'ایک مرحلے میں زیادہ سے زیادہ 5 خودکار منظوری کے قواعد ہو سکتے ہیں۔',
+  'errors.field.too_many_stages': 'ایک منظوری میں زیادہ سے زیادہ 10 مراحل ہو سکتے ہیں۔',
   'errors.field.too_many_tasks': 'ایک منصوبے میں زیادہ سے زیادہ 20 کام ہو سکتے ہیں۔',
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
@@ -1199,6 +1209,8 @@ export const ur: LabelResource = {
   'errors.reference_is': 'حوالہ: {{reference}}',
   'errors.release_not_failed':
     'فالو اپ تب پیش کیے جاتے ہیں جب ریلیز کی تعیناتی ناکام ہو یا واپس لی جائے۔',
+  'errors.reminded_recently':
+    'منظور کنندگان کو {{minutes}} منٹ سے کم پہلے یاد دلایا گیا تھا۔ بعد میں دوبارہ کوشش کریں۔',
   'errors.reminder_not_found': 'یہ یاد دہانی اب موجود نہیں۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
@@ -1340,6 +1352,8 @@ export const ur: LabelResource = {
   'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
   'errors.too_many_moves': 'ایک لائف سائیکل میں زیادہ سے زیادہ {{max}} منتقلیاں ہو سکتی ہیں۔',
+  'errors.too_many_reminders':
+    'اس درخواست کے منظور کنندگان کو پہلے ہی {{max}} بار یاد دلایا جا چکا ہے۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
   'errors.transition_condition_not_met':
     'حالت کی یہ تبدیلی اس وقت اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',

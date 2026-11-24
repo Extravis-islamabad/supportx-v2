@@ -42,7 +42,14 @@ for entry in "${PROFILES[@]}"; do
   helm lint "$CHART" --strict "${args[@]}" --quiet
   helm template supportx "$CHART" --namespace supportx "${args[@]}" > "$OUT/$name.yaml"
   if command -v kubeconform >/dev/null 2>&1; then
-    kubeconform -strict -summary -kubernetes-version "$K8S_VERSION" \
+    # KUBECONFORM_CACHE (CI): the downloaded schemas are kept between runs, so a GitHub hiccup
+    # on raw.githubusercontent.com cannot fail the job (merge-group run 45238820139, #582).
+    cache=()
+    if [ -n "${KUBECONFORM_CACHE:-}" ]; then
+      mkdir -p "$KUBECONFORM_CACHE"
+      cache=(-cache "$KUBECONFORM_CACHE")
+    fi
+    kubeconform -strict -summary -kubernetes-version "$K8S_VERSION" ${cache[@]+"${cache[@]}"} \
       -schema-location default \
       -schema-location "$CRDS_CATALOG/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
       "$OUT/$name.yaml"

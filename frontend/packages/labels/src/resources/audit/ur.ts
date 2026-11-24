@@ -479,8 +479,13 @@ export const ur: LabelResource = {
   'audit.action.security.session_key_rotated': 'تنصیب کی سائن اِن کلید بدلی گئی',
   'audit.action.service_request.access_changed': 'سروس کی درخواست تک رسائی رکھنے والے بدلے',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
+  'audit.action.service_request.approval_requested':
+    'سروس درخواست کی منظوری کے لیے مخصوص لوگوں سے کہا',
+  'audit.action.service_request.approved_automatically':
+    'سروس درخواست کا ایک مرحلہ خودکار طور پر منظور ہوا',
   'audit.action.service_request.approver_was_requester':
     'درخواست دہندہ کو ان کی اپنی درخواست کے منظوری دہندگان سے نکال دیا',
+  'audit.action.service_request.approvers_modified': 'سروس درخواست کے منظور کنندگان بدلے',
   'audit.action.service_request.assigned': 'سروس کی درخواست کی تفویض بدلی',
   'audit.action.service_request.bulk_started': 'سروس کی درخواستوں کی اجتماعی تبدیلی شروع کی',
   'audit.action.service_request.canceled': 'سروس کی درخواست کو منسوخ کیا',
@@ -676,6 +681,8 @@ export const ur: LabelResource = {
   'audit.object.change_task_template': 'تبدیلیوں کے کاموں کا سانچہ',
   'audit.object.change_template': 'تبدیلی کا سانچہ',
   'audit.object.change_window': 'تبدیلی ونڈو',
+  'audit.object.ci': 'کنفیگریشن آئٹم',
+  'audit.object.cmdb_import': 'فائل سے CMDB درآمد',
   'audit.object.connector_settings': 'کنیکٹر کی ترتیبات',
   'audit.object.custom_field': 'اپنی مرضی کا خانہ',
   'audit.object.department': 'شعبہ',
@@ -1112,6 +1119,7 @@ export const ur: LabelResource = {
   'event_type.automation.workflow.webhook_requested': 'ورک فلو نے ویب ہک کال کرنے کو کہا',
   'event_type.automation.workflow_instance.changed': 'ورک فلو آگے بڑھا',
   'event_type.automation.workflow_job.progressed': 'ورک فلو کی جاب آگے بڑھی',
+  'event_type.cmdb.import.progressed': 'CMDB کی درآمد آگے بڑھی',
   'event_type.identity_access.access_settings.changed': 'ٹیکنیشن کی رسائی کا دائرہ بدلا',
   'event_type.identity_access.account_security.changed':
     'اکاؤنٹ مقفل ہوا، یا اس کا پاس ورڈ یا MFA بدلا',

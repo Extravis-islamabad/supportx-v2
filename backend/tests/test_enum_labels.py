@@ -113,6 +113,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "ImportMatch": "asset_import_match",
     "ImportMode": "asset_import_mode",
     "MergeSide": "asset_merge_side",
+    # CI merges and imports (WP-053 S4b)
+    "CiMergeSide": "cmdb_merge_side",
+    "CiImportKind": "cmdb_import_kind",
+    "CiImportMode": "cmdb_import_mode",
+    "CiImportMatch": "cmdb_import_match",
+    "CiImportStatus": "cmdb_import_status",
+    "CiImportOut.file_format": "people_import_format",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
@@ -417,6 +424,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ApproverKind": "catalog_approver_kind",
     "StageRule": "approval_rule",  # WP-047a S2a: the level engine's codes (LevelRule)
     "SkipReason": "approval_skip_reason",
+    "AutoReason": "approval_auto_reason",  # WP-047a S2b (REQ-SR-033)
     # catalog administration (WP-031)
     "ItemKind": "catalog_item_kind",
     "ItemStatus": "catalog_item_status",

@@ -1718,8 +1718,9 @@ declare major) default to the tenant admin and service desk manager, grantable, 
 
 Plan approved by the coordinator 2026-11-23 (`~/Extravis/plans/wp-047a-plan-lane-a.md`):
 service requests move onto the existing level engine; one migration per session. REQs so far:
-**8 done** (019 and 054 before this WP; 015 and 016 in S1; 029, 030, 031 and 032 in S2a),
-**1 partly** (014: AC2 done, AC1 waits for the item price, REQ-CAT-020), 20 to come.
+**9 done** (019 and 054 before this WP; 015 and 016 in S1; 029, 030, 031 and 032 in S2a; 042
+in S2b), **2 partly** (014: AC2 done, AC1 waits for the item price, REQ-CAT-020; 033: AC1
+done, AC2 "below a cost" waits for the price), 18 to come.
 
 - [x] **S1, raising (0193; REQ-SR-014, -015, -016; lane C blocks):** merged (#578, a25887a8d).
   - REQ-SR-014 (Professional, `catalog` checked in the service): an item may ask a quantity up
@@ -1739,7 +1740,7 @@ service requests move onto the existing level engine; one migration per session.
     service, default deny), the coordinator's condition 2; a request's subject comes from the
     item's template when none is typed (WP-031 leftover); bulk on requests (assign, take).
 - [~] **S2a, approval stages (0194; REQ-SR-029, -030, -031, -032; lane C blocks feature
-  permissions, lane B reviews the owner ports):** built; DB tests next in the heavy slot.
+  permissions, lane B reviews the owner ports):** merged (#582, d86ef2cae).
   - The item's approval is a list of up to 10 stages (requests only; staged record types keep
     5). Each stage has its approvers, a rule (any, all, majority; a majority tie rejects, as the
     staged types' engine does, D-146), a backup, comments required, an optional condition and
@@ -1777,6 +1778,25 @@ service requests move onto the existing level engine; one migration per session.
       stage goes to the approval administrators, recorded.
     - The editor edits one condition per stage; combined conditions set through the API are
       kept and shown, not edited.
+- [~] **S2b, automatic approval and adjusting a running approval (0195; REQ-SR-033, -042; lane
+  B blocks the right and its defaults, lane C feature permissions and the gate):** draft #593.
+  - REQ-SR-033 (Professional, `catalog`): "approved earlier". Someone who approved an earlier
+    stage of the same request is not asked again. The item's switch decides, else the tenant's
+    `auto_approve_earlier` (off by default), resolved into the snapshot. Their eligibility is
+    checked again first. Each stage can also have up to 5 named rules in the shared DSL, over
+    the answers, `quantity` and `requester_groups`; one that holds approves the stage at once.
+    The record and the audit name the stage, or the rule and the answer keys it read, never
+    the answers. "Below a cost" (AC2) waits for the item price and D-184.
+  - REQ-SR-042 (Essentials): `requests.modify_approvers`, seeded for the service desk manager;
+    tenant admins hold every right, vendor support never. It covers adding or replacing an
+    approver (the old one `replaced`, link revoked, never mailed again), adding a stage, and
+    reminding (once every 10 minutes, at most 10 per request). Each needs a reason, recorded
+    in the history and audited with IDs only. Requests also get the ad hoc approval route
+    (`ad_hoc`), whose decision never moves the request. Without the right, the actions are
+    shown disabled with the reason (`modify_refused`).
+  - Also fixed: a single stage's condition, kinds and rules are now checked before saving.
+  - **Follow-ups:** a History tab for requests in the console (the Approvals panel says why it
+    was automatic meanwhile); REQ-SR-033 AC2 with the price.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2664,15 +2684,21 @@ service requests move onto the existing level engine; one migration per session.
     `useHiddenPersonLabel`, lane A's OK) and person search is refused; e-mail and phone are never
     shown. The downgrade refuses while a grant has the tick on.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
-  - [~] **S5d (#569, migration 0189): REQ-SEC-010 verified e-mail domains, PARTLY DONE.** Built:
-    adding a domain with a TXT record shown once (only its hash kept), one tenant per verified
-    domain (a partial unique index; AC2), Keycloak-native routing (a verified domain marks the
-    organisation's domain verified through the outbox; a lapse or delete removes it on a shared
-    realm and keeps the routing on a single-tenant one; a daily reconcile; AC3, tested in a real
-    Keycloak), the 3-failures-over-72-hours lapse with a notice to admins, a manual verify on
-    single-tenant installations only, the console card. **The DNS check waits for a dependency
-    decision** (dnspython, Haider): until then a check says automatic checking isn't available
-    yet, so on multi-tenant installations no domain can be verified (AC1 is not yet met there).
+  - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
+    e-mail domains, DONE.** Built:
+    - adding a domain with a TXT record shown once (only its hash kept);
+    - one tenant per verified domain (a partial unique index; AC2);
+    - Keycloak-native routing (AC3, tested in a real Keycloak): a verified domain marks the
+      organisation's domain verified through the outbox; a lapse or delete removes it on a shared
+      realm and keeps the routing on a single-tenant one; a daily reconcile;
+    - the 3-failures-over-72-hours lapse with a notice to admins, and the console card;
+    - **the DNS check (D-183):** dnspython on the installation's own resolver (resolv.conf, never a
+      public one), bounded by a query timeout, a lifetime, 20 records and a size limit per record,
+      tested against a local fake DNS server (UDP and TCP). A host with no resolver says automatic
+      checking isn't possible, which never counts towards a lapse;
+    - manual verify on single-tenant installations only (on-prem, air-gapped; a reason, audited).
+      On multi-tenant installations DNS is the way, so AC1 is met there too.
+    - Open: the CLAUDE.md §3 line for D-183 waits for Haider to confirm it in lane C's session.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).
 

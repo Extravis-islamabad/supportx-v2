@@ -602,6 +602,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     on_behalf_scope: 'same_department',
     approvals_hidden_from_requesters: false,
     approvals_require_sign_in: false,
+    auto_approve_earlier: false,
     first_task_starts_work: true,
     portal_show_due_time: false,
     requester_cancel: 'off',

@@ -195,7 +195,8 @@ export const ar: LabelResource = {
     'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
-  'domain_check.dns_check_unavailable': 'التحقق التلقائي غير متاح في هذا التثبيت بعد.',
+  'domain_check.dns_check_unavailable':
+    'لا يوجد خادم DNS مُهيّأ في هذا التثبيت، لذا لا يمكن التحقق من النطاق تلقائيًا.',
   'domain_check.dns_unreachable':
     'تعذّر الوصول إلى DNS من هذا التثبيت. يمكنك توثيق النطاق يدويًا بدلًا من ذلك.',
   'domain_check.domain_verified_elsewhere': 'وثّقت مؤسسة أخرى هذا النطاق بالفعل.',
@@ -1075,6 +1076,9 @@ export const ar: LabelResource = {
   'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
   'permission.requests.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',
+  'permission.requests.modify_approvers': 'تغيير الموافقين على طلبات الخدمة',
+  'permission.requests.modify_approvers.description':
+    'إضافة موافق أو استبداله، أو إضافة مرحلة، أو تذكير الموافقين على طلب ينتظر الموافقة، مع ذكر السبب دائمًا.',
   'permission.requests.reopen': 'إعادة فتح طلبات الخدمة',
   'permission.requests.reopen.description':
     'إعادة فتح طلبات الخدمة المنفذة أو المغلقة مع ذكر السبب.',

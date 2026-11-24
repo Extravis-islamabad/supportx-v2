@@ -9,7 +9,14 @@ import {
   useServiceRequestSettingsChange,
   type OnBehalfScope,
 } from '@supportx/api-client';
-import { PageHeader, reportError, SettingsCard, StickySaveBar, useLabel } from '@supportx/ui';
+import {
+  PageHeader,
+  reportError,
+  SettingsCard,
+  StickySaveBar,
+  useLabel,
+  useLicence,
+} from '@supportx/ui';
 
 import { LifecycleTab } from '../incidents/LifecycleTab';
 
@@ -28,6 +35,7 @@ export function RequestSettingsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const catalogue = useServiceRequestCatalogue();
+  const licence = useLicence();
   const change = useServiceRequestSettingsChange();
   // The draft and the version it started from; undefined: the saved values show.
   const [draft, setDraft] = useState<{
@@ -35,6 +43,7 @@ export function RequestSettingsPage() {
     hidden: boolean;
     signIn: boolean;
     starts: boolean;
+    earlier: boolean;
     version: number;
   }>();
   if (catalogue.isLoading || catalogue.data === undefined) return <Skeleton active />;
@@ -43,10 +52,25 @@ export function RequestSettingsPage() {
   const hidden = draft?.hidden ?? saved.approvals_hidden_from_requesters;
   const signIn = draft?.signIn ?? saved.approvals_require_sign_in;
   const starts = draft?.starts ?? saved.first_task_starts_work;
+  const earlier = draft?.earlier ?? saved.auto_approve_earlier;
   const edit = (
-    next: Partial<{ scope: OnBehalfScope; hidden: boolean; signIn: boolean; starts: boolean }>,
+    next: Partial<{
+      scope: OnBehalfScope;
+      hidden: boolean;
+      signIn: boolean;
+      starts: boolean;
+      earlier: boolean;
+    }>,
   ) => {
-    setDraft({ scope, hidden, signIn, starts, version: draft?.version ?? saved.version, ...next });
+    setDraft({
+      scope,
+      hidden,
+      signIn,
+      starts,
+      earlier,
+      version: draft?.version ?? saved.version,
+      ...next,
+    });
   };
   const changes =
     draft === undefined
@@ -56,6 +80,7 @@ export function RequestSettingsPage() {
           draft.hidden !== saved.approvals_hidden_from_requesters,
           draft.signIn !== saved.approvals_require_sign_in,
           draft.starts !== saved.first_task_starts_work,
+          draft.earlier !== saved.auto_approve_earlier,
         ].filter(Boolean).length;
   const submit = () => {
     if (draft === undefined) return;
@@ -71,6 +96,9 @@ export function RequestSettingsPage() {
           }),
           ...(draft.starts !== saved.first_task_starts_work && {
             first_task_starts_work: draft.starts,
+          }),
+          ...(draft.earlier !== saved.auto_approve_earlier && {
+            auto_approve_earlier: draft.earlier,
           }),
         },
         version: draft.version,
@@ -153,6 +181,28 @@ export function RequestSettingsPage() {
                 edit({ signIn: value });
               }}
               data-testid="sr-require-sign-in"
+            />
+          </Form.Item>
+          {/* WP-047a S2b (REQ-SR-033, Professional): turning it off stays allowed. */}
+          <Form.Item
+            label={t('requests.settings.auto_approve_earlier')}
+            htmlFor="sr-auto-approve-earlier"
+            extra={
+              <Typography.Text type="secondary">
+                {licence.has('catalog') || earlier
+                  ? t('requests.settings.auto_approve_earlier_help')
+                  : t('why.professional_edition')}
+              </Typography.Text>
+            }
+          >
+            <Switch
+              id="sr-auto-approve-earlier"
+              checked={earlier}
+              disabled={!licence.has('catalog') && !earlier}
+              onChange={(value) => {
+                edit({ earlier: value });
+              }}
+              data-testid="sr-auto-approve-earlier"
             />
           </Form.Item>
         </Form>

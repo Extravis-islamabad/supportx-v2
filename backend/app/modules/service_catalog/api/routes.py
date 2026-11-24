@@ -83,6 +83,20 @@ class ApproverIO(BaseModel):
     )
 
 
+class AutoRuleIO(BaseModel):
+    """A rule that approves a stage automatically (WP-047a S2b; REQ-SR-033)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: dict[str, str] = Field(
+        description="Shown on the record as the reason, per language (English required)."
+    )
+    condition: dict[str, Any] = Field(
+        description="The form rules' condition language over the answers, `quantity` and "
+        "`requester_groups` (`eq` a group ID: the requester is a member)."
+    )
+
+
 class ApprovalStageIO(BaseModel):
     """One approval stage (WP-047a S2a; REQ-SR-029..032)."""
 
@@ -104,6 +118,17 @@ class ApprovalStageIO(BaseModel):
         default=None,
         description="The stage applies only when this holds (REQ-SR-032): the form rules' "
         "condition language over the answers and `quantity`.",
+    )
+    auto_earlier: bool | None = Field(
+        default=None,
+        description="Someone who approved an earlier stage of the same request is not asked "
+        "again (REQ-SR-033); null: the tenant's setting decides. Professional.",
+    )
+    auto_rules: list[AutoRuleIO] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Rules that approve the stage at once when one holds (REQ-SR-033). "
+        "Professional.",
     )
 
 

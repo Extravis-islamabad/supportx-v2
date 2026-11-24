@@ -28,12 +28,23 @@ class ApprovalState(StrEnum):
     WITHDRAWN = "withdrawn"  # the requester withdrew the request (REQ-SR-061)
     NOT_NEEDED = "not_needed"  # another approver decided the stage first
     SKIPPED = "skipped"  # WP-047a S2a (REQ-SR-032): the stage's condition did not hold
+    REPLACED = "replaced"  # WP-047a S2b (REQ-SR-042 AC1): a technician named someone else
 
 
 class SkipReason(StrEnum):
     """Why a request stage was skipped (shown on the record with the stage's condition)."""
 
     CONDITION_NOT_MET = "condition_not_met"
+
+
+class AutoReason(StrEnum):
+    """Why an approval was given automatically (WP-047a S2b; REQ-SR-033), shown with it.
+
+    `auto_ref` says which: the earlier stage the person approved, or the matched rule's number.
+    """
+
+    APPROVED_EARLIER = "approved_earlier"
+    RULE_MATCHED = "rule_matched"
 
 
 OPEN_STATES = frozenset({ApprovalState.PENDING})
@@ -54,6 +65,9 @@ class ApprovalPurpose(StrEnum):
     RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
     ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
     WORKFLOW = "workflow"  # a workflow's approval node opened it (WP-048b S2, REQ-WF-014)
+    # WP-047a S2b (REQ-SR-042): named people asked on a service request as on an incident,
+    # apart from the item's approval; decided by its rule, it never moves the request.
+    AD_HOC = "ad_hoc"
 
 
 class RouteReason(StrEnum):
@@ -81,6 +95,7 @@ class DecisionChannel(StrEnum):
     APP = "app"
     PORTAL = "portal"
     EMAIL_LINK = "email_link"
+    AUTOMATIC = "automatic"  # WP-047a S2b (REQ-SR-033): nobody decided; `auto_reason` says why
 
 
 class Decision(StrEnum):

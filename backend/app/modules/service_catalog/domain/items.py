@@ -173,6 +173,24 @@ class ApprovalStage:
     rule: StageRule = StageRule.ANY
     parallel_group: str | None = None
     condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): whether someone who approved an earlier stage of the same
+    # request is not asked again (None: the tenant's setting decides), and the rules that
+    # approve the stage at once when one holds.
+    auto_earlier: bool | None = None
+    auto_rules: Sequence["AutoRule"] = ()
+
+
+@dataclass(frozen=True)
+class AutoRule:
+    """A rule that approves a stage automatically (WP-047a S2b; REQ-SR-033).
+
+    Its name (per language) is what the record shows: "approved automatically: <name>". Its
+    condition is the shared DSL over the answers, the quantity and `requester_groups` (the
+    groups the requester belongs to: `eq` means "is a member of").
+    """
+
+    name: Mapping[str, str]
+    condition: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -299,13 +317,15 @@ def uses_stages(stages: Sequence[ApprovalStage]) -> bool:
     Each part is gated by its own requirement's edition, all Professional:
     REQ-SR-029 (several stages, or a rule other than `any`), REQ-SR-030 (a parallel group),
     REQ-SR-031 (an approver kind beyond a named person and the manager), REQ-SR-032 (a
-    condition). Today's single stage stays on every edition (the coordinator's condition 5).
+    condition), REQ-SR-033 (automatic approval: either switch or a rule). Today's single
+    stage stays on every edition (the coordinator's condition 5).
     """
     multi_stage = len(stages) > 1 or any(s.rule is not StageRule.ANY for s in stages)  # 029
     parallel = any(s.parallel_group is not None for s in stages)  # 030
     kinds = any(a.kind not in TODAYS_KINDS for s in stages for a in s.approvers)  # 031
     conditional = any(s.condition is not None for s in stages)  # 032
-    return multi_stage or parallel or kinds or conditional
+    automatic = any(s.auto_earlier is not None or s.auto_rules for s in stages)  # 033
+    return multi_stage or parallel or kinds or conditional or automatic
 
 
 def stages_problems(
@@ -335,6 +355,25 @@ def stages_problems(
             found.append((f"{at}.parallel_group", "invalid_value"))
         if stage.condition is not None:
             found += condition_problems(stage.condition, fields, f"{at}.condition")
+        found += _auto_rule_problems(stage.auto_rules, fields | {REQUESTER_GROUPS}, at)
+    return found
+
+
+# WP-047a S2b (REQ-SR-033): what an automatic rule may read beyond the form, and how many.
+REQUESTER_GROUPS = "requester_groups"
+MAX_AUTO_RULES = 5
+
+
+def _auto_rule_problems(
+    auto_rules: Sequence[AutoRule], fields: frozenset[str], at: str
+) -> list[Problem]:
+    if len(auto_rules) > MAX_AUTO_RULES:
+        return [(f"{at}.auto_rules", "too_many_rules")]
+    found: list[Problem] = []
+    for i, rule in enumerate(auto_rules):
+        here = f"{at}.auto_rules.{i}"
+        found += name_problems(f"{here}.name", rule.name, required=True)
+        found += condition_problems(rule.condition, fields, f"{here}.condition")
     return found
 
 
@@ -370,12 +409,34 @@ def plan_problems(plan: Sequence[PlannedTask]) -> list[Problem]:
 def rules_problems(rules: ItemRules) -> list[Problem]:
     """Everything wrong with an item's rules, at its field."""
     staged = len(rules.stages) > 1
+    single = [] if staged else list(rules.stages[:1])
     return (
         question_problems(rules.questions)
         + (stages_problems(rules.stages, rules.questions) if staged else [])
         + ([] if staged else approval_problems(rules.approval))
+        + _single_stage_problems(single, rules.questions)
         + plan_problems(rules.plan)
     )
+
+
+def _single_stage_problems(
+    single: Sequence[ApprovalStage], questions: Sequence[Question]
+) -> list[Problem]:
+    """A single stage's S2a/S2b parts (kinds, condition, rules), at `approval.<field>`.
+
+    Its approvers are checked by `approval_problems`, as before S2a; only what that leaves out
+    is added here, so a single stage with a condition or a rule is checked like any stage.
+    """
+    if not single:
+        return []
+    prefix = "approval.stages.0"
+    found = stages_problems(single, questions)
+    own = set(approval_problems(single[0]))
+    return [
+        (path.replace(prefix, "approval", 1), code)
+        for path, code in found
+        if (path.replace(prefix, "approval", 1), code) not in own
+    ]
 
 
 def _value_problem(q: Question, value: Any) -> str | None:  # noqa: ANN401, C901, PLR0911 - JSON; one rule per kind
@@ -464,9 +525,12 @@ def needs_approval(rules: ItemRules) -> bool:
 
 __all__ = [
     "LANGUAGES",
+    "MAX_AUTO_RULES",
+    "REQUESTER_GROUPS",
     "ApprovalStage",
     "Approver",
     "ApproverKind",
+    "AutoRule",
     "ItemAudience",
     "ItemRules",
     "PlannedTask",

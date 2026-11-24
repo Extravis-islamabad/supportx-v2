@@ -48,6 +48,7 @@ from app.modules.service_catalog.domain.items import (
     ApprovalStage,
     Approver,
     ApproverKind,
+    AutoRule,
     ItemAudience,
     ItemRules,
     PlannedTask,
@@ -193,6 +194,11 @@ def _stage(raw: Mapping[str, Any]) -> ApprovalStage:
         rule=StageRule(raw.get("rule") or StageRule.ANY.value),
         parallel_group=raw.get("parallel_group"),
         condition=raw.get("condition"),
+        auto_earlier=raw.get("auto_earlier"),
+        auto_rules=tuple(
+            AutoRule(dict(r.get("name") or {}), r.get("condition") or {})
+            for r in raw.get("auto_rules") or []
+        ),
     )
 
 
@@ -257,6 +263,14 @@ def _stage_shape(stage: Mapping[str, Any], at: str) -> list[tuple[str, str]]:
             found.append((f"{at}.approvers.{i}.kind", "invalid_choice"))
     if stage.get("rule") is not None and stage.get("rule") not in set(StageRule):
         found.append((f"{at}.rule", "invalid_choice"))
+    if stage.get("auto_earlier") is not None and not isinstance(stage["auto_earlier"], bool):
+        found.append((f"{at}.auto_earlier", "invalid_value"))
+    rules = stage.get("auto_rules")
+    if rules is not None and (
+        not isinstance(rules, list)
+        or not all(isinstance(r, Mapping) and isinstance(r.get("name"), Mapping) for r in rules)
+    ):
+        found.append((f"{at}.auto_rules", "invalid_value"))
     return found
 
 
@@ -287,7 +301,7 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:
+def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rule per part, flat
     """The approval as it is stored: one shape only (WP-047a S2a).
 
     `{"stages": [...]}` when stages are given, else the single stage. A stage with nothing new
@@ -316,9 +330,13 @@ def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:
         }
         if raw.get("rule") not in (None, StageRule.ANY.value):
             kept["rule"] = str(raw["rule"])
-        for name in ("parallel_group", "condition"):
+        for name in ("parallel_group", "condition", "auto_earlier"):
             if raw.get(name) is not None:
                 kept[name] = raw[name]
+        if raw.get("auto_rules"):  # WP-047a S2b (REQ-SR-033)
+            kept["auto_rules"] = [
+                {"name": dict(r["name"]), "condition": r["condition"]} for r in raw["auto_rules"]
+            ]
         return kept
 
     if approval.get("stages"):
@@ -991,6 +1009,10 @@ class StageSpec:
     self_approval: bool = False
     parallel_group: str | None = None
     condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): the item's own "approved earlier" (None: the tenant's) and its
+    # automatic rules, each (name per language, condition).
+    auto_earlier: bool | None = None
+    auto_rules: tuple[tuple[Mapping[str, str], Mapping[str, Any]], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1097,6 +1119,8 @@ def _spec(stage: ApprovalStage) -> StageSpec:
         self_approval=stage.self_approval,
         parallel_group=stage.parallel_group,
         condition=stage.condition,
+        auto_earlier=stage.auto_earlier,
+        auto_rules=tuple((dict(r.name), r.condition) for r in stage.auto_rules),
     )
 
 

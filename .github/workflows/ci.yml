@@ -696,25 +696,16 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' && steps.app.outputs.present == 'true' }}
         run: make mobile-test
 
-  frontend:
-    name: frontend
-    # Waits for `mobile` and carries its result: the one required check for both (see mobile).
-    needs: [mobile]
-    if: ${{ always() }}
+  # Lint, types and Vitest (about 6.5 min on a normal runner; a slow one ran them 4x slower in
+  # merge-group run 45258067785, which cut off the builds after them at the old single job's 25).
+  frontend-checks:
+    name: frontend checks
     runs-on: ubuntu-24.04
-    # Lint, types and Vitest take about 15 min now (Vitest alone about 9.5 min, run 42951809015),
-    # so 15 cut off the production builds twice on #378; splitting Vitest into shards is the follow-up.
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: The mobile job passed or was skipped
-        env:
-          MOBILE: ${{ needs.mobile.result }}
-        run: |
-          echo "mobile: $MOBILE"
-          case "$MOBILE" in success|skipped) ;; *) echo "::error title=mobile::the mobile job $MOBILE"; exit 1 ;; esac
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
@@ -734,9 +725,63 @@ jobs:
       - name: Test (Vitest)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make frontend-test
+
+  # The production builds in parallel with the checks (about 20 s plus setup on a normal runner),
+  # so a slow runner on the checks can never cut them off again.
+  frontend-builds:
+    name: frontend builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Changes (docs-only PRs skip)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          light: '^(docs/|mobile/|.*\.(md|mdx)$)'
+      - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run == 'true' }}
+      - uses: ./.github/actions/setup-frontend
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Production builds (console, portal)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make build
+
+  frontend:
+    name: frontend
+    # The one required check for the frontend and the mobile app (see mobile): it carries the
+    # results of both frontend jobs and of `mobile`. Always runs, so a failed, cancelled or timed-out
+    # job fails this check instead of skipping it (a skipped required check would count as passed).
+    needs: [mobile, frontend-checks, frontend-builds]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every frontend job passed or was skipped
+        env:
+          MOBILE: ${{ needs.mobile.result }}
+          CHECKS: ${{ needs.frontend-checks.result }}
+          BUILDS: ${{ needs.frontend-builds.result }}
+        # Only `mobile` may be skipped (its own path filter). The two frontend jobs have no job-level
+        # `if:` and no `needs:`, so they always run: a docs-only or mobile-only PR skips their
+        # steps and they still end `success`. Anything else from them, skipped included (in the
+        # queue or anywhere), fails this check (the coordinator's condition on #591).
+        run: |
+          echo "mobile: $MOBILE, frontend checks: $CHECKS, frontend builds: $BUILDS"
+          failed=0
+          case "$MOBILE" in
+            success|skipped) ;;
+            *) echo "::error title=mobile::the mobile job $MOBILE"; failed=1 ;;
+          esac
+          for pair in "frontend checks=$CHECKS" "frontend builds=$BUILDS"; do
+            if [ "${pair#*=}" != success ]; then
+              echo "::error title=${pair%%=*}::the ${pair%%=*} job ${pair#*=}"
+              failed=1
+            fi
+          done
+          exit "$failed"
 
   # Report PDFs (D-100 D8): WeasyPrint and Pango exist only in the worker image, so the PDF tests run
   # inside that image (its `worker-test` target), the real production setup. The sharded backend
@@ -784,16 +829,39 @@ jobs:
         with:
           path: deploy/helm/supportx/charts/*.tgz
           key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
+      # The release download is cached by version and checksum: a GitHub releases 403 dropped a
+      # merge-queue run (45162344389, #576). The checksum is verified on every run, cached or not.
+      - name: kubeconform download (cached by version and checksum)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/kubeconform
+          key: kubeconform-v0.8.0-9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
       - name: Install kubeconform (pinned, checksum-verified)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
-          curl -fsSL -o /tmp/kubeconform.tar.gz \
-            https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
-          echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  /tmp/kubeconform.tar.gz" | sha256sum -c -
-          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+          tarball=~/.cache/kubeconform/kubeconform-v0.8.0-linux-amd64.tar.gz
+          if [ ! -f "$tarball" ]; then
+            mkdir -p ~/.cache/kubeconform
+            curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "$tarball" \
+              https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
+          fi
+          echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  $tarball" | sha256sum -c -
+          sudo tar -xzf "$tarball" -C /usr/local/bin kubeconform
+      # kubeconform's schemas (Kubernetes and the pinned CRD catalog), downloaded from
+      # raw.githubusercontent.com, are kept between runs: a download that gave up after three
+      # tries dropped merge-group run 45238820139 (#582). Keyed on the script that pins them.
+      - name: kubeconform schemas (cached by the pins in chart-lint.sh)
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/kubeconform-schemas
+          key: kubeconform-schemas-${{ hashFiles('deploy/scripts/chart-lint.sh') }}
+          # A chart-lint.sh edit starts from the last schemas, never a full re-download (lane B).
+          restore-keys: kubeconform-schemas-
       - name: Lint, render and validate every profile
         if: ${{ steps.changes.outputs.run == 'true' }}
-        run: make chart-lint
+        run: KUBECONFORM_CACHE="$HOME/.cache/kubeconform-schemas" make chart-lint
       # The chart's own tests (tests/test_chart_*.py: D-151's guards, the mobile links), which need
       # the fetched dependencies above and so skip in the backend shards.
       - uses: ./.github/actions/setup-backend

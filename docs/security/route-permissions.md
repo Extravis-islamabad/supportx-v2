@@ -496,6 +496,13 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/versions` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports/{import_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
+| GET | `/api/v1/cmdb/imports/{import_id}/problems` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/imports/{import_id}/run` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/merges` | `cmdb.manage` | cmdb.manage: all |
+| GET | `/api/v1/cmdb/merges/preview` | `cmdb.manage` | cmdb.manage: all |
 | GET | `/api/v1/cmdb/relationship-types` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/relationship-types` | `cmdb.configure` | cmdb.configure: all |
 | DELETE | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
@@ -1366,7 +1373,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | PATCH | `/api/v1/service-requests/{record_id}` | `requests.edit` | requests.edit: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/actions/{action}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/approvals` | signed_in | - |
+| POST | `/api/v1/service-requests/{record_id}/approvals` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/approvals/reminders` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/approvals/stages` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
+| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/assets/{link_id}` | `requests.view` | requests.view: all/site/group/own |
@@ -1706,6 +1718,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `requests.edit` | all | all |
 | service_desk_manager | `requests.edit_due_dates` | all | all |
 | service_desk_manager | `requests.manage_followers` | all | all |
+| service_desk_manager | `requests.modify_approvers` | all | all |
 | service_desk_manager | `requests.reopen` | all | all |
 | service_desk_manager | `requests.reply` | all | all |
 | service_desk_manager | `requests.resolve` | all | all |
@@ -2130,6 +2143,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `requests.edit` | all | all |
 | tenant_admin | `requests.edit_due_dates` | all | all |
 | tenant_admin | `requests.manage_followers` | all | all |
+| tenant_admin | `requests.modify_approvers` | all | all |
 | tenant_admin | `requests.reopen` | all | all |
 | tenant_admin | `requests.reply` | all | all |
 | tenant_admin | `requests.resolve` | all | all |

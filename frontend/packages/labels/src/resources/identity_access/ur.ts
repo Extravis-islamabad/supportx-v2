@@ -192,7 +192,8 @@ export const ur: LabelResource = {
     'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
-  'domain_check.dns_check_unavailable': 'اس انسٹالیشن پر خودکار جانچ ابھی دستیاب نہیں۔',
+  'domain_check.dns_check_unavailable':
+    'اس انسٹالیشن پر کوئی DNS سرور ترتیب نہیں دیا گیا، اس لیے ڈومین کی خودکار جانچ نہیں ہو سکتی۔',
   'domain_check.dns_unreachable':
     'اس انسٹالیشن سے DNS تک رسائی نہ ہو سکی۔ اس کے بجائے آپ ڈومین کی تصدیق ہاتھ سے کر سکتے ہیں۔',
   'domain_check.domain_verified_elsewhere': 'کسی اور ادارے نے یہ ڈومین پہلے ہی تصدیق کر لیا ہے۔',
@@ -1082,6 +1083,9 @@ export const ur: LabelResource = {
   'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
   'permission.requests.manage_followers.description':
     'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.modify_approvers': 'سروس درخواستوں کے منظور کنندگان بدلیں',
+  'permission.requests.modify_approvers.description':
+    'منظوری کی منتظر درخواست میں منظور کنندہ شامل کریں یا بدلیں، مرحلہ شامل کریں یا منظور کنندگان کو یاد دلائیں، ہمیشہ وجہ کے ساتھ۔',
   'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
   'permission.requests.reopen.description':
     'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',

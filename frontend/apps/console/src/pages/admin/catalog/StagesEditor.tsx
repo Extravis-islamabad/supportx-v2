@@ -5,12 +5,15 @@ import type { CatalogQuestion } from '@supportx/api-client';
 import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { GroupPicker, UserPicker } from '../../incidents/pickers';
+import { PerLanguage } from './PerLanguage';
 import {
   type Approver,
+  type AutoRule,
   blankStage,
   type Kind,
   KINDS,
   MAX_APPROVERS,
+  MAX_AUTO_RULES,
   MAX_STAGES,
   type Op,
   OPS,
@@ -290,6 +293,13 @@ function StageCard({
             onChange({ condition });
           }}
         />
+        <AutoApproval
+          stage={stage}
+          questions={questions}
+          licensed={licensed}
+          testId={`cat-stage-${String(index)}-auto`}
+          onChange={onChange}
+        />
       </Form>
     </Card>
   );
@@ -377,26 +387,151 @@ function ApproverRow({
 }
 
 /** "Applies only when": one question, an operator and a value (REQ-SR-032). */
+/**
+ * Automatic approval (WP-047a S2b, REQ-SR-033, Professional): whether someone who approved an
+ * earlier stage is asked again (the tenant's setting unless the item says), and rules that
+ * approve the stage at once. Without the licence only turning things off stays allowed.
+ */
+function AutoApproval({
+  stage,
+  questions,
+  licensed,
+  testId,
+  onChange,
+}: {
+  stage: Stage;
+  questions: CatalogQuestion[];
+  licensed: boolean;
+  testId: string;
+  onChange: (next: Partial<Stage>) => void;
+}) {
+  const t = useLabel();
+  const rules: AutoRule[] = stage.auto_rules ?? [];
+  const earlier = stage.auto_earlier == null ? 'tenant' : stage.auto_earlier ? 'on' : 'off';
+  const setRules = (next: AutoRule[]) => {
+    onChange({ auto_rules: next });
+  };
+  return (
+    <Flex vertical gap={8} data-testid={testId}>
+      <Typography.Text strong>{t('catalog_admin.stages.auto.title')}</Typography.Text>
+      <Form.Item label={t('catalog_admin.stages.auto.earlier')} style={{ marginBottom: 0 }}>
+        <Select<'tenant' | 'on' | 'off'>
+          style={{ minWidth: 260 }}
+          value={earlier}
+          options={(['tenant', 'on', 'off'] as const).map((v) => ({
+            value: v,
+            label: t(`catalog_admin.stages.auto.earlier_${v}`),
+            disabled: !licensed && v !== 'tenant' && v !== earlier,
+          }))}
+          onChange={(v) => {
+            onChange({ auto_earlier: v === 'tenant' ? null : v === 'on' });
+          }}
+          aria-label={t('catalog_admin.stages.auto.earlier')}
+          data-testid={`${testId}-earlier`}
+        />
+      </Form.Item>
+      {rules.map((rule, i) => (
+        <Card
+          key={i}
+          size="small"
+          data-testid={`${testId}-rule-${String(i)}`}
+          title={t('catalog_admin.stages.auto.rule_n', { n: i + 1 })}
+          extra={
+            <WriteButton
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label={t('catalog_admin.stages.auto.remove_rule', { n: i + 1 })}
+              onClick={() => {
+                setRules(rules.filter((_, j) => j !== i));
+              }}
+              data-testid={`${testId}-rule-${String(i)}-remove`}
+            />
+          }
+        >
+          <Flex vertical gap={8}>
+            <Form.Item
+              label={t('catalog_admin.stages.auto.rule_name')}
+              required
+              style={{ marginBottom: 0 }}
+            >
+              <PerLanguage
+                value={rule.name}
+                limit={200}
+                testId={`${testId}-rule-${String(i)}-name`}
+                onChange={(name) => {
+                  setRules(rules.map((r, j) => (j === i ? { ...r, name } : r)));
+                }}
+              />
+            </Form.Item>
+            <ConditionField
+              condition={rule.condition}
+              questions={questions}
+              licensed={licensed}
+              groups
+              always
+              testId={`${testId}-rule-${String(i)}-condition`}
+              onChange={(condition) => {
+                if (condition == null) return;
+                setRules(rules.map((r, j) => (j === i ? { ...r, condition } : r)));
+              }}
+            />
+          </Flex>
+        </Card>
+      ))}
+      <WriteButton
+        size="small"
+        style={{ alignSelf: 'flex-start' }}
+        disabled={!licensed || rules.length >= MAX_AUTO_RULES}
+        whyDisabled={
+          licensed
+            ? t('why.max_auto_rules', { max: MAX_AUTO_RULES })
+            : t('why.professional_edition')
+        }
+        onClick={() => {
+          setRules([
+            ...rules,
+            { name: { en: '' }, condition: { field: 'quantity', op: 'eq', value: null } },
+          ]);
+        }}
+        data-testid={`${testId}-rule-add`}
+      >
+        {t('catalog_admin.stages.auto.add_rule')}
+      </WriteButton>
+    </Flex>
+  );
+}
+
 function ConditionField({
   condition,
   questions,
   licensed,
   testId,
   onChange,
+  groups = false,
+  always = false,
 }: {
   condition: Stage['condition'];
   questions: CatalogQuestion[];
   licensed: boolean;
   testId: string;
   onChange: (next: Stage['condition']) => void;
+  /** An automatic rule may also read the requester's groups (REQ-SR-033). */
+  groups?: boolean;
+  /** A rule always has its condition: no on/off switch. */
+  always?: boolean;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const leaf = simple(condition);
   const fields = [
     { value: 'quantity', label: t('requests.condition_quantity') },
+    ...(groups
+      ? [{ value: 'requester_groups', label: t('requests.condition_requester_groups') }]
+      : []),
     ...questions.map((q) => ({ value: q.key, label: q.label[locale] ?? q.label.en ?? '' })),
   ];
+  const isGroups = leaf?.field === 'requester_groups';
   const question = questions.find((q) => q.key === leaf?.field);
   const options = (question?.options ?? []).map((code) => ({
     value: code,
@@ -412,15 +547,17 @@ function ConditionField({
   };
   return (
     <Flex vertical gap={8} data-testid={testId}>
-      <Toggle
-        label={t('catalog_admin.stages.only_when')}
-        checked={condition != null}
-        disabled={!licensed && condition == null}
-        testId={`${testId}-on`}
-        onChange={(on) => {
-          onChange(on ? { field: fields[0]?.value ?? 'quantity', op: 'eq', value: null } : null);
-        }}
-      />
+      {!always && (
+        <Toggle
+          label={t('catalog_admin.stages.only_when')}
+          checked={condition != null}
+          disabled={!licensed && condition == null}
+          testId={`${testId}-on`}
+          onChange={(on) => {
+            onChange(on ? { field: fields[0]?.value ?? 'quantity', op: 'eq', value: null } : null);
+          }}
+        />
+      )}
       {condition != null && leaf === null && (
         <Typography.Text type="secondary">
           {t('catalog_admin.stages.combined_condition')}
@@ -441,7 +578,10 @@ function ConditionField({
           <Select<Op>
             style={{ minWidth: 160 }}
             value={leaf.op}
-            options={OPS.map((op) => ({ value: op, label: t(`rule_op.${op}`) }))}
+            options={(isGroups ? GROUP_OPS : OPS).map((op) => ({
+              value: op,
+              label: t(isGroups ? `catalog_admin.stages.auto.group_op.${op}` : `rule_op.${op}`),
+            }))}
             onChange={(op) => {
               set({ ...leaf, op, value: op === 'in' || op === 'not_in' ? [] : leaf.value });
             }}
@@ -450,7 +590,18 @@ function ConditionField({
           />
           {leaf.op !== 'is_null' &&
             leaf.op !== 'is_not_null' &&
-            (options.length > 0 ? (
+            (isGroups ? (
+              <div style={{ minWidth: 220 }}>
+                <GroupPicker
+                  value={typeof leaf.value === 'string' ? leaf.value : null}
+                  onChange={(value) => {
+                    set({ ...leaf, value });
+                  }}
+                  testId={`${testId}-group`}
+                  ariaLabel={t('catalog_admin.stages.condition_value')}
+                />
+              </div>
+            ) : options.length > 0 ? (
               <Select<string | string[]>
                 style={{ minWidth: 200 }}
                 mode={leaf.op === 'in' || leaf.op === 'not_in' ? 'multiple' : undefined}
@@ -480,6 +631,9 @@ function ConditionField({
     </Flex>
   );
 }
+
+// "is a member of" / "is not a member of" a group: `eq` and `ne` on a list (the shared DSL).
+const GROUP_OPS = ['eq', 'ne'] as const;
 
 function Toggle({
   label,
