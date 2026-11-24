@@ -10,16 +10,20 @@ The rules live in domain/group_mappings.py; the plan is ~/Extravis/plans/wp-057-
 """
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import access_changed
 from app.core.database import SESSION_TENANT_KEY
+from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access.domain.group_mappings import (
+    MAX_GROUP_ID,
+    SSO_GROUP_MAPPINGS_READY,
     Held,
     Plan,
     SourceKind,
@@ -39,7 +43,8 @@ from app.modules.identity_access.infra.models import (
     User,
 )
 from app.modules.identity_access.service import roles
-from app.modules.organization import SYSTEM_PATH, add_member, remove_member
+from app.modules.organization import SYSTEM_PATH, add_member, remove_member, unmanage_member
+from app.shared.clock import system_clock
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -50,6 +55,8 @@ log = get_logger("identity_access.group_mappings")
 ROLE_MAPPED = "user.role_mapped"
 MEMBER_MAPPED = "group.member_mapped"
 KEPT_LAST_ADMIN = "idp_group_mapping.kept_last_admin"
+CREATED = "idp_group_mapping.created"
+REMOVED = "idp_group_mapping.removed"
 NEVER_FOLLOWED = frozenset({SUPPORT_USER_TYPE, UserType.SERVICE.value})
 
 
@@ -237,3 +244,153 @@ async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: 
         details={"change": change, "target": item.target.id, "mapping_id": item.mapping_id},
         actor=(AuditActorType.SYSTEM, None),
     )
+
+
+# --- the mappings themselves (admins; directory connectors' screen today) ----------------------
+
+PRIVILEGED_CODE = "mapping_grants_privileged_access"
+COMING_SOON_CODE = "idp_group_mappings_coming_soon"
+CHOICE_REQUIRED_CODE = "mapping_in_use_choice_required"
+OnHeld = Literal["keep", "remove"]
+
+
+async def mapped_external_groups(
+    session: AsyncSession, source_kind: SourceKind, source_id: uuid.UUID
+) -> frozenset[str]:
+    """The external group IDs this source's enabled mappings name (what a sync must fetch)."""
+    return frozenset(
+        m.external_group_id for m in await _mappings(session, source_kind, source_id) if m.enabled
+    )
+
+
+async def list_mappings(
+    session: AsyncSession, source_kind: SourceKind, source_id: uuid.UUID
+) -> list[IdpGroupMapping]:
+    """A source's live mappings, oldest first."""
+    rows = await _mappings(session, source_kind, source_id)
+    return sorted(rows, key=lambda m: (m.created_at, str(m.id)))
+
+
+async def create_mapping(  # noqa: PLR0913 - the source, the group and its one target, explicit
+    session: AsyncSession,
+    catalogue: Catalogue,
+    *,
+    source_kind: SourceKind,
+    source_id: uuid.UUID,
+    external_group_id: str,
+    external_name: str | None,
+    role_id: uuid.UUID | None = None,
+    group_id: uuid.UUID | None = None,
+) -> IdpGroupMapping:
+    """A new mapping, after the guards: SSO waits for S5c-1b; privileged access is refused."""
+    if source_kind is SourceKind.SSO and not SSO_GROUP_MAPPINGS_READY:
+        raise ValidationFailed(errors=[_error("source_kind", COMING_SOON_CODE)])
+    if (role_id is None) == (group_id is None):
+        raise ValidationFailed(errors=[_error("target", "one_target_required")])
+    external = external_group_id.strip()
+    if not 1 <= len(external) <= MAX_GROUP_ID:
+        raise ValidationFailed(errors=[_error("external_group_id", "invalid_value")])
+    if role_id is not None and await role_is_privileged(session, catalogue, role_id):
+        raise Conflict(code=PRIVILEGED_CODE)
+    if group_id is not None and await group_is_privileged(session, catalogue, group_id):
+        raise Conflict(code=PRIVILEGED_CODE)
+    mapping = IdpGroupMapping(
+        tenant_id=_tenant(session),
+        source_kind=source_kind.value,
+        source_id=source_id,
+        external_group_id=external,
+        external_name=(external_name or "").strip()[:MAX_GROUP_ID] or None,
+        role_id=role_id,
+        group_id=group_id,
+    )
+    session.add(mapping)
+    try:
+        await session.flush()
+    except IntegrityError as exc:  # the role is not this tenant's, or the same mapping exists
+        raise Conflict(code="mapping_exists") from exc
+    await record(
+        session,
+        action_code=CREATED,
+        facts=WORKER,
+        object_type="idp_group_mapping",
+        object_id=mapping.id,
+        details={"source": source_kind.value, "external_group_id": external},
+    )
+    return mapping
+
+
+async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:
+    """How many people hold access through this mapping (the remove dialog's count)."""
+    count = await session.scalar(
+        select(func.count(func.distinct(AccessSource.user_id))).where(
+            AccessSource.mapping_id == mapping_id
+        )
+    )
+    return int(count or 0)
+
+
+async def remove_mapping(
+    session: AsyncSession, mapping_id: uuid.UUID, *, on_held: OnHeld | None
+) -> None:
+    """Delete a mapping; what it gave stays as hand-made ("keep") or goes at once ("remove").
+
+    The coordinator's Q2: never silent. With anyone holding access through it, `on_held` is
+    required (422 otherwise); "remove" is the route's to protect with RecentAuth.
+    """
+    mapping = await session.get(IdpGroupMapping, mapping_id)
+    if mapping is None or mapping.deleted_at is not None:
+        raise NotFound(code="mapping_not_found")
+    held = list(
+        await session.scalars(select(AccessSource).where(AccessSource.mapping_id == mapping_id))
+    )
+    if held and on_held is None:
+        raise ValidationFailed(errors=[_error("on_held", CHOICE_REQUIRED_CODE)])
+    for row in held:
+        await lock_person(session, row.user_id)
+        others = await session.scalar(
+            select(func.count()).where(
+                AccessSource.user_id == row.user_id,
+                AccessSource.target_kind == row.target_kind,
+                AccessSource.target_id == row.target_id,
+                AccessSource.mapping_id != mapping_id,
+            )
+        )
+        await session.delete(row)
+        await session.flush()
+        if others:
+            continue  # another mapping still gives it
+        if on_held == "keep":
+            await _make_hand_made(session, row)
+        else:
+            await _lose(
+                session,
+                row.user_id,
+                Plan(
+                    add_sources=(),
+                    drop_sources=(),
+                    gain=(),
+                    lose=(Target(row.target_kind, str(row.target_id)),),  # type: ignore[arg-type]  # checked in SQL
+                ),
+                SourceKind(mapping.source_kind),
+            )
+    mapping.deleted_at = system_clock.now()
+    await record(
+        session,
+        action_code=REMOVED,
+        facts=WORKER,
+        object_type="idp_group_mapping",
+        object_id=mapping.id,
+        details={"held": len(held), "on_held": on_held},
+    )
+    access_changed(session)
+
+
+async def _make_hand_made(session: AsyncSession, row: AccessSource) -> None:
+    if row.target_kind == "role":
+        await roles.unmanage(session, row.user_id, row.target_id)
+    else:
+        await unmanage_member(session, "group", row.target_id, row.user_id)
+
+
+def _error(field: str, code: str) -> FieldError:
+    return FieldError(field=f"body.{field}", code=code, message_key=f"errors.{code}")

@@ -628,6 +628,15 @@ async def remove_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid
     return removed
 
 
+async def unmanage(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
+    """A mapping went with "keep": the role stays, now hand-made (WP-057 S5c, Q2)."""
+    await session.execute(
+        update(UserRole)
+        .where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+        .values(managed=False)
+    )
+
+
 async def tenant_admin_holders(session: AsyncSession) -> set[uuid.UUID]:
     """Active people holding tenant admin now, directly or through an active group (WP-042)."""
     return await _tenant_admin_holders(session)

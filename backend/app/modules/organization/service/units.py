@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import Select, delete, func, select
+from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -268,6 +268,19 @@ async def remove_member(
         await _membership_event(session, kind, unit_id, user_id, "removed")
         access_changed(session)
     return removed
+
+
+async def unmanage_member(
+    session: AsyncSession, kind: Kind, unit_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    """A group mapping went with "keep" (WP-057 S5c): the membership stays, now hand-made."""
+    if kind != "group":
+        return
+    await session.execute(
+        update(GroupMember)
+        .where(GroupMember.group_id == unit_id, GroupMember.user_id == user_id)
+        .values(managed=False)
+    )
 
 
 async def _membership_event(
