@@ -146,6 +146,15 @@ decisions D1-D13 (D-038).
    runs nginx-unprivileged **1.31.7** (mainline, digest-pinned), because stable 1.30.6 has six
    fixable HIGH/CRITICAL nginx CVEs and no stable 1.30.7 image was published. Move back to the
    stable line once 1.30.7 or later is published. Check it at each Monday re-check.
+10. **Known failover latency: Valkey (lane B, 2026-11-24, measured):** while Sentinel fails over,
+   a request that checks its session waits up to about **15.5 s**, then answers. That is the API's
+   Valkey client (`app/core/valkey.py`, valkey-py 6.2.0): its default 5 s socket timeout (the
+   connect timeout falls back to it) times 3 retries, plus the backoff. It is bounded: measured
+   on a throwaway master, replica and three sentinels at the chart's 10 s down-after, the master
+   paused or black-holed, the read came back from the promoted replica after 15.5 s. Not tuned
+   now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
+   phases) and times the master's name lookup from the API pods, so the nightly shows whether a
+   slower write is DNS or this latency.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
