@@ -91,31 +91,39 @@ api:
     requests: {cpu: 250m, memory: 384Mi}
     limits: {cpu: "2", memory: 1Gi}
 
+# Worker memory (2026-11-24, the indexes start-up failure after #615): every worker imports the
+# whole app at start-up (discover_modules), so its floor is the import cost, measured as peak RSS
+# after import: relay 300, sla timers 280, workflow timers 280, indexes 274, fanout 266,
+# consumers 264 MiB (~4-8 s of CPU). Requests sit at that floor (320Mi) so a node can really give
+# it; limits keep >= 30% headroom (512Mi; consumers 768Mi for whole-file scans). A worker at its
+# limit throttles and misses its 60 s startup probe. Re-measure these when modules are added
+# (`python -c "import workers.<w>.__main__; from app.core.modules import discover_modules;
+# discover_modules()"` and the process's peak RSS) and keep the headroom.
 relay:
   replicas: 1
   resources:
-    requests: {cpu: 50m, memory: 128Mi}
-    limits: {cpu: 500m, memory: 384Mi}
+    requests: {cpu: 50m, memory: 320Mi}
+    limits: {cpu: 500m, memory: 512Mi}
 
 consumers:
   replicas: 1
   resources:
-    requests: {cpu: 50m, memory: 160Mi}
+    requests: {cpu: 50m, memory: 320Mi}
     limits: {cpu: "1", memory: 768Mi}  # scans stream; images up to 50 MB are processed whole (WP-022)
 
 # Exactly one copy (ADR-023: merge windows and per-tenant rate limits are in memory). Rollouts
 # surge one new pod before the old stops; the durable consumer resumes from its last ack.
 fanout:
   resources:
-    requests: {cpu: 50m, memory: 128Mi}
-    limits: {cpu: 500m, memory: 384Mi}
+    requests: {cpu: 50m, memory: 320Mi}
+    limits: {cpu: 500m, memory: 512Mi}
 
 # Custom field index worker (D-088): one copy builds the indexes admins ask for, one at a time
 # (an advisory lock keeps a second copy or the migrate Job's fallback pass from building too).
 indexWorker:
   resources:
-    requests: {cpu: 20m, memory: 96Mi}
-    limits: {cpu: 250m, memory: 256Mi}
+    requests: {cpu: 20m, memory: 320Mi}
+    limits: {cpu: 500m, memory: 512Mi}
 
 # Temporal (§5; SLA clocks WP-025, ADR-037; workflow timers WP-048b, ADR-043).
 # - `bundled.enabled`: this release runs its own Temporal (the official server image, all four
@@ -151,14 +159,14 @@ temporal:
 slaTimers:
   replicas: 1
   resources:
-    requests: {cpu: 50m, memory: 160Mi}
+    requests: {cpu: 50m, memory: 320Mi}
     limits: {cpu: 500m, memory: 512Mi}
 
 # The workflow timers worker (WP-048b, ADR-043): like the SLA timers, only where Temporal is set.
 workflowTimers:
   replicas: 1
   resources:
-    requests: {cpu: 50m, memory: 160Mi}
+    requests: {cpu: 50m, memory: 320Mi}
     limits: {cpu: 500m, memory: 512Mi}
 
 # The mobile app's verified sign-in return link (ADR-044 item 3): the host serves

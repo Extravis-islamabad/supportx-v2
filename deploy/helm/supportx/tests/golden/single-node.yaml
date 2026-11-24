@@ -3043,10 +3043,10 @@ spec:
           resources:
             limits:
               cpu: 500m
-              memory: 384Mi
+              memory: 512Mi
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -3205,7 +3205,7 @@ spec:
               memory: 768Mi
             requests:
               cpu: 50m
-              memory: 160Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -3349,10 +3349,10 @@ spec:
           resources:
             limits:
               cpu: 500m
-              memory: 384Mi
+              memory: 512Mi
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -3501,11 +3501,11 @@ spec:
               drop: ["ALL"]
           resources:
             limits:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 500m
+              memory: 512Mi
             requests:
               cpu: 20m
-              memory: 96Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -3652,7 +3652,7 @@ spec:
               memory: 512Mi
             requests:
               cpu: 50m
-              memory: 160Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -3799,7 +3799,7 @@ spec:
               memory: 512Mi
             requests:
               cpu: 50m
-              memory: 160Mi
+              memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
