@@ -19,7 +19,7 @@ from collections import Counter
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.tenancy import TenantContext
 from app.modules.cmdb.infra.models import Ci, Relationship
@@ -107,6 +107,17 @@ async def test_a_ci_report_counts_what_each_reader_lists_narrowed_included(world
         assert narrowed_ids == {uuid.UUID(c["id"]) for c in mine}  # AC2: the narrowed list
         assert {c["type_id"] for c in mine} == {types["server"]["id"]}
         assert narrowed_ids < ids  # narrower than the admin's, before any grouping
+        # The narrowed rows read the CI type tree (a type rule takes its subtree): they run as
+        # the reporting role, as analytics runs them, so 0200's grant on cmdb_ci_types is proven.
+        found, _ids = await _source(world, a, a.requester, CI_ENTITY)
+        rels, _ids = await _source(world, a, a.requester, RELATIONSHIP_ENTITY)
+        context = TenantContext(a.tenant, a.requester)
+        async with world.app.state.db.reporting_session(context, timeout_seconds=30) as report:
+            for source in (found, rels):
+                counted = await report.scalar(
+                    select(func.count()).select_from(source.rows.subquery())
+                )
+                assert counted is not None, source.entity
 
 
 async def test_a_relationship_counts_only_when_both_cis_are_visible(world: World) -> None:
