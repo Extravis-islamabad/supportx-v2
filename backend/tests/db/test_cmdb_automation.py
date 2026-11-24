@@ -84,7 +84,7 @@ async def _edit(world: World, org: Org, ci: dict[str, Any], **values: Any) -> di
 async def _runs(world: World, org: Org, ci: dict[str, Any]) -> list[dict[str, Any]]:
     rows = await world.sql(
         "SELECT record_id, kind, automation_name, outcome, detail::text AS detail"
-        " FROM automation_runs WHERE tenant_id = $1 AND record_id = $2 ORDER BY created_at",
+        " FROM automation_runs WHERE tenant_id = $1 AND record_id = $2 ORDER BY occurred_at",
         org.tenant,
         uuid.UUID(ci["id"]),
     )
@@ -93,7 +93,7 @@ async def _runs(world: World, org: Org, ci: dict[str, Any]) -> list[dict[str, An
 
 async def _rule_history(world: World, org: Org, ci: dict[str, Any]) -> list[str]:
     rows = await world.sql(
-        "SELECT row_to_json(h)::text AS row FROM record_history h"
+        "SELECT row_to_json(h)::text AS row FROM field_changes h"
         " WHERE tenant_id = $1 AND record_id = $2 AND automation_ref IS NOT NULL",
         org.tenant,
         uuid.UUID(ci["id"]),
