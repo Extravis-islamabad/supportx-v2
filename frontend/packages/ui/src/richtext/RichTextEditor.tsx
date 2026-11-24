@@ -258,13 +258,17 @@ function ImageSupport({ onRules }: { onRules: (rules: FileRules | undefined) => 
   useEffect(() => {
     onRules(rules.data);
   }, [rules.data, onRules]);
-  usePersonalChannel((event) => {
-    if (event.type === 'files.changed') {
-      for (const fileId of event.ids) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(fileId) });
+  usePersonalChannel(
+    (event) => {
+      if (event.type === 'files.changed') {
+        for (const fileId of event.ids) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(fileId) });
+        }
       }
-    }
-  });
+      // A refresh: every file's scan state shown in the editor fetches again.
+    },
+    { covers: [[...queryKeys.files.all, 'detail']] },
+  );
   return null;
 }
 

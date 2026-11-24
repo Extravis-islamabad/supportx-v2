@@ -176,11 +176,14 @@ export function SignedInSessionsCard() {
   const sessions = useMySessions();
   const end = useEndMySession();
   const queryClient = useQueryClient();
-  usePersonalChannel((event) => {
-    if (event.type === SESSIONS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.identity.mySessions });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.type === SESSIONS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.identity.mySessions });
+      }
+    },
+    { covers: [queryKeys.identity.mySessions] },
+  );
   const { ask } = useEnd(end.mutateAsync, end.isPending);
   const endOthers = useEndOthers();
   const others = (sessions.data ?? []).some((row) => !row.current);

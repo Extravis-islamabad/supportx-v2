@@ -11,7 +11,7 @@ import {
   useUser,
   type ReleaseConflict,
 } from '@supportx/api-client';
-import { useListChannel, useTenantChannel } from '@supportx/realtime';
+import { type RealtimeMessage, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   FormProblem,
   ToneTag,
@@ -130,11 +130,18 @@ export function ReleaseConflictsPanel({ id }: { id: string }) {
   const refetch = () => {
     void queryClient.invalidateQueries({ queryKey: releaseKeys.part(id, 'conflicts') });
   };
-  useListChannel('releases', refetch);
-  useListChannel('changes', refetch);
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_windows_changed') refetch();
-  });
+  const covers = [releaseKeys.part(id, 'conflicts')];
+  const unlessCovered = (m: RealtimeMessage) => {
+    if (m.covered !== true) refetch();
+  };
+  useListChannel('releases', unlessCovered, { covers });
+  useListChannel('changes', unlessCovered, { covers });
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'work_items.change_windows_changed') refetch();
+    },
+    { covers },
+  );
   const items = conflicts.data?.items ?? [];
   if (items.length === 0) return null;
   const version = release.data?.version ?? 0;

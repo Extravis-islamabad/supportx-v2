@@ -74,11 +74,14 @@ export function AnnouncementPage() {
     () => void announcement.refetch(),
   );
   // Who may publish changed (the four-eyes setting): the action buttons follow.
-  useTenantChannel((message) => {
-    if (message.type === 'announcements.settings_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.detail(id ?? '') });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.type === 'announcements.settings_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.detail(id ?? '') });
+      }
+    },
+    { covers: [queryKeys.announcements.detail(id ?? '')] },
+  );
 
   if (announcement.isError) {
     const error = announcement.error;
@@ -124,23 +127,31 @@ function AnnouncementDetail({
     editingRef.current = editing;
   }, [editing]);
 
-  const viewers = useRecordChannel('announcement', item.id, (event) => {
-    if (event.type === 'refresh') {
-      void reload();
-      return;
-    }
-    const cached = queryClient.getQueryData<Announcement>(queryKeys.announcements.detail(item.id));
-    if (event.version !== undefined && cached !== undefined && event.version <= cached.version) {
-      return; // our own save, already shown
-    }
-    void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.history(item.id) });
-    if (!editingRef.current) {
-      void reload(); // nothing of mine to lose: just show the latest
-      return;
-    }
-    const by = others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone');
-    setChangedBy(by);
-  });
+  const viewers = useRecordChannel(
+    'announcement',
+    item.id,
+    (event) => {
+      if (event.type === 'refresh') {
+        void reload();
+        return;
+      }
+      const cached = queryClient.getQueryData<Announcement>(
+        queryKeys.announcements.detail(item.id),
+      );
+      if (event.version !== undefined && cached !== undefined && event.version <= cached.version) {
+        return; // our own save, already shown
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.history(item.id) });
+      if (!editingRef.current) {
+        void reload(); // nothing of mine to lose: just show the latest
+        return;
+      }
+      const by = others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone');
+      setChangedBy(by);
+      // The refresh reloads the announcement itself above (an edit in progress is kept).
+    },
+    { covers: [queryKeys.announcements.history(item.id)] },
+  );
   useEffect(() => {
     others.current = viewers;
   }, [viewers]);

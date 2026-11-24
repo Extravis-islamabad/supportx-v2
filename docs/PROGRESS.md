@@ -26,6 +26,14 @@
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
+- **Realtime `covers` (§8.3, lane C's 2026-11-24 bundle):** every channel hook names the queries it
+  covers, so no refresh is dropped. Files still to convert are listed in
+  `frontend/packages/eslint-plugin/channel-covers-pending.json` (93 at merge: lane A 48, lane B 45).
+  Each lane removes its files as it converts them, and the list is deleted when it's empty.
+  - [x] API, lint rule, package test and lane C's 23 files.
+  - [ ] Lane A's files, including the S3a ServiceRequestPage.
+  - [ ] Lane B's files.
+  - [ ] The empty list deleted (its own one-line PR).
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
