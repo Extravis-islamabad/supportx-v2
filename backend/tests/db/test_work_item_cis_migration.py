@@ -9,7 +9,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0195"  # 0199's down revision for now (re-pointed onto main's head at its turn)
+BEFORE = "0188"  # 0199's down revision for now (re-pointed onto main's head at its turn)
 
 
 async def _table(url: str) -> tuple[bool, bool] | None:

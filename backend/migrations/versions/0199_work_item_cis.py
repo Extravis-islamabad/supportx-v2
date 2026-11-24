@@ -10,7 +10,7 @@ Expand only, no data step:
 The downgrade stops while any tenant has a link (rule 5h), then drops the table.
 
 Revision ID: 0199
-Revises: 0195
+Revises: 0188
 Created: 2026-11-24
 """
 
@@ -23,7 +23,7 @@ from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0199"
 # main's head when written; re-pointed onto main's head at its queue turn.
-down_revision: str | None = "0195"
+down_revision: str | None = "0188"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
