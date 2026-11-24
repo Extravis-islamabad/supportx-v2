@@ -3045,7 +3045,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
@@ -3204,7 +3204,7 @@ spec:
               cpu: "1"
               memory: 768Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
@@ -3351,7 +3351,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
@@ -3504,7 +3504,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             requests:
-              cpu: 20m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
@@ -3651,7 +3651,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
@@ -3798,7 +3798,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             requests:
-              cpu: 50m
+              cpu: 100m
               memory: 320Mi
           volumeMounts:
             - {name: tmp, mountPath: /tmp}

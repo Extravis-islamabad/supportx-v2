@@ -62,7 +62,10 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-async def _emit(session: AsyncSession, row: CiDowntime, change: str) -> None:
+async def _emit(
+    session: AsyncSession, row: CiDowntime, change: str, previous: str | None = None
+) -> None:
+    """`previous`: the state before this write (None for an added row)."""
     await record_event(
         session,
         DowntimeChanged(
@@ -72,6 +75,7 @@ async def _emit(session: AsyncSession, row: CiDowntime, change: str) -> None:
             state=row.state,
             source=row.source,
             version=row.version,
+            previous_state=previous,
         ),
         aggregate_id=row.ci_id,
         aggregate_version=row.version,
@@ -243,6 +247,7 @@ async def update_manual(  # noqa: PLR0913 - the downtime, its version, the value
     row.starts_at, row.ends_at, row.description = starts_at, ends_at, description
     if "kind" in values:
         row.kind = values["kind"]
+    previous = row.state
     row.state = domain.state_at(row.starts_at, row.ends_at, _now()).value
     row.version += 1
     row.updated_by = subject.user_id
@@ -257,7 +262,7 @@ async def update_manual(  # noqa: PLR0913 - the downtime, its version, the value
         changes=[Change(k, before[k], after[k]) for k in after if before[k] != after[k]],
         source=source,
     )
-    await _emit(session, row, UPDATED)
+    await _emit(session, row, UPDATED, previous)
     return row
 
 
@@ -286,7 +291,7 @@ async def remove_manual(  # noqa: PLR0913 - the downtime, its version and the so
         changes=[],
         source=source,
     )
-    await _emit(session, row, REMOVED)
+    await _emit(session, row, REMOVED, row.state)
 
 
 # --- from work_items ------------------------------------------------------------------------------
@@ -377,7 +382,7 @@ async def _drop_unnamed(
         row.version += 1
         row.source_version = version
         await session.flush()
-        await _emit(session, row, REMOVED)
+        await _emit(session, row, REMOVED, row.state)
 
 
 async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> None:  # noqa: ANN401 - the event envelope
@@ -445,11 +450,12 @@ async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> No
             await session.flush()
             await _emit(session, row, ADDED)
             continue
+        previous = current.state
         for name, value in fields.items():
             setattr(current, name, value)
         current.version += 1
         await session.flush()
-        await _emit(session, current, UPDATED)
+        await _emit(session, current, UPDATED, previous)
 
 
 # --- the sweep ------------------------------------------------------------------------------------
@@ -480,10 +486,10 @@ async def sweep_tenant(session: AsyncSession, now: datetime | None = None) -> in
         state = domain.state_at(row.starts_at, row.ends_at, at).value
         if state == row.state:
             continue
-        row.state = state
+        previous, row.state = row.state, state
         row.version += 1
         await session.flush()
-        await _emit(session, row, STATE)
+        await _emit(session, row, STATE, previous)
         moved += 1
     return moved
 

@@ -27,9 +27,9 @@ const ADMIN = fakeSession(
     ],
   },
 );
-// downtime_started joins with its reader, after #608.
 const CI_OFFER = [
   'created',
+  'downtime_started',
   'relationship_added',
   'relationship_removed',
   'status_changed',
@@ -77,7 +77,7 @@ describe('Admin › CMDB › Configuration item triggers (WP-053 S5d)', () => {
     fireEvent.click(await within(block).findByTestId('trigger-add'));
     const events = await screen.findByTestId('trigger-events');
     await waitFor(() => {
-      expect(within(events).getAllByRole('checkbox')).toHaveLength(5);
+      expect(within(events).getAllByRole('checkbox')).toHaveLength(6);
     });
     expect(events.textContent).toContain('When a relationship is added');
     const labels = within(events)
@@ -89,8 +89,8 @@ describe('Admin › CMDB › Configuration item triggers (WP-053 S5d)', () => {
       'When the status changes',
       'When a relationship is added',
       'When a relationship is removed',
+      'When a downtime starts',
     ]);
-    expect(events.textContent).not.toContain('When a downtime starts');
     expect(events.textContent).not.toMatch(/trigger_event|_/);
     const kind = screen.getByTestId('trigger-action-0-kind');
     fireEvent.mouseDown(kind.querySelector('.ant-select-selector') ?? kind);

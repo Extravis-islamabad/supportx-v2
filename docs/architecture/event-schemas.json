@@ -2888,7 +2888,7 @@
     },
     "cmdb.downtime.changed": {
       "1": {
-        "description": "A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).\n\n`change` is added, updated, removed or state (the sweep moved it: `state` is the new one).\nIDs and codes only; the CI's screens refetch its downtimes (§8.3), and automation reads the\nstarted ones (S5d's `downtime_started`).",
+        "description": "A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).\n\n`change` is added, updated, removed or state (the sweep moved it: `state` is the new one).\n`previous_state` is the state before this write (None when added): an edit or a mirrored work\nitem can move a downtime into active too, not only the sweep (lane A, #626). Additive; older\nevents lack it. IDs and codes only; the CI's screens refetch its downtimes (§8.3), and\nautomation reads the started ones (S5d's `downtime_started`).",
         "properties": {
           "change": {
             "title": "Change",
@@ -2903,6 +2903,18 @@
             "format": "uuid",
             "title": "Downtime Id",
             "type": "string"
+          },
+          "previous_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous State"
           },
           "source": {
             "title": "Source",
