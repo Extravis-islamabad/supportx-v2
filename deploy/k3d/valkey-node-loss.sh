@@ -44,7 +44,7 @@ case "$CASE" in master|master-with-dns) ;; *) echo "unknown VALKEY_NODE_LOSS_CAS
 # shellcheck source=deploy/k3d/ha-lib.sh
 . "$ROOT/deploy/k3d/ha-lib.sh"
 cleanup() {
-  [ -z "$LOOKUP_WATCH" ] || kill "$LOOKUP_WATCH" 2>/dev/null || true
+  stop_lookups
   rm -f "$COOKIES" "$BODY" "$SETTLE_REASON" "$PHASES" "$LOOKUP_TRACE"
   for n in $CORDONED; do kubectl uncordon "$n" >/dev/null 2>&1 || true; done
   for pod in $VALKEY_PODS; do vcli "$pod" valkey CONFIG SET replica-priority 100 >/dev/null 2>&1 || true; done
@@ -90,6 +90,13 @@ watch_lookups() {  # watch_lookups <stopped node>: runs in the background until 
       done
     sleep 3
   done
+}
+stop_lookups() {  # the watcher and its children (an in-flight kubectl exec, its pipeline, sleep)
+  [ -n "$LOOKUP_WATCH" ] || return 0
+  pkill -P "$LOOKUP_WATCH" 2>/dev/null || true
+  kill "$LOOKUP_WATCH" 2>/dev/null || true
+  wait "$LOOKUP_WATCH" 2>/dev/null || true  # reaped quietly: no "Terminated" line in the log
+  LOOKUP_WATCH=""
 }
 show_lookups() {  # the watcher's lines, each change once per pod
   [ -s "$LOOKUP_TRACE" ] || return 0
@@ -225,7 +232,9 @@ echo "== stop $node (Valkey master $master; also on it:" \
 STOPPED="$node"
 STOPPED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 k3d node stop "$node"
-watch_lookups "$node" &
+# Its own stdin and output (lane C, #611): it writes only its trace file, and a child still
+# running after the step cannot print into the log or hold the output open.
+watch_lookups "$node" </dev/null >/dev/null 2>&1 &
 LOOKUP_WATCH=$!
 
 # 60 s (D-163): NodeLocal DNSCache (deploy/k3s/node-local-dns.sh) answers the sentinels'
@@ -262,8 +271,7 @@ took="$(until_ok 120 save_locale '"ar"')" ||
   { echo "the session or the write did not come back within 120 s (last answer: $(head -c 300 "$BODY"))"; show_write_trace; show_lookups; exit 1; }
 echo "the same session writes again after ${took}s more"
 show_write_trace
-kill "$LOOKUP_WATCH" 2>/dev/null || true
-LOOKUP_WATCH=""
+stop_lookups
 show_lookups
 
 echo "== $node starts again"
