@@ -33,6 +33,12 @@ RecordLabeler = Callable[
 ]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# WP-047a S4 (REQ-SR-044): a trigger's ad hoc ask. The record, the trigger, the approvers (as an
+# approval node's: user_ids, group_ids, roles) and the rule; what came of it ("applied", or a
+# code the run log keeps: approval_pending, record_closed).
+ApprovalAsker = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID, Mapping[str, Any], str], Awaitable[str]
+]
 # The IDs among these that are live templates of the type, in the session's tenant.
 TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid.UUID]]]
 # The record, the workflow's history ref, and the version it left and the one it is on now.
@@ -71,6 +77,8 @@ class RecordType:
     labels: "RecordLabeler | None" = None  # the overview's record names (WP-048b S5a)
     # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
     close_workflow: "WorkflowCloser | None" = None
+    # A trigger's "start an approval" (WP-047a S4, REQ-SR-044): None when the type has none.
+    ask_approval: "ApprovalAsker | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
     record_migration: "MigrationRecorder | None" = None
     # Which of these IDs are the type's templates, here (a workflow's start templates).
@@ -111,6 +119,9 @@ class CommandResult:
     # Accepted, decided later (an approval node): the node waits; the owning module's event
     # continues it with the result (REQ-WF-014).
     pending: bool = False
+    # The node's output when the command decides it (WP-047a S4: an approval's expiry names
+    # `timed_out`, or the decision that got there first); None: the node's usual next.
+    port: str | None = None
 
 
 # (session, the workflow's subject, record, command kind, payload, automation_ref) -> result.

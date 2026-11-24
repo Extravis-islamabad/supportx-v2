@@ -43,6 +43,7 @@ export const ar: LabelResource = {
   'errors.approval_changed': 'تغيّرت هذه الموافقة في هذه الأثناء. افتحها مجددًا.',
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
   'errors.approval_delegation_not_found': 'لم يعد هذا التفويض موجودًا.',
+  'errors.approval_expired': 'انتهت صلاحية هذه الموافقة قبل البت فيها.',
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_not_running':
     'لا توجد موافقة قيد الانتظار على {{display_id}}، لذا لا يمكن تغيير الموافقين.',
@@ -395,6 +396,7 @@ export const ar: LabelResource = {
   'errors.field.cannot_merge_itself': 'لا يمكن دمج مشكلة في نفسها.',
   'errors.field.cannot_see_record': 'لا يستطيع هذا الشخص رؤية هذا السجل، لذا لا يمكنه متابعته.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
+  'errors.field.catalog_item_not_requestable': 'اختر عنصر خدمة منشورًا يمكن للأشخاص طلبه.',
   'errors.field.catalog_too_deep': 'لفئات الكتالوج أربعة مستويات كحد أقصى.',
   'errors.field.category_disabled': 'هذه الفئة لم تعد مستخدمة.',
   'errors.field.category_loop': 'لا يمكن وضع الفئة داخل نفسها أو داخل إحدى فئاتها الفرعية.',
@@ -1148,6 +1150,7 @@ export const ar: LabelResource = {
   'errors.report_schedule_not_found': 'هذه الجدولة غير موجودة أو ليست لك.',
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
+  'errors.request_not_awaiting_answers': 'لم يعد هذا الطلب بانتظار الإجابات.',
   'errors.request_too_slow':
     'استغرق هذا وقتًا طويلًا فأُوقف. جرّب بحثًا أو تصفية أضيق، أو حاول لاحقًا.',
   'errors.requester_action_closed': 'لم يعد بإمكانك تغيير هذا: فقد حُلّ أو أُغلق أو أُلغي بالفعل.',

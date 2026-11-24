@@ -361,6 +361,15 @@ export const en = {
   'mail_outcome.rejected': 'Refused, the sender was answered',
   'mail_outcome.replied': 'Added to its record',
   'mail_outcome.too_large': 'Too large',
+  'mail_waiting_reason.approval_reply_already_decided':
+    'An approval reply to an approval already decided',
+  'mail_waiting_reason.approval_reply_comment_required':
+    'An approval reply without the comment it needed',
+  'mail_waiting_reason.approval_reply_sender_not_verified':
+    'An approval reply from a sender that could not be confirmed',
+  'mail_waiting_reason.approval_reply_unclear': 'An approval reply that was not clear',
+  'mail_waiting_reason.approval_reply_wrong_sender':
+    'An approval reply from someone not asked to approve',
   'mail_waiting_reason.block_rule': 'A block rule matched it; release it if it is wanted',
   'mail_waiting_reason.fields_needed':
     'The incident was not created: it needs {{fields}}, asked for by a template or rule. Hand it in again once they are not required, or create the incident by hand.',
@@ -376,6 +385,21 @@ export const en = {
   'mailbox_after_fetch.delete': 'Delete from the mailbox',
   'mailbox_after_fetch.mark_read': 'Mark as read',
   'mailbox_after_fetch.move': 'Move to a folder',
+  'mailbox_answer.approval_reply.already_decided.body':
+    'Your reply about {{display_id}} was not applied: that approval was already decided or is no longer waiting for you. You can see it in the app.',
+  'mailbox_answer.approval_reply.already_decided.subject': 'Re: {{subject}}',
+  'mailbox_answer.approval_reply.comment_required.body':
+    'Your reply about {{display_id}} was not applied: this approval needs a comment. Write it on the lines after "Approve" or "Reject", or decide in the app.',
+  'mailbox_answer.approval_reply.comment_required.subject': 'Re: {{subject}}',
+  'mailbox_answer.approval_reply.sender_not_verified.body':
+    'We could not confirm that your reply about {{display_id}} came from you, so it was not applied. Please approve or reject it in the app.',
+  'mailbox_answer.approval_reply.sender_not_verified.subject': 'Re: {{subject}}',
+  'mailbox_answer.approval_reply.unclear.body':
+    'We could not tell whether your reply about {{display_id}} approves or rejects it, so nothing was applied. Reply with "Approve" or "Reject" on the first line, or decide in the app.',
+  'mailbox_answer.approval_reply.unclear.subject': 'Re: {{subject}}',
+  'mailbox_answer.approval_reply.wrong_sender.body':
+    'Your reply about {{display_id}} came from an address that was not asked to approve it, so it was not applied. The approver can decide in the app.',
+  'mailbox_answer.approval_reply.wrong_sender.subject': 'Re: {{subject}}',
   'mailbox_answer.commands_line': 'Line {{line}}: {{text}} ({{reason}})',
   'mailbox_answer.commands_not_applied.body':
     'Your e-mail made {{id}}, but these lines at its top were not applied:\n\n{{lines}}\n\nReply to this e-mail to add to the incident.',
@@ -393,6 +417,7 @@ export const en = {
   'mailbox_auth_model.delegated': 'Signed in as the mailbox',
   'mailbox_creates.incident': 'Incidents',
   'mailbox_creates.nothing': 'Replies only',
+  'mailbox_creates.service_request': 'Service requests',
   'mailbox_credential_kind.certificate': 'Certificate',
   'mailbox_credential_kind.secret': 'Client secret',
   'mailbox_protocol.gmail': 'Gmail',

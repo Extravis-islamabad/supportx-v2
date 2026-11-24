@@ -23,10 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
-from app.modules.identity_access import mail_recipients, subject_for, worker_policy
+from app.modules.identity_access import Subject, mail_recipients, subject_for, worker_policy
 from app.modules.work_items.domain import kept_informed
 from app.modules.work_items.domain.mail_commands import CommandField
-from app.modules.work_items.domain.types import INCIDENT, SUBJECT_MAX, Channel, parse_display_id
+from app.modules.work_items.domain.types import (
+    INCIDENT,
+    SERVICE_REQUEST,
+    SUBJECT_MAX,
+    Channel,
+    parse_display_id,
+)
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import asset_links, catalogue, mail_commands
 from app.modules.work_items.service import work_items as items
@@ -172,8 +178,11 @@ class IncidentsFromMail:
         text: str = "",
         sender_verified: bool = False,
         cc: Sequence[str] = (),
+        catalog_item_id: uuid.UUID | None = None,
     ) -> CreatedRecord:
         """A new incident in the requester's name, channel e-mail, routed with the mailbox's group.
+
+        With `catalog_item_id` (a request mailbox, WP-047a S4): a service request of that item.
 
         Created as the requester would in the portal (their own rights, priority, routing and
         automation as for any new record); the mailbox's group is the entry point's group.
@@ -181,6 +190,15 @@ class IncidentsFromMail:
         """
         del message_id  # the ledger keeps it
         requester = await subject_for(session, _tenant(session), requester_id)
+        if catalog_item_id is not None:
+            return await _request_from_mail(
+                session,
+                requester,
+                catalog_item_id,
+                subject=await _title(session, requester_id, subject),
+                body_html=body_html,
+                group_id=group_id,
+            )
         planned = await mail_commands.plan(session, INCIDENT, text, sender_verified=sender_verified)
         template = await mail_commands.template_choice(session, INCIDENT, requester, planned)
         values: dict[str, object] = (
@@ -276,6 +294,56 @@ class IncidentsFromMail:
             entry_id=replied.entry_id,
             follow_up=CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id),
         )
+
+
+async def _title(session: AsyncSession, requester_id: uuid.UUID, subject: str) -> str:
+    """The mail's subject as a record's, else a stored name in the requester's language."""
+    title = fit_subject(subject)
+    if title:
+        return title
+    known = await mail_recipients(session, [requester_id])
+    language = known[requester_id].language if requester_id in known else "en"
+    return label("incidents.mail_no_subject", language)
+
+
+async def _request_from_mail(  # noqa: PLR0913 - the new request's fields, explicit
+    session: AsyncSession,
+    requester: Subject,
+    catalog_item_id: uuid.UUID,
+    *,
+    subject: str,
+    body_html: str,
+    group_id: uuid.UUID | None,
+) -> CreatedRecord:
+    """A service request of the mailbox's item, channel e-mail (WP-047a S4; REQ-SR-017 AC1).
+
+    No answers come from free mail text (V1): an item whose form requires some makes a request
+    that waits for them (`awaiting_answers`, REQ-SR-017 AC2/AC3), and the requester is told how
+    to give them (`request_notifications`: answers needed). The item is checked as any
+    request's is, as the requester, for every mail: a retired, unknown or not requestable item
+    refuses the mail, which an admin sees held with the reason (never an incident instead).
+    """
+    async with _refusals():
+        made = await items.create(
+            session,
+            requester,
+            SERVICE_REQUEST,
+            {
+                "subject": subject,
+                "description": body_html,
+                "requester_id": requester.user_id,
+                "catalog_item_id": str(catalog_item_id),
+                "answers": {},
+            },
+            source="email",
+            holders=worker_policy(),
+            channel=Channel.EMAIL,
+            entry_group_id=group_id,
+            answers_later=True,
+        )
+    # Missing answers are told by the request's own notice (service_request.answers_needed, on
+    # its created event): nothing to send here, in the mail's transaction.
+    return CreatedRecord(SERVICE_REQUEST.code.value, made.record.id, made.record.display_id)
 
 
 TARGET = IncidentsFromMail()

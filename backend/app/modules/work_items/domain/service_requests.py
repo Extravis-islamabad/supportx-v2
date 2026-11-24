@@ -67,6 +67,9 @@ class ApprovalStatus(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
+    # WP-047a S4 (REQ-SR-017 AC2/AC3): made from mail with required answers missing; approval
+    # starts only once the requester (or the desk) has given them.
+    AWAITING_ANSWERS = "awaiting_answers"
 
 
 @dataclass(frozen=True)

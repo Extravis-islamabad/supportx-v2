@@ -8,7 +8,8 @@ import (`work_items/service/inbound_mail.py` for incidents):
   subject lost it, the records of the mail it answers (`record_ids`, from the notification
   delivery log by Message-ID);
 - `create_from_mail`: a new record with channel "email", the requester as actor, through the
-  module's create service (priority, routing, automation as for any new record);
+  module's create service (priority, routing, automation as for any new record); a service
+  request of the mailbox's catalog item when it names one (WP-047a S4, REQ-SR-017);
 - `reply_from_mail`: a public reply by the requester (or the person it is for), with the
   module's reactions (resume, reopen within the window, or a follow-up record); an automatic
   reply (out-of-office) is recorded with no reaction and no notification.
@@ -101,8 +102,12 @@ class InboundTarget(Protocol):
         text: str = "",
         sender_verified: bool = False,
         cc: Sequence[str] = (),
+        catalog_item_id: uuid.UUID | None = None,
     ) -> CreatedRecord:
         """A new record; InboundRefused when the module's rules refuse it.
+
+        `catalog_item_id` (WP-047a S4, REQ-SR-017): the mailbox makes service requests of this
+        catalog item instead of incidents.
 
         `text`: the mail's plain text, for commands written at its top; `sender_verified`: the
         mailbox's trusted server vouched for the sender (only then may commands apply); `cc`: the
@@ -140,3 +145,49 @@ def unregister_inbound_target(record_type: str) -> None:
 def inbound_target(record_type: str) -> InboundTarget | None:
     """The target for `record_type`, or None when no module registered one."""
     return _TARGETS.get(record_type)
+
+
+# --- approval decisions by reply (WP-047a S4; REQ-SR-038) -------------------------------------
+
+
+@dataclass(frozen=True)
+class ApprovalReply:
+    """What became of a reply to an approval mail.
+
+    `reason` None: the decision was applied. Otherwise a code (labels
+    `mailbox_answer.approval_reply.<reason>`) the sender is told; nothing changed.
+    """
+
+    record_type: str
+    record_id: uuid.UUID
+    display_id: str
+    reason: str | None = None
+
+
+class ApprovalReplies(Protocol):
+    """Registered by the module that owns approvals (work_items)."""
+
+    async def decide_from_mail(
+        self,
+        session: AsyncSession,
+        *,
+        thread_ids: Sequence[str],
+        sender_id: uuid.UUID | None,
+        sender_verified: bool,
+        text: str,
+    ) -> ApprovalReply | None:
+        """The reply's decision, or None when it answers no approval mail (then: a reply)."""
+        ...
+
+
+_APPROVALS: list[ApprovalReplies] = []
+
+
+def register_approval_replies(target: ApprovalReplies) -> None:
+    """Let replies to approval mail decide (one owner; registering again replaces it)."""
+    _APPROVALS[:] = [target]
+
+
+def approval_replies() -> ApprovalReplies | None:
+    """The registered owner, or None."""
+    return _APPROVALS[0] if _APPROVALS else None

@@ -20,6 +20,7 @@ it themself: it is their acknowledgement.
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime
 
 from sqlalchemy import select
@@ -27,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
-from app.modules.identity_access import subject_for, user_names, worker_policy
+from app.modules.identity_access import person_placement, subject_for, user_names, worker_policy
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.conversation import EntryKind
@@ -80,6 +81,11 @@ ANSWERED = "service_request.clarification_answered"
 # WP-047a S3b (REQ-SR-041; the coordinator's condition 3): the approvers of a round that ended
 # with a restart are told it no longer needs them (their links were revoked).
 RESTARTED = "service_request.approval_restarted"
+# WP-047a S4 (REQ-SR-017 AC2): made from mail with required answers missing. One who may sign in
+# gets the portal page that asks only the missing questions; one who may not (a requester made
+# from mail, lane B) gets no link and is told their service desk gives portal access.
+ANSWERS_NEEDED = "service_request.answers_needed"
+ANSWERS_NO_ACCESS = "service_request.answers_needed_no_access"
 GROUP = "group"  # the request's group
 REQUESTER = "requester"  # the requester and the person it is for
 APPROVER = "approver"
@@ -107,6 +113,19 @@ EVENTS: tuple[NotificationEvent, ...] = (
         RECEIVED,
         NotificationCategory.CREATED,
         EventDefault(enabled=True, recipients=(REQUESTER,), notify_actor=True),
+    ),
+    # Required: without it the request waits on answers nobody asked for.
+    NotificationEvent(
+        ANSWERS_NEEDED,
+        NotificationCategory.CREATED,
+        EventDefault(enabled=True, recipients=(REQUESTER,), notify_actor=True),
+        required=True,
+    ),
+    NotificationEvent(
+        ANSWERS_NO_ACCESS,
+        NotificationCategory.CREATED,
+        EventDefault(enabled=True, recipients=(REQUESTER,), notify_actor=True),
+        required=True,
     ),
     NotificationEvent(
         APPROVED, NotificationCategory.STATUS, EventDefault(enabled=True, recipients=(REQUESTER,))
@@ -210,7 +229,8 @@ class ServiceRequestNotifications:
         if envelope.event_type == ServiceRequestReadyToFulfil.event_type:
             return (READY,)
         if envelope.event_type == WorkItemCreated.event_type:
-            return (RECEIVED,)
+            # One of the three answers (`context`): received, or which answers-needed notice.
+            return (RECEIVED, ANSWERS_NEEDED, ANSWERS_NO_ACCESS)
         return _status_event(payload)
 
     async def context(
@@ -218,7 +238,8 @@ class ServiceRequestNotifications:
     ) -> RecordContext | None:
         """The request now, and who is told now (a decided approval tells nobody)."""
         if event_code in REQUESTER_EVENTS:
-            return await _requester_context(session, event_code, envelope)
+            pick = _created_context if event_code in CREATED_EVENTS else _requester_context
+            return await pick(session, event_code, envelope)
         special = {
             READY: _ready_context,
             REPLY: _reply_context,
@@ -332,7 +353,9 @@ class ServiceRequestNotifications:
         }
 
 
-REQUESTER_EVENTS = frozenset({RECEIVED, APPROVED, REJECTED, WITHDRAWN, FULFILLED})
+# What a new request tells its requester: one of these three (`_created_context`).
+CREATED_EVENTS = frozenset({RECEIVED, ANSWERS_NEEDED, ANSWERS_NO_ACCESS})
+REQUESTER_EVENTS = CREATED_EVENTS | {APPROVED, REJECTED, WITHDRAWN, FULFILLED}
 
 
 async def _restarted_context(
@@ -437,6 +460,35 @@ def _status_event(payload: Mapping[str, object]) -> tuple[str, ...]:
     if payload.get("status_category") == StatusCategory.RESOLVED.value:
         return (FULFILLED,)
     return ()
+
+
+async def _created_context(
+    session: AsyncSession, event_code: str, envelope: EventEnvelope
+) -> RecordContext | None:
+    """The acknowledgement, or (made from mail with answers missing) how to give them.
+
+    Exactly one of the three answers for a new request (WP-047a S4, REQ-SR-017 AC2): received
+    when nothing is missing; else answers-needed with the portal page when the requester may
+    sign in, or with no link when they may not (`person_placement`, which fails closed).
+    """
+    record = await session.get(WorkItem, uuid.UUID(str(envelope.payload["work_item_id"])))
+    if record is None or record.deleted_at is not None:
+        return None
+    waiting = record.approval_status == ApprovalStatus.AWAITING_ANSWERS.value
+    if not waiting:
+        chosen = RECEIVED
+    elif (await person_placement(session, record.requester_id)).can_sign_in:
+        chosen = ANSWERS_NEEDED
+    else:
+        chosen = ANSWERS_NO_ACCESS
+    if chosen != event_code:
+        return None
+    found = await _requester_context(session, event_code, envelope)
+    if found is None or chosen != ANSWERS_NEEDED:
+        return found
+    page = f"/service-requests/{record.id}/complete"  # asks only the missing questions
+    variables = {**found.variables, "record.link": page}
+    return replace(found, public_link=page, variables=variables, public_variables=variables)
 
 
 async def _requester_context(

@@ -80,6 +80,8 @@ class MailboxCreates(StrEnum):
     """What a new (non-reply) message to the mailbox becomes."""
 
     INCIDENT = "incident"
+    # WP-047a S4 (REQ-SR-017): a request of the mailbox's catalog item (`catalog_item_id`).
+    SERVICE_REQUEST = "service_request"
     NOTHING = "nothing"  # replies only
 
 

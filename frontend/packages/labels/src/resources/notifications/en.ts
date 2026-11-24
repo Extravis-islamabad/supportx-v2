@@ -172,6 +172,9 @@ export const en = {
   'notification_event.security.new_device': 'A sign-in from a new browser or device',
   'notification_event.security.password_changed': 'Your password was changed',
   'notification_event.service_account.needs_owner': 'A service account needs a new owner',
+  'notification_event.service_request.answers_needed': 'Request from email: answers needed',
+  'notification_event.service_request.answers_needed_no_access':
+    'Request from email: answers needed, no portal access',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approval_restarted': "A request's approval started again",
@@ -811,6 +814,18 @@ export const en = {
     '{{ record.title }} needs a new owner',
   'notification_template.service_account.needs_owner.subject':
     '{{ record.title }} needs a new owner',
+  'notification_template.service_request.answers_needed.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" as {{ record.display_id }}. Before it can go ahead, please answer a few questions: {{ record.link }}',
+  'notification_template.service_request.answers_needed.in_app':
+    '{{ record.display_id }} needs a few answers before it can go ahead',
+  'notification_template.service_request.answers_needed.subject':
+    'Your request {{ record.display_id }} needs a few answers',
+  'notification_template.service_request.answers_needed_no_access.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" as {{ record.display_id }}. It needs a few more details before it can go ahead. Your service desk can complete them with you, or give you access to the self-service portal to answer them yourself.',
+  'notification_template.service_request.answers_needed_no_access.in_app':
+    '{{ record.display_id }} needs a few answers before it can go ahead',
+  'notification_template.service_request.answers_needed_no_access.subject':
+    'Your request {{ record.display_id }} needs a few answers',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':

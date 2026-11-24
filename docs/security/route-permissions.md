@@ -941,6 +941,8 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/portal/service-requests` | signed_in | - |
 | GET | `/api/v1/portal/service-requests/{record_id}` | signed_in | - |
 | GET | `/api/v1/portal/service-requests/{record_id}/conversation` | signed_in | - |
+| GET | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - |
+| PUT | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - |
 | POST | `/api/v1/portal/service-requests/{record_id}/replies` | signed_in | - |
 | GET | `/api/v1/portal/service-requests/{record_id}/request-again` | signed_in | - |
 | POST | `/api/v1/portal/service-requests/{record_id}/resolution/confirm` | signed_in | - |

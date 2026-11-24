@@ -77,6 +77,9 @@ class CommandKind(StrEnum):
     ADD_NOTE = "add_note"
     START_SUB_FLOW = "start_sub_flow"  # carried out by the runtime, not an owning module
     OPEN_APPROVAL = "open_approval"  # opened now, decided later: its result names the output
+    # WP-047a S4 (REQ-SR-044): an approval's timeout passed. Its result is `timed_out`, or the
+    # decision that got there first (the owning module locks the level's rows to decide which).
+    EXPIRE_APPROVAL = "expire_approval"
     OPEN_TASKS = "open_tasks"  # opened now, done later: all done is its result
     RUN_FUNCTION = "run_function"  # run by a worker through the runner port (§6.7)
     CALL_WEBHOOK = "call_webhook"  # sent by a worker through the guarded client (ADR-043 §8)
@@ -252,7 +255,12 @@ def advance(  # noqa: PLR0913 - the instance and its surroundings, explicit
         _apply(run, event)
         _drain(run)
         _settle(run)
-    alive = [t for t in run.state.tokens if t.wake_at is not None and t.state == TokenState.WAITING]
+    # A waiting token's timer, or an approval's timeout while it waits on its command (S4).
+    alive = [
+        t
+        for t in run.state.tokens
+        if t.wake_at is not None and t.state in {TokenState.WAITING, TokenState.COMMAND}
+    ]
     wake = min((t.wake_at for t in alive if t.wake_at is not None), default=None)
     if run.state.status not in {InstanceStatus.RUNNING, InstanceStatus.WAITING}:
         wake = None
@@ -265,6 +273,8 @@ def _apply(run: _Run, event: Event | None) -> None:  # noqa: C901 - one branch p
     if isinstance(event, CommandDone):
         _command_done(run, event)
         return
+    if isinstance(event, TimerFired):
+        _expire_approvals(run)
     for token in [t for t in run.state.tokens if t.state == TokenState.WAITING]:
         node = run.definition.node(token.node)
         if isinstance(event, TimerFired):
@@ -285,6 +295,24 @@ def _apply(run: _Run, event: Event | None) -> None:  # noqa: C901 - one branch p
             run.follow(token, "next")
         elif _overtaken(run, node.config):
             run.follow(token, "overtaken")  # never silently dropped (REQ-WF-012 AC2)
+
+
+def _expire_approvals(run: _Run) -> None:
+    """An approval node whose timeout passed asks its module to expire the level (REQ-SR-044).
+
+    The token keeps waiting on the new command; a late result of the opening command finds the
+    token on another command and is ignored, so exactly one outcome follows.
+    """
+    for token in run.state.tokens:
+        if (
+            token.state != TokenState.COMMAND
+            or token.wake_at is None
+            or token.wake_at > run.now
+            or run.definition.node(token.node).type != NodeType.APPROVAL
+        ):
+            continue
+        opened, token.wake_at = token.command, None
+        _command(run, token, CommandKind.EXPIRE_APPROVAL, {"opened": opened})
 
 
 def _command_done(run: _Run, event: CommandDone) -> None:
@@ -442,6 +470,9 @@ def _run_node(run: _Run, token: Token) -> None:  # noqa: C901, PLR0912 - one bra
                     "rule": str(config.get("rule", "any")),
                 },
             )
+            hours = config.get("timeout_hours")
+            if hours is not None:  # the waker fires it (the workflow timers worker, lane C)
+                token.wake_at = run.clock(run.now, int(hours) * 3600, TimeBasis.CALENDAR)
 
 
 def _set_variable(run: _Run, token: Token) -> None:

@@ -359,6 +359,11 @@ export const ar: LabelResource = {
   'mail_outcome.rejected': 'رُفض، وتم الرد على المرسل',
   'mail_outcome.replied': 'أُضيف إلى سجله',
   'mail_outcome.too_large': 'كبير جدًا',
+  'mail_waiting_reason.approval_reply_already_decided': 'رد على موافقة تم البت فيها',
+  'mail_waiting_reason.approval_reply_comment_required': 'رد موافقة دون التعليق المطلوب',
+  'mail_waiting_reason.approval_reply_sender_not_verified': 'رد موافقة من مرسل تعذّر التأكد منه',
+  'mail_waiting_reason.approval_reply_unclear': 'رد موافقة غير واضح',
+  'mail_waiting_reason.approval_reply_wrong_sender': 'رد موافقة من شخص لم يُطلب منه الموافقة',
   'mail_waiting_reason.block_rule': 'طابقته قاعدة حظر؛ أفرج عنه إن كان مطلوبًا',
   'mail_waiting_reason.fields_needed':
     'لم تُنشأ الحادثة: تحتاج إلى {{fields}}، يطلبها قالب أو قاعدة. أعد إدخالها عندما لا تعود مطلوبة، أو أنشئ الحادثة يدويًا.',
@@ -378,6 +383,21 @@ export const ar: LabelResource = {
   'mailbox_after_fetch.delete': 'حذفه من صندوق البريد',
   'mailbox_after_fetch.mark_read': 'تعليمه كمقروء',
   'mailbox_after_fetch.move': 'نقله إلى مجلد',
+  'mailbox_answer.approval_reply.already_decided.body':
+    'لم يُطبَّق ردك بشأن {{display_id}}: تم البت في هذه الموافقة أو لم تعد بانتظارك. يمكنك رؤيتها في التطبيق.',
+  'mailbox_answer.approval_reply.already_decided.subject': 'رد: {{subject}}',
+  'mailbox_answer.approval_reply.comment_required.body':
+    'لم يُطبَّق ردك بشأن {{display_id}}: تحتاج هذه الموافقة إلى تعليق. اكتبه في الأسطر التي تلي "موافق" أو "مرفوض"، أو قرِّر في التطبيق.',
+  'mailbox_answer.approval_reply.comment_required.subject': 'رد: {{subject}}',
+  'mailbox_answer.approval_reply.sender_not_verified.body':
+    'لم نتمكن من التأكد من أن ردك بشأن {{display_id}} صادر عنك، لذا لم يُطبَّق. يُرجى الموافقة أو الرفض في التطبيق.',
+  'mailbox_answer.approval_reply.sender_not_verified.subject': 'رد: {{subject}}',
+  'mailbox_answer.approval_reply.unclear.body':
+    'لم نتمكن من معرفة ما إذا كان ردك بشأن {{display_id}} موافقة أم رفضًا، لذا لم يُطبَّق شيء. اكتب "موافق" أو "مرفوض" في السطر الأول، أو قرِّر في التطبيق.',
+  'mailbox_answer.approval_reply.unclear.subject': 'رد: {{subject}}',
+  'mailbox_answer.approval_reply.wrong_sender.body':
+    'وصل ردك بشأن {{display_id}} من عنوان لم يُطلب منه الموافقة، لذا لم يُطبَّق. يمكن للموافق اتخاذ القرار في التطبيق.',
+  'mailbox_answer.approval_reply.wrong_sender.subject': 'رد: {{subject}}',
   'mailbox_answer.commands_line': 'السطر {{line}}: {{text}} ({{reason}})',
   'mailbox_answer.commands_not_applied.body':
     'أنشأت رسالتك {{id}}، لكن هذه الأسطر في أعلاها لم تُطبَّق:\n\n{{lines}}\n\nردّ على هذه الرسالة للإضافة إلى البلاغ.',
@@ -395,6 +415,7 @@ export const ar: LabelResource = {
   'mailbox_auth_model.delegated': 'بتسجيل الدخول بحساب صندوق البريد',
   'mailbox_creates.incident': 'حوادث',
   'mailbox_creates.nothing': 'الردود فقط',
+  'mailbox_creates.service_request': 'طلبات الخدمة',
   'mailbox_credential_kind.certificate': 'شهادة',
   'mailbox_credential_kind.secret': 'سرّ العميل',
   'mailbox_protocol.gmail': 'Gmail',
