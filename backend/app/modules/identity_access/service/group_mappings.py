@@ -10,6 +10,7 @@ The rules live in domain/group_mappings.py; the plan is ~/Extravis/plans/wp-057-
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import func, select
@@ -42,6 +43,7 @@ from app.modules.identity_access.infra.models import (
     IdpGroupMapping,
     Role,
     RolePermission,
+    SsoProvider,
     User,
 )
 from app.modules.identity_access.service import roles
@@ -268,6 +270,29 @@ CHOICE_REQUIRED_CODE = "mapping_in_use_choice_required"
 OnHeld = Literal["keep", "remove"]
 
 
+# Which modules own a mapping's sources (rule e: identity_access never reads their tables).
+# integrations registers "directory"; this module's own SSO set-ups are checked here.
+SourceCheck = Callable[[AsyncSession, uuid.UUID], Awaitable[bool]]
+_SOURCES: dict[SourceKind, SourceCheck] = {}
+
+
+def register_group_source(kind: SourceKind, check: SourceCheck) -> None:
+    """A module says how to tell that one of its sources exists (at its import)."""
+    _SOURCES[kind] = check
+
+
+async def require_source(session: AsyncSession, kind: SourceKind, source_id: uuid.UUID) -> None:
+    """404 `mapping_source_not_found` unless the source exists in this tenant."""
+    if kind is SourceKind.SSO:
+        found = await session.scalar(select(SsoProvider.id).where(SsoProvider.id == source_id))
+        exists = found is not None
+    else:
+        check = _SOURCES.get(kind)
+        exists = check is not None and await check(session, source_id)
+    if not exists:
+        raise NotFound(code="mapping_source_not_found")
+
+
 async def mapped_external_groups(
     session: AsyncSession, source_kind: SourceKind, source_id: uuid.UUID
 ) -> frozenset[str]:
@@ -298,6 +323,7 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
     """A new mapping, after the guards: SSO waits for S5c-1b; privileged access is refused."""
     if source_kind is SourceKind.SSO and not SSO_GROUP_MAPPINGS_READY:
         raise ValidationFailed(errors=[_error("source_kind", COMING_SOON_CODE)])
+    await require_source(session, source_kind, source_id)
     if (role_id is None) == (group_id is None):
         raise ValidationFailed(errors=[_error("target", "one_target_required")])
     external = external_group_id.strip()
@@ -323,14 +349,6 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
         await session.flush()
     except IntegrityError as exc:  # the role is not this tenant's, or the same mapping exists
         raise Conflict(code="mapping_exists") from exc
-    await record(
-        session,
-        action_code=CREATED,
-        facts=WORKER,
-        object_type="idp_group_mapping",
-        object_id=mapping.id,
-        details={"source": source_kind.value, "external_group_id": external},
-    )
     return mapping
 
 
@@ -366,15 +384,22 @@ async def set_privileged_allowed(session: AsyncSession, *, allowed: bool) -> boo
             set_={**values, "version": AccessSettings.version + 1},
         )
     )
-    await record(
-        session,
-        action_code=OPT_IN_CHANGED,
-        facts=WORKER,
-        object_type="access_settings",
-        object_id=context.tenant_id,
-        details={"allowed": allowed},
-    )
     return True
+
+
+async def guard_group_role(
+    session: AsyncSession, catalogue: Catalogue, group_id: uuid.UUID, role_id: uuid.UUID
+) -> None:
+    """409 when a privileged role goes onto a group a live mapping targets, without the opt-in."""
+    targeted = await session.scalar(
+        select(func.count()).where(
+            IdpGroupMapping.group_id == group_id, IdpGroupMapping.deleted_at.is_(None)
+        )
+    )
+    if not targeted or await privileged_allowed(session):
+        return
+    if await role_is_privileged(session, catalogue, role_id):
+        raise Conflict(code=PRIVILEGED_CODE)
 
 
 async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:
@@ -433,14 +458,6 @@ async def remove_mapping(
                 mapping_id=mapping.id,
             )
     mapping.deleted_at = system_clock.now()
-    await record(
-        session,
-        action_code=REMOVED,
-        facts=WORKER,
-        object_type="idp_group_mapping",
-        object_id=mapping.id,
-        details={"held": len(held), "on_held": on_held},
-    )
     access_changed(session)
 
 

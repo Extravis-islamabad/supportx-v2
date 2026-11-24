@@ -753,8 +753,15 @@ async def add_group_role(
     group_id: uuid.UUID,
     role_id: uuid.UUID,
 ) -> bool:
-    """A support group carries the role: its members hold it (idempotent; no escalation)."""
+    """A support group carries the role: its members hold it (idempotent; no escalation).
+
+    WP-057 S5c (lane B's condition 4): a privileged role on a group a mapping targets would let
+    an identity provider or a directory give it, so that needs the tenant's opt-in too.
+    """
     await _assignable(session, policy, subject, role_id)
+    from app.modules.identity_access.service import group_mappings  # noqa: PLC0415 - the module imports this one
+
+    await group_mappings.guard_group_role(session, policy.catalogue, group_id, role_id)
     # Its service identity members would hold it too (lane B, WP-048b).
     role = await RoleRepository(session).get(role_id)
     detail = await _detail(session, policy.catalogue, role)

@@ -586,6 +586,12 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | DELETE | `/api/v1/identity/domains/{domain_id}` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/domains/{domain_id}/check` | `identity.manage` | identity.manage: all |
 | POST | `/api/v1/identity/domains/{domain_id}/verify` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/group-mappings` | `identity.manage` | identity.manage: all |
+| POST | `/api/v1/identity/group-mappings` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/group-mappings/settings` | `identity.manage` | identity.manage: all |
+| PUT | `/api/v1/identity/group-mappings/settings` | `identity.manage` | identity.manage: all |
+| DELETE | `/api/v1/identity/group-mappings/{mapping_id}` | `identity.manage` | identity.manage: all |
+| GET | `/api/v1/identity/group-mappings/{mapping_id}/holders` | `identity.manage` | identity.manage: all |
 | GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
 | POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |

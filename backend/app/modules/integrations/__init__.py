@@ -21,6 +21,7 @@ from app.modules.integrations.infra import models  # noqa: F401 - tables known t
 from app.modules.integrations.service import (
     catalogue,
     connector_notifications,
+    directories,
     notifications,
     person_data,
     person_mentions,
@@ -38,6 +39,7 @@ from app.shared.schedules import ScheduleSpec
 notifications.register()  # mail admins hear about failing mailboxes (WP-024 session 2)
 catalogue.register()  # mailboxes are the catalogue's first connectors (WP-040)
 catalogue.register_directories()  # directory sync (WP-040 session 2)
+directories.register_mapping_source()  # a group mapping's directory source (WP-057 S5c)
 connector_notifications.register()  # failing and recovered connectors (WP-040)
 
 # Integrations' slice of a person's erasure (ADR-052): at import.

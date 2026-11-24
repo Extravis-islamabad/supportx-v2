@@ -29,6 +29,7 @@ from app.modules.identity_access import (
     check_group_grantable,
     create_group_mapping,
     list_group_mappings,
+    register_group_source,
     release_from_directory,
     remove_group_mapping,
 )
@@ -437,3 +438,18 @@ class DirectoryRefused(ServiceUnavailable):
     """The directory refused or did not answer; `reason` says what an admin can do."""
 
     code = "directory_unavailable"
+
+
+async def _directory_exists(session: AsyncSession, directory_id: uuid.UUID) -> bool:
+    """A live directory connector of this tenant (a group mapping's source, WP-057 S5c)."""
+    found = await session.scalar(
+        select(DirectoryConnector.id).where(
+            DirectoryConnector.id == directory_id, DirectoryConnector.deleted_at.is_(None)
+        )
+    )
+    return found is not None
+
+
+def register_mapping_source() -> None:
+    """identity_access checks a directory mapping's source through this (rule e)."""
+    register_group_source(GroupSourceKind.DIRECTORY, _directory_exists)
