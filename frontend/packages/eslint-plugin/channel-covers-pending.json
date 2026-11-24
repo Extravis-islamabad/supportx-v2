@@ -44,17 +44,6 @@
     "apps/console/src/pages/cmdb/map/ImpactTab.tsx",
     "apps/console/src/pages/cmdb/map/useMapGraph.ts",
     "apps/console/src/pages/cmdb/views/BusinessViewPage.tsx",
-    "apps/console/src/pages/cmdb/views/BusinessViewsPage.tsx",
-    "apps/portal/src/PortalLayout.tsx",
-    "apps/portal/src/pages/HomePage.tsx",
-    "apps/portal/src/pages/MyAssetsPage.tsx",
-    "apps/portal/src/pages/MyBookings.tsx",
-    "apps/portal/src/pages/approvals/ApprovalsPage.tsx",
-    "apps/portal/src/pages/changes/ChangePage.tsx",
-    "apps/portal/src/pages/changes/ChangesPage.tsx",
-    "apps/portal/src/pages/requests/RequestPage.tsx",
-    "apps/portal/src/pages/requests/RequestsPage.tsx",
-    "apps/portal/src/pages/service-requests/ServiceRequestPage.tsx",
-    "apps/portal/src/pages/service-requests/ServiceRequestsPage.tsx"
+    "apps/console/src/pages/cmdb/views/BusinessViewsPage.tsx"
   ]
 }

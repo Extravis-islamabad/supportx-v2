@@ -73,14 +73,27 @@ export function ServiceRequestPage() {
   const answer = useAnswerRequest(id);
   const [notDone, setNotDone] = useState(false);
   const [why, setWhy] = useState('');
-  useRecordEvents('portal_wi', id, (event) => {
-    if (event.type === 'work_items.portal_conversation_changed') {
-      refreshQueries(queryClient, portalRequestKeys.conversation(id));
-      return;
-    }
-    refreshQueries(queryClient, portalRequestKeys.detail(id));
-    refreshQueries(queryClient, serviceRequestKeys.detail(id));
-  });
+  // The detail keys hold the steps (portal) and the approvals (service request) beneath them.
+  useRecordEvents(
+    'portal_wi',
+    id,
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed all three (§8.3)
+      if (event.type === 'work_items.portal_conversation_changed') {
+        refreshQueries(queryClient, portalRequestKeys.conversation(id));
+        return;
+      }
+      refreshQueries(queryClient, portalRequestKeys.detail(id));
+      refreshQueries(queryClient, serviceRequestKeys.detail(id));
+    },
+    {
+      covers: [
+        portalRequestKeys.detail(id),
+        portalRequestKeys.conversation(id),
+        serviceRequestKeys.detail(id),
+      ],
+    },
+  );
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (
