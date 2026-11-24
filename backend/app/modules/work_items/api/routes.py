@@ -33,6 +33,7 @@ from app.modules.work_items.api.checklist_routes import (
 )
 from app.modules.work_items.api.children_routes import add_children_routes
 from app.modules.work_items.api.ci_routes import add_ci_routes
+from app.modules.work_items.api.clarification_routes import add_clarification_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -1408,6 +1409,21 @@ class WorkItemCatalogueOut(BaseModel):
         description="Requests: someone who approved an earlier stage is not asked again "
         "(REQ-SR-033; off; an item's own setting overrides it). Professional.",
     )
+    approval_reminder_after_days: int = Field(
+        default=2,
+        description="Requests: a pending approver's first reminder after this many working "
+        "days (REQ-SR-034; 1-30).",
+    )
+    approval_reminder_count: int = Field(
+        default=3,
+        description="Requests: reminders sent, one a working day; after the last the stage "
+        "escalates (REQ-SR-034; 0-10).",
+    )
+    approval_reminder_minute: int = Field(
+        default=600,
+        description="Requests: the time of day reminders go out, in minutes after midnight in "
+        "the approver's time zone (REQ-SR-034; 600 = 10:00).",
+    )
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
@@ -1500,6 +1516,9 @@ class WorkItemCatalogueOut(BaseModel):
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
             auto_approve_earlier=cat.auto_approve_earlier,
+            approval_reminder_after_days=cat.approval_reminder_after_days,
+            approval_reminder_count=cat.approval_reminder_count,
+            approval_reminder_minute=cat.approval_reminder_minute,
             portal_show_due_time=cat.portal_show_due_time,
             requester_cancel=RequesterCancel(cat.requester_cancel),
             requester_edit_fields=sorted(cat.requester_edit_fields),
@@ -1660,6 +1679,9 @@ class WorkItemSettingsPatch(BaseModel):
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
     auto_approve_earlier: bool | None = Field(default=None, description="Requests only.")
+    approval_reminder_after_days: int | None = Field(default=None, description="Requests only.")
+    approval_reminder_count: int | None = Field(default=None, description="Requests only.")
+    approval_reminder_minute: int | None = Field(default=None, description="Requests only.")
     portal_show_due_time: bool | None = None
     requester_cancel: RequesterCancel | None = None
     requester_edit_fields: list[str] | None = Field(default=None, max_length=40)
@@ -3095,6 +3117,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
         add_approver_change_routes(router, wtype)  # WP-047a S2b (REQ-SR-042)
+        add_clarification_routes(router, wtype)  # WP-047a S3a (REQ-SR-037)
     elif wtype.code in {
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,

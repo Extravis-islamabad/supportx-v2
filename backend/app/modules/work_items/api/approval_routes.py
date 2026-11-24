@@ -25,9 +25,10 @@ from app.modules.identity_access import Subject, user_contacts
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.change_boards import BoardChoice
+from app.modules.work_items.domain.clarifications import Addressee, ClarificationState, state_of
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import approvals as service
-from app.modules.work_items.service import bulk_approvals
+from app.modules.work_items.service import bulk_approvals, clarifications
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.history import CLIENT_HEADER, source_of
 
@@ -76,6 +77,38 @@ class BulkApproveOut(BaseModel):
 
 
 ModifyRefused = service.ModifyRefused
+
+
+class ClarificationOut(BaseModel):
+    """An approver's question on this approval (WP-047a S3a; REQ-SR-037)."""
+
+    id: uuid.UUID
+    state: ClarificationState = Field(description="open, answered, decided or closed.")
+    addressee: Addressee = Field(description="requester or technician.")
+    asked_by: uuid.UUID
+    asked_at: datetime
+    ended_at: datetime | None
+    question: str | None = Field(
+        description="The question (sanitised HTML): for the person who asked and staff only."
+    )
+    answer: str | None = Field(
+        description="The answer (sanitised HTML): for the person who asked and staff only."
+    )
+
+    @classmethod
+    def of(cls, shown: clarifications.Shown) -> "ClarificationOut":
+        """From the service's view."""
+        row = shown.row
+        return cls(
+            id=row.id,
+            state=state_of(row.ended_how),
+            addressee=Addressee(row.addressee),
+            asked_by=row.asked_by,
+            asked_at=row.asked_at,
+            ended_at=row.ended_at,
+            question=shown.question,
+            answer=shown.answer,
+        )
 
 
 class ApprovalOut(BaseModel):
@@ -138,12 +171,22 @@ class ApprovalOut(BaseModel):
     comments_required: bool
     self_approved: bool = Field(description="Decided by the requester or the person it is for.")
     can_decide: bool
+    escalated_from_id: uuid.UUID | None = Field(
+        default=None,
+        description="Requests: the approval this one was escalated from (REQ-SR-034); the "
+        "first of the two to decide settles it.",
+    )
+    clarification: ClarificationOut | None = Field(
+        default=None, description="Requests: the latest question asked on it (REQ-SR-037)."
+    )
     created_at: datetime
     version: int
 
     @classmethod
-    def of(cls, view: service.ApprovalView) -> "ApprovalOut":
-        """From the service's view."""
+    def of(
+        cls, view: service.ApprovalView, clarification: clarifications.Shown | None = None
+    ) -> "ApprovalOut":
+        """From the service's view, with its latest clarification if any."""
         row = view.row
         return cls(
             id=row.id,
@@ -172,6 +215,8 @@ class ApprovalOut(BaseModel):
             comments_required=row.comments_required,
             self_approved=view.self_approved,
             can_decide=view.can_decide,
+            escalated_from_id=row.escalated_from_id,
+            clarification=ClarificationOut.of(clarification) if clarification else None,
             created_at=row.created_at,
             version=row.version,
         )
@@ -216,9 +261,17 @@ async def approvals_out(
 ) -> ApprovalsOut:
     """The record's approvals as the viewer may see them, with the people's names."""
     found = await service.list_for_record(session, subject, wtype, record_id)
+    asked = (
+        await clarifications.shown(
+            session, subject, wtype, await service.record_of(session, wtype, record_id)
+        )
+        if found
+        else {}
+    )
     names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
+    names |= {c.row.asked_by for c in asked.values()}
     return ApprovalsOut(
-        items=[ApprovalOut.of(v) for v in found],
+        items=[ApprovalOut.of(v, asked.get(v.row.id)) for v in found],
         people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
         modify_refused=await service.modify_refused(session, subject, wtype, record_id),
     )

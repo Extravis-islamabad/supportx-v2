@@ -4,6 +4,7 @@ import { Alert, Card, Flex, Form, Input, Select, Switch, Typography } from 'antd
 import type { CatalogQuestion } from '@supportx/api-client';
 import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
+import { EscalateToField } from './EscalateToField';
 import { GroupPicker, UserPicker } from '../../incidents/pickers';
 import { PerLanguage } from './PerLanguage';
 import {
@@ -265,6 +266,13 @@ function StageCard({
               ariaLabel={t('catalog_admin.approval.backup')}
             />
           </Form.Item>
+          <EscalateToField
+            value={stage.escalate_to}
+            onChange={(escalate_to) => {
+              onChange({ escalate_to });
+            }}
+            testId={`cat-stage-${String(index)}-escalate-to`}
+          />
         </Flex>
         <Flex gap={24} wrap>
           {previous !== undefined && (

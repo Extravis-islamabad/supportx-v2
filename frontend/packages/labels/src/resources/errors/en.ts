@@ -224,6 +224,8 @@ export const en = {
   'errors.checklist_library_not_found':
     'This library checklist is no longer there or is no longer offered.',
   'errors.checklist_not_found': 'This checklist is no longer there.',
+  'errors.clarification_open':
+    'A question on this approval is still open. Wait for the answer, or decide.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -605,6 +607,7 @@ export const en = {
   'errors.field.ip_allow_locks_you_out':
     'This list would shut you out: your address {{address}} is not in it. Add it, or a range that holds it.',
   'errors.field.ip_allow_too_many': 'Use at most {{max}} entries.',
+  'errors.field.is_you': "You can't ask yourself.",
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
@@ -645,6 +648,7 @@ export const en = {
   'errors.field.needs_collapsible': 'Only a collapsible section can start closed.',
   'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.no_technician': 'Nobody is assigned to this request yet.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_form_field': 'This field is not on the form.',
   'errors.field.not_a_person_question': 'Choose a question of this form that asks for a person.',
@@ -701,6 +705,7 @@ export const en = {
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
   'errors.field.quantity_over_max': 'You can ask for at most {{max}}.',
+  'errors.field.question_too_long': 'A question can be at most 2,000 characters.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',

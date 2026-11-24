@@ -223,6 +223,8 @@ export const ur: LabelResource = {
   'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
   'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
   'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
+  'errors.clarification_open':
+    'اس منظوری پر ایک سوال ابھی کھلا ہے۔ جواب کا انتظار کریں، یا فیصلہ کریں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -609,6 +611,7 @@ export const ur: LabelResource = {
   'errors.field.ip_allow_locks_you_out':
     'یہ فہرست آپ کو باہر کر دے گی: آپ کا پتہ {{address}} اس میں نہیں۔ اسے، یا اسے شامل کرنے والی رینج، شامل کریں۔',
   'errors.field.ip_allow_too_many': 'زیادہ سے زیادہ {{max}} اندراجات استعمال کریں۔',
+  'errors.field.is_you': 'آپ خود سے سوال نہیں پوچھ سکتے۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
@@ -649,6 +652,7 @@ export const ur: LabelResource = {
   'errors.field.needs_collapsible': 'صرف سمیٹا جانے والا حصہ بند حالت میں شروع ہو سکتا ہے۔',
   'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.no_technician': 'اس درخواست پر ابھی کسی کو مقرر نہیں کیا گیا۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_form_field': 'یہ فیلڈ فارم میں نہیں ہے۔',
   'errors.field.not_a_person_question':
@@ -709,6 +713,7 @@ export const ur: LabelResource = {
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
   'errors.field.quantity_over_max': 'آپ زیادہ سے زیادہ {{max}} مانگ سکتے ہیں۔',
+  'errors.field.question_too_long': 'سوال زیادہ سے زیادہ 2,000 حروف کا ہو سکتا ہے۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
   'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',

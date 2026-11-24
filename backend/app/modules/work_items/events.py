@@ -540,6 +540,29 @@ class WorkItemApprovalChanged(DomainEvent):
     change: ApprovalChange
 
 
+ClarificationChange = Literal["asked", "answered", "ended"]
+
+
+class WorkItemApprovalClarification(DomainEvent):
+    """An approver's question on a request approval was asked, answered or ended (REQ-SR-037).
+
+    WP-047a S3a. `approver_id` is the person who asked. IDs and codes only: never the question
+    or the answer, which their screens read through the API (the coordinator's condition 4).
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.clarification"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    approval_id: uuid.UUID
+    approver_id: uuid.UUID
+    clarification_id: uuid.UUID
+    addressee: str
+    change: ClarificationChange
+
+
 class ChangeBoardChanged(DomainEvent):
     """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
 
@@ -753,6 +776,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCiLinkChanged,
     WorkItemReminderDue,
     WorkItemApprovalChanged,
+    WorkItemApprovalClarification,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,
