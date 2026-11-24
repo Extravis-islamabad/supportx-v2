@@ -16,7 +16,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.tenancy import TenantContext
+from app.modules.cmdb import Count
 from app.modules.cmdb.service.links import ci_links_port
+from app.modules.identity_access import subject_for
+from app.modules.work_items.service.ci_links import COUNTS_PORT
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_changes_api import CHG, a_change
 from tests.db.test_cmdb_api import _ci
@@ -273,3 +276,28 @@ async def test_more_than_the_cap_is_refused(world: World) -> None:
         headers=CONSOLE,
     )
     assert made.status_code == 422
+
+
+async def test_the_counts_port_counts_open_and_total_per_type_through_each_view(
+    world: World,
+) -> None:
+    """Lane B's widened OpenCountsPort (#605): {ci: {type: Count(open, total)}}, visible only."""
+    a = world.a
+    ci = await _a_ci(world, a, "Counted host")
+    await world.create(a, a.admin, ci_ids=[ci["id"]])  # open
+    closed_one = await world.create(a, a.admin, ci_ids=[ci["id"]])
+    await world.sql(
+        "UPDATE work_items SET status_category = 'closed', status = 'closed'"
+        " WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        uuid.UUID(closed_one["id"]),
+    )
+    [narrow] = await seed_users(world.db, a.tenant, [{"user_type": "technician"}])
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        admin = await subject_for(session, a.tenant, a.admin)
+        nobody = await subject_for(session, a.tenant, narrow)
+        seen = await COUNTS_PORT.linked_counts(session, admin, [uuid.UUID(ci["id"])])
+        hidden = await COUNTS_PORT.linked_counts(session, nobody, [uuid.UUID(ci["id"])])
+    assert seen[uuid.UUID(ci["id"])]["incident"] == Count(open=1, total=2)
+    assert "service_request" not in seen[uuid.UUID(ci["id"])]  # nothing linked: left out
+    assert hidden == {}  # no incidents view: no count includes a record they may not see

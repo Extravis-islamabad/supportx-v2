@@ -17,17 +17,18 @@ or that the reader may not see comes back marked, never named.
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal, cast, get_args
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, NotFound
 from app.modules import cmdb, licensing
 from app.modules.identity_access import Subject
-from app.modules.work_items.domain.types import WorkItemType, WorkItemTypeCode
+from app.modules.work_items.domain.lifecycle import StatusCategory
+from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemCiLinkChanged
 from app.modules.work_items.infra.models import WorkItem, WorkItemCi
 from app.modules.work_items.service import work_items as items
@@ -298,7 +299,54 @@ async def repoint_ci_links(
     return len(rows)
 
 
+# "Open" for the CMDB's counters (lane B's open_counts.py (b)): not resolved, closed or canceled.
+_OPEN = (StatusCategory.OPEN.value, StatusCategory.PAUSED.value)
+
+
+class CiLinkedCounts:
+    """The CMDB's `OpenCountsPort` (cmdb/service/open_counts.py, widened in lane B's #605).
+
+    `{ci_id: {type_code: Count(open, total)}}` for the CMDB's LINKED_TYPES, one grouped query per
+    type through that type's own staff view (`staff_rows`), so no count includes a record the
+    reader may not see (a); deleted and trashed records never count; a CI or type with nothing
+    linked is left out (it reads as zero).
+    """
+
+    async def linked_counts(
+        self, session: AsyncSession, subject: Subject, ci_ids: Sequence[uuid.UUID]
+    ) -> Mapping[uuid.UUID, Mapping[str, cmdb.Count]]:
+        """Counts per CI and type."""
+        wanted = list(dict.fromkeys(ci_ids))
+        found: dict[uuid.UUID, dict[str, cmdb.Count]] = {}
+        if not wanted:
+            return found
+        for code in cmdb.LINKED_TYPES:
+            wtype = TYPES[WorkItemTypeCode(code)]
+            statement = (
+                items.staff_rows(subject, wtype)
+                .join(
+                    WorkItemCi,
+                    (WorkItemCi.work_item_id == WorkItem.id)
+                    & WorkItemCi.deleted_at.is_(None)
+                    & WorkItemCi.ci_id.in_(wanted),
+                )
+                .with_only_columns(
+                    WorkItemCi.ci_id,
+                    func.count().filter(WorkItem.status_category.in_(_OPEN)),
+                    func.count(),
+                )
+                .group_by(WorkItemCi.ci_id)
+            )
+            for ci_id, open_, total in await session.execute(statement):
+                found.setdefault(ci_id, {})[code] = cmdb.Count(int(open_ or 0), int(total or 0))
+        return found
+
+
+COUNTS_PORT = CiLinkedCounts()
+
+
 __all__ = [
+    "COUNTS_PORT",
     "FEATURE",
     "FIELD",
     "LINKED_TYPES",
