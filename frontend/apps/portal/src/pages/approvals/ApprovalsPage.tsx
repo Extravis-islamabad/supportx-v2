@@ -29,6 +29,9 @@ import { useListFormat } from '@supportx/labels';
 import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { lengthLimit, reportError, useDateTime, useLabel } from '@supportx/ui';
 
+// What waits for me and what I decided (under my approvals), and changes waiting for me (§8.3).
+const COVERS = [serviceRequestKeys.myApprovals, ['changes', 'my-approvals']] as const;
+
 const COMMENT_MAX = 4000;
 const BULK_MAX = 20; // D-143: approve at most this many at once
 const MY_APPROVALS_CHANGED = 'work_items.my_approvals_changed';
@@ -69,12 +72,18 @@ export function ApprovalsPage() {
       void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
     }
   };
-  usePersonalChannel((event) => {
-    refresh(event.type);
-  });
-  useTenantChannel((event) => {
-    refresh(event.type);
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true) refresh(event.type);
+    },
+    { covers: COVERS },
+  );
+  useTenantChannel(
+    (event) => {
+      if (event.covered !== true) refresh(event.type);
+    },
+    { covers: COVERS },
+  );
   const items: Waiting[] = [
     ...(mine.data?.items ?? []).map((a) => ({ ...a, type: 'service-requests' as const })),
     ...(changes.data?.items ?? []).map((a) => ({ ...a, type: 'changes' as const })),
