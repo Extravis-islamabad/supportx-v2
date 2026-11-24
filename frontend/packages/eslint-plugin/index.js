@@ -106,6 +106,10 @@ const noLiteralText = {
  * Channel hooks name the queries they cover (architecture.md §8.3): on a refresh (the
  * first-subscribe catch-up or a lost channel) the hook refreshes those keys itself, so a handler
  * that filters on message types can't drop it. The value is the options argument's position.
+ *
+ * Not checked: a hook called as a member (`realtime.useListChannel(...)`) or with spread arguments;
+ * the hooks are imported by name everywhere today. An options variable passes, as its type
+ * (`ChannelOptions`) requires `covers`.
  */
 const CHANNEL_HOOKS = new Map([
   ['useChannel', 2],

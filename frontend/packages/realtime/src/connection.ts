@@ -274,7 +274,7 @@ export class RealtimeConnection {
     const entry =
       this.channels.get(channel) ??
       this.open(channel, presence, (opened) => opened.listeners.add(listener));
-    entry.listeners.add(listener);
+    entry.listeners.add(listener); // a no-op after the seed: a Set holds each listener once
     return () => {
       entry.listeners.delete(listener);
       if (entry.listeners.size === 0 && entry.presenceListeners.size === 0) this.drop(channel);
@@ -286,7 +286,7 @@ export class RealtimeConnection {
     const entry =
       this.channels.get(channel) ??
       this.open(channel, true, (opened) => opened.presenceListeners.add(listener));
-    entry.presenceListeners.add(listener);
+    entry.presenceListeners.add(listener); // a no-op after the seed (a Set)
     listener(this.membersOf(entry));
     return () => {
       entry.presenceListeners.delete(listener);
