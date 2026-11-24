@@ -65,9 +65,14 @@ export function SignInsTab() {
     limit: shown,
   };
   const page = useSignIns(filters);
-  useListChannel('sign_ins', () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.identity.signInsAll });
-  });
+  useListChannel(
+    'sign_ins',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      void queryClient.invalidateQueries({ queryKey: queryKeys.identity.signInsAll });
+    },
+    { covers: [queryKeys.identity.signInsAll] },
+  );
   const rows = page.data?.items ?? [];
   const people = page.data?.people ?? {};
   const more = (page.data?.next_cursor ?? null) !== null;

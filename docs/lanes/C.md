@@ -6,34 +6,47 @@ work package. The index and the rules are in [`docs/LANES.md`](../LANES.md).
 ## Area
 
 Reports, dashboards and knowledge (knowledge moved from lane B, D-108); the public API and admin
-setup (WP-041, WP-042, moved from lane B); AI (WP-037, WP-038, moved from lane B, 2026-11-03).
+setup (WP-041, WP-042, moved from lane B); AI (WP-037, WP-038, moved from lane B, 2026-11-03);
+WP-057 security hardening. Lane C blocks files, permissions, outbound calls, CI and dependencies
+(D-175).
 
 ## Current WP
 
-WP-042 sessions 1 to 3 built on #183: setup home and menu, licence page, roles screens and
-group roles, instance settings, personal preferences, announcement audiences. Reviewed by lane B
-(identity parts) and lane A (role defaults, config rights). WP-037 S1 (#188, AI gateway) is ready
-for review. #158 (WP-034 S1) is queued. Next: WP-038 (AI on incidents, plan approved,
-2 sessions), started on a fresh branch from main only once #188 has merged. Urdu for the 370
-older keys before the pilot.
+**WP-057 S5c (2026-11-24):** roles and support groups from identity provider groups (REQ-SEC-014), migration
+0201.
+- The plan is approved by lane B (who blocks it, with six conditions) and by the coordinator.
+- Step 0, lane B's real-Keycloak spike on the transport, comes first.
+- Then S5c-1 (backend) and S5c-2 (screens).
+
+**After S5c:** WP-057 S6, then the D-175 queue: WP-060, 061, 063, 059b/c, 062b, and the MVP gaps.
+
+**Merged 2026-11-24:**
+- #609: realtime `covers` plus the `channel-covers` rule;
+- #613: the D-180 masked-names Vitest;
+- #614: the reports-home CMDB tab.
+
+**In the queue:** #616 (portal covers).
+
+**Waiting on the product owner:** asset delete by vendor support (`assets.delete`, or
+`assets.manage` never).
 
 ## Branch
 
-`feat/wp-042-admin-setup` (#183), `feat/wp-037-ai-gateway` (#188),
-`feat/wp-034-knowledge-search` (#158, queued)
+- `fix/channel-covers-portal` (#616, queued)
+- `chore/lane-c-ci-bundle-11-24` (this bundle: the route map's Feature column)
 
 ## Worktree
 
-`../supportx-v2-wp042`, `../supportx-v2-wp037`, `../supportx-v2-wp034` (`../supportx-v2-wp041`
-done: #176 merged)
+- `../supportx-v2-portalcovers`
+- `../supportx-v2-cibundle`
 
 ## Claimed migration
 
-0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0051, 0055 (merged); 0050 knowledge search and
-votes (#158, follows 0055); 0060 AI gateway (#188); 0061 group roles, 0066 tenant settings, 0067
-user preferences, 0068 announcement audiences, 0071 layout preferences nullable (#183); 0069 AI summaries (WP-038)
+- **Merged:** 0027, 0029, 0031, 0035, 0036, 0041, 0046, 0048, 0050, 0051, 0055, 0060, 0061,
+  0066 to 0069 and 0071. Later ones are in each PR and in `backend/migrations/versions`.
+- **Claimed:** 0201, WP-057 S5c-1 (`idp_group_mappings`, `access_sources`, `managed`).
 
 ## Claimed decisions
 
-D-100, D-101, D-108, D-110, D-114, D-117, D-119, D-120, D-121 (merged); D-124 console UI pass
-(merged); D-125 WP-034 (#158); D-128 WP-041; ADR-033, ADR-034
+D-100, D-101, D-108, D-110, D-114, D-117, D-119 to D-121, D-124, D-125, D-128, D-183 (merged);
+ADR-033, ADR-034.

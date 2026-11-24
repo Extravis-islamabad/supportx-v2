@@ -73,15 +73,15 @@ export function CmdbAdminPage() {
   const { can } = useAccess();
   const allowed = can('cmdb.configure');
   const queryClient = useQueryClient();
-  useTenantChannel((message) => {
-    if (
-      message.type === 'cmdb.config_changed' ||
-      message.type === 'cmdb.sync_changed' ||
-      message.type === 'refresh'
-    ) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'cmdb.config_changed' || message.type === 'cmdb.sync_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.all] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_cmdb" />;
   return (
     <Flex vertical gap={16} data-testid="cmdb-admin">

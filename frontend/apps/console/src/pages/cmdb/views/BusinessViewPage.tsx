@@ -47,9 +47,15 @@ export function BusinessViewPage() {
   const { has, isAdmin } = useLicence();
   const queryClient = useQueryClient();
   const found = useBusinessView(viewId);
-  useRecordEvents('cmdb_view', viewId, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.view(viewId) });
-  });
+  useRecordEvents(
+    'cmdb_view',
+    viewId,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the view
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.view(viewId) });
+    },
+    { covers: [queryKeys.cmdb.view(viewId)] },
+  );
   if (!has('cmdb')) return <NotInPlan titleKey="cmdb.views.title" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="cmdb.views.title" />;
   if (found.isPending) return <Skeleton active data-testid="cmdb-view-loading" />;

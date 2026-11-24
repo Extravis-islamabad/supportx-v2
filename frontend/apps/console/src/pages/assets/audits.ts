@@ -17,10 +17,14 @@ export const AUDIT_STATE_TONES = { draft: 'default', running: 'info', closed: 's
 /** Refetch the audits when one changed (rule c; IDs only). */
 export function useAuditsLive() {
   const queryClient = useQueryClient();
-  useTenantChannel((event) => {
-    if (event.type !== AUDITS_CHANGED) return;
-    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.audits });
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type !== AUDITS_CHANGED) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.audits });
+    },
+    // The type check above would drop a refresh: `covers` refetches the audits.
+    { covers: [queryKeys.assets.audits] },
+  );
 }
 
 export interface AuditDraft {

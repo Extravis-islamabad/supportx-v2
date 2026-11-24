@@ -39,11 +39,15 @@ export function AssetCatalogPage() {
   const states = useAssetStates(licensed);
   const lifeCycles = useAssetLifeCycles(licensed);
   const types = useAssetProductTypes(licensed);
-  useTenantChannel((event) => {
-    if (event.type === 'assets.catalogue_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.covered === true) return; // a refresh: `covers` refetched it
+      if (event.type === 'assets.catalogue_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      }
+    },
+    { covers: [queryKeys.assets.all] },
+  );
   const header = <PageHeader title={t('nav.admin_assets')} />;
   if (!licensed) {
     return (

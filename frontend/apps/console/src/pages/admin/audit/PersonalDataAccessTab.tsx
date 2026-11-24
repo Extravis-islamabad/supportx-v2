@@ -44,9 +44,14 @@ export function PersonalDataAccessTab() {
   // Fixed when chosen: a moving "now" would refetch on every render.
   const [since, setSince] = useState<string | undefined>(() => sinceFor('month'));
   const access = usePersonalDataAccess(person, since);
-  useListChannel('personal_data_access', () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.audit.personalDataAccessAll });
-  });
+  useListChannel(
+    'personal_data_access',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audit.personalDataAccessAll });
+    },
+    { covers: [queryKeys.audit.personalDataAccessAll] },
+  );
   const rows = useMemo(() => access.data?.pages.flatMap((page) => page.items) ?? [], [access.data]);
 
   return (
