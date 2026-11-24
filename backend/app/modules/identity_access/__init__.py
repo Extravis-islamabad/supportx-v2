@@ -70,6 +70,7 @@ from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
+from app.modules.identity_access.domain.group_mappings import SourceKind as GroupSourceKind
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.mentions import (
     MentionMatchKind,
@@ -158,6 +159,24 @@ from app.modules.identity_access.service.field_access import (
     register_field_catalogue,
     register_rule_listener,
     restricted_fields,
+)
+from app.modules.identity_access.service.group_mappings import (
+    create_mapping as create_group_mapping,
+)
+from app.modules.identity_access.service.group_mappings import (
+    follow as follow_groups,
+)
+from app.modules.identity_access.service.group_mappings import (
+    holders as group_mapping_holders,
+)
+from app.modules.identity_access.service.group_mappings import (
+    list_mappings as list_group_mappings,
+)
+from app.modules.identity_access.service.group_mappings import (
+    mapped_external_groups,
+)
+from app.modules.identity_access.service.group_mappings import (
+    remove_mapping as remove_group_mapping,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
@@ -579,6 +598,7 @@ __all__ = [
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
+    "GroupSourceKind",
     "LeaverOutcome",
     "MailRecipient",
     "Mention",
@@ -614,6 +634,7 @@ __all__ = [
     "cost_rate",
     "count_matches",
     "count_matches_html",
+    "create_group_mapping",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
@@ -622,9 +643,13 @@ __all__ = [
     "display_names",
     "federated_users",
     "federation_installed",
+    "follow_groups",
     "get_policy",
+    "group_mapping_holders",
     "legal_hold",
+    "list_group_mappings",
     "mail_recipients",
+    "mapped_external_groups",
     "module",
     "names_masked",
     "notifiable_people",
@@ -646,6 +671,7 @@ __all__ = [
     "register_rule_listener",
     "register_seal_counter",
     "release_from_directory",
+    "remove_group_mapping",
     "remove_ldap_federation",
     "remove_service_identity_role",
     "require",
