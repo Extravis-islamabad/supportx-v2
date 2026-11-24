@@ -266,6 +266,11 @@ async def change_answers(  # noqa: PLR0913 - the request, its new values and con
         source=source,
         facts=facts,
     )
+    if not keys:  # WP-047a S5 (REQ-SR-048 AC2): a restart re-plans from approval anyway
+        # Imported here: fulfilment builds on the work item service, as this module does.
+        from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
+
+        await fulfilment.replan_conditions(session, updated, source=source)
     return updated, keys
 
 

@@ -1588,6 +1588,10 @@ class WorkItemTask(TenantEntity):
         CheckConstraint(_codes("status", TaskStatus), name="status_code"),
         CheckConstraint(_codes("priority", TaskPriority), name="priority_code"),
         CheckConstraint("length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        # WP-047a S5 (0204): an ordinary task or an asset hand-over; values an object.
+        CheckConstraint("kind IN ('task', 'asset_handover')", name="kind_code"),
+        CheckConstraint("jsonb_typeof(field_values) = 'object'", name="field_values_object"),
+        CheckConstraint("fields IS NULL OR jsonb_typeof(fields) = 'array'", name="fields_array"),
         CheckConstraint(
             "description IS NULL OR char_length(description) <= 4000", name="description_length"
         ),
@@ -1668,6 +1672,15 @@ class WorkItemTask(TenantEntity):
     # A reminder this many minutes before the scheduled start (REQ-INC-073 AC2), sent once.
     remind_before_minutes: Mapped[int | None] = mapped_column(Integer)
     reminded_at: Mapped[datetime | None]
+    # WP-047a S5 (0204; REQ-SR-047..050, -056): the plan step it came from (by key), its own
+    # fields and their values, an asset hand-over or not, task-only access by this task alone,
+    # and a conditional task no longer wanted but kept for a person (worklogs or values).
+    plan_key: Mapped[str | None] = mapped_column(String(40))
+    fields: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    field_values: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    kind: Mapped[str] = mapped_column(String(20), server_default="task")
+    task_only: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    needs_review: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemTaskTemplate(TenantEntity):

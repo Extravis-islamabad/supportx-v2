@@ -9,23 +9,29 @@ work check, as any task does. A rejection creates none (REQ-SR-060).
 
 import html
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied, ValidationFailed
 from app.modules import service_catalog
+from app.modules.identity_access import person_placement
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority, TaskStatus
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.events import ServiceRequestReadyToFulfil
-from app.modules.work_items.infra.models import WorkItem, WorkItemTask
+from app.modules.work_items.infra.models import WorkItem, WorkItemTask, WorkItemTaskDependency
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import closing, parts
 from app.modules.work_items.service import work_items as items
+from app.shared.conditions import matches
 from app.shared.events import record_event
 from app.shared.history import Change, Source
 
+TECHNICIAN = "technician"  # a person of the desk: an owner who is not one gets task-only access
+# A plan step's owner kinds (service_catalog's TaskOwnerKind codes, plain values across modules).
+OWNER_PERSON, OWNER_MANAGER = "person", "requested_for_manager"
 FULFILMENT_RULE = "fulfilment"  # history's automatic move: the last required task was done
 FIRST_TASK_RULE = "first_task"  # history's automatic move: the first task ticked (D-154c)
 # Where ticking the first task starts the work from (D-154c): not yet being worked.
@@ -58,18 +64,30 @@ async def start_plan(
     *,
     source: Source,
 ) -> list[WorkItemTask]:
-    """The item's plan as the request's tasks, after any it already has (REQ-SR-046 AC1)."""
+    """The item's plan as the request's tasks, after any it already has (REQ-SR-046 AC1).
+
+    WP-047a S5: a step whose condition does not hold makes no task (REQ-SR-048); its fields and
+    kind go on the task (REQ-SR-049, -056); its owner by kind is resolved, and an owner who is
+    not a technician gets that task alone, task-only (REQ-SR-050; condition 1); its
+    `waits_for` become the task's dependencies (REQ-SR-047), and only a task with nothing to wait
+    for tells its owner now, the rest when their last predecessor completes (`can_start`).
+    """
     if item is None or not item.plan:
         return []
     existing = await parts.tasks_of(session, record.id)
     position = (existing[-1].position + 1) if existing else 0
+    facts = _plan_facts(record)
     made: list[WorkItemTask] = []
+    by_key: dict[str, WorkItemTask] = {}
     for step in item.plan:
+        if step.condition is not None and not matches(step.condition, facts):
+            continue
+        owner_id = await _step_owner(session, record, step)
         task = await parts.TaskRepository(session).add(
             WorkItemTask(
                 work_item_id=record.id,
                 title=_title(dict(step.title)),
-                owner_id=step.owner_id,
+                owner_id=owner_id,
                 group_id=step.group_id,
                 status=TaskStatus.OPEN.value,
                 priority=TaskPriority.NORMAL.value,
@@ -77,6 +95,11 @@ async def start_plan(
                 from_plan=True,
                 required=step.required,
                 internal=step.internal,
+                plan_key=step.key,
+                fields=[dict(f) for f in step.fields] or None,
+                field_values={},
+                kind=step.kind,
+                task_only=await _outside_owner(session, step, owner_id),
             )
         )
         position += 1
@@ -90,7 +113,168 @@ async def start_plan(
             source,
         )
         made.append(task)
+        if step.key is not None:
+            by_key[step.key] = task
+    waiting = await _plan_dependencies(session, record, item, by_key)
+    for task in made:
+        if task.id not in waiting:  # REQ-SR-047 AC1: the rest hear when they can start
+            await parts.tell_owner(session, record, task)
     return made
+
+
+def _plan_facts(record: WorkItem) -> dict[str, Any]:
+    """What a step's condition reads: the answers and the quantity (as S2a's stages)."""
+    return {**dict(record.answers or {}), "quantity": record.quantity}
+
+
+async def _step_owner(
+    session: AsyncSession, record: WorkItem, step: service_catalog.PlanStep
+) -> uuid.UUID | None:
+    """Who the step's task goes to (REQ-SR-050): a person, the manager, a person answer."""
+    kind = step.owner_kind
+    if kind is None or kind == OWNER_PERSON:
+        return step.owner_id
+    if kind == OWNER_MANAGER:
+        person = record.on_behalf_of_id or record.requester_id
+        return (await person_placement(session, person)).manager_id if person else None
+    answer = (record.answers or {}).get(step.question_key or "")
+    try:
+        return uuid.UUID(str(answer)) if answer else None
+    except ValueError:
+        return None
+
+
+async def _outside_owner(
+    session: AsyncSession, step: service_catalog.PlanStep, owner_id: uuid.UUID | None
+) -> bool:
+    """An owner by kind who is not a technician gets this task alone (the coordinator's 1)."""
+    if step.owner_kind is None or owner_id is None:
+        return False
+    return (await person_placement(session, owner_id)).user_type != TECHNICIAN
+
+
+async def _plan_dependencies(
+    session: AsyncSession,
+    record: WorkItem,
+    item: service_catalog.RequestItem,
+    by_key: dict[str, WorkItemTask],
+) -> set[uuid.UUID]:
+    """Each step's `waits_for` as its task's dependencies; the tasks that wait (REQ-SR-047).
+
+    A predecessor whose condition did not hold made no task, so nothing waits for it.
+    """
+    waiting: set[uuid.UUID] = set()
+    for step in item.plan:
+        task = by_key.get(step.key or "")
+        if task is None:
+            continue
+        for key in step.waits_for:
+            before = by_key.get(key)
+            if before is None:
+                continue
+            session.add(
+                WorkItemTaskDependency(
+                    tenant_id=record.tenant_id,
+                    task_id=task.id,
+                    depends_on_id=before.id,
+                    work_item_id=record.id,
+                )
+            )
+            waiting.add(task.id)
+    await session.flush()
+    return waiting
+
+
+async def replan_conditions(session: AsyncSession, record: WorkItem, *, source: Source) -> None:
+    """Changed answers before fulfilment starts add or drop conditional tasks (REQ-SR-048 AC2).
+
+    Only while no plan task is in progress or done (the coordinator's Q4); after that the change
+    is recorded only. A step whose condition now holds gains its task; one that no longer holds
+    loses its open task, unless work was done on it (worklogs or field values): then it is kept
+    and flagged for a person (`needs_review`; the coordinator's condition 3). Each with history.
+    """
+    if record.catalog_item_id is None:
+        return
+    item = await service_catalog.item_decides(session, record.catalog_item_id)
+    if item is None or not any(step.condition is not None for step in item.plan):
+        return
+    tasks = [t for t in await parts.tasks_of(session, record.id) if t.from_plan]
+    if any(t.status in STARTED_TASKS for t in tasks):
+        return  # fulfilment has started: the change is recorded only
+    facts = _plan_facts(record)
+    by_key = {t.plan_key: t for t in tasks if t.plan_key and t.status != TaskStatus.CANCELED}
+    for step in item.plan:
+        if step.condition is None or step.key is None:
+            continue
+        holds = matches(step.condition, facts)
+        task = by_key.get(step.key)
+        if holds and task is None:
+            await _add_step(session, record, step, source=source)
+        elif not holds and task is not None:
+            await _drop_step(session, record, task, source=source)
+
+
+STARTED_TASKS = frozenset({TaskStatus.IN_PROGRESS.value, TaskStatus.DONE.value})
+
+
+async def _add_step(
+    session: AsyncSession, record: WorkItem, step: service_catalog.PlanStep, *, source: Source
+) -> None:
+    existing = await parts.tasks_of(session, record.id)
+    task = await parts.TaskRepository(session).add(
+        WorkItemTask(
+            work_item_id=record.id,
+            title=_title(dict(step.title)),
+            owner_id=await _step_owner(session, record, step),
+            group_id=step.group_id,
+            status=TaskStatus.OPEN.value,
+            priority=TaskPriority.NORMAL.value,
+            position=(existing[-1].position + 1) if existing else 0,
+            from_plan=True,
+            required=step.required,
+            internal=step.internal,
+            plan_key=step.key,
+            fields=[dict(f) for f in step.fields] or None,
+            field_values={},
+            kind=step.kind,
+        )
+    )
+    task.task_only = await _outside_owner(session, step, task.owner_id)
+    await parts.recorded(
+        session, record, "task", task.id, "child_added", [Change("task", None, task.title)], source
+    )
+    await parts.tell_owner(session, record, task)
+
+
+async def _drop_step(
+    session: AsyncSession, record: WorkItem, task: WorkItemTask, *, source: Source
+) -> None:
+    if task.field_values or await parts.has_worklogs(session, record.id, task.owner_id):
+        if not task.needs_review:  # kept: a person decides (the coordinator's condition 3)
+            task.needs_review = True
+            await session.flush()
+            await parts.recorded(
+                session,
+                record,
+                "task",
+                task.id,
+                "child_changed",
+                [Change("task.needs_review", old=False, new=True)],
+                source,
+            )
+        return
+    task.status = TaskStatus.CANCELED.value
+    task.version += 1
+    await session.flush()
+    await parts.recorded(
+        session,
+        record,
+        "task",
+        task.id,
+        "child_changed",
+        [Change("task.status", TaskStatus.OPEN.value, TaskStatus.CANCELED.value)],
+        source,
+    )
 
 
 async def _ticked_by_its_people(

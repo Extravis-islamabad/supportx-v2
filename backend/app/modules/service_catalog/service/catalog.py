@@ -53,11 +53,15 @@ from app.modules.service_catalog.domain.items import (
     ItemAudience,
     ItemRules,
     PlannedTask,
+    PlanStepKind,
     Question,
     QuestionAudience,
     QuestionKind,
     RestartOn,
     StageRule,
+    TaskField,
+    TaskFieldKind,
+    TaskOwnerKind,
     answer_problems,
     name_problems,
     needs_approval,
@@ -163,21 +167,42 @@ def rules_of(item: CatalogItem) -> ItemRules:
     return ItemRules(
         questions=tuple(_question(q) for q in item.questions),
         approval=stage,
-        plan=tuple(
-            PlannedTask(
-                t.get("title", {}),
-                _uuid(t.get("group_id")),
-                _uuid(t.get("owner_id")),
-                bool(t.get("required", True)),
-                bool(t.get("internal", False)),
-            )
-            for t in item.plan
-        ),
+        plan=tuple(planned_task(t) for t in item.plan),
         technician_after_approval=item.technician_after_approval,
         count_approval_time=item.count_approval_time,
         auto_fulfil=item.auto_fulfil,
         stages=stages,
         restart_on=restart_on_of(item.approval),
+    )
+
+
+def _task_field(f: Mapping[str, Any]) -> TaskField:
+    return TaskField(
+        key=str(f.get("key", "")),
+        label=dict(f.get("label") or {}),
+        kind=TaskFieldKind(f.get("kind") or TaskFieldKind.TEXT.value),
+        required=bool(f.get("required", False)),
+        options=tuple(str(o) for o in f.get("options") or ()),
+        requester_visible=bool(f.get("requester_visible", False)),
+    )
+
+
+def planned_task(t: Mapping[str, Any]) -> PlannedTask:
+    """One stored plan step as the domain sees it (WP-047a S5 adds keys, order, fields, owner)."""
+    owner_kind = t.get("owner_kind")
+    return PlannedTask(
+        t.get("title", {}),
+        _uuid(t.get("group_id")),
+        _uuid(t.get("owner_id")),
+        bool(t.get("required", True)),
+        bool(t.get("internal", False)),
+        key=t.get("key"),
+        waits_for=tuple(str(w) for w in t.get("waits_for") or ()),
+        condition=t.get("condition"),
+        fields=tuple(_task_field(f) for f in t.get("fields") or ()),
+        owner_kind=TaskOwnerKind(owner_kind) if owner_kind else None,
+        question_key=t.get("question_key"),
+        kind=PlanStepKind(t.get("kind") or PlanStepKind.TASK.value),
     )
 
 
@@ -407,6 +432,15 @@ def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rul
                 "owner_id": None if t.get("owner_id") is None else str(t["owner_id"]),
                 "required": bool(t.get("required", True)),
                 "internal": bool(t.get("internal", False)),
+                # WP-047a S5 (REQ-SR-047..050, -056): kept only when set.
+                **{
+                    k: t[k]
+                    for k in ("key", "condition", "owner_kind", "question_key")
+                    if t.get(k) is not None
+                },
+                **({"waits_for": list(t["waits_for"])} if t.get("waits_for") else {}),
+                **({"fields": [dict(f) for f in t["fields"]]} if t.get("fields") else {}),
+                **({"kind": t["kind"]} if t.get("kind") not in (None, "task") else {}),
             }
             for t in out["plan"]
         ]
@@ -1010,6 +1044,14 @@ class PlanStep:
     owner_id: uuid.UUID | None
     required: bool
     internal: bool
+    # WP-047a S5 (REQ-SR-047..050, -056), as plain values for work_items' plan.
+    key: str | None = None
+    waits_for: tuple[str, ...] = ()
+    condition: Mapping[str, Any] | None = None
+    fields: tuple[Mapping[str, Any], ...] = ()  # key, label, kind, required, options, visible
+    owner_kind: str | None = None  # person | requested_for_manager | person_answer
+    question_key: str | None = None
+    kind: str = "task"  # task | asset_handover
 
 
 @dataclass(frozen=True)
@@ -1129,6 +1171,23 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
                 owner_id=t.owner_id,
                 required=t.required,
                 internal=t.internal,
+                key=t.key,
+                waits_for=tuple(t.waits_for),
+                condition=t.condition,
+                fields=tuple(
+                    {
+                        "key": f.key,
+                        "label": dict(f.label),
+                        "kind": f.kind.value,
+                        "required": f.required,
+                        "options": list(f.options),
+                        "requester_visible": f.requester_visible,
+                    }
+                    for f in t.fields
+                ),
+                owner_kind=t.owner_kind.value if t.owner_kind else None,
+                question_key=t.question_key,
+                kind=t.kind.value,
             )
             for t in rules.plan
         ),

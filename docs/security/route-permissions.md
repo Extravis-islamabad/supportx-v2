@@ -949,6 +949,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/portal/settings` | signed_in | - |
 | PATCH | `/api/v1/portal/settings` | signed_in | - |
 | GET | `/api/v1/portal/summary` | signed_in | - |
+| GET | `/api/v1/portal/tasks` | signed_in | - |
+| GET | `/api/v1/portal/tasks/{task_id}` | signed_in | - |
+| PATCH | `/api/v1/portal/tasks/{task_id}` | signed_in | - |
 | GET | `/api/v1/problem-repeats/hits` | `problems.create` | problems.create: all |
 | POST | `/api/v1/problem-repeats/hits/{hit_id}/handle` | `problems.create` | problems.create: all |
 | GET | `/api/v1/problem-repeats/hits/{hit_id}/incidents` | `problems.create` | problems.create: all |

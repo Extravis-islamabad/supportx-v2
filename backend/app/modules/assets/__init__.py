@@ -71,6 +71,7 @@ from app.modules.assets.service.consumables import (
 )
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.handover import HANDED_OVER, AssetHandover, handover_asset
 from app.modules.assets.service.imports import run_asset_imports
 from app.modules.assets.service.labels import on_label_requested
 from app.modules.assets.service.linked import (
@@ -232,7 +233,9 @@ for _list in LIST_SPECS:
     register_list(_list)
 
 __all__ = [
+    "HANDED_OVER",
     "VISIBLE_IDS_MAX",
+    "AssetHandover",
     "AssetRef",
     "DraftPurchaseRequests",
     "LinkedRecord",
@@ -249,6 +252,7 @@ __all__ = [
     "can_see",
     "check_sync_filter",
     "email_includes_assets",
+    "handover_asset",
     "module",
     "owners_of",
     "record_scan",
