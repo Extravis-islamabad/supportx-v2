@@ -75,9 +75,14 @@ export function IncidentPicker({
   );
 
   const queryClient = useQueryClient();
-  useListChannel('incidents', () => {
-    refreshList(queryClient, [...queryKeys.incidents.all, 'list', 'search']);
-  });
+  useListChannel(
+    'incidents',
+    (m) => {
+      if (m.covered !== true)
+        refreshList(queryClient, [...queryKeys.incidents.all, 'list', 'search']);
+    },
+    { covers: [[...queryKeys.incidents.all, 'list', 'search']] },
+  );
 
   const people: Record<string, IncidentPerson> = {
     ...recent.data?.people,

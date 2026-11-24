@@ -129,9 +129,13 @@ export function ChangesPage() {
     include_total: true,
   });
   usePageCrumbs([{ label: t('nav.changes') }]);
-  useListChannel('changes', () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.list });
-  });
+  useListChannel(
+    'changes',
+    (m) => {
+      if (m.covered !== true) void queryClient.invalidateQueries({ queryKey: changeKeys.list });
+    },
+    { covers: [changeKeys.list] }, // every page and the view counts (both under 'list')
+  );
   useBulkRefresh('change', () => {
     void queryClient.invalidateQueries({ queryKey: changeKeys.list });
   });

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
+  queryKeys,
   serviceRequestKeys,
   useCatalogItem,
   useApprovals,
@@ -71,9 +72,19 @@ export function RequestPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const record = useServiceRequest(id);
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    refreshQueries(queryClient, serviceRequestKeys.detail(id));
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, serviceRequestKeys.detail(id));
+    },
+    {
+      // Its SLA, approvals and tasks sit under the detail key; the shared conversation panel
+      // keeps its own (no id: nothing joined or shown).
+      covers:
+        id === '' ? [] : [serviceRequestKeys.detail(id), queryKeys.incidents.conversation(id)],
+    },
+  );
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (

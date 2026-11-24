@@ -187,9 +187,13 @@ export function RequestsPage() {
   const views = useServiceRequestViews();
   const items = useCatalogItems();
   const byId = new Map((items.data ?? []).map((i) => [i.id, i]));
-  useListChannel('service-requests', () => {
-    refreshQueries(queryClient, [...serviceRequestKeys.all, 'list']);
-  });
+  useListChannel(
+    'service-requests',
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, [...serviceRequestKeys.all, 'list']);
+    },
+    { covers: [[...serviceRequestKeys.all, 'list']] }, // every page and the view counts
+  );
   useBulkRefresh('service_request', () => {
     void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
   });

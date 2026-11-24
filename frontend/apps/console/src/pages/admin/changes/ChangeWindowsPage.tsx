@@ -354,9 +354,12 @@ export function ChangeWindowsPage() {
   const remove = useRemoveChangeWindow();
   const [editing, setEditing] = useState<ChangeWindow | 'new'>();
   const manage = can('changes.manage_windows') || can('settings.manage');
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_windows_changed') void windows.refetch();
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'work_items.change_windows_changed') void windows.refetch();
+    },
+    { covers: [['change-windows']] }, // useChangeWindows' key prefix (not exported)
+  );
   const nameOf = (w: ChangeWindow) => labelled(w.labels, locale, () => w.name);
   return (
     <Flex vertical gap={16} data-testid="change-windows">

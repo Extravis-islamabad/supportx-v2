@@ -651,11 +651,14 @@ function Composer({
   });
   // Templates changed by an admin elsewhere: reload the list while this composer is open (BUG-07).
   const queryClient = useQueryClient();
-  useTenantChannel((message) => {
-    if (message.type === 'work_items.reply_templates_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered !== true && message.type === 'work_items.reply_templates_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
+      }
+    },
+    { covers: [queryKeys.incidents.replyTemplates] },
+  );
   // D-081: warn before sending a mention of someone who cannot see the incident.
   const [unseen, setUnseen] = useState<string[] | null>(null);
   const mentions: MentionSearch = (query) =>

@@ -41,11 +41,14 @@ export function BlockRulesCard() {
   const [kind, setKind] = useState<MailBlockKind>('domain');
   const [value, setValue] = useState('');
   const [problem, setProblem] = useState<{ key: string; params: ApiError['params'] }>();
-  useTenantChannel((event) => {
-    if (event.type === 'integrations.mail_block_rules_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.blockRules });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'integrations.mail_block_rules_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.blockRules });
+      }
+    },
+    { covers: [queryKeys.mailboxes.blockRules] },
+  );
 
   const submit = () => {
     setProblem(undefined);

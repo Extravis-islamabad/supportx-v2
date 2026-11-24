@@ -31,11 +31,14 @@ export function ConnectorSettingsCard() {
   // Only what this admin changed; the rest follows the server, live.
   const [draft, setDraft] = useState<Partial<Record<Field, number>>>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
-  useTenantChannel((event) => {
-    if (event.type === 'integrations.connector_settings_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.connectors.settings });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'integrations.connector_settings_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.connectors.settings });
+      }
+    },
+    { covers: [queryKeys.connectors.settings] },
+  );
   const saved = settings.data;
   if (saved === undefined) return null;
   const value = (name: Field) => draft[name] ?? saved[name];

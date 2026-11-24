@@ -10,7 +10,7 @@ import {
   type KnownError,
   type Problem,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { useListChannel, type RealtimeMessage } from '@supportx/realtime';
 import { EmptyText, PageHeader, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
@@ -50,9 +50,11 @@ export function KnownErrorsPage() {
   const found = useKnownErrors(useDebounced(search.trim(), 300), retired);
   // Counts and flags follow at once (REQ-PRB-037 AC2): a problem changed, or an incident linked.
   const queryClient = useQueryClient();
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
-  useListChannel('problems', refresh);
-  useListChannel('incidents', refresh);
+  const refresh = (m: RealtimeMessage) => {
+    if (m.covered !== true) void queryClient.invalidateQueries({ queryKey: knownErrorKeys.all });
+  };
+  useListChannel('problems', refresh, { covers: [knownErrorKeys.all] });
+  useListChannel('incidents', refresh, { covers: [knownErrorKeys.all] });
   return (
     <Flex vertical gap={16} style={{ width: '100%' }} data-testid="known-errors">
       <PageHeader title={t('problems.known_error.database')} />
