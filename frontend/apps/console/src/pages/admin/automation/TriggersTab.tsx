@@ -20,6 +20,7 @@ import {
   ApiError,
   useAutomationChange,
   useRuleFields,
+  useTriggerEvents,
   useTriggers,
   type TriggerActionIO,
   type TriggerOut,
@@ -45,15 +46,22 @@ import { emptyAction, fromTree, toTree, triggerOp, type Conditions } from './rul
 import { conditionAt, isAt, missingProblems, useEditorProblems, whereOf } from './problems';
 import { ProblemList } from './ProblemList';
 
-const RECORD_TYPE = 'incident';
-const EVENTS = [
+type TriggerEvent = TriggerOut['events'][number];
+// The order the editor lists events in (lane A's nit): the life of a record, not the alphabet.
+const EVENT_ORDER: readonly TriggerEvent[] = [
   'created',
   'updated',
   'status_changed',
+  'stage_entered',
   'assigned',
   'note_added',
   'requester_replied',
-] as const;
+  'relationship_added',
+  'relationship_removed',
+  'downtime_started',
+];
+const inOrder = (events: readonly TriggerEvent[]) =>
+  [...events].sort((a, b) => EVENT_ORDER.indexOf(a) - EVENT_ORDER.indexOf(b));
 const STATE_TONE: Record<TriggerOut['state'], Tone> = {
   enabled: 'success',
   draft: 'default',
@@ -65,12 +73,22 @@ const STATE_TONE: Record<TriggerOut['state'], Tone> = {
  * is saved, from its event, in this order. Each action's outcome shows on the record; a loop
  * stops at a clear limit and says which triggers took part.
  */
-export function TriggersTab() {
+export function TriggersTab({
+  recordType = 'incident',
+  actionKinds,
+}: {
+  /** The record type whose triggers these are (WP-053 S5d: also `cmdb_ci`). */
+  recordType?: string;
+  /** The action kinds it offers (a CI has no notes); every kind by default. */
+  actionKinds?: readonly ('set' | 'note')[];
+} = {}) {
   const t = useLabel();
   const listFormat = useListFormat();
   const { can } = useAccess();
   const editable = can('automation.manage');
-  const triggers = useTriggers(RECORD_TYPE, can('automation.view'));
+  const triggers = useTriggers(recordType, can('automation.view'));
+  // Undefined while it loads: nothing is tagged until the offer is known (lane A).
+  const offer = useTriggerEvents(recordType).data?.offered;
   const { orderTriggers, deleteTrigger } = useAutomationChange();
   const [editing, setEditing] = useState<TriggerOut | 'new'>();
   const list = triggers.data ?? [];
@@ -79,7 +97,7 @@ export function TriggersTab() {
     const [moved] = ids.splice(index, 1);
     if (moved === undefined) return;
     ids.splice(index + by, 0, moved);
-    orderTriggers.mutate({ record_type: RECORD_TYPE, ids }, { onError: reportError });
+    orderTriggers.mutate({ record_type: recordType, ids }, { onError: reportError });
   };
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -161,7 +179,17 @@ export function TriggersTab() {
           {
             key: 'events',
             title: t('automation.col.events'),
-            render: (_, trigger) => listFormat(trigger.events.map((e) => t(`trigger_event.${e}`))),
+            render: (_, trigger) => (
+              <Space size={4} wrap>
+                {listFormat(trigger.events.map((e) => t(`trigger_event.${e}`)))}
+                {offer !== undefined && trigger.events.some((e) => !offer.includes(e)) && (
+                  // A stored trigger on an event its type no longer offers never runs (L3).
+                  <ToneTag tone="warning" testId={`trigger-unoffered-${trigger.name}`}>
+                    {t('automation.triggers.event_not_offered')}
+                  </ToneTag>
+                )}
+              </Space>
+            ),
           },
           {
             key: 'state',
@@ -208,6 +236,8 @@ export function TriggersTab() {
         ]}
       />
       <TriggerEditor
+        recordType={recordType}
+        actionKinds={actionKinds}
         trigger={editing === 'new' ? undefined : editing}
         open={editing !== undefined}
         latest={
@@ -258,11 +288,15 @@ function draftOf(trigger: TriggerOut | undefined): Draft {
 
 /** Add or change a trigger. Keeps the version it opened: a save elsewhere shows the conflict. */
 function TriggerEditor({
+  recordType,
+  actionKinds,
   trigger,
   latest,
   open,
   onClose,
 }: {
+  recordType: string;
+  actionKinds: readonly ('set' | 'note')[] | undefined;
   trigger: TriggerOut | undefined;
   latest: TriggerOut | undefined;
   open: boolean;
@@ -270,7 +304,9 @@ function TriggerEditor({
 }) {
   const t = useLabel();
   const { message } = App.useApp();
-  const fields = useRuleFields(RECORD_TYPE, open);
+  const fields = useRuleFields(recordType, open);
+  const offer = useTriggerEvents(recordType, open).data?.offered;
+  const offered = inOrder(offer ?? []);
   const { createTrigger, updateTrigger } = useAutomationChange();
   const [draft, setDraft] = useState<Draft>(() => draftOf(trigger));
   const [opened, setOpened] = useState<string | undefined>(trigger?.id);
@@ -319,7 +355,7 @@ function TriggerEditor({
     };
     if (trigger === undefined) {
       createTrigger.mutate(
-        { ...body, record_type: RECORD_TYPE },
+        { ...body, record_type: recordType },
         { onSuccess: done, onError: failed },
       );
     } else {
@@ -385,7 +421,17 @@ function TriggerEditor({
               onChange={(next) => {
                 edit({ events: next });
               }}
-              options={EVENTS.map((e) => ({ value: e, label: t(`trigger_event.${e}`) }))}
+              options={[
+                ...offered.map((e) => ({ value: e, label: t(`trigger_event.${e}`) })),
+                // A saved event the type no longer offers stays visible, marked, so a save never
+                // drops it without the admin seeing it (lane C's L5).
+                ...(offer === undefined ? [] : draft.events)
+                  .filter((e: TriggerEvent) => !offered.includes(e))
+                  .map((e) => ({
+                    value: e,
+                    label: `${t(`trigger_event.${e}`)} (${t('automation.triggers.event_not_offered')})`,
+                  })),
+              ]}
               data-testid="trigger-events"
             />
           </Form.Item>
@@ -417,6 +463,7 @@ function TriggerEditor({
                 edit({ actions });
               }}
               testId="trigger-action"
+              kinds={actionKinds}
             />
           </Form.Item>
           <Flex gap={32} wrap>

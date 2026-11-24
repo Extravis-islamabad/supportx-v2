@@ -919,6 +919,7 @@ export {
   useSetAvailability,
   useTransitionSettings,
   useTriggers,
+  useTriggerEvents,
   type AssignmentSettingsIn,
   type AssignmentSettingsOut,
   type AutomationRunOut,

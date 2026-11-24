@@ -44,6 +44,7 @@ import {
 
 import { nameOf, typeTree } from '../../cmdb/names';
 import { ciTypeFieldsHref } from './links';
+import { TriggersTab } from '../automation/TriggersTab';
 import { RelationshipTypesBlock } from './RelationshipTypesBlock';
 import { SourceOrderBlock } from './SourceOrderBlock';
 
@@ -93,7 +94,21 @@ export function CmdbAdminPage() {
       <StatesBlock />
       <RelationshipTypesBlock />
       <SourceOrderBlock />
+      {can('automation.view') && <CiTriggersBlock />}
     </Flex>
+  );
+}
+
+/**
+ * Triggers on configuration items (WP-053 S5d, REQ-CMDB-023): a CI's state, relationships or
+ * downtime can set its own fields. Only "set a field": a CI has no notes.
+ */
+function CiTriggersBlock() {
+  const t = useLabel();
+  return (
+    <SettingsCard title={t('cmdb.admin.triggers')} testId="cmdb-triggers">
+      <TriggersTab recordType="cmdb_ci" actionKinds={['set']} />
+    </SettingsCard>
   );
 }
 

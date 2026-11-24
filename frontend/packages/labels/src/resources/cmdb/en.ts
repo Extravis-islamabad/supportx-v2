@@ -41,6 +41,7 @@ export const en = {
   'cmdb.action.remove': 'Remove',
   'cmdb.action.restore': 'Restore',
   'cmdb.added': '{{id}} added',
+  'cmdb.admin.triggers': 'Configuration item triggers',
   'cmdb.all_types': 'All types',
   'cmdb.change_type_blocked':
     "Your roles may only read a field whose value this change would drop, so you can't change the type.",

@@ -94,6 +94,19 @@ function routes(extra: Routes = {}) {
         ],
       },
       'GET /api/v1/automation/triggers': { body: [trigger({})] },
+      // WP-053 S5d: the incident's offer, from the server (an unstaged type: no stage_entered).
+      'GET /api/v1/automation/trigger-events': {
+        body: {
+          offered: [
+            'assigned',
+            'created',
+            'note_added',
+            'requester_replied',
+            'status_changed',
+            'updated',
+          ],
+        },
+      },
       'GET /api/v1/automation/transitions': { body: [] },
       [`GET ${PATH}`]: { body: ITEM, headers: { ETag: `"${String(ITEM.version)}"` } },
       [`GET ${PATH}/history`]: { body: { items: [], next_cursor: null, people: {} } },
@@ -155,6 +168,34 @@ describe('Admin › Incidents › Triggers (WP-029 part 2)', () => {
     };
     await pickField('Priority');
     expect(await operators()).toBe(0);
+  });
+
+  it('S5d: the editor lists the offered events by label and both action kinds', async () => {
+    const fake = routes();
+    open('/admin/automation/triggers');
+    fireEvent.click(await screen.findByTestId('trigger-add'));
+    const events = await screen.findByTestId('trigger-events');
+    const boxes = within(events).getAllByRole('checkbox');
+    expect(boxes).toHaveLength(6);
+    expect(events.textContent).toContain('When the status changes');
+    expect(events.textContent).toContain('When the requester replies');
+    expect(events.textContent).not.toMatch(/stage|trigger_event|_/);
+    const kind = screen.getByTestId('trigger-action-0-kind');
+    fireEvent.mouseDown(kind.querySelector('.ant-select-selector') ?? kind);
+    expect((await screen.findAllByText('Add a private note')).length).toBeGreaterThan(0);
+    const asked = fake.find('GET', '/api/v1/automation/trigger-events');
+    expect(asked[0]?.url.searchParams.get('record_type')).toBe('incident');
+  });
+
+  it('S5d: a stored trigger on an event its type no longer offers is tagged', async () => {
+    routes({
+      'GET /api/v1/automation/triggers': {
+        body: [trigger({ name: 'Old stage rule', events: ['stage_entered'] })],
+      },
+    });
+    open('/admin/automation/triggers');
+    const tag = await screen.findByTestId('trigger-unoffered-Old stage rule');
+    expect(tag.textContent).toBe('No longer applies');
   });
 
   it('a trigger changed elsewhere appears without a refresh (§8)', async () => {
