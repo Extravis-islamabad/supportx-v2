@@ -13,7 +13,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.automation.domain.rules import JsonValue, RuleField
-from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, TriggerEvent
+from app.modules.automation.domain.triggers import (
+    WORK_ITEM_EVENTS,
+    TriggerActionKind,
+    TriggerEvent,
+)
 from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
 
@@ -130,6 +134,26 @@ CommandRunner = Callable[
     [AsyncSession, Subject, uuid.UUID, str, Mapping[str, Any], Mapping[str, Any]],
     Awaitable[CommandResult],
 ]
+
+
+def offered_actions(kind: RecordType) -> list[TriggerActionKind]:
+    """The trigger actions this type offers (WP-047a S4; lane C's #627 review).
+
+    The editor lists only these, and saving refuses any other (`action_not_offered`).
+
+    A field change where it can apply one, a note where it has notes, a workflow where it runs
+    them, and an approval ask where its approvals can be decided.
+    """
+    found: list[TriggerActionKind] = []
+    if kind.apply is not None:
+        found.append(TriggerActionKind.SET)
+    if kind.add_note is not None:
+        found.append(TriggerActionKind.NOTE)
+    if kind.run_command is not None:
+        found.append(TriggerActionKind.START_WORKFLOW)
+    if kind.approval_roles is not None and kind.ask_approval is not None:
+        found.append(TriggerActionKind.START_APPROVAL)
+    return found
 
 
 @dataclass(frozen=True)

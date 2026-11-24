@@ -18,7 +18,7 @@ from app.core.errors import NotFound, PermissionDenied, ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.assignment import AssignMethod, Availability
 from app.modules.automation.domain.rules import ActionMode, FieldKind, RuleEvent, RuleState
-from app.modules.automation.domain.triggers import Relative, TriggerEvent
+from app.modules.automation.domain.triggers import Relative, TriggerActionKind, TriggerEvent
 from app.modules.automation.infra.models import (
     AssignmentSettings,
     AutomationTrigger,
@@ -34,6 +34,7 @@ from app.modules.automation.service import (
     transitions,
     triggers,
 )
+from app.modules.automation.service.registry import offered_actions
 from app.modules.automation.service.registry import record_type as registered_type
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -94,6 +95,9 @@ class TriggerEventsOut(BaseModel):
     """The trigger events a record type offers (WP-053 S5d): the editor lists only these."""
 
     offered: list[TriggerEvent] = Field(description="In a stable order.")
+    offered_actions: list[TriggerActionKind] = Field(
+        description="The actions its triggers may take (WP-047a S4); any other is refused."
+    )
 
 
 @router.get("/trigger-events", summary="Trigger events a record type offers")
@@ -103,7 +107,10 @@ async def list_trigger_events(subject: View, record_type: RecordType) -> Trigger
     kind = registered_type(record_type)
     if kind is None:
         raise NotFound(code="unknown_record_type")
-    return TriggerEventsOut(offered=sorted(kind.offered_events, key=lambda e: e.value))
+    return TriggerEventsOut(
+        offered=sorted(kind.offered_events, key=lambda e: e.value),
+        offered_actions=offered_actions(kind),
+    )
 
 
 # --- business rules ----------------------------------------------------------------------------
