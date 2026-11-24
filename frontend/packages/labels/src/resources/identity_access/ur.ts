@@ -286,6 +286,8 @@ export const ur: LabelResource = {
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
+  'group_mapping_source.directory': 'ڈائریکٹری',
+  'group_mapping_source.sso': 'سنگل سائن آن',
   'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
   'identity.settings.people_edit_contact_help':
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
@@ -1669,6 +1671,8 @@ export const ur: LabelResource = {
     'کنسول سیشن ایک گھنٹے سے زیادہ بغیر سرگرمی کے سائن اِن رہتے ہیں۔',
   'security_flag.console_open_network': 'کنسول کسی بھی نیٹ ورک پتے سے کھولا جا سکتا ہے۔',
   'security_flag.console_session_long': 'کنسول سیشن ایک کاروباری دن سے زیادہ چلتے ہیں۔',
+  'security_flag.directory_access_stale':
+    'ایسی ڈائریکٹریاں جو رسائی دیتی ہیں اور ایک دن سے زیادہ سے سنک نہیں ہوئیں',
   'security_flag.fields_still_moving':
     'حساس فیلڈز جن کی انکرپشن یا ڈی کرپشن ابھی جاری ہے: {{count}}',
   'security_flag.keys_never_expire': 'API کلیدیں میعاد کے بغیر بنائی جا سکتی ہیں۔',

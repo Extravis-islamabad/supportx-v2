@@ -42,7 +42,7 @@ router = APIRouter(
 Manage = Annotated[Subject, Depends(require_permission("identity.manage"))]
 
 
-class GroupMappingIn(BaseModel):
+class IdpGroupMappingIn(BaseModel):
     """One external group onto exactly one role or support group."""
 
     model_config = ConfigDict(extra="forbid")
@@ -57,7 +57,7 @@ class GroupMappingIn(BaseModel):
     group_id: uuid.UUID | None = None
 
 
-class GroupMappingOut(BaseModel):
+class IdpGroupMappingOut(BaseModel):
     """A mapping as its admins see it."""
 
     id: uuid.UUID
@@ -70,7 +70,7 @@ class GroupMappingOut(BaseModel):
     enabled: bool
 
     @classmethod
-    def of(cls, row: IdpGroupMapping) -> "GroupMappingOut":
+    def of(cls, row: IdpGroupMapping) -> "IdpGroupMappingOut":
         """From the row."""
         return cls(
             id=row.id,
@@ -115,16 +115,16 @@ async def list_group_mappings(
     subject: Manage,
     source_kind: Annotated[SourceKind, Query()],
     source_id: Annotated[uuid.UUID, Query()],
-) -> list[GroupMappingOut]:
+) -> list[IdpGroupMappingOut]:
     """Oldest first."""
     del subject
     rows = await mappings.list_mappings(session, source_kind, source_id)
-    return [GroupMappingOut.of(r) for r in rows]
+    return [IdpGroupMappingOut.of(r) for r in rows]
 
 
 @router.post("", summary="Map an external group", status_code=201, dependencies=[RecentAuth])
 async def create_group_mapping(
-    body: GroupMappingIn,
+    body: IdpGroupMappingIn,
     session: TenantSession,
     subject: Manage,
     idempotency: Idempotency,
@@ -147,7 +147,7 @@ async def create_group_mapping(
             group_id=body.group_id,
         )
         note.object_id = str(row.id)
-        return Created(GroupMappingOut.of(row), {"ETag": f'"{row.version}"'})
+        return Created(IdpGroupMappingOut.of(row), {"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, operation)
 

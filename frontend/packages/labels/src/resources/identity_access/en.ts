@@ -282,6 +282,8 @@ export const en = {
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',
+  'group_mapping_source.directory': 'Directory',
+  'group_mapping_source.sso': 'Single sign-on',
   'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
   'identity.settings.people_edit_contact_help':
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
@@ -1672,6 +1674,8 @@ export const en = {
     'Console sessions stay signed in for over an hour without activity.',
   'security_flag.console_open_network': 'The console can be reached from any network address.',
   'security_flag.console_session_long': 'Console sessions last longer than a working day.',
+  'security_flag.directory_access_stale':
+    "Directories giving access that haven't synced for over a day",
   'security_flag.fields_still_moving':
     'Sensitive fields still being encrypted or decrypted: {{count}}',
   'security_flag.keys_never_expire': 'API keys may be made without an expiry date.',

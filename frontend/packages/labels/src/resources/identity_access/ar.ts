@@ -288,6 +288,8 @@ export const ar: LabelResource = {
   'form_density.comfortable': 'مريح',
   'form_density.compact': 'مضغوط',
   'form_density.title': 'تخطيط النموذج',
+  'group_mapping_source.directory': 'الدليل',
+  'group_mapping_source.sso': 'تسجيل الدخول الموحد',
   'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
   'identity.settings.people_edit_contact_help':
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
@@ -1687,6 +1689,7 @@ export const ar: LabelResource = {
   'security_flag.console_idle_long': 'تبقى جلسات وحدة التحكم مفتوحة أكثر من ساعة دون نشاط.',
   'security_flag.console_open_network': 'يمكن الوصول إلى وحدة التحكم من أي عنوان شبكة.',
   'security_flag.console_session_long': 'تدوم جلسات وحدة التحكم أكثر من يوم عمل.',
+  'security_flag.directory_access_stale': 'أدلة تمنح صلاحيات ولم تُزامَن منذ أكثر من يوم',
   'security_flag.fields_still_moving': 'حقول حساسة ما زال تشفيرها أو فك تشفيرها جاريًا: {{count}}',
   'security_flag.keys_never_expire': 'يمكن إنشاء مفاتيح API دون تاريخ انتهاء.',
   'security_flag.keys_out_of_policy': 'مفاتيح API خارج سياسة المفاتيح: {{count}}',
