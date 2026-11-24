@@ -70,8 +70,12 @@ async def test_ready_against_the_running_dev_stack(
     body = response.json()
     assert body["status"] == "ready"
     critical = {name for name, check in body["checks"].items() if check["critical"]}
-    assert critical == {"postgres", "valkey", "nats", "keycloak"}
+    assert critical == {"postgres", "valkey", "nats"}
     assert all(body["checks"][name]["status"] == "ok" for name in critical)
+    # Keycloak is reported but informational (ADR-051): signed-in people never need it per
+    # request, so it never makes the API unready. On the running stack it answers.
+    assert body["checks"]["keycloak"]["critical"] is False
+    assert body["checks"]["keycloak"]["status"] == "ok"
     # The event workers are reported from their heartbeats but never make the API unready.
     assert {"outbox_relay", "event_consumers", "realtime_fanout"} <= set(body["checks"])
     assert set(body["degraded"]) <= {"outbox_relay", "event_consumers", "realtime_fanout"}
@@ -94,7 +98,11 @@ async def test_wrong_password_is_reported_as_auth_failed(
 
     assert response.status_code == 503
     body = response.json()
-    assert body["failed"] == ["postgres", "valkey", "keycloak"]
+    # Only the critical dependencies make it unready; an unreachable Keycloak is listed under
+    # `degraded` instead (ADR-051).
+    assert body["failed"] == ["postgres", "valkey"]
+    assert "keycloak" in body["degraded"]
+    assert body["checks"]["keycloak"]["critical"] is False
     assert body["checks"]["keycloak"]["reason"] == "unreachable"
     assert body["checks"]["postgres"]["reason"] == "auth_failed"
     assert body["checks"]["valkey"]["reason"] == "auth_failed"

@@ -176,8 +176,11 @@ def plan(
     current: Mapping[str, Any],
     current_stamps: Mapping[str, Stamp],
     incoming: Mapping[str, Any],
+    source: AttributeSource = SOURCE,
 ) -> Plan:
-    """For each mapped attribute whose value differs: change it if the sync's source wins.
+    """For each mapped attribute whose value differs: change it if `source` wins.
+
+    `source` is the sync's by default; an import passes its own (S4b).
 
     A value a stronger source set is kept (named in `kept`, never overwritten). The name is
     never emptied: an asset without one leaves the CI's name as it is.
@@ -187,7 +190,7 @@ def plan(
     for attribute, value in sorted(incoming.items()):
         if current.get(attribute) == value or (attribute == "name" and value is None):
             continue
-        if wins(precedence, attribute, SOURCE, current_stamps.get(attribute)):
+        if wins(precedence, attribute, source, current_stamps.get(attribute)):
             changes[attribute] = value
         else:
             kept.append(attribute)

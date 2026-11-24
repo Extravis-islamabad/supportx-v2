@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import {
+  ApiError,
   queryKeys,
   useCiStates,
   useCiTypes,
@@ -29,6 +30,7 @@ import {
 
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { nameOf, typeTree } from './names';
+import { CiImportDrawer } from './CiImportDrawer';
 import { useCmdbRight } from './rights';
 
 /**
@@ -44,6 +46,7 @@ export function CmdbPage() {
   const { has, isAdmin } = useLicence();
   const allowed = can('cmdb.view');
   const [view, setView] = useState<'current' | 'trash'>('current');
+  const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState('');
   const [typeId, setTypeId] = useState<string>();
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
@@ -106,6 +109,16 @@ export function CmdbPage() {
                 <Button onClick={() => void navigate('/admin/cmdb')} data-testid="cmdb-types">
                   {t('cmdb.title.types')}
                 </Button>
+              )}
+              {(may('add') || may('edit')) && (
+                <WriteButton
+                  onClick={() => {
+                    setImporting(true);
+                  }}
+                  data-testid="cmdb-import"
+                >
+                  {t('cmdb.action.import')}
+                </WriteButton>
               )}
               {may('add') && (
                 <WriteButton
@@ -230,14 +243,21 @@ export function CmdbPage() {
           </Button>
         </Flex>
       )}
+      <CiImportDrawer
+        open={importing}
+        onClose={() => {
+          setImporting(false);
+        }}
+      />
     </ListPage>
   );
 }
 
 function RestoreButton({ row }: { row: CiListItem }) {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const restore = useRestoreCi();
+  const restored = () => void message.success(t('cmdb.restored', { id: row.display_id }));
   return (
     <WriteButton
       size="small"
@@ -246,8 +266,27 @@ function RestoreButton({ row }: { row: CiListItem }) {
         restore.mutate(
           { id: row.id, version: row.version },
           {
-            onSuccess: () => void message.success(t('cmdb.restored', { id: row.display_id })),
-            onError: reportError,
+            onSuccess: restored,
+            onError: (error) => {
+              // A CI merged into another: say so, then bring it back on its own (S4b).
+              if (!(error instanceof ApiError) || error.code !== 'cmdb_ci_restore_merged') {
+                reportError(error);
+                return;
+              }
+              modal.confirm({
+                title: t('cmdb.restore_merged.title'),
+                content: t('errors.cmdb_ci_restore_merged', {
+                  display_id: String(error.params.display_id ?? t('layout.restricted_hidden')),
+                }),
+                okText: t('cmdb.action.restore'),
+                okButtonProps: { 'data-testid': 'cmdb-restore-merged-ok' },
+                cancelText: t('actions.cancel'),
+                onOk: () =>
+                  restore
+                    .mutateAsync({ id: row.id, version: row.version, confirmMerged: true })
+                    .then(restored, reportError),
+              });
+            },
           },
         );
       }}

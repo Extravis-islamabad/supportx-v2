@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.cmdb.domain import types as domain
 from app.modules.cmdb.infra.models import Ci, CiState, CiType
+from app.modules.cmdb.service import aliases
 from app.modules.cmdb.service.catalogue import get_settings
 from app.modules.cmdb.service.cis import visible_rows
 from app.modules.identity_access import Subject
@@ -91,14 +92,20 @@ def _gone(ci_id: uuid.UUID) -> CiRef:
 async def ci_refs(
     session: AsyncSession, subject: Subject, ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, CiRef]:
-    """One ref per stored ID, in the order asked (at most REFS_MAX): hidden or gone, never named."""
+    """One ref per stored ID, in the order asked (at most REFS_MAX): hidden or gone, never named.
+
+    A merged CI's ID gives its survivor's ref when the reader may see the survivor (S4b), and
+    otherwise reads as gone, exactly as a CI that exists nowhere (lane C (8)).
+    """
     unique = list(dict.fromkeys(ids))[:REFS_MAX]
     if not unique:
         return {}
-    rows = await session.scalars(visible_rows(subject).where(Ci.id.in_(unique)))
+    survivors = await aliases.resolve_visible(session, subject, unique)
+    wanted = list(dict.fromkeys([*unique, *survivors.values()]))
+    rows = await session.scalars(visible_rows(subject).where(Ci.id.in_(wanted)))
     visible = {r.id: r for r in rows}
     live = set(
-        await session.scalars(select(Ci.id).where(Ci.id.in_(unique), Ci.deleted_at.is_(None)))
+        await session.scalars(select(Ci.id).where(Ci.id.in_(wanted), Ci.deleted_at.is_(None)))
     )
     states = {
         s.id: s.category
@@ -114,7 +121,7 @@ async def ci_refs(
     }
     out: dict[uuid.UUID, CiRef] = {}
     for ci_id in unique:
-        row = visible.get(ci_id)
+        row = visible.get(survivors.get(ci_id, ci_id))
         if row is None:
             out[ci_id] = _hidden(ci_id) if ci_id in live else _gone(ci_id)
             continue
