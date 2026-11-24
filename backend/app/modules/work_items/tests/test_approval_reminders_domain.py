@@ -140,3 +140,21 @@ def test_a_majority_counts_families_not_rows() -> None:
     assert len(family_states(rows)) == 2
     withdrawn = [Row(P1, "withdrawn"), Row(E1, "not_needed", escalated_from_id=P1)]
     assert family_states(withdrawn) == [ApprovalState.WITHDRAWN]
+
+
+def test_the_snapshot_keeps_escalate_to_and_leaves_the_default_out() -> None:
+    from app.modules.work_items.domain import stage_snapshot as snap  # noqa: PLC0415 - one test
+
+    stages = (
+        snap.SnapStage(approvers=(snap.SnapApprover("person", P1),)),
+        snap.SnapStage(approvers=(snap.SnapApprover("person", P2),), escalate_to="none"),
+    )
+    stored = snap.to_json(stages)
+    assert "escalate_to" not in stored["stages"][0]  # the backup, left out
+    assert stored["stages"][1]["escalate_to"] == "none"
+    assert snap.from_json(stored) == stages
+    wrong = {"v": 1, "stages": [{"approvers": [], "escalate_to": "someone"}]}
+    assert snap.problems(wrong) == ["stages.0.escalate_to"]
+    # An erased backup keeps the stage's other settings (dataclasses.replace).
+    kept = snap.without_person(stages, P1)
+    assert kept[1].escalate_to == "none"
