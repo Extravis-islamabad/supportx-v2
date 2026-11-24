@@ -77,6 +77,7 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    clarifications,
     drafts,
     field_catalogue,
     inbound_mail,
@@ -93,6 +94,7 @@ from app.modules.work_items.service import (
     reminders,
     repeat_rules,
     report_names,
+    request_approval_reminders,
     request_notifications,
     resolution,
     rule_step_notifications,
@@ -299,6 +301,7 @@ module = ModuleSpec(
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
     consumers=[
         APPROVER_LEFT,
+        clarifications.ANSWERS,  # WP-047a S3a (REQ-SR-037 AC2): an answer ends the question
         KEPT_INFORMED,
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
@@ -330,6 +333,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-047a S3a (REQ-SR-034): request approval reminders and escalation, each slot once.
+        ScheduleSpec(
+            "work_items__request_approval_reminders",
+            request_approval_reminders.EVERY_SECONDS,
+            request_approval_reminders.reminders_schedule,
         ),
         # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
         ScheduleSpec(

@@ -69,4 +69,31 @@ describe('console: service request settings', () => {
     const [sent] = fake.find('PATCH', '/api/v1/service-requests/settings');
     expect(sent?.body).toEqual({ first_task_starts_work: false });
   });
+
+  it('WP-047a S3a (REQ-SR-034): the reminder schedule shows its defaults and saves a change', async () => {
+    window.history.pushState({}, '', '/admin/requests');
+    const fake = consoleApi({
+      me: fakeSession({ roles: ['tenant_admin'] }),
+      routes: {
+        'GET /api/v1/service-requests/settings': { body: saved },
+        'PATCH /api/v1/service-requests/settings': {
+          body: { ...saved, approval_reminder_count: 5, version: 5 },
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const count = await screen.findByTestId<HTMLInputElement>('sr-reminder-count');
+    expect(count.value).toBe('3');
+    expect(screen.getByTestId<HTMLInputElement>('sr-reminder-after-days').value).toBe('2');
+    expect(screen.getByTestId<HTMLInputElement>('sr-reminder-at').value).toBe('10:00');
+    fireEvent.change(count, { target: { value: '5' } });
+    fireEvent.blur(count);
+    fireEvent.click(await screen.findByTestId('settings-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/service-requests/settings')).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', '/api/v1/service-requests/settings');
+    expect(sent?.body).toEqual({ approval_reminder_count: 5 });
+  });
 });

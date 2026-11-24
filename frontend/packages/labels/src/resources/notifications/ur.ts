@@ -174,6 +174,8 @@ export const ur: LabelResource = {
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approved': 'درخواست منظور',
+  'notification_event.service_request.clarification_answered':
+    'درخواست پر آپ کے سوال کا جواب آ گیا',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
   'notification_event.service_request.public_reply': 'درخواست گزار کو جواب',
   'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
@@ -798,6 +800,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} منظور ہو گئی: {{ record.title }}',
   'notification_template.service_request.approved.subject':
     'منظور: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.clarification_answered.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے سوال کا جواب آ گیا ہے۔ جواب پڑھنے اور فیصلہ کرنے کے لیے درخواست کھولیں۔',
+  'notification_template.service_request.clarification_answered.in_app':
+    '{{ record.display_id }} پر آپ کے سوال کا جواب آ گیا',
+  'notification_template.service_request.clarification_answered.subject':
+    'جواب آ گیا: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.fulfilled.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» مکمل ہو گئی۔ براہ کرم تصدیق کریں کہ آپ کو مل گئی، یا بتائیں اگر کچھ رہ گیا ہو۔',
   'notification_template.service_request.fulfilled.in_app':

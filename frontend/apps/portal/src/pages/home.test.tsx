@@ -65,6 +65,7 @@ const LAPTOP = item('01a1a2b3-0000-7000-8000-00000000d001', 'New laptop', {
     comments_required: false,
     rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
 });
 const VPN = item('01a1a2b3-0000-7000-8000-00000000d002', 'VPN access');

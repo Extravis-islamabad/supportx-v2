@@ -57,6 +57,9 @@ class ApproverOrigin(StrEnum):
     MANAGER = "manager"  # the requested-for person's manager (REQ-SR-022)
     BACKUP = "backup"  # the stage's backup approver (REQ-SR-023)
     ADMINISTRATORS = "administrators"  # anyone with work_items.approve_any (REQ-SR-023)
+    # WP-047a S3a (REQ-SR-034): added after the last reminder, next to the primary, who keeps
+    # their row (036 AC2); `escalated_from_id` names the primary.
+    ESCALATED = "escalated"
 
 
 class ApprovalPurpose(StrEnum):
@@ -87,6 +90,9 @@ class RouteReason(StrEnum):
     APPROVER_ERASED = "approver_erased"
     # WP-047a S2a (condition 3): a request stage's approvers resolve to nobody.
     NO_APPROVER = "no_approver"
+    # WP-047a S3a (the coordinator's condition 2): an escalation finds no backup, manager or
+    # group member, so it goes to the administrators, recorded.
+    NO_ESCALATION_TARGET = "no_escalation_target"
 
 
 class DecisionChannel(StrEnum):

@@ -175,7 +175,42 @@ export const portalRequestKeys = {
   all: ['portal', 'service-requests'] as const,
   list: (state: PortalState | undefined) => ['portal', 'service-requests', 'list', state] as const,
   detail: (id: string) => ['portal', 'service-requests', 'detail', id] as const,
+  conversation: (id: string) => ['portal', 'service-requests', 'conversation', id] as const,
 };
+
+/**
+ * A request's public conversation (WP-047a S3a; REQ-SR-037 AC1): an approver's question to the
+ * requester shows here, and the requester answers with a reply.
+ */
+export function usePortalRequestConversation(id: string) {
+  return useQuery({
+    queryKey: portalRequestKeys.conversation(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/conversation', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+  });
+}
+
+/** The requester's public reply on their own request. */
+export function usePortalRequestReply(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      call(
+        api.POST('/api/v1/portal/service-requests/{record_id}/replies', {
+          params: { path: { record_id: id } },
+          body: { body },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.conversation(id) });
+    },
+  });
+}
 
 /** The requester's own service requests (WP-030 D9, REQ-SR-062). */
 export function usePortalRequests(state: PortalState | undefined) {

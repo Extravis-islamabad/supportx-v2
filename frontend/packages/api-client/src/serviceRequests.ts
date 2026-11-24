@@ -349,6 +349,45 @@ export function useChangeApprovers() {
   });
 }
 
+/** Whom an approver's question goes to (WP-047a S3a, REQ-SR-037). */
+export type ClarificationAddressee = components['schemas']['Addressee'];
+
+/**
+ * Ask a question instead of deciding (REQ-SR-037), If-Match on the approval's version as a
+ * decision. The stage stays pending; the answer arrives on the record channel.
+ */
+export function useAskClarification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      recordId,
+      approvalId,
+      version,
+      question,
+      addressee,
+    }: {
+      recordId: string;
+      approvalId: string;
+      version: number;
+      question: string;
+      addressee: ClarificationAddressee;
+    }) =>
+      call(
+        api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/clarification', {
+          params: {
+            path: { record_id: recordId, approval_id: approvalId },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+          body: { question, addressee },
+        }),
+      ),
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.approvals(recordId) });
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
+    },
+  });
+}
+
 export function useWithdrawRequest() {
   const queryClient = useQueryClient();
   return useMutation({

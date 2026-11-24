@@ -161,10 +161,20 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+# Rights `cmdb.manage` never stands in for: deleting (and so restoring) a CI is its own decision,
+# for every role (a role with manage but without delete may not delete; D-173's finding).
+NOT_COVERED_BY_MANAGE = frozenset({DELETE})
+
+
 def writer(subject: Subject, permission: str) -> str | None:
-    """The right this person writes with: the named one, else `cmdb.manage`, else none."""
+    """The right this person writes with: the named one, else `cmdb.manage`, else none.
+
+    Never `cmdb.manage` for a right in NOT_COVERED_BY_MANAGE.
+    """
     if subject.holds(permission):
         return permission
+    if permission in NOT_COVERED_BY_MANAGE:
+        return None
     return MANAGE if subject.holds(MANAGE) else None
 
 
