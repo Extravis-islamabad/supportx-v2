@@ -49,14 +49,26 @@ export function RequestPage() {
   const [rejecting, setRejecting] = useState(false);
   const [comment, setComment] = useState('');
 
-  useRecordEvents('portal_wi', id, (event) => {
-    if (event.type === 'work_items.portal_conversation_changed') {
-      refreshQueries(queryClient, portalKeys.conversation(id));
-      return;
-    }
-    refreshQueries(queryClient, portalKeys.detail(id));
-    refreshQueries(queryClient, queryKeys.files.record('incident', id));
-  });
+  useRecordEvents(
+    'portal_wi',
+    id,
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed all three (§8.3)
+      if (event.type === 'work_items.portal_conversation_changed') {
+        refreshQueries(queryClient, portalKeys.conversation(id));
+        return;
+      }
+      refreshQueries(queryClient, portalKeys.detail(id));
+      refreshQueries(queryClient, queryKeys.files.record('incident', id));
+    },
+    {
+      covers: [
+        portalKeys.detail(id),
+        portalKeys.conversation(id),
+        queryKeys.files.record('incident', id),
+      ],
+    },
+  );
 
   if (record.isLoading) return <Skeleton active />;
   if (record.error || record.data === undefined) {
