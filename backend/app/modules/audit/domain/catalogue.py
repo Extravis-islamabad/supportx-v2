@@ -410,6 +410,10 @@ ACTIONS: dict[str, Action] = _actions(
     # WP-047a S2b: approved with nobody asked (REQ-SR-033), and a running approval adjusted
     # or asked ad hoc (REQ-SR-042).
     ("service_request.approved_automatically", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S3a (REQ-SR-034, -037)
+    ("service_request.approval_escalated", AuditCategory.RECORDS, "work_items"),
+    ("service_request.clarification_asked", AuditCategory.RECORDS, "work_items"),
+    ("service_request.clarification_answered", AuditCategory.RECORDS, "work_items"),
     ("service_request.approvers_modified", AuditCategory.RECORDS, "work_items"),
     ("service_request.approval_requested", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4

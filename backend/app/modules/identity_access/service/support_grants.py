@@ -97,6 +97,7 @@ class GrantView:
     access: str
     change_reason: str | None
     unmask_personal: bool
+    mask_names: bool
     ip_allowlist: list[str]
     starts_at: datetime
     ends_at: datetime
@@ -117,6 +118,7 @@ def _view(row: SupportGrant) -> GrantView:
         access=row.access,
         change_reason=row.change_reason,
         unmask_personal=row.unmask_personal,
+        mask_names=row.mask_names,
         ip_allowlist=[str(n) for n in row.ip_allowlist],
         starts_at=row.starts_at,
         ends_at=row.ends_at,
@@ -661,6 +663,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         if request.access is rules.Access.VIEW_AND_CHANGE
         else None,
         unmask_personal=request.unmask_personal,
+        mask_names=request.mask_names,
         ip_allowlist=networks,
         starts_at=starts_at,
         ends_at=ends_at,
@@ -835,6 +838,7 @@ class _Facts:
     networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
     until: datetime
     unmask_personal: bool = False
+    mask_names: bool = True  # D-180: fails closed when unknown
 
 
 # In process only, keyed (tenant, user): a revoke ends the sessions through the store marker at
@@ -872,6 +876,7 @@ async def _facts(
             tuple(ipaddress.ip_network(str(n), strict=False) for n in row.ip_allowlist),
             until,
             row.unmask_personal,
+            row.mask_names,
         )
     _cache[(tenant_id, user_id)] = facts
     return facts
@@ -1002,6 +1007,15 @@ def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[uuid.UUID | 
     if facts is None:
         return None, False
     return facts.grant_id, facts.unmask_personal
+
+
+def judged_names_masked(tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether the grant `request_refusal` just admitted the account under masks names (D-180).
+
+    Fails closed: with the facts gone, names are masked. Memory only, like `judged_grant`.
+    """
+    facts = _cache.get((tenant_id, user_id))
+    return True if facts is None else facts.mask_names
 
 
 BROKERED = "support_sign_in_brokered"

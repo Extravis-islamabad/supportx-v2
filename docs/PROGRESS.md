@@ -142,6 +142,10 @@ decisions D1-D13 (D-038).
    the installation rather than a tenant (sign-in key rotations, D-162) are written into every
    tenant's log today, by a background announcer; a platform log for the operator would hold
    them once. Needs an ADR (it sits beside ADR-027's per-tenant chain).
+8. **Web image on nginx mainline (lane B, 2026-11-24, #596):** `deploy/images/web.Dockerfile`
+   runs nginx-unprivileged **1.31.7** (mainline, digest-pinned), because stable 1.30.6 has six
+   fixable HIGH/CRITICAL nginx CVEs and no stable 1.30.7 image was published. Move back to the
+   stable line once 1.30.7 or later is published. Check it at each Monday re-check.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -1718,9 +1722,9 @@ declare major) default to the tenant admin and service desk manager, grantable, 
 
 Plan approved by the coordinator 2026-11-23 (`~/Extravis/plans/wp-047a-plan-lane-a.md`):
 service requests move onto the existing level engine; one migration per session. REQs so far:
-**9 done** (019 and 054 before this WP; 015 and 016 in S1; 029, 030, 031 and 032 in S2a; 042
-in S2b), **2 partly** (014: AC2 done, AC1 waits for the item price, REQ-CAT-020; 033: AC1
-done, AC2 "below a cost" waits for the price), 18 to come.
+**12 done** (019 and 054 before this WP; 015 and 016 in S1; 029, 030, 031 and 032 in S2a; 042
+in S2b; 034, 036 and 037 in S3a, draft), **2 partly** (014: AC2 done, AC1 waits for the item
+price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 to come.
 
 - [x] **S1, raising (0193; REQ-SR-014, -015, -016; lane C blocks):** merged (#578, a25887a8d).
   - REQ-SR-014 (Professional, `catalog` checked in the service): an item may ask a quantity up
@@ -1778,8 +1782,9 @@ done, AC2 "below a cost" waits for the price), 18 to come.
       stage goes to the approval administrators, recorded.
     - The editor edits one condition per stage; combined conditions set through the API are
       kept and shown, not edited.
-- [~] **S2b, automatic approval and adjusting a running approval (0195; REQ-SR-033, -042; lane
-  B blocks the right and its defaults, lane C feature permissions and the gate):** draft #593.
+- [x] **S2b, automatic approval and adjusting a running approval (0195; REQ-SR-033, -042; lane
+  B blocks the right and its defaults, lane C feature permissions and the gate):** merged
+  (#593, 436efcfbe, 2026-11-24).
   - REQ-SR-033 (Professional, `catalog`): "approved earlier". Someone who approved an earlier
     stage of the same request is not asked again. The item's switch decides, else the tenant's
     `auto_approve_earlier` (off by default), resolved into the snapshot. Their eligibility is
@@ -1797,6 +1802,32 @@ done, AC2 "below a cost" waits for the price), 18 to come.
   - Also fixed: a single stage's condition, kinds and rules are now checked before saving.
   - **Follow-ups:** a History tab for requests in the console (the Approvals panel says why it
     was automatic meanwhile); REQ-SR-033 AC2 with the price.
+- [~] **S3a, reminders, escalation and clarification (0196; REQ-SR-034, -036 AC2, -037; plan
+  `~/Extravis/plans/wp-047a-s3-plan-lane-a.md`, approved 2026-11-24; lane C blocks the sweep,
+  the notices and the portal question):** draft.
+  - REQ-SR-034 (Essentials): a sweep every 5 minutes reminds each pending named approver of a
+    running request on working days (the tenant's operating hours) at the tenant's time of day
+    in the approver's time zone. The defaults are Appendix A's: after 2 working days, then 3
+    reminders at 10:00, set on the request settings. Each reminder sends the notice again with a
+    fresh link and is recorded in the history. The working day after the last one, the stage
+    escalates as its item says (`escalate_to`): the backup, the approver's manager, the
+    request's group, or nobody. With nobody there it goes to the approval administrators,
+    recorded (condition 2). The sweep is claim-once and capped at 200 actions per tenant per
+    run (condition 5); a missed reminder expires after 2 days, a due escalation never does.
+  - REQ-SR-036 AC2: the escalated approvers get rows next to the primary, who keeps theirs. The
+    primary and its escalated rows count as one vote under the stage's rule, and the first to
+    decide closes the others.
+  - REQ-SR-037 (Essentials): whoever may decide may ask a question instead, to the requester (a
+    public reply, mailed, and now shown in the portal's new request conversation with a reply
+    box) or to the technician (a private note that mentions them). The stage stays pending and
+    its reminders pause; the waiting time moves the plan back. The addressee's next entry
+    answers it (a consumer of the conversation's event) and the asker is told. A decision or the
+    approval closing ends it. The texts reach only the asker and the request's staff; events
+    and notices carry IDs and codes (condition 4).
+  - **Follow-ups:** asking from the portal approvals page and the mobile app goes with S4
+    (channels); history field names (`approval_reminder_sent`, `approval_escalated`,
+    `approval_clarification`) get labels with the requests History tab.
+- [ ] **S3b, delegation and restart (0197; REQ-SR-035, -041):** next.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2676,8 +2707,13 @@ done, AC2 "below a cost" waits for the price), 18 to come.
     service accounts, seal states, the data key's date, failed and locked sign-ins), counts and
     codes only, plus the optional `SUPPORTX_DATA_REGION` (blank hides it). Weak-choice flags are
     recommendations, never enforced; the PR lists their thresholds.
-  - [ ] S4c: vendor support access (D-173; design note in
-    ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
+  - [x] S4c: vendor support access (D-173), DONE: S4c-1 (#552: per-grant accounts, sign-in and
+    session checks), S4c-2 (the access allow-list), S4c-3 (#566: the vendor support screens, the
+    support account's profile, signing out when access ends) and the D-180 follow-up (migration
+    0188): a grant's "Hide people's names too" tick, off by default. On, the engineer's session
+    sees "Person hidden" wherever a person shows (incident parts routed through
+    `useHiddenPersonLabel`, lane A's OK) and person search is refused; e-mail and phone are never
+    shown. The downgrade refuses while a grant has the tick on.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
   - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
     e-mail domains, DONE.** Built:

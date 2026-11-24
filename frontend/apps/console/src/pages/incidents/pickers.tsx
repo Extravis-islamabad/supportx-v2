@@ -14,6 +14,7 @@ import { useAppearance, useLabel } from '@supportx/ui';
 
 import { categoryLabel, duplicateNames } from './labels';
 import { nobodyFound } from './nobodyFound';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 /**
  * A person with a second line: the email always, so two people with the same display name are
@@ -76,6 +77,7 @@ export function UserPicker({
   ariaLabel,
 }: PickerProps) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const spoken = useSpoken();
   const [search, setSearch] = useState('');
   // Server search: half a name, a typo, Arabic or Urdu spellings, or the email (WP-027).
@@ -86,9 +88,11 @@ export function UserPicker({
     const extra = u.status === 'disabled' ? t('people.deactivated_marker') : undefined;
     return {
       value: u.id,
-      name: u.display_name,
-      'aria-label': spoken(u.display_name, u.email, extra),
-      label: <PersonOption name={u.display_name} email={u.email} extra={extra} />,
+      name: shownName(u.display_name, hidden),
+      'aria-label': spoken(shownName(u.display_name, hidden), u.email, extra),
+      label: (
+        <PersonOption name={shownName(u.display_name, hidden)} email={u.email} extra={extra} />
+      ),
     };
   });
   if (current != null && !options.some((o) => o.value === current.id)) {
@@ -114,7 +118,7 @@ export function UserPicker({
       value={value}
       labelRender={() =>
         known?.name ??
-        person.data?.display_name ??
+        (person.data === undefined ? undefined : shownName(person.data.display_name, hidden)) ??
         (person.isError ? t('incidents.person_unseen') : t('shell.loading'))
       }
       disabled={disabled}
@@ -268,6 +272,7 @@ export function TechnicianPicker({
   onPerson?: (person: { id: string; name: string; groupIds: string[] } | null) => void;
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const spoken = useSpoken();
   const joinParts = useJoinParts();
   const [search, setSearch] = useState('');
@@ -290,17 +295,16 @@ export function TechnicianPicker({
       ],
       t('list.separator'),
     );
+    const shown = shownName(r.display_name, hidden);
     return {
       value: r.id,
-      name: twice.has(r.display_name.trim().toLocaleLowerCase())
-        ? `${r.display_name} (${r.email})`
-        : r.display_name,
-      'aria-label': spoken(
-        r.display_name,
-        r.email,
-        outside ? t('incidents.not_in_this_group') : undefined,
-      ),
-      label: <PersonOption name={r.display_name} email={r.email} extra={extra} />,
+      // Twin names get their e-mail to tell them apart, never for a masked session (D-180).
+      name:
+        hidden === null && twice.has(r.display_name.trim().toLocaleLowerCase())
+          ? `${r.display_name} (${r.email})`
+          : shown,
+      'aria-label': spoken(shown, r.email, outside ? t('incidents.not_in_this_group') : undefined),
+      label: <PersonOption name={shown} email={r.email} extra={extra} />,
     };
   });
   if (current != null && !options.some((o) => o.value === current.id)) {

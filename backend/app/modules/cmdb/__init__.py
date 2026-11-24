@@ -53,7 +53,13 @@ from app.modules.cmdb.service.impact import (
 )
 from app.modules.cmdb.service.imports import run_cmdb_imports
 from app.modules.cmdb.service.links import CiLinksPort, register_ci_links
-from app.modules.cmdb.service.open_counts import OpenCounts, OpenCountsPort, register_open_counts
+from app.modules.cmdb.service.open_counts import (
+    LINKED_TYPES,
+    Count,
+    OpenCounts,
+    OpenCountsPort,
+    register_open_counts,
+)
 from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
 from app.modules.cmdb.service.refs import CiRef, can_link, can_see, ci_refs, visible_ci_ids
 from app.modules.cmdb.service.sync import on_asset_changed, run_sync_rules
@@ -115,9 +121,11 @@ _access_criteria.register()  # what fine-grained access rules may narrow CIs to 
 _reporting.register()  # CIs and relationships for reports and dashboards (REQ-CMDB-032, S5a)
 
 __all__ = [
+    "LINKED_TYPES",
     "AffectedUsers",
     "CiLinksPort",
     "CiRef",
+    "Count",
     "Impact",
     "ImpactCi",
     "ImpactDirection",

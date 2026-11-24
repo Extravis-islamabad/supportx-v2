@@ -9,6 +9,7 @@ from app.modules.service_catalog.domain.items import (
     Approver,
     ApproverKind,
     AutoRule,
+    EscalationTarget,
     ItemRules,
     Question,
     QuestionKind,
@@ -144,6 +145,8 @@ def test_each_professional_part_is_named_by_its_requirement() -> None:
     today = _stage(MANAGER, Approver(ApproverKind.PERSON, PERSON))
     assert not uses_stages([today])
     assert not uses_stages([])
+    # WP-047a S3a: escalation is REQ-SR-034, Essentials: it never makes a stage Professional.
+    assert not uses_stages([_stage(MANAGER, escalate_to=EscalationTarget.APPROVER_MANAGER)])
     assert uses_stages([today, today])  # REQ-SR-029: several stages
     assert uses_stages([_stage(MANAGER, rule=StageRule.ALL)])  # REQ-SR-029: a rule
     assert uses_stages([_stage(MANAGER, parallel_group="pair")])  # REQ-SR-030

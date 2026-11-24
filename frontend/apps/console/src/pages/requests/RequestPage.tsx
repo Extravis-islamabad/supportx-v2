@@ -20,7 +20,7 @@ import {
   type ServiceRequest,
   type ReplyMode,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   ActionBar,
@@ -72,7 +72,7 @@ export function RequestPage() {
   const queryClient = useQueryClient();
   const record = useServiceRequest(id);
   useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
+    refreshQueries(queryClient, serviceRequestKeys.detail(id));
   });
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
@@ -460,7 +460,13 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   {
                     key: 'approvals',
                     label: <span data-testid="sr-tab-approvals">{t('requests.approvals')}</span>,
-                    children: <ApprovalsPanel recordId={r.id} questions={questions} />,
+                    children: (
+                      <ApprovalsPanel
+                        recordId={r.id}
+                        questions={questions}
+                        hasTechnician={r.technician_id != null}
+                      />
+                    ),
                   },
                 ]
               : []),

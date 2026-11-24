@@ -31,7 +31,7 @@ import {
   useWithdrawRequest,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   reportError,
   RichTextView,
@@ -42,6 +42,7 @@ import {
 } from '@supportx/ui';
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
+import { RequestConversation } from './RequestConversation';
 
 /**
  * One service request as its requester sees it (WP-030 D9; REQ-SR-051, -061, -062): the plain
@@ -72,9 +73,13 @@ export function ServiceRequestPage() {
   const answer = useAnswerRequest(id);
   const [notDone, setNotDone] = useState(false);
   const [why, setWhy] = useState('');
-  useRecordEvents('portal_wi', id, () => {
-    void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
+  useRecordEvents('portal_wi', id, (event) => {
+    if (event.type === 'work_items.portal_conversation_changed') {
+      refreshQueries(queryClient, portalRequestKeys.conversation(id));
+      return;
+    }
+    refreshQueries(queryClient, portalRequestKeys.detail(id));
+    refreshQueries(queryClient, serviceRequestKeys.detail(id));
   });
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
@@ -298,6 +303,11 @@ export function ServiceRequestPage() {
           />
         </Card>
       )}
+      {/* WP-047a S3a (REQ-SR-037): an approver's question arrives here; a reply answers it. */}
+      <RequestConversation
+        id={id}
+        canReply={r.reach === 'own' && !['closed', 'canceled'].includes(r.portal_status)}
+      />
     </Flex>
   );
 }

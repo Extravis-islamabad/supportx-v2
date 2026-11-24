@@ -12,8 +12,11 @@ request already in flight. The coordinator's snapshot conditions:
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
+
+from app.modules.work_items.domain import approval_reminders
+from app.modules.work_items.domain.approval_reminders import EscalateTo
 
 VERSION = 1
 KINDS = frozenset(
@@ -47,8 +50,11 @@ _STAGE_KEYS = frozenset(
         "condition",
         "auto_earlier",  # WP-047a S2b (REQ-SR-033): resolved at submission (item, else tenant)
         "auto_rules",
+        "escalate_to",  # WP-047a S3a (REQ-SR-034): left out when it is the default, the backup
     }
 )
+ESCALATE_TO = frozenset(e.value for e in EscalateTo)  # one definition: approval_reminders
+DEFAULT_ESCALATE_TO = approval_reminders.DEFAULT_ESCALATE_TO.value
 _RULE_KEYS = frozenset({"name", "condition"})
 
 
@@ -81,6 +87,8 @@ class SnapStage:
     # item's own setting, else the tenant's), and the stage's automatic rules.
     auto_earlier: bool = False
     auto_rules: tuple["SnapRule", ...] = ()
+    # WP-047a S3a (REQ-SR-034): where the stage's approval goes after its last reminder.
+    escalate_to: str = DEFAULT_ESCALATE_TO
 
 
 @dataclass(frozen=True)
@@ -121,6 +129,7 @@ def to_json(stages: Sequence[SnapStage]) -> dict[str, Any]:
                 {"name": dict(r.name), "condition": dict(r.condition)} for r in s.auto_rules
             ]
             or None,
+            "escalate_to": None if s.escalate_to == DEFAULT_ESCALATE_TO else s.escalate_to,
         }
         return {k: v for k, v in raw.items() if v is not None}
 
@@ -174,6 +183,8 @@ def problems(raw: object) -> list[str]:  # noqa: C901 - one check per part, flat
         if not isinstance(stage.get("auto_earlier", False), bool):
             found.append(f"{at}.auto_earlier")
         found += _rule_problems(stage.get("auto_rules", []), at)
+        if stage.get("escalate_to", DEFAULT_ESCALATE_TO) not in ESCALATE_TO:
+            found.append(f"{at}.escalate_to")
     return found
 
 
@@ -218,6 +229,7 @@ def from_json(raw: object) -> tuple[SnapStage, ...]:
             condition=s.get("condition"),
             auto_earlier=s.get("auto_earlier", False),
             auto_rules=tuple(SnapRule(r["name"], r["condition"]) for r in s.get("auto_rules", [])),
+            escalate_to=s.get("escalate_to", DEFAULT_ESCALATE_TO),
         )
         for s in raw["stages"]
     )
@@ -237,16 +249,10 @@ def without_person(stages: Sequence[SnapStage], person: uuid.UUID) -> tuple[Snap
     condition 3), so nothing else changes.
     """
     return tuple(
-        SnapStage(
+        replace(  # every other part kept as it is
+            s,
             approvers=tuple(a for a in s.approvers if a.person_id != person),
-            rule=s.rule,
             backup_id=None if s.backup_id == person else s.backup_id,
-            comments_required=s.comments_required,
-            self_approval=s.self_approval,
-            parallel_group=s.parallel_group,
-            condition=s.condition,
-            auto_earlier=s.auto_earlier,
-            auto_rules=s.auto_rules,
         )
         for s in stages
     )

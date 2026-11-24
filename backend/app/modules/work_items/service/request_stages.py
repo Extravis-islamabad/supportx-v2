@@ -32,6 +32,7 @@ from app.modules.identity_access import active_user_ids, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import stage_snapshot
+from app.modules.work_items.domain.approval_reminders import family_states
 from app.modules.work_items.domain.request_stages import Candidate, Opened, StagePlan
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
@@ -74,6 +75,7 @@ def snapshot_of(
                 stage_snapshot.SnapRule(dict(name), dict(condition))
                 for name, condition in s.auto_rules
             ),
+            escalate_to=s.escalate_to,
         )
         for s in item.stages
     )
@@ -189,9 +191,8 @@ def _outcomes(
         if any(r.state == rules.ApprovalState.SKIPPED for r in mine):
             found[number] = rules.LevelOutcome.APPROVED
             continue
-        outcome = rules.level_outcome(
-            rules.LevelRule(stage.rule), [rules.ApprovalState(r.state) for r in mine]
-        )
+        # 036 AC2: a primary and the rows escalated from it are one vote (approval_reminders).
+        outcome = rules.level_outcome(rules.LevelRule(stage.rule), family_states(mine))
         if outcome is not rules.LevelOutcome.PENDING:
             found[number] = outcome
     return found
@@ -454,6 +455,9 @@ def auto_rule_of(record: WorkItem, number: int, rule: int | None) -> stage_snaps
 
 
 eligible = _eligible  # REQ-SR-042: a person added or swapped in is checked the same way
+# WP-047a S3a (REQ-SR-034): an escalation reads the stage's rows and a group as opening does.
+rows_of = _rows
+group_members = _group_members
 
 
 def condition_of(record: WorkItem, number: int) -> Mapping[str, Any] | None:

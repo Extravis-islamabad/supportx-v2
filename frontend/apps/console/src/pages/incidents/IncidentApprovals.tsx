@@ -22,6 +22,7 @@ import {
 
 import { DecisionDialog } from '../requests/DecisionDialog';
 import { UserPicker } from './pickers';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 type Tone = 'info' | 'success' | 'warning' | 'error';
 const TONE: Record<string, Tone> = {
@@ -47,6 +48,7 @@ export function IncidentApprovals({
   readOnly?: boolean;
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const { format } = useDateTime();
   const approvals = useIncidentApprovals(item.id);
   const decide = useDecideIncidentApproval(item.id);
@@ -97,8 +99,11 @@ export function IncidentApprovals({
             <Flex gap={8} wrap align="center">
               <bdi dir="auto">
                 {/* A person no longer listed (left, erased) still shows something (lane C). */}
-                {(a.approver_id == null ? undefined : people[a.approver_id]?.display_name) ??
-                  t('live.someone')}
+                {(() => {
+                  const name =
+                    a.approver_id == null ? undefined : people[a.approver_id]?.display_name;
+                  return name === undefined ? t('live.someone') : shownName(name, hidden);
+                })()}
               </bdi>
               <ToneTag tone={TONE[a.state] ?? 'info'}>{t(`approval_state.${a.state}`)}</ToneTag>
               {a.decided_at != null && (
