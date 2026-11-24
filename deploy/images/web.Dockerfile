@@ -4,7 +4,12 @@
 # gateway, so the bundles need no runtime configuration.
 # INTERNAL / DEV BUILD (D-038): not for customer distribution until the release pipeline (WP-014c).
 ARG NODE_IMAGE=node:24.22.1-alpine3.24
-ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.30.6-alpine3.24
+# Mainline 1.31.7, pinned by digest: stable 1.30.6 carries six fixable HIGH/CRITICAL nginx CVEs
+# (CVE-2026-113425, -118899, -121810, -123007, -123633, -123634) and no stable 1.30.7 image is
+# published yet. 1.31.7 has none of them, and the image gate below passes on it.
+# 2026-11-24: move back to the stable line once 1.30.7 or later is published. Checked at each
+# Monday re-check (docs/PROGRESS.md, Open items).
+ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 
 FROM ${NODE_IMAGE} AS build
 WORKDIR /src
