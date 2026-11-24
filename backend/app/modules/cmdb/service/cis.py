@@ -1384,6 +1384,23 @@ RULE_SETTABLE = frozenset(
 )
 
 
+_REFERENCES = frozenset({"state_id", "owner_group_id", "managed_by_group_id"})
+
+
+def _typed(values: Mapping[str, Any]) -> dict[str, Any]:
+    """A rule's JSON values as the columns hold them (IDs as UUIDs), so equal means unchanged."""
+    typed: dict[str, Any] = {}
+    for key, value in values.items():
+        if key in _REFERENCES and value is not None and not isinstance(value, uuid.UUID):
+            try:
+                typed[key] = uuid.UUID(str(value))
+            except ValueError:
+                raise invalid([domain.Problem(key, "not_found")]) from None
+        else:
+            typed[key] = value
+    return typed
+
+
 async def automated_update(
     session: AsyncSession,
     ci_id: uuid.UUID,
@@ -1408,10 +1425,11 @@ async def automated_update(
         return []  # deleted since the event: nothing to change
     if problems := _check_codes(values):
         raise invalid(problems)
-    columns = {k: v for k, v in values.items() if getattr(record, k) != v}
+    typed = _typed(values)
+    columns = {k: v for k, v in typed.items() if getattr(record, k) != v}
     await _check_references(session, columns)
     if not columns:
-        return []
+        return []  # the rule asked for what the CI already holds: no version, history or event
     await _save(
         session,
         None,

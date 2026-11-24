@@ -78,6 +78,9 @@ class RecordType:
     # The trigger events this type offers (WP-053 S5d, lane C's shape): a trigger naming another
     # is refused on save and never runs. Work item types keep today's seven by default.
     offered_events: frozenset[TriggerEvent] = WORK_ITEM_EVENTS
+    # Its status is an ordinary field saved with the others (a CI's state; lane C, S5d): a save
+    # that changed it and other fields also counts for an "updated" trigger, once.
+    status_is_an_edit: bool = False
 
 
 @dataclass(frozen=True)
@@ -134,6 +137,12 @@ class RecordEvent:
 # record; a CI relationship touches both ends. Empty: nothing to react to.
 EventReader = Callable[[AsyncSession, EventEnvelope], Awaitable[Sequence[RecordEvent]]]
 _READERS: dict[str, EventReader] = {}
+
+
+def each_record(found: Sequence[RecordEvent]) -> list[RecordEvent]:
+    """Each record an event touched, once, in ID order: how both consumers walk them (S5d)."""
+    once = {(h.record_type, h.record_id): h for h in found}
+    return [once[key] for key in sorted(once, key=lambda k: (k[0], str(k[1])))]
 
 
 def register_event_reader(event_types: Sequence[str], reader: EventReader) -> None:

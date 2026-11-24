@@ -37,7 +37,7 @@ from app.modules.automation.events import (
 )
 from app.modules.automation.infra.models import Workflow, WorkflowInstance
 from app.modules.automation.service import functions, workflow_runtime, workflow_tests
-from app.modules.automation.service.registry import RecordEvent, event_reader
+from app.modules.automation.service.registry import RecordEvent, each_record, event_reader
 from app.modules.automation.service.registry import record_type as registered
 from app.shared import egress
 from app.shared.clock import system_clock
@@ -65,8 +65,9 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         msg = "workflow events need the consumer's session"
         raise RuntimeError(msg)
     reader = event_reader(envelope.event_type)
-    for happened in await reader(session, envelope) if reader is not None else ():
-        await _heard(session, happened)  # each record on its own (S5d: both ends)
+    found = await reader(session, envelope) if reader is not None else ()
+    for happened in each_record(found):  # each record once, on its own (S5d: both ends)
+        await _heard(session, happened)
 
 
 async def _heard(session: AsyncSession, happened: RecordEvent) -> None:

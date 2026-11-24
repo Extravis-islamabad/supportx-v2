@@ -5,7 +5,7 @@ system's save path, who may view and edit it, and this module's events as trigge
 Automation never reads CMDB tables itself (CLAUDE.md rule e).
 
 The coordinator's and lane C's conditions:
-- the CI offers its own six events, never a work item's (C1; `offered_events`);
+- the CI offers its own events, never a work item's (C1; `offered_events`);
 - a relationship event carries nothing about the other end, so an end the rule's people may not
   see leaves no trace in the run or its history (C2, lane C's L4);
 - a rule sets only `cis.RULE_SETTABLE`, anything else `field_not_settable` (C3);
@@ -37,7 +37,8 @@ OFFERED = frozenset(
         automation.TriggerEvent.STATUS_CHANGED,
         automation.TriggerEvent.RELATIONSHIP_ADDED,
         automation.TriggerEvent.RELATIONSHIP_REMOVED,
-        automation.TriggerEvent.DOWNTIME_STARTED,
+        # downtime_started joins with its reader, after S5b's event lands (#608): offered before
+        # anything reads cmdb.downtime.changed, a trigger on it would never fire (lane C).
     }
 )
 _IMPACTS = frozenset(i.value for i in CiImpact)
@@ -169,6 +170,7 @@ def register() -> None:
             may_edit=_may_edit,
             labels=_labels,
             offered_events=OFFERED,
+            status_is_an_edit=True,  # a CI's state is one of its fields, saved with the others
         )
     )
     automation.register_event_reader(

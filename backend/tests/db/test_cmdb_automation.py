@@ -39,13 +39,12 @@ pytestmark = [pytest.mark.db, pytest.mark.valkey, MODULE_LOOP]
 __all__ = ["module_world", "shared_world"]  # the fixtures, used by name
 
 CMDB = "/cmdb"
-CI_SIX = {
+CI_OFFER = {  # downtime_started joins with its reader, after #608 (lane C, lane A)
     "created",
     "updated",
     "status_changed",
     "relationship_added",
     "relationship_removed",
-    "downtime_started",
 }
 
 
@@ -110,7 +109,7 @@ async def test_each_type_lists_its_own_trigger_events(world: World) -> None:
         "GET", "/automation/trigger-events", a, a.admin, params={"record_type": "cmdb_ci"}
     )
     assert ci.status_code == 200, ci.text
-    assert set(ci.json()["offered"]) == CI_SIX
+    assert set(ci.json()["offered"]) == CI_OFFER
     incident = await world.call(
         "GET", "/automation/trigger-events", a, a.admin, params={"record_type": "incident"}
     )
@@ -229,6 +228,51 @@ async def test_a_state_trigger_runs_once_and_its_own_change_never_triggers_it_ag
     history = await _rule_history(world, a, ci)
     assert history
     assert all("Maintenance means high" in h for h in history)
+
+
+async def test_a_rule_setting_what_the_ci_already_holds_changes_nothing(world: World) -> None:
+    """Lane A: a rule's IDs arrive as text; compared typed, an equal value writes nothing."""
+    a = world.a
+    states = await _states(world, a)
+    ci = await _made(world, a, "Same state", state_id=states["in_use"]["id"])
+    before = await world.call("GET", f"{CMDB}/cis/{ci['id']}", a, a.admin)
+    database = Database(create_engine(world.db.app_url, application_name="tests"))
+    try:
+        async with database.tenant_session(TenantContext(a.tenant)) as session:
+            changed = await cis.automated_update(
+                session,
+                uuid.UUID(ci["id"]),
+                {"state_id": states["in_use"]["id"]},  # text, as a rule's JSON value
+                automation_ref={"kind": "trigger", "trigger": "Same"},
+                cause_id=uuid.uuid4(),
+            )
+    finally:
+        await database.dispose()
+    assert changed == []
+    after = await world.call("GET", f"{CMDB}/cis/{ci['id']}", a, a.admin)
+    assert after.json()["version"] == before.json()["version"]
+    assert await _rule_history(world, a, ci) == []
+
+
+async def test_a_state_saved_with_another_field_reaches_an_updated_trigger_once(
+    world: World,
+) -> None:
+    """Lane C (2): a CI's combined save fires an "updated" trigger, once."""
+    a = world.a
+    states = await _states(world, a)
+    made = await _trigger(
+        world,
+        a,
+        name="Any edit",
+        events=["updated"],
+        actions=[set_("business_impact", "low", "overwrite")],
+    )
+    assert made.status_code == 201, made.text
+    ci = await _made(world, a, "Combined save")
+    await _edit(world, a, ci, state_id=states["under_maintenance"]["id"], criticality="high")
+    await drain(world, a)
+    runs = [r for r in await _runs(world, a, ci) if r["automation_name"] == "Any edit"]
+    assert [r["outcome"] for r in runs].count("applied") == 1, runs
 
 
 # --- relationships: both ends, nothing about the other (R1-R4, C2) ----------------------------

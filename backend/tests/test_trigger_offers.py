@@ -10,8 +10,14 @@ import uuid
 from typing import TYPE_CHECKING, cast
 
 from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, TriggerEvent
-from app.modules.automation.service.registry import _READERS, record_type, record_types
+from app.modules.automation.service.registry import (
+    _READERS,
+    RecordEvent,
+    record_type,
+    record_types,
+)
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES
+from app.modules.automation.service.triggers import _fires as fires
 from app.modules.cmdb.service.automation import read_event as ci_reader
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.service.automated import read_event as work_item_reader
@@ -33,12 +39,14 @@ STAGED = frozenset(w.code.value for w in TYPES.values() if w.stages is not None)
 # Types that offer their own set, on purpose (and what it is checked against below).
 OWN_OFFERS: dict[str, frozenset[TriggerEvent]] = {
     # WP-053 S5d: a CI's own six, the three CI events included.
+    # downtime_started joins with its reader, after #608.
     "cmdb_ci": frozenset(
         {
             TriggerEvent.CREATED,
             TriggerEvent.UPDATED,
             TriggerEvent.STATUS_CHANGED,
-            *CI_EVENTS,
+            TriggerEvent.RELATIONSHIP_ADDED,
+            TriggerEvent.RELATIONSHIP_REMOVED,
         }
     ),
 }
@@ -124,3 +132,44 @@ async def test_a_relationship_gives_each_end_once_in_order_and_nothing_about_the
         assert list(f.changed) == ["relationships"]
         assert dict(f.known_before) == {}
         assert f.action is None
+
+
+async def test_every_event_the_ci_offers_is_one_its_reader_can_produce() -> None:
+    """Lane C: an event offered with nothing to fire it is a trigger that silently never runs."""
+    ci = str(uuid.uuid4())
+    other = str(uuid.uuid4())
+    produced: set[TriggerEvent] = set()
+    cases: list[tuple[str, dict[str, object]]] = [
+        ("cmdb.ci.created", {"ci_id": ci, "type_id": ci, "source": "manual"}),
+        ("cmdb.ci.updated", {"ci_id": ci, "type_id": ci, "changed_fields": ["name"]}),
+        ("cmdb.ci.updated", {"ci_id": ci, "type_id": ci, "changed_fields": ["state_id"]}),
+    ]
+    for action in ("added", "removed"):
+        relationship: dict[str, object] = {
+            "ci_id": ci,
+            "action": action,
+            "type_id": ci,
+            "relationship_ids": [],
+            "other_ci_ids": [other],
+        }
+        cases.append(("cmdb.relationship.changed", relationship))
+    for event_type, payload in cases:
+        assert event_type in TRIGGER_EVENT_TYPES
+        found = await ci_reader(cast("AsyncSession", None), _envelope(event_type, payload))
+        produced |= {f.event for f in found if f.event is not None}
+    kind = record_type("cmdb_ci")
+    assert kind is not None
+    assert kind.offered_events <= produced, sorted(kind.offered_events - produced)
+
+
+def _status(changed: list[str]) -> RecordEvent:
+    return RecordEvent("cmdb_ci", uuid.uuid4(), TriggerEvent.STATUS_CHANGED, changed=changed)
+
+
+def test_a_state_saved_with_other_fields_is_also_an_update_where_status_is_an_edit() -> None:
+    """Lane C (2): a CI's combined save reaches "updated" triggers, once."""
+    assert fires(["updated"], _status(["state_id", "criticality"]), status_is_an_edit=True)
+    # A state alone is a state change, not an "updated" one.
+    assert not fires(["updated"], _status(["state_id"]), status_is_an_edit=True)
+    # Work item types keep their own status moves apart from edits.
+    assert not fires(["updated"], _status(["state_id", "criticality"]))
