@@ -158,6 +158,7 @@ export const en = {
   'automation.triggers.conditions_help':
     '“Changed from” works for the status only: other events say which fields changed, not from what.',
   'automation.triggers.edit': 'Change trigger',
+  'automation.triggers.event_not_offered': 'No longer applies',
   'automation.triggers.explain':
     "Triggers run after a change is saved, in this order. Each action's outcome shows on the record, and a failed action never undoes the others. If triggers keep setting off each other, they are stopped after 5 steps and the record says which ones.",
   'automation.triggers.none': 'No triggers yet.',
@@ -282,7 +283,10 @@ export const en = {
   'trigger_action_kind.start_workflow': 'Start a workflow',
   'trigger_event.assigned': 'When assigned',
   'trigger_event.created': 'When created',
+  'trigger_event.downtime_started': 'When a downtime starts',
   'trigger_event.note_added': 'When a note is added',
+  'trigger_event.relationship_added': 'When a relationship is added',
+  'trigger_event.relationship_removed': 'When a relationship is removed',
   'trigger_event.requester_replied': 'When the requester replies',
   'trigger_event.stage_entered': 'When it enters a stage',
   'trigger_event.status_changed': 'When the status changes',

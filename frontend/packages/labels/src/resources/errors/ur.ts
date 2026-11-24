@@ -342,6 +342,7 @@ export const ur: LabelResource = {
   'errors.erasure_storage_unavailable':
     'رپورٹ ایکسپورٹس حذف کرنے کے لیے فائل اسٹور تک رسائی نہیں ہو سکی۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
+  'errors.field.action_not_offered': 'اس قسم کے ریکارڈ پر یہ کارروائی نہیں ہو سکتی۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
   'errors.field.already_has_parent':
@@ -854,6 +855,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
   'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
+  'errors.field.trigger_event_not_offered': 'اس قسم کا ریکارڈ یہ واقعہ پیش نہیں کرتا۔',
   'errors.field.trusted_servers_too_many': 'زیادہ سے زیادہ 5 سرور لکھیں۔',
   'errors.field.type_cannot_change':
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',

@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
-from app.core.errors import PermissionDenied, ProblemDetail
+from app.core.errors import NotFound, PermissionDenied, ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.assignment import AssignMethod, Availability
 from app.modules.automation.domain.rules import ActionMode, FieldKind, RuleEvent, RuleState
@@ -34,6 +34,7 @@ from app.modules.automation.service import (
     transitions,
     triggers,
 )
+from app.modules.automation.service.registry import record_type as registered_type
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -87,6 +88,22 @@ async def list_fields(
         )
         for name, spec in sorted(fields.items())
     ]
+
+
+class TriggerEventsOut(BaseModel):
+    """The trigger events a record type offers (WP-053 S5d): the editor lists only these."""
+
+    offered: list[TriggerEvent] = Field(description="In a stable order.")
+
+
+@router.get("/trigger-events", summary="Trigger events a record type offers")
+async def list_trigger_events(subject: View, record_type: RecordType) -> TriggerEventsOut:
+    """A trigger naming another event is refused when saved and never runs."""
+    del subject
+    kind = registered_type(record_type)
+    if kind is None:
+        raise NotFound(code="unknown_record_type")
+    return TriggerEventsOut(offered=sorted(kind.offered_events, key=lambda e: e.value))
 
 
 # --- business rules ----------------------------------------------------------------------------

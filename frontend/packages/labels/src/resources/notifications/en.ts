@@ -44,6 +44,7 @@ export const en = {
   'notification_area.asset': 'Assets',
   'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
+  'notification_area.cmdb_ci': 'Configuration items',
   'notification_area.connector': 'Connectors',
   'notification_area.custom_field': 'Custom fields',
   'notification_area.incident': 'Incidents',
@@ -109,6 +110,7 @@ export const en = {
   'notification_event.change.status_entered': 'Change entered a status',
   'notification_event.change.submitted': 'Change submitted',
   'notification_event.change.window_reminder': 'Change window starts soon',
+  'notification_event.cmdb_ci.state_changed': "A configuration item's state changed",
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.custom_field.seal_paused': "Sealing a sensitive field's values has paused",
@@ -214,6 +216,7 @@ export const en = {
   'notification_recipient.cab_member': 'The CAB member waiting to decide',
   'notification_recipient.change_manager': 'Change manager',
   'notification_recipient.change_owner': 'Change owner',
+  'notification_recipient.ci_owner': 'Configuration item owner',
   'notification_recipient.connector_admins': 'People who set up this connector',
   'notification_recipient.custom_field_admins': 'Those who manage custom fields',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
@@ -227,12 +230,14 @@ export const en = {
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
   'notification_recipient.major_team': 'Major incident team',
+  'notification_recipient.managed_by_group': 'Managed-by group',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
   'notification_recipient.on_behalf_of': 'Person it is for',
   'notification_recipient.other_tenant_admins': 'The other tenant administrators',
   'notification_recipient.owner': 'Article owner',
+  'notification_recipient.owner_group': 'Owner group',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.reviewer': 'Reviewer',
@@ -456,6 +461,12 @@ export const en = {
     '{{ record.display_id }} starts at {{ window.start }}: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'Starts soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now {{ record.status }}.\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    '{{ record.display_id }} is now {{ record.status }}',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: now {{ record.status }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':

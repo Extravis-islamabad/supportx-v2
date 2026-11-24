@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import metadata
 from app.modules.automation import (
+    WORK_ITEM_EVENTS,
     FieldKind,
     Member,
     RecordType,
@@ -24,6 +25,7 @@ from app.modules.automation import (
     RuleField,
     RulesOutcome,
     TraceLine,
+    TriggerEvent,
     auto_assign,
     refusal_error,
     register_record_type,
@@ -215,6 +217,13 @@ def register_types() -> None:
                 fields=_fields_for(wtype),
                 check_values=_checks_for(wtype),
                 category_group=_category_group_for(wtype),
+                # Only a staged type (a stage model: changes, releases) can enter a stage; any
+                # other would hold a stage_entered trigger that never fires (lane A, S5d).
+                offered_events=(
+                    WORK_ITEM_EVENTS
+                    if wtype.stages is not None
+                    else WORK_ITEM_EVENTS - {TriggerEvent.STAGE_ENTERED}
+                ),
             )
         )
 

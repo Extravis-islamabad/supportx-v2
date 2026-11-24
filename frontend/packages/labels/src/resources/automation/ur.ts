@@ -161,6 +161,7 @@ export const ur: LabelResource = {
   'automation.triggers.conditions_help':
     '“سے بدلا” صرف حالت کے لیے ہے: باقی واقعات بتاتے ہیں کون سے فیلڈ بدلے، پہلے کیا تھا یہ نہیں۔',
   'automation.triggers.edit': 'ٹرگر تبدیل کریں',
+  'automation.triggers.event_not_offered': 'اب لاگو نہیں ہوتا',
   'automation.triggers.explain':
     'ٹرگرز تبدیلی محفوظ ہونے کے بعد اسی ترتیب سے چلتے ہیں۔ ہر عمل کا نتیجہ ریکارڈ پر دکھتا ہے، اور ناکام عمل دوسروں کو واپس نہیں کرتا۔ اگر ٹرگرز ایک دوسرے کو چلاتے رہیں تو 5 مراحل کے بعد روک دیے جاتے ہیں اور ریکارڈ بتاتا ہے کون سے۔',
   'automation.triggers.none': 'ابھی کوئی ٹرگر نہیں۔',
@@ -282,7 +283,10 @@ export const ur: LabelResource = {
   'trigger_action_kind.start_workflow': 'ورک فلو شروع کریں',
   'trigger_event.assigned': 'تفویض ہونے پر',
   'trigger_event.created': 'بننے پر',
+  'trigger_event.downtime_started': 'جب کوئی ڈاؤن ٹائم شروع ہو',
   'trigger_event.note_added': 'نوٹ شامل ہونے پر',
+  'trigger_event.relationship_added': 'جب کوئی تعلق شامل کیا جائے',
+  'trigger_event.relationship_removed': 'جب کوئی تعلق ہٹایا جائے',
   'trigger_event.requester_replied': 'درخواست گزار کے جواب پر',
   'trigger_event.stage_entered': 'جب یہ کسی مرحلے میں داخل ہو',
   'trigger_event.status_changed': 'حالت بدلنے پر',

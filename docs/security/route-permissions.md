@@ -243,6 +243,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/automation/transitions` | `automation.view` | automation.view: all |
 | DELETE | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
 | PUT | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
+| GET | `/api/v1/automation/trigger-events` | `automation.view` | automation.view: all |
 | GET | `/api/v1/automation/triggers` | `automation.view` | automation.view: all |
 | POST | `/api/v1/automation/triggers` | `automation.manage` | automation.manage: all |
 | PUT | `/api/v1/automation/triggers-order` | `automation.manage` | automation.manage: all |

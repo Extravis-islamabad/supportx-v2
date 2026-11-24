@@ -43,6 +43,7 @@ export const ur: LabelResource = {
   'cmdb.action.remove': 'ہٹائیں',
   'cmdb.action.restore': 'بحال کریں',
   'cmdb.added': '{{id}} شامل کر دیا گیا',
+  'cmdb.admin.triggers': 'کنفیگریشن آئٹم ٹرگرز',
   'cmdb.all_types': 'تمام اقسام',
   'cmdb.change_type_blocked':
     'آپ کے کردار صرف ایک ایسا خانہ پڑھ سکتے ہیں جس کی قدر یہ تبدیلی ہٹا دے گی، اس لیے آپ قسم نہیں بدل سکتے۔',

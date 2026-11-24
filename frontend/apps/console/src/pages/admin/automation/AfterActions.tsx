@@ -19,6 +19,7 @@ export function AfterActions({
   onChange,
   testId,
   invalid = () => false,
+  kinds = ['set', 'note'],
 }: {
   fields: RuleFieldOut[];
   actions: TriggerActionIO[];
@@ -26,6 +27,8 @@ export function AfterActions({
   testId: string;
   /** Whether action `index` has a problem from the server (marked, QA WP-029 BUG-03). */
   invalid?: (index: number) => boolean;
+  /** The action kinds this record type offers (WP-053 S5d: a CI has no notes). */
+  kinds?: readonly ('set' | 'note')[];
 }) {
   const t = useLabel();
   const name = useFieldName();
@@ -53,7 +56,7 @@ export function AfterActions({
                   kind === 'set' ? emptyAction() : { kind, text: '', mode: 'fill_empty' },
                 );
               }}
-              options={(['set', 'note'] as const).map((k) => ({
+              options={kinds.map((k) => ({
                 value: k,
                 label: t(`trigger_action_kind.${k}`),
               }))}
