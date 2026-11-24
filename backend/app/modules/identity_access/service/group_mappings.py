@@ -193,8 +193,18 @@ async def _gain(session: AsyncSession, user_id: uuid.UUID, item: Held) -> None:
 
 
 async def _lose(
-    session: AsyncSession, user_id: uuid.UUID, changes: Plan, source_kind: SourceKind
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    changes: Plan,
+    source_kind: SourceKind,
+    *,
+    mapping_id: uuid.UUID | None = None,
 ) -> None:
+    """Drop this source's rows, then remove what no source gives any more (last admin kept).
+
+    `mapping_id`: the mapping being removed (remove_mapping), named in the audit when the
+    target was not among `drop_sources` (its row was deleted already).
+    """
     for item in changes.drop_sources:
         source = await session.get(
             AccessSource,
@@ -234,7 +244,8 @@ async def _lose(
     await savepoint.commit()
     by_target = {h.target: h for h in changes.drop_sources}
     for target in removed:
-        await _audit(session, by_target[target], user_id, "removed")
+        item = by_target.get(target) or Held(target, str(mapping_id or ""))
+        await _audit(session, item, user_id, "removed")
 
 
 async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: str) -> None:
@@ -419,6 +430,7 @@ async def remove_mapping(
                     lose=(Target(row.target_kind, str(row.target_id)),),  # type: ignore[arg-type]  # checked in SQL
                 ),
                 SourceKind(mapping.source_kind),
+                mapping_id=mapping.id,
             )
     mapping.deleted_at = system_clock.now()
     await record(
