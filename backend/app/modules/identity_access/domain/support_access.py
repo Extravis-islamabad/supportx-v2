@@ -106,6 +106,8 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         **_record_type("incidents", ("edit_closed", "undo_merge")),
         **_never("tenant_decision", "incidents.declare_major"),
         **_record_type("requests"),
+        # WP-047a S2b (REQ-SR-042): who approves a request is the tenant's own decision.
+        **_never("tenant_decision", "requests.modify_approvers"),
         **_record_type("problems", ("edit_analysis", "edit_solution", "mark_known_error")),
         "problems.view_root_cause": _V,
         **_record_type("changes", ("manage_windows",)),

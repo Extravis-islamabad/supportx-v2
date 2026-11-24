@@ -5,9 +5,11 @@ export type Stage = NonNullable<Approval['stages']>[number];
 export type Approver = NonNullable<Stage['approvers']>[number];
 export type Kind = Approver['kind'];
 export type Rule = Stage['rule'];
+export type AutoRule = NonNullable<Stage['auto_rules']>[number];
 
 export const MAX_STAGES = 10; // REQ-SR-029 AC4: requests only (staged record types keep 5)
 export const MAX_APPROVERS = 10;
+export const MAX_AUTO_RULES = 5; // REQ-SR-033, as the server's
 export const KINDS: Kind[] = [
   'person',
   'requested_for_manager',
@@ -46,6 +48,8 @@ export function stageOf(approval: Approval): Stage {
     self_approval: approval.self_approval,
     parallel_group: approval.parallel_group ?? null,
     condition: approval.condition ?? null,
+    auto_earlier: approval.auto_earlier ?? null,
+    auto_rules: approval.auto_rules ?? [],
   };
 }
 

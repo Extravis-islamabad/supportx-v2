@@ -25,6 +25,7 @@ from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.announce_routes import add_announce_routes
 from app.modules.work_items.api.approval_routes import add_approval_routes
+from app.modules.work_items.api.approver_change_routes import add_approver_change_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
 from app.modules.work_items.api.checklist_routes import (
     add_checklist_collection_routes,
@@ -1392,6 +1393,11 @@ class WorkItemCatalogueOut(BaseModel):
         default=False,
         description="E-mailed approval links need the approver signed in (D-132; off).",
     )
+    auto_approve_earlier: bool = Field(
+        default=False,
+        description="Requests: someone who approved an earlier stage is not asked again "
+        "(REQ-SR-033; off; an item's own setting overrides it). Professional.",
+    )
     portal_show_due_time: bool = Field(
         default=False, description="Requesters see the expected resolution time (REQ-INC-147)."
     )
@@ -1483,6 +1489,7 @@ class WorkItemCatalogueOut(BaseModel):
             on_behalf_scope=OnBehalfScope(cat.on_behalf_scope),
             approvals_hidden_from_requesters=cat.approvals_hidden_from_requesters,
             approvals_require_sign_in=cat.approvals_require_sign_in,
+            auto_approve_earlier=cat.auto_approve_earlier,
             portal_show_due_time=cat.portal_show_due_time,
             requester_cancel=RequesterCancel(cat.requester_cancel),
             requester_edit_fields=sorted(cat.requester_edit_fields),
@@ -1642,6 +1649,7 @@ class WorkItemSettingsPatch(BaseModel):
     on_behalf_scope: OnBehalfScope | None = None
     approvals_hidden_from_requesters: bool | None = None
     approvals_require_sign_in: bool | None = None
+    auto_approve_earlier: bool | None = Field(default=None, description="Requests only.")
     portal_show_due_time: bool | None = None
     requester_cancel: RequesterCancel | None = None
     requester_edit_fields: list[str] | None = Field(default=None, max_length=40)
@@ -3076,6 +3084,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     add_list_routes(router, wtype)
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
+        add_approver_change_routes(router, wtype)  # WP-047a S2b (REQ-SR-042)
     elif wtype.code in {
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,
@@ -3104,6 +3113,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         add_problem_routes(router, wtype, record_in=WorkItemIn, record_out=WorkItemOut)
     if wtype.code is WorkItemTypeCode.INCIDENT:  # WP-046b S1 (REQ-INC-083): asked ad hoc
         add_approval_request_route(router, wtype, WorkItemOut)
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:  # WP-047a S2b (REQ-SR-042): as incidents
+        add_approval_request_route(router, wtype, WorkItemOut, action="modify_approvers")
     add_parts_collection_routes(router, wtype)
     add_checklist_collection_routes(router, wtype)  # WP-046a S2: the checklist library
     add_collection_routes(router, wtype)

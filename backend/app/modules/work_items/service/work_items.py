@@ -6386,6 +6386,7 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
 
 visible_record = _visible
 record_for_action = _for_action
+action_refused = _reason_for  # None when allowed, else why (WP-047a S2b: REQ-SR-042 AC2)
 holders_of = _holders_of
 
 

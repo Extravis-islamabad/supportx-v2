@@ -75,6 +75,9 @@ class BulkApproveOut(BaseModel):
     items: list[BulkApproveResult]
 
 
+ModifyRefused = service.ModifyRefused
+
+
 class ApprovalOut(BaseModel):
     """One approver's entry (REQ-SR-024): who, the decision, when, where and the comment."""
 
@@ -112,6 +115,21 @@ class ApprovalOut(BaseModel):
     condition: dict[str, Any] | None = Field(
         default=None, description="A skipped stage's condition, in the form rules' terms."
     )
+    auto_reason: rules.AutoReason | None = Field(
+        default=None,
+        description="Requests: why it was approved automatically (REQ-SR-033); `channel` is "
+        "then `automatic`.",
+    )
+    auto_ref: int | None = Field(
+        default=None,
+        description="The earlier stage the person approved, or the matched rule's number.",
+    )
+    auto_rule: dict[str, str] | None = Field(
+        default=None, description="The matched rule's name, per language."
+    )
+    auto_keys: list[str] | None = Field(
+        default=None, description="Staff only: the answer keys the matched rule read."
+    )
     decided_at: datetime | None
     decided_by: uuid.UUID | None
     channel: rules.DecisionChannel | None
@@ -142,6 +160,10 @@ class ApprovalOut(BaseModel):
             branch=row.branch,
             skip_reason=rules.SkipReason(row.skip_reason) if row.skip_reason else None,
             condition=dict(view.condition) if view.condition is not None else None,
+            auto_reason=rules.AutoReason(row.auto_reason) if row.auto_reason else None,
+            auto_ref=row.auto_ref,
+            auto_rule=dict(view.auto_rule) if view.auto_rule is not None else None,
+            auto_keys=list(view.auto_keys) if view.auto_keys is not None else None,
             decided_at=row.decided_at,
             decided_by=row.decided_by,
             channel=rules.DecisionChannel(row.channel) if row.channel else None,
@@ -181,6 +203,25 @@ class ApprovalsOut(BaseModel):
 
     items: list[ApprovalOut]
     people: dict[str, PersonOut]
+    modify_refused: ModifyRefused | None = Field(
+        default=None,
+        description="Requests: why you may not adjust the running approval (REQ-SR-042 AC2): "
+        "no_permission, out_of_scope or approval_not_running; null: you may. Other types: "
+        "always null.",
+    )
+
+
+async def approvals_out(
+    session: TenantSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> ApprovalsOut:
+    """The record's approvals as the viewer may see them, with the people's names."""
+    found = await service.list_for_record(session, subject, wtype, record_id)
+    names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
+    return ApprovalsOut(
+        items=[ApprovalOut.of(v) for v in found],
+        people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
+        modify_refused=await service.modify_refused(session, subject, wtype, record_id),
+    )
 
 
 class MyApprovalsOut(BaseModel):
@@ -309,12 +350,7 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
         record_id: uuid.UUID, session: TenantSession, subject: SignedIn
     ) -> ApprovalsOut:
         """Every approver's entry; for those who see the record and for its approvers."""
-        found = await service.list_for_record(session, subject, wtype, record_id)
-        names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
-        return ApprovalsOut(
-            items=[ApprovalOut.of(v) for v in found],
-            people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
-        )
+        return await approvals_out(session, subject, wtype, record_id)
 
     Decided = Annotated[  # noqa: N806 - type alias
         AuditNote,

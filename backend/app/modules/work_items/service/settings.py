@@ -15,8 +15,9 @@ from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
-from app.modules import metadata
+from app.modules import licensing, metadata
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain import reapproval as reapproval_rules
 from app.modules.work_items.domain.classification import Impact, Priority, Urgency
@@ -46,6 +47,8 @@ from app.shared.db.repository import Repository
 from app.shared.domain import prefix_problems
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
+
+AUTO_APPROVAL_FEATURE = "catalog"  # WP-047a S2b: REQ-SR-033 is Professional (D-133)
 
 SETTINGS_RECORD_TYPE = "work_item_settings"
 CATEGORY_RECORD_TYPE = "work_item_category"
@@ -184,6 +187,13 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         )
     if "portal_show_due_time" in values:
         changes["portal_show_due_time"] = bool(values["portal_show_due_time"])
+    if "auto_approve_earlier" in values:  # WP-047a S2b (REQ-SR-033): requests only
+        if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+            problem("auto_approve_earlier", "not_allowed")
+        elif not isinstance(values["auto_approve_earlier"], bool):
+            problem("auto_approve_earlier", "invalid_value")
+        else:
+            changes["auto_approve_earlier"] = values["auto_approve_earlier"]
     if "first_task_starts_work" in values:
         changes["first_task_starts_work"] = bool(values["first_task_starts_work"])
     # WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
@@ -247,6 +257,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
         "on_behalf_scope": current.on_behalf_scope,
         "approvals_hidden_from_requesters": current.approvals_hidden_from_requesters,
         "approvals_require_sign_in": current.approvals_require_sign_in,
+        "auto_approve_earlier": current.auto_approve_earlier,
         "portal_show_due_time": current.portal_show_due_time,
         "first_task_starts_work": current.first_task_starts_work,
         "requester_cancel": current.requester_cancel,
@@ -267,6 +278,12 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if current.settings_version != expected_version:
         raise await stale_settings(session, wtype, current, expected_version)
+    if changes.get("auto_approve_earlier") is True:
+        # REQ-SR-033 is Professional (`catalog`); switching it off stays open to every edition,
+        # as reducing an item to one stage does after a downgrade (S2a).
+        await licensing.require_feature(
+            session.info[SESSION_TENANT_KEY].tenant_id, AUTO_APPROVAL_FEATURE
+        )
     history = [Change(k, before[k], v) for k, v in changes.items()]
     if next_number is not None and next_number != current.last_number + 1:
         try:

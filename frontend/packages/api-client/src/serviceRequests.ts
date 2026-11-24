@@ -280,6 +280,75 @@ export function useDecideApproval() {
 }
 
 /** The requester withdraws a request awaiting approval (REQ-SR-061). */
+/** One adjustment of a request's running approval (WP-047a S2b, REQ-SR-042), with its reason. */
+export type ApproverChange =
+  | { kind: 'add'; stage: number; approverId: string; reason: string }
+  | { kind: 'replace'; approvalId: string; approverId: string; reason: string }
+  | { kind: 'stage'; approverIds: string[]; rule: Approval['rule']; reason: string }
+  | { kind: 'remind'; reason: string };
+
+/**
+ * Adjust a request's running approval (REQ-SR-042), If-Match on the request's version. The
+ * answer is the request's approvals, which replace the cached list at once.
+ */
+export function useChangeApprovers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      recordId,
+      version,
+      change,
+    }: {
+      recordId: string;
+      version: number;
+      change: ApproverChange;
+    }) => {
+      const header = { 'If-Match': `"${String(version)}"` };
+      const path = { record_id: recordId };
+      switch (change.kind) {
+        case 'add':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/approvers', {
+              params: { path, header },
+              body: { stage: change.stage, approver_id: change.approverId, reason: change.reason },
+            }),
+          );
+        case 'replace':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace', {
+              params: { path: { ...path, approval_id: change.approvalId }, header },
+              body: { approver_id: change.approverId, reason: change.reason },
+            }),
+          );
+        case 'stage':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/stages', {
+              params: { path, header },
+              body: {
+                approver_ids: change.approverIds,
+                rule: change.rule ?? 'any',
+                reason: change.reason,
+              },
+            }),
+          );
+        case 'remind':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/reminders', {
+              params: { path, header },
+              body: { reason: change.reason },
+            }),
+          );
+      }
+    },
+    onSuccess: (approvals, { recordId }) => {
+      queryClient.setQueryData(serviceRequestKeys.approvals(recordId), approvals);
+    },
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
+    },
+  });
+}
+
 export function useWithdrawRequest() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -55,6 +55,9 @@ from app.modules.work_items.domain.types import (
     clean_tags,
     parse_display_id,
 )
+from app.modules.work_items.service.approver_changes import (
+    FIELD_PROBLEMS as APPROVER_CHANGE_PROBLEMS,
+)
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
 from app.modules.work_items.service.incident_children import CHILD_PROBLEMS
 from app.modules.work_items.service.major_incidents import FIELD_PROBLEMS as MAJOR_PROBLEMS
@@ -326,6 +329,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | COPY_PROBLEMS
         | KEPT_PROBLEMS
         | CHILD_PROBLEMS
+        | APPROVER_CHANGE_PROBLEMS
     )
     # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
     found -= set(get_args(Relation))

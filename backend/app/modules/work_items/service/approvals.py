@@ -15,7 +15,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +28,9 @@ from app.core.tenancy import TenantContext
 from app.modules import service_catalog
 from app.modules.identity_access import Subject, person_placement
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import service_requests as sr_rules
-from app.modules.work_items.domain.lifecycle import WorkItemAction
+from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import (
     SERVICE_REQUEST,
@@ -67,6 +68,10 @@ class ApprovalView:
     self_approved: bool
     # WP-047a S2a: a skipped stage's condition, shown with it (REQ-SR-032 AC2).
     condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): the rule that approved it automatically (its name, for anyone
+    # who sees the approval), and the answer keys it read (staff only, like the condition).
+    auto_rule: Mapping[str, str] | None = None
+    auto_keys: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -125,7 +130,21 @@ def _shown(
         condition=request_stages.condition_of(record, row.stage)
         if row.skip_reason is not None and _staff(subject, wtype)
         else None,
+        **_auto_rule_shown(subject, wtype, record, row),
     )
+
+
+def _auto_rule_shown(
+    subject: Subject, wtype: WorkItemType, record: WorkItem, row: WorkItemApproval
+) -> dict[str, Any]:
+    """The rule an automatic approval names (REQ-SR-033): its name, and for staff its keys."""
+    if row.auto_reason != rules.AutoReason.RULE_MATCHED:
+        return {}
+    rule = request_stages.auto_rule_of(record, row.stage, row.auto_ref)
+    if rule is None:
+        return {}
+    keys = tuple(progression.matched_keys(rule.condition)) if _staff(subject, wtype) else None
+    return {"auto_rule": dict(rule.name), "auto_keys": keys}
 
 
 async def _record(session: AsyncSession, wtype: WorkItemType, record_id: uuid.UUID) -> WorkItem:
@@ -167,6 +186,29 @@ async def list_for_record(
         if hidden and not _staff(subject, wtype):
             return []  # REQ-SR-024 AC3: the record's own status still says it waits
     return [_shown(subject, wtype, record, r) for r in found]
+
+
+ModifyRefused = Literal["no_permission", "out_of_scope", "approval_not_running"]
+
+
+async def modify_refused(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> ModifyRefused | None:
+    """Why the viewer may not adjust this request's running approval (REQ-SR-042 AC2).
+
+    None for other types, and when they may: the screen shows the actions disabled with this
+    reason, and the server refuses them on its own anyway.
+    """
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        return None
+    refused = await items.action_refused(session, subject, wtype, "modify_approvers", record_id)
+    if refused is not None:
+        return "out_of_scope" if refused == "out_of_scope" else "no_permission"
+    record = await _record(session, wtype, record_id)
+    running = record.approval_status == ApprovalStatus.PENDING and (
+        StatusCategory(record.status_category) not in FINAL_CATEGORIES
+    )
+    return None if running else "approval_not_running"
 
 
 async def mine(
@@ -323,7 +365,10 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
     if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
         await stage_approvals.after_decision(session, wtype, record, row, source=source)
         return
-    if wtype.code is WorkItemTypeCode.INCIDENT:  # its own rule decides (WP-046b S1, REQ-INC-083)
+    if (
+        wtype.code is WorkItemTypeCode.INCIDENT  # its own rule decides (WP-046b S1, REQ-INC-083)
+        or row.purpose == rules.ApprovalPurpose.AD_HOC  # a request's ad hoc ask (REQ-SR-042)
+    ):
         await _incident_vote(session, record, row, source=source)
         return
     if record.approval_stages is not None and row.purpose == rules.ApprovalPurpose.RECORD:

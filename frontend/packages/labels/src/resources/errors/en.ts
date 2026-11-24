@@ -44,6 +44,8 @@ export const en = {
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
   'errors.approval_not_found': 'This approval was not found.',
+  'errors.approval_not_running':
+    '{{display_id}} has no approval waiting, so its approvers can no longer be changed.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
@@ -355,6 +357,7 @@ export const en = {
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.field.approver_already_named': 'This person is already an approver of this stage.',
   'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
   'errors.field.approver_not_active': 'Choose an active person.',
   'errors.field.approver_not_eligible':
@@ -639,6 +642,7 @@ export const en = {
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_form_field': 'This field is not on the form.',
+  'errors.field.not_a_person_question': 'Choose a question of this form that asks for a person.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
@@ -781,6 +785,7 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
+  'errors.field.stage_not_open': 'Approvers can only be added to a stage that is waiting now.',
   'errors.field.support_email_domain_not_allowed':
     'Support engineers must use an address at an allowed Extravis domain.',
   'errors.field.support_email_invalid': 'Enter one e-mail address.',
@@ -822,6 +827,8 @@ export const en = {
   'errors.field.too_many_questions': 'A form can have at most 30 questions.',
   'errors.field.too_many_recipients': 'Up to 50 people and 20 groups.',
   'errors.field.too_many_records': 'Choose at most {{max}} records.',
+  'errors.field.too_many_rules': 'A stage can have at most 5 automatic approval rules.',
+  'errors.field.too_many_stages': 'An approval can have at most 10 stages.',
   'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
@@ -1189,6 +1196,8 @@ export const en = {
   'errors.reference_is': 'Reference: {{reference}}',
   'errors.release_not_failed':
     "Follow-ups are offered once the release's deployment has failed or been rolled back.",
+  'errors.reminded_recently':
+    'The approvers were reminded less than {{minutes}} minutes ago. Try again later.',
   'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
@@ -1330,6 +1339,8 @@ export const en = {
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
   'errors.too_many_moves': 'A life cycle can have at most {{max}} moves.',
+  'errors.too_many_reminders':
+    'The approvers of this request have already been reminded {{max}} times.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
   'errors.transition_condition_not_met':
     'This status change is not available to you on this record now.',
