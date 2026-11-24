@@ -20,6 +20,7 @@ const NAMES = {
   after_fetch: 'mail.field.after_fetch',
   move_to: 'mail.field.move_to',
   creates: 'mail.field.creates',
+  catalog_item_id: 'mail.field.catalog_item',
   unknown_senders: 'mail.field.unknown_senders',
   allowed_domains: 'mail.field.allowed_domains',
   enabled: 'mail.field.enabled',

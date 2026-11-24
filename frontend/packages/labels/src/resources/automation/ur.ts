@@ -198,6 +198,9 @@ export const ur: LabelResource = {
     '{{name}} اب فعال نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
   'automation.why.unavailable.not_in_group':
     '{{name}} اب اس گروپ میں نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
+  'automation.workflow.approval_timeout': 'مہلت (گھنٹے)',
+  'automation.workflow.approval_timeout_help':
+    'کسی کے فیصلہ کرنے تک انتظار کے لیے خالی چھوڑیں۔ مہلت کے ساتھ اس کی «مہلت ختم» شاخ جوڑیں۔',
   'automation_outcome.applied': 'ہو گیا',
   'automation_outcome.chain_depth': 'روکا گیا: سلسلہ بہت لمبا',
   'automation_outcome.failed': 'ناکام',

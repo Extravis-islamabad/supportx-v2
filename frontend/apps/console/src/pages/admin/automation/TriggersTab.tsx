@@ -62,6 +62,11 @@ const EVENT_ORDER: readonly TriggerEvent[] = [
 ];
 const inOrder = (events: readonly TriggerEvent[]) =>
   [...events].sort((a, b) => EVENT_ORDER.indexOf(a) - EVENT_ORDER.indexOf(b));
+// The record types whose approvals can be decided: a trigger there may ask for one (WP-047a S4;
+// the server refuses others with `action_not_offered`).
+const APPROVABLE = new Set(['service_request', 'problem', 'change', 'release']);
+const DEFAULT_KINDS = ['set', 'note'] as const;
+
 const STATE_TONE: Record<TriggerOut['state'], Tone> = {
   enabled: 'success',
   draft: 'default',
@@ -366,6 +371,11 @@ function TriggerEditor({
     }
   };
   const all = fields.data ?? [];
+  // Asking for an approval is a trigger's only, where the type's approvals can be decided.
+  const kinds: readonly TriggerActionIO['kind'][] = [
+    ...(actionKinds ?? DEFAULT_KINDS),
+    ...(APPROVABLE.has(recordType) ? (['start_approval'] as const) : []),
+  ];
   return (
     <Drawer
       open={open}
@@ -463,7 +473,8 @@ function TriggerEditor({
                 edit({ actions });
               }}
               testId="trigger-action"
-              kinds={actionKinds}
+              kinds={kinds}
+              recordType={recordType}
             />
           </Form.Item>
           <Flex gap={32} wrap>

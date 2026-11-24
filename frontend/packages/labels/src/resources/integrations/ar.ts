@@ -253,6 +253,9 @@ export const ar: LabelResource = {
     'موصى به. اقصر التطبيق على صناديق بريد الدعم في Exchange Online (RBAC للتطبيقات).',
   'mail.field.auth_model_hint_delegated':
     'يسجّل شخص الدخول مرة واحدة بحساب صندوق البريد نفسه. غير مناسب لصناديق البريد المشتركة.',
+  'mail.field.catalog_item': 'عنصر الكتالوج',
+  'mail.field.catalog_item_hint':
+    'يصبح البريد الجديد طلبًا لهذا العنصر. إذا احتاج نموذجه إلى إجابات لا يقدّمها البريد، يُطلب من مقدم الطلب تقديمها.',
   'mail.field.certificate': 'الشهادة والمفتاح الخاص (PEM)',
   'mail.field.certificate_hint':
     'الصق الشهادة ومفتاحها الخاص RSA. يُحفظ المفتاح مختومًا ولا يُعرض مرة أخرى.',

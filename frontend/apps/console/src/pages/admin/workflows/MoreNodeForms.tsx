@@ -45,6 +45,9 @@ const WEBHOOK_HEADER_MAX = 1000;
 const MAX_WEBHOOK_FIELDS = 50;
 const VARIABLE_TEXT_MAX = 2000;
 const APPROVAL_RULES = ['any', 'all', 'majority'] as const;
+// An approval's timeout in whole hours (domain/workflows.py, WP-047a S4).
+const TIMEOUT_HOURS_MIN = 1;
+const TIMEOUT_HOURS_MAX = 720;
 // The staged types, whose roles have admin-given names (their roles settings).
 const STAGED: Partial<Record<string, StagedPath>> = { change: 'changes', release: 'releases' };
 // What the server shows for a stored header value (domain/workflows.py SECRET_MASK).
@@ -86,8 +89,17 @@ function Person({
   );
 }
 
-/** Who decides (named people, groups, the record's roles) and how (REQ-WF-014). */
-export function ApprovalForm({ config, onChange, recordType, readOnly }: FormProps) {
+/**
+ * Who decides (named people, groups, the record's roles) and how (REQ-WF-014); on a workflow
+ * step also how long it waits (REQ-SR-044). A trigger's ask reuses it without the timeout.
+ */
+export function ApprovalForm({
+  config,
+  onChange,
+  recordType,
+  readOnly,
+  timeout = true,
+}: FormProps & { timeout?: boolean }) {
   const t = useLabel();
   const groups = useUnits('groups');
   const { locale } = useAppearance();
@@ -184,6 +196,33 @@ export function ApprovalForm({ config, onChange, recordType, readOnly }: FormPro
           data-testid="approval-rule"
         />
       </Form.Item>
+      {timeout && (
+        <Form.Item
+          label={t('automation.workflow.approval_timeout')}
+          htmlFor="approval-timeout"
+          extra={t('automation.workflow.approval_timeout_help')}
+        >
+          <InputNumber<number>
+            id="approval-timeout"
+            min={TIMEOUT_HOURS_MIN}
+            max={TIMEOUT_HOURS_MAX}
+            precision={0}
+            value={
+              typeof config.timeout_hours === 'number' && Number.isInteger(config.timeout_hours)
+                ? config.timeout_hours
+                : null
+            }
+            disabled={readOnly}
+            onChange={(next) => {
+              // Empty waits for a decision: the key goes, and with it the Timed out output.
+              const rest = { ...config };
+              delete rest.timeout_hours;
+              onChange(next === null ? rest : { ...rest, timeout_hours: next });
+            }}
+            data-testid="approval-timeout"
+          />
+        </Form.Item>
+      )}
       {recordType === 'change' && (
         <Typography.Paragraph type="secondary" data-testid="approval-barred">
           {t('workflows.form.approval_barred')}

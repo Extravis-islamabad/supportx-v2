@@ -194,6 +194,9 @@ export const en = {
     '{{name}} is no longer active, so it went to the group with nobody on it',
   'automation.why.unavailable.not_in_group':
     '{{name}} is not in that group any more, so it went to the group with nobody on it',
+  'automation.workflow.approval_timeout': 'Timeout (hours)',
+  'automation.workflow.approval_timeout_help':
+    'Leave empty to wait until someone decides. With a timeout, connect its Timed out branch.',
   'automation_outcome.applied': 'Done',
   'automation_outcome.chain_depth': 'Stopped: chain too long',
   'automation_outcome.failed': 'Failed',

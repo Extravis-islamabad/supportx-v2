@@ -257,6 +257,9 @@ export const en = {
     'Recommended. Limit the app to the support mailboxes in Exchange Online (RBAC for Applications).',
   'mail.field.auth_model_hint_delegated':
     "Someone signs in once as the mailbox's own account. Not for shared mailboxes.",
+  'mail.field.catalog_item': 'Catalog item',
+  'mail.field.catalog_item_hint':
+    "New mail becomes a request of this item. If its form needs answers the mail can't give, the requester is asked for them.",
   'mail.field.certificate': 'Certificate and private key (PEM)',
   'mail.field.certificate_hint':
     'Paste the certificate and its RSA private key. The key is stored sealed and never shown again.',

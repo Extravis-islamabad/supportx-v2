@@ -202,6 +202,9 @@ export const ar: LabelResource = {
     '{{name}} لم يعد نشطًا، فانتقل إلى المجموعة دون أن يُسند إلى أحد',
   'automation.why.unavailable.not_in_group':
     '{{name}} لم يعد في تلك المجموعة، فانتقل إليها دون أن يُسند إلى أحد',
+  'automation.workflow.approval_timeout': 'المهلة (بالساعات)',
+  'automation.workflow.approval_timeout_help':
+    'اتركه فارغًا للانتظار حتى يقرر أحدهم. مع تحديد مهلة، صِل فرع «انتهت المهلة».',
   'automation_outcome.applied': 'تم',
   'automation_outcome.chain_depth': 'أُوقف: سلسلة طويلة جدًا',
   'automation_outcome.failed': 'فشل',

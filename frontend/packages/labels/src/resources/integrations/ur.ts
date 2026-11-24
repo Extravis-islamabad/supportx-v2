@@ -260,6 +260,9 @@ export const ur: LabelResource = {
     'تجویز کردہ۔ Exchange Online میں ایپ کو سپورٹ میل باکسز تک محدود کریں (RBAC for Applications)۔',
   'mail.field.auth_model_hint_delegated':
     'کوئی ایک بار میل باکس کے اپنے اکاؤنٹ سے سائن اِن کرتا ہے۔ مشترکہ میل باکسز کے لیے نہیں۔',
+  'mail.field.catalog_item': 'کیٹلاگ آئٹم',
+  'mail.field.catalog_item_hint':
+    'نئی ای میل اس آئٹم کی درخواست بن جاتی ہے۔ اگر اس کے فارم کو ایسے جوابات درکار ہوں جو ای میل نہ دے سکے تو درخواست دہندہ سے پوچھا جاتا ہے۔',
   'mail.field.certificate': 'سرٹیفکیٹ اور پرائیویٹ کی (PEM)',
   'mail.field.certificate_hint':
     'سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی چسپاں کریں۔ کی مہر بند محفوظ ہوتی ہے اور دوبارہ نہیں دکھائی جاتی۔',
