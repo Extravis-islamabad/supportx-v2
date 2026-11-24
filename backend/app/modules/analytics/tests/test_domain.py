@@ -109,6 +109,9 @@ def test_req_rpt_015_every_builtin_report_is_filed_under_its_module() -> None:
         "release": "releases",
         "asset": "assets",
         "change": "changes",
+        # One module, two sources: CIs and their relationships (lane B's #606).
+        "cmdb_ci": "cmdb",
+        "cmdb_relationship": "cmdb",
     }
     for report in BUILTIN_REPORTS:
         assert folders[report.definition.entity] == report.folder, report.code

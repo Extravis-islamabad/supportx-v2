@@ -145,6 +145,7 @@ describe('Reports', () => {
       'Changes',
       'Releases',
       'Assets',
+      'CMDB',
     ]);
     expect(
       within(screen.getByTestId('reports-group-changes')).getByText(
@@ -160,6 +161,59 @@ describe('Reports', () => {
         fake.find('PUT', '/api/v1/reports/favourites/builtin%3Aincidents_open_by_priority'),
       ).toHaveLength(1);
     });
+  });
+
+  it("files the CMDB's built-in and saved reports under its own tab (#606's two sources)", async () => {
+    window.history.pushState({}, '', '/reports');
+    const byType = {
+      code: 'cmdb_cis_by_type_and_state',
+      folder: 'cmdb',
+      definition: {
+        ...BUILTIN.definition,
+        entity: 'cmdb_ci',
+        filter: null,
+        group_by: [
+          { field: 'type_id', bucket: null },
+          { field: 'state_id', bucket: null },
+        ],
+        chart: 'stacked_bar',
+      },
+    };
+    const links = {
+      id: '01900000-0000-7000-8000-00000000r0c1',
+      name: 'Links by type',
+      description: null,
+      folder_id: null,
+      owner_id: '01900000-0000-7000-8000-000000000101',
+      copied_from: null,
+      can_edit: true,
+      definition: {
+        ...BUILTIN.definition,
+        entity: 'cmdb_relationship',
+        filter: null,
+        group_by: [{ field: 'type_id', bucket: null }],
+      },
+      updated_at: '2026-11-24T07:00:00Z',
+      version: 1,
+    };
+    api({
+      me: fakeSession(),
+      routes: routes({
+        'GET /api/v1/reports/library': {
+          body: { builtin: [byType], folders: [], reports: [links], favourites: [] },
+        },
+      }),
+    });
+    render(<App />);
+    const builtin = await screen.findByTestId('reports-open-builtin:cmdb_cis_by_type_and_state');
+    expect(builtin.textContent).toBe('CIs by type and state');
+    const group = screen.getByTestId('reports-group-cmdb');
+    expect(group.querySelector('h3')?.textContent).toBe('CMDB');
+    expect(group.contains(builtin)).toBe(true);
+    // A saved relationship report goes by its entity to the same tab, never to a raw code's.
+    expect(within(group).getByText('Links by type')).toBeTruthy();
+    expect(screen.queryByTestId('reports-group-cmdb_relationship')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/cmdb_ci|cmdb_relationship/);
   });
 
   it('lists schedules with their next run and last result, and pauses one (REQ-RPT-052, 056)', async () => {
