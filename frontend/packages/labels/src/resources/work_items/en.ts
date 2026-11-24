@@ -321,7 +321,7 @@ export const en = {
   'catalog_admin.stages.only_when': 'Applies only when',
   'catalog_admin.stages.person_question': 'The person question',
   'catalog_admin.stages.reduce_to_save':
-    'This item uses approval stages from the Professional edition. To save it, reduce it to one stage of a named person or the requested-for person’s manager, decided by any one approver.',
+    'This item uses approval stages from the Professional edition. To save it, reduce it to one stage of a named person or the requested-for person’s manager, decided by any one approver, with no condition, parallel group or automatic approval.',
   'catalog_admin.stages.remove': 'Remove stage {{n}}',
   'catalog_admin.stages.remove_approver': 'Remove this approver',
   'catalog_admin.stages.rule': 'How they decide',

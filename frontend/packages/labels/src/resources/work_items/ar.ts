@@ -330,7 +330,7 @@ export const ar: LabelResource = {
   'catalog_admin.stages.only_when': 'تنطبق فقط عندما',
   'catalog_admin.stages.person_question': 'سؤال الشخص',
   'catalog_admin.stages.reduce_to_save':
-    'يستخدم هذا العنصر مراحل موافقة من إصدار Professional. لحفظه، اختصره إلى مرحلة واحدة لشخص محدد أو مدير الشخص المطلوب له، يقرر فيها أي معتمِد.',
+    'يستخدم هذا العنصر مراحل موافقة من إصدار Professional. لحفظه، اختصره إلى مرحلة واحدة لشخص محدد أو مدير الشخص المطلوب له، يقرر فيها أي معتمِد، دون شرط أو مجموعة متوازية أو موافقة تلقائية.',
   'catalog_admin.stages.remove': 'إزالة المرحلة {{n}}',
   'catalog_admin.stages.remove_approver': 'إزالة هذا المعتمِد',
   'catalog_admin.stages.rule': 'طريقة القرار',
