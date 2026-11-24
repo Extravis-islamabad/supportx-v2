@@ -50,6 +50,7 @@ from app.modules.identity_access.infra.models import (
 from app.modules.identity_access.service import roles
 from app.modules.organization import SYSTEM_PATH, add_member, remove_member, unmanage_member
 from app.shared.clock import system_clock
+from app.shared.history import stale_version
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -405,13 +406,29 @@ async def privileged_allowed(session: AsyncSession) -> bool:
     return bool(found)
 
 
-async def set_privileged_allowed(session: AsyncSession, *, allowed: bool) -> bool:
+async def settings_version(session: AsyncSession) -> int:
+    """The access settings row's version (0: never saved), for If-Match on the opt-in."""
+    found = await session.scalar(select(AccessSettings.version))
+    return int(found or 0)
+
+
+async def set_privileged_allowed(
+    session: AsyncSession, *, allowed: bool, expected_version: int | None = None
+) -> bool:
     """Turn the opt-in on or off (the route asks for a recent sign-in). True if it changed.
 
     Turning it off removes nothing: existing mappings keep working, and new privileged ones are
     refused again. Audited either way, with who and when kept on the settings row.
     """
     context = session.info[SESSION_TENANT_KEY]
+    if expected_version is not None and await settings_version(session) != expected_version:
+        saved = await session.scalar(select(AccessSettings))
+        if saved is not None:
+            raise await stale_version(session, saved, expected_version=expected_version)
+        raise Conflict(
+            code="version_conflict",
+            params={"expected_version": expected_version, "current_version": 0},
+        )
     before = await privileged_allowed(session)
     if before == allowed:
         return False
@@ -492,7 +509,11 @@ async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:
 
 
 async def remove_mapping(
-    session: AsyncSession, mapping_id: uuid.UUID, *, on_held: OnHeld | None
+    session: AsyncSession,
+    mapping_id: uuid.UUID,
+    *,
+    on_held: OnHeld | None,
+    expected_version: int | None = None,
 ) -> None:
     """Delete a mapping; what it gave stays as hand-made ("keep") or goes at once ("remove").
 
@@ -502,6 +523,10 @@ async def remove_mapping(
     mapping = await session.get(IdpGroupMapping, mapping_id)
     if mapping is None or mapping.deleted_at is not None:
         raise NotFound(code="mapping_not_found")
+    # If-Match (rule 5g; lane B): the route passes it; the connector's own reconcile, whose
+    # connector is version-checked already, passes None.
+    if expected_version is not None and mapping.version != expected_version:
+        raise await stale_version(session, mapping, expected_version=expected_version)
     held = list(
         await session.scalars(select(AccessSource).where(AccessSource.mapping_id == mapping_id))
     )
@@ -547,6 +572,7 @@ async def remove_mapping(
             raise Conflict(code=HOLDS_LAST_ADMIN_CODE)
     await whole.commit()
     mapping.deleted_at = system_clock.now()
+    mapping.version += 1
     access_changed(session)
 
 

@@ -31,6 +31,7 @@ from app.modules.identity_access.domain.group_mappings import (
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import IdpGroupMapping
 from app.modules.identity_access.service import group_mappings as mappings
+from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 
@@ -68,6 +69,7 @@ class IdpGroupMappingOut(BaseModel):
     role_id: uuid.UUID | None
     group_id: uuid.UUID | None
     enabled: bool
+    version: int
 
     @classmethod
     def of(cls, row: IdpGroupMapping) -> "IdpGroupMappingOut":
@@ -81,6 +83,7 @@ class IdpGroupMappingOut(BaseModel):
             role_id=row.role_id,
             group_id=row.group_id,
             enabled=row.enabled,
+            version=row.version,
         )
 
 
@@ -99,6 +102,7 @@ class MappingSettingsOut(BaseModel):
     sso_sources_ready: bool = Field(
         description="SSO set-ups may be a mapping's source (false until S5c-1b)."
     )
+    version: int = Field(description="The access settings' version, for If-Match (0: never saved).")
 
 
 class MappingSettingsIn(BaseModel):
@@ -153,20 +157,27 @@ async def create_group_mapping(
 
 
 @router.get("/settings", summary="The tenant's group-mapping settings")
-async def get_mapping_settings(session: TenantSession, subject: Manage) -> MappingSettingsOut:
+async def get_mapping_settings(
+    session: TenantSession, subject: Manage, response: Response
+) -> MappingSettingsOut:
     """Whether privileged mappings are allowed, and whether SSO sources may be used yet."""
     del subject
+    version = await mappings.settings_version(session)
+    set_etag(response, version)
     return MappingSettingsOut(
         privileged_allowed=await mappings.privileged_allowed(session),
         sso_sources_ready=SSO_GROUP_MAPPINGS_READY,
+        version=version,
     )
 
 
 @router.put("/settings", summary="Allow privileged mappings, or not", dependencies=[RecentAuth])
-async def save_mapping_settings(
+async def save_mapping_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: MappingSettingsIn,
     session: TenantSession,
     subject: Manage,
+    version: ExpectedVersion,
+    response: Response,
     note: Annotated[
         AuditNote,
         audited("idp_group_mapping.privileged_opt_in_changed", object_type="access_settings"),
@@ -175,9 +186,15 @@ async def save_mapping_settings(
     """Turning it off removes nothing; new privileged mappings are refused again."""
     del subject
     note.details = {"privileged_allowed": str(body.privileged_allowed).lower()}
-    await mappings.set_privileged_allowed(session, allowed=body.privileged_allowed)
+    await mappings.set_privileged_allowed(
+        session, allowed=body.privileged_allowed, expected_version=version
+    )
+    saved = await mappings.settings_version(session)
+    set_etag(response, saved)
     return MappingSettingsOut(
-        privileged_allowed=body.privileged_allowed, sso_sources_ready=SSO_GROUP_MAPPINGS_READY
+        privileged_allowed=body.privileged_allowed,
+        sso_sources_ready=SSO_GROUP_MAPPINGS_READY,
+        version=saved,
     )
 
 
@@ -187,7 +204,8 @@ async def mapping_holders(
 ) -> HoldersOut:
     """The remove dialog's count (the coordinator's Q2)."""
     del subject
-    if await session.get(IdpGroupMapping, mapping_id) is None:
+    found = await session.get(IdpGroupMapping, mapping_id)
+    if found is None or found.deleted_at is not None:
         raise NotFound(code="mapping_not_found")
     return HoldersOut(holders=await mappings.holders(session, mapping_id))
 
@@ -195,10 +213,11 @@ async def mapping_holders(
 @router.delete(
     "/{mapping_id}", summary="Remove a group mapping", status_code=204, dependencies=[RecentAuth]
 )
-async def delete_group_mapping(
+async def delete_group_mapping(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     mapping_id: uuid.UUID,
     session: TenantSession,
     subject: Manage,
+    version: ExpectedVersion,
     note: Annotated[
         AuditNote,
         audited(
@@ -210,5 +229,5 @@ async def delete_group_mapping(
     """What it gave stays as hand-made ("keep") or goes now ("remove"); never silent."""
     del subject
     note.details = {"on_held": on_held or ""}
-    await mappings.remove_mapping(session, mapping_id, on_held=on_held)
+    await mappings.remove_mapping(session, mapping_id, on_held=on_held, expected_version=version)
     return Response(status_code=204)

@@ -40,9 +40,11 @@ async def _create(world: World, org: Org, **body: Any) -> Any:  # noqa: ANN401 -
 
 
 async def _settings(world: World, org: Org, *, allowed: bool) -> None:
+    current = (await world.call("GET", f"{BASE}/settings", org, org.admin)).json()
     saved = await world.call(
-        "PUT", f"{BASE}/settings", org, org.admin, json={"privileged_allowed": allowed}
-    )
+        "PUT", f"{BASE}/settings", org, org.admin, json={"privileged_allowed": allowed},
+        headers={"If-Match": f'"{current["version"]}"'},
+    )  # fmt: skip
     assert saved.status_code == 200, saved.text
 
 
@@ -62,8 +64,14 @@ async def test_a_directory_mapping_onto_a_role_is_made_listed_counted_and_remove
     assert [m["id"] for m in listed.json()] == [mapping]
     counted = await world.call("GET", f"{BASE}/{mapping}/holders", a, a.admin)
     assert counted.json() == {"holders": 0}
-    gone = await world.call("DELETE", f"{BASE}/{mapping}", a, a.admin)
+    stale = await world.call(
+        "DELETE", f"{BASE}/{mapping}", a, a.admin, headers={"If-Match": '"99"'}
+    )
+    assert stale.status_code == 409, stale.text  # If-Match (rule 5g)
+    gone = await world.call("DELETE", f"{BASE}/{mapping}", a, a.admin, headers={"If-Match": '"1"'})
     assert gone.status_code == 204, gone.text
+    after = await world.call("GET", f"{BASE}/{mapping}/holders", a, a.admin)
+    assert after.status_code == 404  # a removed mapping has no holders to count
     assert await by_action(world, a, "idp_group_mapping.created")
     assert await by_action(world, a, "idp_group_mapping.removed")
     # Not identity.manage: no mappings at all.
@@ -206,13 +214,18 @@ async def test_removing_the_mapping_that_holds_the_last_admin_is_refused_unless_
             user_id=org.admin, group_ids=frozenset({"sx-admins"}),
         )  # fmt: skip
 
-    refused = await world.call("DELETE", f"{BASE}/{mapping}?on_held=remove", org, org.admin)
+    match = {"If-Match": '"1"'}
+    refused = await world.call(
+        "DELETE", f"{BASE}/{mapping}?on_held=remove", org, org.admin, headers=match
+    )
     assert (refused.status_code, refused.json()["code"]) == (409, "mapping_holds_last_admin")
     listed = await world.call(
         "GET", f"{BASE}?source_kind=directory&source_id={source}", org, org.admin
     )
     assert [m["id"] for m in listed.json()] == [mapping]  # nothing changed
-    kept = await world.call("DELETE", f"{BASE}/{mapping}?on_held=keep", org, org.admin)
+    kept = await world.call(
+        "DELETE", f"{BASE}/{mapping}?on_held=keep", org, org.admin, headers=match
+    )
     assert kept.status_code == 204, kept.text
     still = await world.sql(
         "SELECT managed FROM user_roles WHERE tenant_id = $1 AND user_id = $2 AND role_id = $3",
