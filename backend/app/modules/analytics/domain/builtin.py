@@ -26,6 +26,7 @@ PROBLEMS = "problems"
 RELEASES = "releases"
 CHANGES = "changes"
 ASSETS = "assets"
+CMDB = "cmdb"
 
 _OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
 _LAST_30 = {"field": "created_at", "op": "last_n_days", "value": 30}
@@ -410,6 +411,27 @@ BUILTIN_REPORTS += (
         "assets_total_cost_of_ownership",
         group_by=[{"field": "product_type_id"}],
         measures=["total_cost_total", "book_value_total"],
+        order="value_desc",
+        chart="bar",
+    ),
+)
+
+# The CMDB (lane B's sources, #606, WP-053 S5a; REQ-CMDB-032): what is configured, by kind and
+# state, and how it hangs together. Both read the CMDB list's own narrowed rows (ADR-053), and a
+# relationship counts only when the reader may see both of its CIs.
+BUILTIN_REPORTS += (
+    _of(
+        "cmdb_ci",
+        CMDB,
+        "cmdb_cis_by_type_and_state",
+        group_by=[{"field": "type_id"}, {"field": "state_id"}],
+        chart="stacked_bar",
+    ),
+    _of(
+        "cmdb_relationship",
+        CMDB,
+        "cmdb_relationships_by_type",
+        group_by=[{"field": "type_id"}],
         order="value_desc",
         chart="bar",
     ),

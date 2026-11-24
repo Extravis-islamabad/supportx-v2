@@ -315,7 +315,8 @@ MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
         "release": MappingProxyType({m.code: m for m in RELEASE_MEASURES}),
         **{
             entity: MappingProxyType({m.code: m for m in COUNT_ONLY})
-            for entity in ("service_request", "problem")
+            # The CMDB's two sources (lane B's #606): how many, by what; no measure of their own.
+            for entity in ("service_request", "problem", "cmdb_ci", "cmdb_relationship")
         },
     }
 )
