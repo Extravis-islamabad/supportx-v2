@@ -34,6 +34,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from app.shared.db.rls import APP_ROLE
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0201"
@@ -222,6 +223,9 @@ def upgrade() -> None:
             table,
             sa.Column("managed", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         )
+        # Removing a mapping with "keep" turns its access hand-made: the app updates this one
+        # column and nothing else of either link table (they stay insert/delete otherwise).
+        op.execute(f"GRANT UPDATE (managed) ON {table} TO {APP_ROLE}")
     # The tenant's opt-in: a mapping may give tenant admin or another never_via_idp right (lane
     # B's condition 4; off by default, turned on with a recent sign-in, audited).
     op.add_column(
@@ -253,6 +257,7 @@ def downgrade() -> None:
     ):
         op.drop_column("access_settings", column)
     for table in ("group_members", "user_roles"):
+        op.execute(f"REVOKE UPDATE (managed) ON {table} FROM {APP_ROLE}")
         op.drop_column(table, "managed")
     op.drop_table(SOURCES)
     op.drop_table(MAPPINGS)

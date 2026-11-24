@@ -207,8 +207,10 @@ async def _lose(
     user_id: uuid.UUID,
     changes: Plan,
     source_kind: SourceKind,
-) -> None:
+) -> bool:
     """Drop this source's rows and remove what no source gives any more, as one savepoint.
+
+    Returns True when it kept the last admin (nothing of this call changed).
 
     If that would take the tenant's last admin away from this person (they were an admin, are
     not after, and nobody else is: directly or through a group, WP-042), the whole savepoint is
@@ -216,7 +218,7 @@ async def _lose(
     follow removes it once another admin exists (lane B's #620 review). Audited.
     """
     if not changes.drop_sources and not changes.lose:
-        return
+        return False
     before = await roles.tenant_admin_holders(session) if changes.lose else set()
     savepoint = await session.begin_nested()
     for item in changes.drop_sources:
@@ -251,11 +253,12 @@ async def _lose(
                 actor=(AuditActorType.SYSTEM, None),
             )
             log.warning("idp_group_mapping_kept_last_admin", user_id=str(user_id))
-            return
+            return True
     await savepoint.commit()
     by_target = {h.target: h for h in changes.drop_sources}
     for target in removed:
         await _audit(session, by_target.get(target) or Held(target, ""), user_id, "removed")
+    return False
 
 
 async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: str) -> None:
@@ -275,6 +278,7 @@ async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: 
 PRIVILEGED_CODE = "mapping_grants_privileged_access"
 COMING_SOON_CODE = "idp_group_mappings_coming_soon"
 CHOICE_REQUIRED_CODE = "mapping_in_use_choice_required"
+HOLDS_LAST_ADMIN_CODE = "mapping_holds_last_admin"
 OnHeld = Literal["keep", "remove"]
 
 
@@ -504,6 +508,7 @@ async def remove_mapping(
     if held and on_held is None:
         raise ValidationFailed(errors=[_error("on_held", CHOICE_REQUIRED_CODE)])
     # In one order (person, then target), so two removals can't deadlock (lane B's review).
+    whole = await session.begin_nested()
     held.sort(key=lambda r: (str(r.user_id), r.target_kind, str(r.target_id)))
     for row in held:
         await lock_person(session, row.user_id)
@@ -524,7 +529,7 @@ async def remove_mapping(
             continue  # another mapping still gives it, or it stays as hand-made
         # "remove": the source row goes in the same savepoint as the access (kept last admin
         # keeps both, lane B's review).
-        await _lose(
+        kept = await _lose(
             session,
             row.user_id,
             Plan(
@@ -535,6 +540,12 @@ async def remove_mapping(
             ),
             SourceKind(mapping.source_kind),
         )
+        if kept:
+            # Removing it would take the tenant's last admin away: refused, nothing changed
+            # (lane B's #620 review). "keep" still works, or another admin first.
+            await whole.rollback()
+            raise Conflict(code=HOLDS_LAST_ADMIN_CODE)
+    await whole.commit()
     mapping.deleted_at = system_clock.now()
     access_changed(session)
 

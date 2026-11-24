@@ -166,3 +166,56 @@ async def test_a_stale_or_switched_off_directory_with_managed_access_is_flagged(
     overview = await world.call("GET", "/identity/security-overview", org, org.admin)
     assert overview.status_code == 200, overview.text
     assert "directory_access_stale" in overview.text
+
+
+async def test_removing_the_mapping_that_holds_the_last_admin_is_refused_unless_kept(
+    world: World,
+) -> None:
+    """Lane B's #620 review: "remove" never strands the only admin; "keep" still works."""
+    from sqlalchemy import select  # noqa: PLC0415 - this test only
+
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.domain.group_mappings import SourceKind  # noqa: PLC0415
+    from app.modules.identity_access.infra.models import Role  # noqa: PLC0415
+    from app.modules.identity_access.service import group_mappings  # noqa: PLC0415
+
+    org = await make_org(world, f"Only admin {uuid.uuid4().hex[:6]}")
+    source = await _directory(world, org)
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        admin_role = await session.scalar(select(Role.id).where(Role.key == "tenant_admin"))
+    await _settings(world, org, allowed=True)
+    made = await _create(
+        world, org, source_kind="directory", source_id=str(source),
+        external_group_id="sx-admins", role_id=str(admin_role),
+    )  # fmt: skip
+    assert made.status_code == 201, made.text
+    mapping = made.json()["id"]
+    # The only admin holds tenant admin through this mapping alone.
+    for user in (org.lead, org.tech_a, org.tech_b, org.tech_c):
+        await world.sql(
+            "DELETE FROM user_roles WHERE tenant_id = $1 AND user_id = $2 AND role_id = $3",
+            org.tenant, user, admin_role,
+        )  # fmt: skip
+    await world.sql(
+        "UPDATE user_roles SET managed = true WHERE tenant_id = $1 AND user_id = $2",
+        org.tenant, org.admin,
+    )  # fmt: skip
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        await group_mappings.follow(
+            session, source_kind=SourceKind.DIRECTORY, source_id=source,
+            user_id=org.admin, group_ids=frozenset({"sx-admins"}),
+        )  # fmt: skip
+
+    refused = await world.call("DELETE", f"{BASE}/{mapping}?on_held=remove", org, org.admin)
+    assert (refused.status_code, refused.json()["code"]) == (409, "mapping_holds_last_admin")
+    listed = await world.call(
+        "GET", f"{BASE}?source_kind=directory&source_id={source}", org, org.admin
+    )
+    assert [m["id"] for m in listed.json()] == [mapping]  # nothing changed
+    kept = await world.call("DELETE", f"{BASE}/{mapping}?on_held=keep", org, org.admin)
+    assert kept.status_code == 204, kept.text
+    still = await world.sql(
+        "SELECT managed FROM user_roles WHERE tenant_id = $1 AND user_id = $2 AND role_id = $3",
+        org.tenant, org.admin, admin_role,
+    )  # fmt: skip
+    assert [r["managed"] for r in still] == [False]  # the admin keeps it, now hand-made
