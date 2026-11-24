@@ -31,6 +31,7 @@ from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_automation_api import set_
 from tests.db.test_automation_triggers_api import drain
 from tests.db.test_cmdb_api import _ci, _states
+from tests.db.test_cmdb_downtimes import _event, _feed
 from tests.db.test_cmdb_relationships import _given, _link
 from tests.db.test_incidents_api import Org, World, field_codes
 from tests.db.test_notifications_api import run_engine
@@ -484,3 +485,115 @@ async def test_a_downtime_starting_fires_once_and_recording_one_for_later_does_n
     # Nothing about the downtime itself reaches the run's log (only "downtimes" changed).
     assert recorded.json()["id"] not in str(mine)
     assert "Disk swap" not in str(mine)
+
+
+async def _started_runs(world: World, org: Org, ci: dict[str, Any], name: str) -> list[str]:
+    await drain(world, org)
+    return [r["outcome"] for r in await _runs(world, org, ci) if r["automation_name"] == name]
+
+
+async def test_an_edit_moving_a_downtime_start_to_now_fires_it_once(world: World) -> None:
+    """Lane A (#626): an `updated` can carry the move into active; the sweep then emits nothing."""
+    a = world.a
+    name = f"Edited start {uuid.uuid4().hex[:6]}"
+    made = await _trigger(
+        world,
+        a,
+        name=name,
+        events=["downtime_started"],
+        actions=[set_("business_impact", "high", "overwrite")],
+    )
+    assert made.status_code == 201, made.text
+    ci = await _made(world, a, f"Edited box {uuid.uuid4().hex[:6]}")
+    later = datetime.now(UTC) + timedelta(hours=1)
+    path = f"{CMDB}/cis/{ci['id']}/downtimes"
+    recorded = await world.call(
+        "POST",
+        path,
+        a,
+        a.admin,
+        json={
+            "starts_at": later.isoformat(),
+            "ends_at": (later + timedelta(hours=1)).isoformat(),
+            "kind": "maintenance",
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert recorded.status_code == 201, recorded.text
+    assert await _started_runs(world, a, ci, name) == []
+    item = recorded.json()
+    moved = await world.call(
+        "PATCH",
+        f"{path}/{item['id']}",
+        a,
+        a.admin,
+        json={"starts_at": (datetime.now(UTC) - timedelta(minutes=5)).isoformat()},
+        headers={"If-Match": f'"{item["version"]}"'},
+    )
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["state"] == "active"
+    assert await _started_runs(world, a, ci, name) == ["applied"]
+    # Another edit while it is already active is not a second start.
+    again = await world.call(
+        "PATCH",
+        f"{path}/{item['id']}",
+        a,
+        a.admin,
+        json={"kind": "repair"},
+        headers={"If-Match": f'"{moved.json()["version"]}"'},
+    )
+    assert again.status_code == 200, again.text
+    assert await _started_runs(world, a, ci, name) == ["applied"]
+
+
+async def test_a_mirrored_work_item_downtime_moved_to_now_fires_it_once(world: World) -> None:
+    """Lane A (#626): the work-item mirror recomputes the state on an update, too."""
+    a = world.a
+    name = f"Mirrored start {uuid.uuid4().hex[:6]}"
+    made = await _trigger(
+        world,
+        a,
+        name=name,
+        events=["downtime_started"],
+        actions=[set_("business_impact", "high", "overwrite")],
+    )
+    assert made.status_code == 201, made.text
+    ci = await _made(world, a, f"Mirrored box {uuid.uuid4().hex[:6]}")
+    downtime = uuid.uuid4()
+    await _feed(world, a, _event(downtime, 1, [ci["id"]]))
+    assert await _started_runs(world, a, ci, name) == []
+    now = datetime.now(UTC)
+    earlier = {
+        "starts_at": (now - timedelta(minutes=5)).isoformat(),
+        "ends_at": (now + timedelta(hours=1)).isoformat(),
+    }
+    await _feed(world, a, _event(downtime, 2, [ci["id"]], **earlier))
+    assert await _started_runs(world, a, ci, name) == ["applied"]
+
+
+async def test_a_mirrored_downtime_added_already_started_fires_once_and_not_again_at_the_sweep(
+    world: World,
+) -> None:
+    """Lane A (#626): added with no previous state and already active is one start; the sweep
+    finds the state unchanged and emits nothing more."""
+    a = world.a
+    name = f"Added started {uuid.uuid4().hex[:6]}"
+    made = await _trigger(
+        world,
+        a,
+        name=name,
+        events=["downtime_started"],
+        actions=[set_("business_impact", "high", "overwrite")],
+    )
+    assert made.status_code == 201, made.text
+    ci = await _made(world, a, f"Started box {uuid.uuid4().hex[:6]}")
+    now = datetime.now(UTC)
+    started = {
+        "starts_at": (now - timedelta(minutes=5)).isoformat(),
+        "ends_at": (now + timedelta(hours=1)).isoformat(),
+    }
+    await _feed(world, a, _event(uuid.uuid4(), 1, [ci["id"]], **started))
+    assert await _started_runs(world, a, ci, name) == ["applied"]
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await downtimes.sweep_tenant(session, datetime.now(UTC))
+    assert await _started_runs(world, a, ci, name) == ["applied"]

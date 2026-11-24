@@ -141,14 +141,23 @@ async def read_event(
     return [] if one is None else [one]
 
 
-# A downtime *becomes* active: the sweep moved it there (`state`), or it was recorded already
-# under way (`added`). An edit while active is not a start (the event carries only the new state,
-# so an `updated` can't say it moved), and a removal never is.
-_STARTS = frozenset({"added", "state"})
+# A downtime *becomes* active: it is active now and was not before this write. That is the
+# sweep moving it, one recorded already under way, or an edit or a mirrored work item moving its
+# start to now or earlier (lane A, #626). An edit while already active and a removal never are.
+# Events from before `previous_state` existed: only the sweep's and an added row's count.
+_LEGACY_STARTS = frozenset({"added", "state"})
+_ACTIVE = "active"
 
 
 def _downtime_started(payload: Mapping[str, Any], ci_id: uuid.UUID) -> list[automation.RecordEvent]:
-    if payload.get("state") != "active" or payload.get("change") not in _STARTS:
+    change = payload.get("change")
+    if payload.get("state") != _ACTIVE or change == "removed":
+        return []
+    if "previous_state" in payload:
+        started = payload["previous_state"] != _ACTIVE
+    else:
+        started = change in _LEGACY_STARTS
+    if not started:
         return []
     return [
         automation.RecordEvent(
