@@ -33,7 +33,6 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import stage_snapshot
 from app.modules.work_items.domain.approval_reminders import family_states
-from app.modules.work_items.domain.delegations import current_round
 from app.modules.work_items.domain.request_stages import Candidate, Opened, StagePlan
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
@@ -183,8 +182,7 @@ async def _rows(session: AsyncSession, record: WorkItem) -> list[WorkItemApprova
             .order_by(WorkItemApproval.stage, WorkItemApproval.created_at)
         )
     )
-    latest = current_round([r.round for r in found])
-    return [r for r in found if r.round == latest]
+    return [r for r in found if r.round == record.approval_round]
 
 
 def _outcomes(

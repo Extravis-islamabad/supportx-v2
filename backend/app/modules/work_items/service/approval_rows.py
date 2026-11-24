@@ -11,20 +11,15 @@ an escalation, an approver added or replaced.
 
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 
 
 async def current_round(session: AsyncSession, record: WorkItem) -> int:
-    """The record's latest approval round (1 before any)."""
-    found = await session.scalar(
-        select(func.max(WorkItemApproval.round)).where(
-            WorkItemApproval.work_item_id == record.id, WorkItemApproval.deleted_at.is_(None)
-        )
-    )
-    return int(found or 1)
+    """The record's current approval round (its own column: a restart moves it on)."""
+    del session  # kept in the signature: callers read it as the other approval helpers
+    return record.approval_round
 
 
 async def prepare(

@@ -534,6 +534,24 @@ class ApprovalDelegationChanged(DomainEvent):
     version: int
 
 
+class WorkItemApprovalRestarted(DomainEvent):
+    """A request's approval started again after a relevant change (WP-047a S3b; REQ-SR-041).
+
+    The approvers of the round that ended are told (the coordinator's condition 3). `keys` are
+    the changed answer keys (codes), never the answers themselves.
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.restarted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    round: int
+    approver_ids: list[uuid.UUID]
+    keys: list[str]
+
+
 class ChangeBoardChanged(DomainEvent):
     """A change advisory board was added, changed or removed (WP-045b S2; settings reload)."""
 
@@ -747,6 +765,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemApprovalChanged,
     WorkItemApprovalClarification,
     ApprovalDelegationChanged,
+    WorkItemApprovalRestarted,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,

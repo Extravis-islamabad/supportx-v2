@@ -108,6 +108,7 @@ from app.modules.work_items.domain.lifecycle import (
     PauseClock,
     ReasonList,
     ReasonMode,
+    ServiceRequestStatus,
     StatusCategory,
     TransitionDef,
     WorkItemAction,
@@ -3488,6 +3489,23 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and before.get(
+        "on_behalf_of_id"
+    ) != after.get("on_behalf_of_id"):
+        # WP-047a S3b (REQ-SR-041): a new requested-for person may restart the approval.
+        from app.modules.work_items.service import restarts  # noqa: PLC0415 - it imports this
+
+        was = before.get("on_behalf_of_id")
+        await restarts.check(
+            session,
+            wtype,
+            updated,
+            before_answers=updated.answers or {},
+            before_quantity=updated.quantity,
+            before_for=None if was is None else uuid.UUID(str(was)),
+            source=source,
+            facts=facts or AUDIT_WORKER,
+        )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
         return await _handed_away(session, subject, wtype, updated)
@@ -5690,6 +5708,111 @@ async def set_status(  # noqa: PLR0913 - the move, its version and its record, e
     updated = await _update(session, record, expected_version, changes)
     await _record_status(
         session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
+    )
+    return updated
+
+
+async def save_request_answers(  # noqa: PLR0913 - the request, its new values and context, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    *,
+    expected_version: int,
+    answers: Mapping[str, Any],
+    quantity: int | None,
+    source: Source,
+) -> WorkItem:
+    """Save a request's changed answers and quantity (WP-047a S3b; REQ-SR-041), the caller checked.
+
+    One versioned save (5g, If-Match), a history line per changed answer key and the quantity,
+    and the record's update event (screens refresh live).
+    """
+    before = dict(record.answers or {})
+    changes: dict[str, Any] = {}
+    if dict(answers) != before:
+        changes["answers"] = dict(answers)
+    if quantity is not None and quantity != record.quantity:
+        changes["quantity"] = quantity
+    if not changes:
+        if record.version != expected_version:
+            raise await _conflict(session, _stale(record, expected_version), record.id)
+        return record
+    old_quantity = record.quantity
+    updated = await _update(session, record, expected_version, changes)
+    lines = [
+        Change(f"answers.{key}", _json(before.get(key)), _json(answers.get(key)))
+        for key in sorted(set(before) | set(answers))
+        if before.get(key) != answers.get(key)
+    ]
+    if "quantity" in changes:
+        lines.append(Change("quantity", old_quantity, quantity))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changes),
+            audience_before=_audience(updated),
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def back_to_approval(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    approval_round: int,
+    source: Source,
+) -> WorkItem:
+    """A request's approval restarts (WP-047a S3b; REQ-SR-041 AC1): back to awaiting approval.
+
+    A system move: "awaiting approval" is entered only by the system, and no person's action
+    leads there, so the status and its clock change as for any move, with the approval status
+    back to pending, under the record's version (5g).
+    """
+    target = ServiceRequestStatus.AWAITING_APPROVAL.value
+    old_approval = record.approval_status
+    changes: dict[str, Any] = {
+        "approval_status": ApprovalStatus.PENDING.value,
+        "approval_round": approval_round,  # the next round: the rows it opens count there
+    }
+    if record.status != target:
+        changes |= await _status_change(
+            session,
+            wtype,
+            record,
+            WorkItemAction.RESTART_APPROVAL,
+            target=target,
+            reason_code=None,
+            reason_text=None,
+        )
+    before = _snapshot(record, STAMP_FIELDS)
+    updated = await _update(session, record, record.version, changes)
+    await _record_status(
+        session,
+        before,
+        updated,
+        WorkItemAction.RESTART_APPROVAL,
+        source=source,
+        reason=None,
+        automatic=True,
+        extra=[Change("approval_status", old_approval, ApprovalStatus.PENDING.value)],
+        rule="approval_restart",
     )
     return updated
 

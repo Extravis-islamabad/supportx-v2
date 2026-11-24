@@ -912,6 +912,9 @@ class WorkItem(TenantEntity):
     catalog_item_id: Mapped[uuid.UUID | None]
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     approval_status: Mapped[str | None] = mapped_column(String(20))
+    # WP-047a S3b (0197; REQ-SR-041): the approval round its rows count in; a restart opens the
+    # next, earlier rounds staying in history only.
+    approval_round: Mapped[int] = mapped_column(Integer, server_default="1")
     # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
     quantity: Mapped[int | None] = mapped_column(Integer)
     needed_by: Mapped[datetime | None]

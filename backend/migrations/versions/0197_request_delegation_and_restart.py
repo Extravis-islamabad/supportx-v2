@@ -7,8 +7,9 @@ REQ-SR-035, REQ-SR-041. Expand only, no data step:
   and an early end (`ended_at`).
 - `work_item_approvals.on_behalf_of_id`: the approver a delegation routed the approval away from
   (they may still decide it; a decision by the delegate reads "A on behalf of B").
-- `work_item_approvals.round` (1): the approval round; a restart opens the next and only the
-  latest counts (041), earlier decisions staying in history.
+- `work_item_approvals.round` (1) and `work_items.approval_round` (1): the approval round each
+  row belongs to, and the record's current one. A restart opens the next and only the current
+  round counts (041), earlier decisions staying in history.
 
 The downgrade stops while any tenant has a delegation, a delegated approval or a second round
 (rule 5h), then drops the table and the columns.
@@ -44,6 +45,7 @@ BEGIN
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM {TABLE})
            OR EXISTS (SELECT 1 FROM {APPROVALS} WHERE on_behalf_of_id IS NOT NULL OR round > 1)
+           OR EXISTS (SELECT 1 FROM work_items WHERE approval_round > 1)
         THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has S3b request approvals', t;
         END IF;
@@ -119,11 +121,16 @@ def upgrade() -> None:
     )
     op.create_check_constraint(op.f(ROUND_CHECK), APPROVALS, "round >= 1")
     op.create_index(ROUND_INDEX, APPROVALS, ["tenant_id", "work_item_id", "round"])
+    op.add_column(
+        "work_items",
+        sa.Column("approval_round", sa.Integer(), server_default="1", nullable=False),
+    )
 
 
 def downgrade() -> None:
     """Back to before (stops while a delegation, a delegated approval or a second round exists)."""
     op.execute(GUARD)
+    op.drop_column("work_items", "approval_round")
     op.drop_index(ROUND_INDEX, table_name=APPROVALS)
     op.drop_constraint(op.f(ROUND_CHECK), APPROVALS, type_="check")
     op.drop_constraint(ON_BEHALF_FK, APPROVALS, type_="foreignkey")
