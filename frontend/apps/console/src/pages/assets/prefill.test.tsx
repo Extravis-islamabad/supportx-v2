@@ -56,6 +56,7 @@ const laptop: CatalogItem = {
     comments_required: false,
     rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
   plan: [],
   default_priority: 'p2',

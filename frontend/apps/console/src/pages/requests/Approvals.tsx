@@ -5,6 +5,7 @@ import { useApprovals, type Approval, type CatalogQuestion } from '@supportx/api
 import { useListFormat } from '@supportx/labels';
 import {
   EmptyText,
+  RichTextView,
   ToneTag,
   useAnswerWords,
   useAppearance,
@@ -15,6 +16,7 @@ import {
 
 import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 import { useApproverChanges } from './ApproverChanges';
+import { ClarificationDialog } from './ClarificationDialog';
 import { useDecision } from './useDecision';
 type Tone = 'info' | 'success' | 'warning' | 'error';
 const TONE: Record<Approval['state'], Tone> = {
@@ -76,10 +78,13 @@ function useConditionWords(questions: CatalogQuestion[]): (c: Condition) => stri
 export function ApprovalsPanel({
   recordId,
   questions = [],
+  hasTechnician = false,
 }: {
   recordId: string;
   /** The item's questions, to say a skipped stage's condition in words (WP-047a S2a). */
   questions?: CatalogQuestion[];
+  /** Whether a question may go to the request's technician (WP-047a S3a, REQ-SR-037). */
+  hasTechnician?: boolean;
 }) {
   const t = useLabel();
   const conditionWords = useConditionWords(questions);
@@ -100,6 +105,8 @@ export function ApprovalsPanel({
     const q = questions.find((x) => x.key === key);
     return q ? (q.label[locale] ?? q.label.en ?? '') : t('requests.condition_removed_question');
   };
+  const [asking, setAsking] = useState<Approval>();
+  const byId = new Map(items.map((a) => [a.id, a]));
   const staged = new Set(items.map((a) => a.stage)).size > 1;
   if (approvals.isLoading) return null;
   return (
@@ -142,6 +149,18 @@ export function ApprovalsPanel({
                     >
                       {t('requests.reject')}
                     </WriteButton>,
+                    // WP-047a S3a (REQ-SR-037): ask instead of deciding; one open at a time.
+                    <WriteButton
+                      key="ask"
+                      disabled={a.clarification?.state === 'open'}
+                      whyDisabled={t('why.clarification_open')}
+                      onClick={() => {
+                        setAsking(a);
+                      }}
+                      data-testid="approval-ask"
+                    >
+                      {t('requests.clarification.ask')}
+                    </WriteButton>,
                   ]
                 : []),
               ...(changes.replaceButton(a) === null ? [] : [changes.replaceButton(a)]),
@@ -179,6 +198,46 @@ export function ApprovalsPanel({
                 <Typography.Text type="secondary" data-testid="approval-route-reason">
                   {t(`approval_route_reason.${a.route_reason}`)}
                 </Typography.Text>
+              )}
+              {a.escalated_from_id != null && (
+                <Typography.Text type="secondary" data-testid="approval-escalated-from">
+                  {t('requests.escalated_from', {
+                    name: name(byId.get(a.escalated_from_id)?.approver_id),
+                  })}
+                </Typography.Text>
+              )}
+              {a.clarification != null && (
+                <Space direction="vertical" size={0} data-testid="approval-clarification">
+                  <Space wrap>
+                    <ToneTag
+                      tone={a.clarification.state === 'open' ? 'warning' : 'info'}
+                      testId="approval-clarification-state"
+                    >
+                      {t(`approval_clarification_state.${a.clarification.state}`)}
+                    </ToneTag>
+                    <Typography.Text type="secondary">
+                      {t('requests.clarification.asked_of', {
+                        who: t(`approval_clarification_addressee.${a.clarification.addressee}`),
+                        when: format(a.clarification.asked_at),
+                      })}
+                    </Typography.Text>
+                  </Space>
+                  {a.clarification.question != null && (
+                    <RichTextView
+                      html={a.clarification.question}
+                      testId="approval-clarification-question"
+                    />
+                  )}
+                  {a.clarification.answer != null && (
+                    <>
+                      <Typography.Text strong>{t('requests.clarification.answer')}</Typography.Text>
+                      <RichTextView
+                        html={a.clarification.answer}
+                        testId="approval-clarification-answer"
+                      />
+                    </>
+                  )}
+                </Space>
               )}
               {a.auto_reason != null && (
                 <Typography.Text type="secondary" data-testid="approval-auto-reason">
@@ -220,6 +279,16 @@ export function ApprovalsPanel({
       />
       {dialog}
       {changes.dialog}
+      {asking !== undefined && (
+        <ClarificationDialog
+          recordId={recordId}
+          approval={asking}
+          hasTechnician={hasTechnician}
+          onClose={() => {
+            setAsking(undefined);
+          }}
+        />
+      )}
     </>
   );
 }

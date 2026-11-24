@@ -58,6 +58,7 @@ import { StatusTag } from './CatalogAdminPage';
 import { ICONS } from './icons';
 import { PlanEditor } from './PlanEditor';
 import { PreviewDrawer } from './PreviewDrawer';
+import { EscalateToField } from './EscalateToField';
 import { blankStage, stageOf } from './stages';
 import { PerLanguage } from './PerLanguage';
 import { StagesEditor } from './StagesEditor';
@@ -712,6 +713,7 @@ function ApprovalTab({ draft, set }: TabProps) {
         comments_required: false,
         self_approval: false,
         rule: 'any',
+        escalate_to: 'backup',
         ...(approval ?? {}),
         ...next,
       },
@@ -730,6 +732,7 @@ function ApprovalTab({ draft, set }: TabProps) {
                     comments_required: false,
                     self_approval: false,
                     rule: 'any',
+                    escalate_to: 'backup',
                   }
                 : null,
             });
@@ -824,6 +827,13 @@ function ApprovalTab({ draft, set }: TabProps) {
                   ariaLabel={t('catalog_admin.approval.backup')}
                 />
               </Form.Item>
+              <EscalateToField
+                value={approval.escalate_to}
+                onChange={(escalate_to) => {
+                  put({ escalate_to });
+                }}
+                testId="cat-approval-escalate-to"
+              />
             </>
           )}
           <Flex gap={24} wrap>

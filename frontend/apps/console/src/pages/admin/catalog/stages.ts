@@ -6,6 +6,9 @@ export type Approver = NonNullable<Stage['approvers']>[number];
 export type Kind = Approver['kind'];
 export type Rule = Stage['rule'];
 export type AutoRule = NonNullable<Stage['auto_rules']>[number];
+export type EscalateTo = Stage['escalate_to'];
+// WP-047a S3a (REQ-SR-034, Essentials): where a stage's approval goes after its last reminder.
+export const ESCALATE_TO: EscalateTo[] = ['backup', 'approver_manager', 'fulfilment_group', 'none'];
 
 export const MAX_STAGES = 10; // REQ-SR-029 AC4: requests only (staged record types keep 5)
 export const MAX_APPROVERS = 10;
@@ -35,6 +38,7 @@ export function blankStage(): Stage {
     rule: 'any',
     comments_required: false,
     self_approval: false,
+    escalate_to: 'backup',
   };
 }
 
@@ -50,6 +54,7 @@ export function stageOf(approval: Approval): Stage {
     condition: approval.condition ?? null,
     auto_earlier: approval.auto_earlier ?? null,
     auto_rules: approval.auto_rules ?? [],
+    escalate_to: approval.escalate_to,
   };
 }
 

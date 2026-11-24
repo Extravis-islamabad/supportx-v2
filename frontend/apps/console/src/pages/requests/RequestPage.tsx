@@ -460,7 +460,13 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   {
                     key: 'approvals',
                     label: <span data-testid="sr-tab-approvals">{t('requests.approvals')}</span>,
-                    children: <ApprovalsPanel recordId={r.id} questions={questions} />,
+                    children: (
+                      <ApprovalsPanel
+                        recordId={r.id}
+                        questions={questions}
+                        hasTechnician={r.technician_id != null}
+                      />
+                    ),
                   },
                 ]
               : []),

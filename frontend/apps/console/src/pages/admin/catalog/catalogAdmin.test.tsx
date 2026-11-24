@@ -325,6 +325,36 @@ describe('Admin › Service catalog › approval stages', () => {
 });
 
 // Lane C's #582 notes: an Essentials tenant that still has a staged item (after a downgrade).
+describe('Admin › Service catalog › escalation (WP-047a S3a; REQ-SR-034)', () => {
+  it('a single stage chooses where it escalates, on every edition, and saves it', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const fake = api({
+      'GET /api/v1/entitlements': {
+        body: fakeEntitlements({
+          edition: 'essentials',
+          features: ['incident', 'service_request'],
+        }),
+      },
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: { body: { ...laptop, version: 4 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approval' }));
+    fireEvent.click(await screen.findByTestId('cat-approval-on'));
+    const select = await screen.findByRole('combobox', { name: 'Escalate to' });
+    fireEvent.mouseDown(select);
+    fireEvent.click(await screen.findByTitle("The approver's manager"));
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    const [sent] = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`);
+    const approval = (sent?.body as { approval: { escalate_to: string; stages?: unknown } })
+      .approval;
+    expect(approval.escalate_to).toBe('approver_manager');
+    expect(approval.stages).toBeUndefined(); // still today's single stage: no Professional part
+  });
+});
+
 describe('Admin › Service catalog › stages without the Professional edition', () => {
   it('explains how to save, disables what is Professional and saves a rename alone', async () => {
     window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
