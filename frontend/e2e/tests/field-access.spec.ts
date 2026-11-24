@@ -141,7 +141,9 @@ async function logDiagnostics(
 async function removeRule(admin: Page, roleId: string): Promise<void> {
   const listed = await call(admin, 'GET', `/field-access/rules?role_id=${roleId}`);
   for (const rule of (await listed.json()) as Rule[]) {
-    if (rule.field === FIELD && rule.record_type === 'incident') {
+    // Every record type: a run that saved its rule on another type (the tab opened on Change, the
+    // first type alphabetically) left one behind, and the next run's Hidden then saved nothing.
+    if (rule.field === FIELD) {
       await call(admin, 'DELETE', `/field-access/rules/${rule.id}`, undefined, rule.version);
     }
   }
@@ -178,6 +180,11 @@ test('a field hidden for a role reads "Not shown to you" on an open record, live
     await admin.page.getByTestId('role-row-technician').click();
     await admin.page.getByRole('tab', { name: 'Field access' }).click();
     await expect(admin.page.getByTestId('field-access-help')).toBeVisible();
+    // The tab opens on the first record type alphabetically (Change): pick Incident, the record
+    // the technician has open, or the rule lands on changes and the incident rightly keeps it.
+    await admin.page.getByTestId('field-access-type').click();
+    await admin.page.locator('.ant-select-item-option[title="Incident"]').click();
+    await expect(admin.page.getByTestId('field-access-type')).toContainText('Incident');
     await admin.page.getByTestId(`field-access-mode-${FIELD}`).click();
     const posted = admin.page.waitForResponse(
       (r) => r.request().method() === 'POST' && r.url().endsWith('/api/v1/field-access/rules'),
