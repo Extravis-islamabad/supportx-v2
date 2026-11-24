@@ -325,6 +325,53 @@ describe('Admin › Service catalog › approval stages', () => {
 });
 
 // Lane C's #582 notes: an Essentials tenant that still has a staged item (after a downgrade).
+describe('Admin › Service catalog › automatic approval rules (REQ-SR-033)', () => {
+  it('a stage at its 5-rule cap cannot add another, and says why', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const rule = (n: number) => ({
+      name: { en: `Rule ${String(n)}` },
+      condition: { field: 'quantity', op: 'eq' as const, value: n },
+    });
+    const stage = {
+      approvers: [{ kind: 'requested_for_manager' as const }],
+      rule: 'any' as const,
+      comments_required: false,
+      self_approval: false,
+      auto_rules: [1, 2, 3, 4, 5].map(rule),
+    };
+    api({
+      [`GET /api/v1/catalog/items/${ITEM}`]: {
+        body: {
+          ...laptop,
+          approval: {
+            approvers: [{ kind: 'requested_for_manager' as const, person_id: null }],
+            rule: 'any' as const,
+            comments_required: false,
+            self_approval: false,
+            stages: [stage],
+          },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Approval' }));
+    const auto = await screen.findByTestId('cat-stage-0-auto');
+    expect(within(auto).getByTestId('cat-stage-0-auto-rule-4')).toBeDefined();
+    expect(within(auto).getByTestId<HTMLButtonElement>('cat-stage-0-auto-rule-add').disabled).toBe(
+      true,
+    );
+    fireEvent.mouseOver(within(auto).getByTestId('disabled-why'));
+    expect(await screen.findByText('A stage can have at most 5 rules.')).toBeDefined();
+    // Removing one frees the button again.
+    fireEvent.click(within(auto).getByTestId('cat-stage-0-auto-rule-4-remove'));
+    await waitFor(() => {
+      expect(
+        within(auto).getByTestId<HTMLButtonElement>('cat-stage-0-auto-rule-add').disabled,
+      ).toBe(false);
+    });
+  });
+});
+
 describe('Admin › Service catalog › stages without the Professional edition', () => {
   it('explains how to save, disables what is Professional and saves a rename alone', async () => {
     window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
