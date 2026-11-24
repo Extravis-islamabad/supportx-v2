@@ -201,4 +201,31 @@ describe('refreshQueries, for handlers that refresh a key directly', () => {
     expect(fetches).toHaveBeenCalledTimes(2);
     unmount();
   });
+
+  it('a first fetch whose query leaves the cache while in flight leaves no listener behind', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1_000);
+    const client = new FakeClient();
+    const connection = new RealtimeConnection(() => client as unknown as Centrifuge);
+    const queryClient = new QueryClient();
+    const fetches = vi.fn(() => new Promise<string[]>(() => undefined)); // never settles
+    connection.join(CHANNEL, () => {
+      refreshQueries(queryClient, ['requests']);
+    });
+    const unmount = new QueryObserver(queryClient, {
+      queryKey: ['requests'],
+      queryFn: fetches,
+      staleTime: Infinity,
+    }).subscribe(() => undefined);
+    const cache = queryClient.getQueryCache();
+    expect(cache.hasListeners()).toBe(false);
+    vi.setSystemTime(1_900);
+    client.subscriptions.get(CHANNEL)?.emit('subscribed', LIVE); // registers the in-flight listener
+    expect(cache.hasListeners()).toBe(true);
+    unmount();
+    queryClient.removeQueries({ queryKey: ['requests'] }); // the screen left and it was collected
+    expect(cache.hasListeners()).toBe(false); // no stray listener
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetches).toHaveBeenCalledTimes(1); // and nothing fetched again
+  });
 });

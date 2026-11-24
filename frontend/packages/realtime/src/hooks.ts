@@ -179,8 +179,15 @@ export function refreshQueries(queryClient: QueryClient, queryKey: QueryKey): vo
   for (const query of queryClient.getQueryCache().findAll({ queryKey, type: 'active' })) {
     const exact = { queryKey: query.queryKey, exact: true, refetchType: 'active' } as const;
     if (query.state.fetchStatus === 'fetching' && query.state.data === undefined) {
+      // Lives only until that fetch settles, or the query leaves the cache (the screen unmounted
+      // and it was collected, lane B's and lane A's #602 notes): never a stray listener.
       const stop = queryClient.getQueryCache().subscribe((event) => {
-        if (event.query !== query || query.state.fetchStatus === 'fetching') return;
+        if (event.query !== query) return;
+        if (event.type === 'removed') {
+          stop();
+          return;
+        }
+        if (query.state.fetchStatus === 'fetching') return;
         stop();
         if (query.state.status === 'success') void queryClient.invalidateQueries(exact);
       });
