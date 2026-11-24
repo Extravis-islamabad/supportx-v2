@@ -247,6 +247,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/automation/transitions` | `automation.view` | automation.view: all |
 | DELETE | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
 | PUT | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
+| GET | `/api/v1/automation/trigger-events` | `automation.view` | automation.view: all |
 | GET | `/api/v1/automation/triggers` | `automation.view` | automation.view: all |
 | POST | `/api/v1/automation/triggers` | `automation.manage` | automation.manage: all |
 | PUT | `/api/v1/automation/triggers-order` | `automation.manage` | automation.manage: all |
@@ -405,6 +406,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/changes/{record_id}/children` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/children` | `changes.edit` | changes.edit: all/site/group/own |
 | DELETE | `/api/v1/changes/{record_id}/children/{link_id}` | `changes.edit` | changes.edit: all/site/group/own |
+| GET | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own |
+| POST | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own |
+| DELETE | `/api/v1/changes/{record_id}/cis/{link_id}` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/conflicts` | `changes.view` | changes.view: all/site/group/own |
 | GET | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own |
 | POST | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own |
@@ -483,7 +487,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/cmdb/cis/from-assets` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/picker` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/trash` | `cmdb.view` | cmdb.view: all/site/group/own |
-| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` | cmdb.delete: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
 | PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own |
@@ -491,11 +495,15 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` | cmdb.delete: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.view` | cmdb.view: all/site/group/own |
 | PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
@@ -730,12 +738,19 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/incidents/{record_id}/children/resolvable` | `incidents.edit` | incidents.edit: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
+| GET | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own |
+| DELETE | `/api/v1/incidents/{record_id}/cis/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
 | PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/convert` | `incidents.edit` | incidents.edit: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/convert-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
 | POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
+| GET | `/api/v1/incidents/{record_id}/downtimes` | `incidents.view` | incidents.view: all/site/group/own |
+| POST | `/api/v1/incidents/{record_id}/downtimes` | `incidents.edit` | incidents.edit: all/site/group/own |
+| DELETE | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
+| PATCH | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
 | PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
 | GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
 | DELETE | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own |
@@ -1033,6 +1048,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own |
 | DELETE | `/api/v1/problems/{record_id}/checklists/{checklist_id}` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/checklists/{checklist_id}/items` | `problems.view` | problems.view: all/site/group/own |
+| GET | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own |
+| POST | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own |
+| DELETE | `/api/v1/problems/{record_id}/cis/{link_id}` | `problems.view` | problems.view: all/site/group/own |
 | GET | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own |
 | POST | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own |
 | PATCH | `/api/v1/problems/{record_id}/conversation/{entry_id}` | `problems.view` | problems.view: all/site/group/own |
@@ -1199,6 +1217,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/releases/{record_id}/checklists` | `releases.view` | releases.view: all/site/group/own |
 | DELETE | `/api/v1/releases/{record_id}/checklists/{checklist_id}` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/checklists/{checklist_id}/items` | `releases.view` | releases.view: all/site/group/own |
+| GET | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own |
+| POST | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own |
+| DELETE | `/api/v1/releases/{record_id}/cis/{link_id}` | `releases.view` | releases.view: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/conflicts` | `releases.view` | releases.view: all/site/group/own |
 | POST | `/api/v1/releases/{record_id}/conflicts/acks` | `releases.edit` | releases.edit: all/site/group/own |
 | GET | `/api/v1/releases/{record_id}/conversation` | `releases.view` | releases.view: all/site/group/own |
@@ -1399,6 +1420,9 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own |
 | DELETE | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}/items` | `requests.view` | requests.view: all/site/group/own |
+| GET | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own |
+| POST | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own |
+| DELETE | `/api/v1/service-requests/{record_id}/cis/{link_id}` | `requests.view` | requests.view: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}/conversation/{entry_id}` | `requests.view` | requests.view: all/site/group/own |
@@ -1505,6 +1529,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | asset_manager | `cmdb.delete` | all | all |
 | asset_manager | `cmdb.edit` | all | all |
 | asset_manager | `cmdb.manage` | all | all |
+| asset_manager | `cmdb.record_downtime` | all | all |
 | asset_manager | `cmdb.view` | all | all |
 | asset_manager | `groups.view` | all | all |
 | asset_manager | `profile.edit` | own | own |
@@ -1639,6 +1664,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `changes.take` | all | all |
 | service_desk_manager | `changes.view` | all | all |
 | service_desk_manager | `changes.view_costs` | all | all |
+| service_desk_manager | `cmdb.record_downtime` | all | all |
 | service_desk_manager | `config.announcements` | all | all |
 | service_desk_manager | `config.service_desk` | all | all |
 | service_desk_manager | `dashboards.create` | own | own |
@@ -2034,6 +2060,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `cmdb.delete` | all | all |
 | tenant_admin | `cmdb.edit` | all | all |
 | tenant_admin | `cmdb.manage` | all | all |
+| tenant_admin | `cmdb.record_downtime` | all | all |
 | tenant_admin | `cmdb.view` | all | all |
 | tenant_admin | `config.announcements` | all | all |
 | tenant_admin | `config.assets` | all | all |

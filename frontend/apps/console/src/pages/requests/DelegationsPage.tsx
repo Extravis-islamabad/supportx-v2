@@ -22,7 +22,12 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
-import { refreshQueries, useListChannel, usePersonalChannel } from '@supportx/realtime';
+import {
+  refreshQueries,
+  useListChannel,
+  usePersonalChannel,
+  type RealtimeMessage,
+} from '@supportx/realtime';
 
 import { PersonName } from '../admin/erasures/words';
 import { UserPicker } from '../incidents/pickers';
@@ -56,14 +61,17 @@ export function DelegationsPage() {
   const queryClient = useQueryClient();
   // Live (rule 5c; lane C's #612 review): a change by the other person, an administrator or
   // the sweep's expiry arrives on your own channel as IDs only, and the list refetches.
-  const onChange = (message: { type: string }) => {
-    if (message.type === DELEGATIONS_CHANGED || message.type === 'refresh') {
+  const onChange = (message: RealtimeMessage) => {
+    // A catch-up: `covers` has refetched the list already (§8.3).
+    if (message.covered !== true && message.type === DELEGATIONS_CHANGED) {
       refreshQueries(queryClient, delegationKeys.all);
     }
   };
-  usePersonalChannel(onChange);
+  // Every delegation list shown here (yours, or the chosen approver's) sits under `all`.
+  const covers = { covers: [delegationKeys.all] };
+  usePersonalChannel(onChange, covers);
   // Someone else's delegations reach those who manage them on the delegations list (lane C).
-  useListChannel(manages ? 'delegations' : null, onChange);
+  useListChannel(manages ? 'delegations' : null, onChange, covers);
   const create = useCreateDelegation();
   const end = useEndDelegation();
   const [delegate, setDelegate] = useState<string | null>(null);

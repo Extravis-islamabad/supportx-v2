@@ -271,6 +271,12 @@ export const ur: LabelResource = {
   'measure.change.success_rate': 'کامیابی کی شرح',
   'measure.change.success_rate.help':
     'جن تبدیلیوں کے نفاذ کا نتیجہ ہے، ان میں سے کامیاب نفاذ کا حصہ۔ ابھی کوئی نتیجہ نہیں تو کوئی شرح نہیں۔',
+  'measure.cmdb_ci.count': 'کنفیگریشن آئٹمز',
+  'measure.cmdb_ci.count.help':
+    'ہر وہ کنفیگریشن آئٹم جو فلٹرز سے ملتا ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'measure.cmdb_relationship.count': 'تعلقات',
+  'measure.cmdb_relationship.count.help':
+    'ہر وہ تعلق جو فلٹرز سے ملتا ہو اور جس کے دونوں کنفیگریشن آئٹمز آپ دیکھ سکتے ہوں۔',
   'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
   'measure.incident.average_reassignments.help':
     'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
@@ -399,6 +405,12 @@ export const ur: LabelResource = {
   'report.changes_success_rate_by_type': 'تبدیلی کی قسم کے مطابق کامیابی کی شرح',
   'report.changes_success_rate_by_type.description':
     'پچھلے 90 دنوں میں مانگی گئی تبدیلیوں کی کامیابی کی شرح اور تعداد، قسم کے مطابق۔',
+  'report.cmdb_cis_by_type_and_state': 'قسم اور حالت کے مطابق کنفیگریشن آئٹمز',
+  'report.cmdb_cis_by_type_and_state.description':
+    'ہر وہ کنفیگریشن آئٹم جو آپ دیکھ سکتے ہیں، اس کی قسم اور حالت کے مطابق۔',
+  'report.cmdb_relationships_by_type': 'کنفیگریشن آئٹمز کے تعلقات',
+  'report.cmdb_relationships_by_type.description':
+    'ان کنفیگریشن آئٹمز کے درمیان تعلقات جو آپ دیکھ سکتے ہیں، ان کی قسم کے مطابق۔',
   'report.incidents_all': 'تمام واقعات',
   'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
   'report.incidents_by_status': 'حیثیت کے مطابق واقعات',
@@ -603,6 +615,7 @@ export const ur: LabelResource = {
   'report_field.warranty_expires_on': 'وارنٹی ختم ہونے کی تاریخ',
   'report_folder.assets': 'اثاثے',
   'report_folder.changes': 'تبدیلیاں',
+  'report_folder.cmdb': 'CMDB',
   'report_folder.incidents': 'واقعات',
   'report_folder.problems': 'مسائل',
   'report_folder.releases': 'ریلیزز',

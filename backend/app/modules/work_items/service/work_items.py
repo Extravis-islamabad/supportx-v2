@@ -18,7 +18,7 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 """
 
 import uuid
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
@@ -39,7 +39,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import licensing, metadata, service_catalog, sla
+from app.modules import cmdb, licensing, metadata, service_catalog, sla
 from app.modules.audit import WORKER as AUDIT_WORKER
 from app.modules.audit import AuditActorType, RequestFacts
 from app.modules.audit import record as record_audit
@@ -149,6 +149,7 @@ from app.modules.work_items.events import (
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemDeleted,
+    WorkItemDowntimeChanged,
     WorkItemPartChangedV2,
     WorkItemRestored,
     WorkItemRolesChanged,
@@ -1435,6 +1436,7 @@ async def history(  # noqa: PLR0913 - paging options, explicit
             for e in entries
         ]
     entries = await _unseen_links_hidden(session, subject, entries)
+    entries = await _ci_lines_named(session, subject, entries)
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1454,6 +1456,49 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
+
+
+CI_FIELD = "ci"  # WP-053 S5: a linked CI's history line holds its ID (service/ci_links.py)
+
+
+async def _ci_lines_named(
+    session: AsyncSession, subject: Subject, entries: list[HistoryEntry]
+) -> list[HistoryEntry]:
+    """A CI line names the CI as the reader may see it now (lane B's condition, WP-053 S5).
+
+    The line stores the CI's ID only, so a restricted CI's name never lands in a record's
+    history; here it reads "CI-12 Core switch" for someone who may see it, else masked.
+    """
+    ids = {
+        value
+        for e in entries
+        for c in e.changes
+        if c.field == CI_FIELD
+        for value in (c.old, c.new)
+        if isinstance(value, str) and _is_uuid(value)
+    }
+    if not ids:
+        return entries
+    refs = await cmdb.ci_refs(session, subject, [uuid.UUID(i) for i in sorted(ids)])
+
+    def named(value: object) -> object:
+        if not isinstance(value, str) or not _is_uuid(value):
+            return value
+        ref = refs.get(uuid.UUID(value))
+        if ref is None or ref.hidden or ref.gone or ref.display_id is None:
+            return MASKED
+        return f"{ref.display_id} {ref.name}" if ref.name else ref.display_id
+
+    return [
+        replace(
+            e,
+            changes=[
+                Change(c.field, named(c.old), named(c.new)) if c.field == CI_FIELD else c
+                for c in e.changes
+            ],
+        )
+        for e in entries
+    ]
 
 
 def _link_target(value: object) -> uuid.UUID | None:
@@ -5335,7 +5380,7 @@ async def downtimes(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> tuple[WorkItem, list[WorkItemDowntime]]:
     """A record's downtime windows, planned and actual, by start (REQ-REL-027)."""
-    if wtype.stages is None:
+    if not _has_downtimes(wtype):
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
     rows = await session.scalars(
@@ -5358,12 +5403,74 @@ async def _downtime_problems(
         problems.append(("ends_at", "end_before_start"))
     if merged.get("phase") not in {"planned", "actual"}:
         problems.append(("phase", "invalid_choice"))
+    elif wtype.code is WorkItemTypeCode.INCIDENT and merged["phase"] != "actual":
+        problems.append(("phase", "incident_actual_only"))  # WP-053 S5: what it caused
     kind = merged.get("kind")
     if kind is not None:
-        cat = await config.load(session, wtype)
-        if kind not in cat.reason_codes(PickList.DOWNTIME_KIND):
+        if wtype.code is WorkItemTypeCode.INCIDENT:  # no list of its own: the shared codes
+            kinds: Collection[str] = release_rules.DOWNTIME_KINDS
+        else:
+            kinds = (await config.load(session, wtype)).reason_codes(PickList.DOWNTIME_KIND)
+        if kind not in kinds:
             problems.append(("kind", "invalid_choice"))
     return problems
+
+
+def _new_downtime(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem, phase: str
+) -> WorkItemDowntime:
+    """A new window at version 1; an incident's names the incident (WP-053 S5)."""
+    row = WorkItemDowntime(id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id)
+    session.add(row)
+    row.version = 1
+    row.phase, row.service_ids, row.ci_ids = phase, [], []
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        row.source_work_item_id = record.id  # the incident that caused it
+    return row
+
+
+def _has_downtimes(wtype: WorkItemType) -> bool:
+    """Changes and releases plan and record downtime; an incident records what it caused.
+
+    WP-053 S5 (REQ-CMDB-020 AC3): an incident's actual, unplanned downtime goes through this
+    same save, history and `work_items.downtime.changed` event, so the CMDB counts it on its CIs.
+    """
+    return wtype.stages is not None or wtype.code is WorkItemTypeCode.INCIDENT
+
+
+def _downtime_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed change, or a closed or canceled incident, keeps its downtime as it was."""
+    _change_locked(wtype, record)
+    if wtype.code is WorkItemTypeCode.INCIDENT and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
+
+
+async def _downtime_link_problems(
+    session: AsyncSession,
+    subject: Subject,
+    current: Mapping[str, Any],
+    merged: Mapping[str, Any],
+) -> list[tuple[str, str]]:
+    """The CIs and business services a save newly names must be ones the person may link.
+
+    WP-053 S5 (lane B's #607 review): business services are CIs too, and the CMDB mirrors the
+    downtime onto each, so a hidden service is refused as a hidden CI is (ADR-053).
+    """
+    found: list[tuple[str, str]] = []
+    for name in ("ci_ids", "service_ids"):
+        added = [c for c in merged.get(name) or [] if c not in (current.get(name) or [])]
+        found += await _unlinkable_cis(session, subject, added, field=name)
+    return found
+
+
+async def _unlinkable_cis(
+    session: AsyncSession, subject: Subject, ci_ids: Sequence[uuid.UUID], *, field: str
+) -> list[tuple[str, str]]:
+    """CIs (or business services) newly named on a downtime must be ones the person may link."""
+    for ci_id in ci_ids:
+        if not await cmdb.can_link(session, subject, ci_id):
+            return [(field, "ci_not_linkable")]
+    return []
 
 
 async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
@@ -5378,12 +5485,17 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     source: Source,
 ) -> WorkItemDowntime:
     """Add (no ID, version 0) or change a downtime window (its own If-Match)."""
-    if wtype.stages is None:
+    if not _has_downtimes(wtype):
         raise _not_found(wtype)
     record = await _for_action(
-        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+        session,
+        subject,
+        wtype,
+        "edit",
+        record_id,
+        stage_access=stage_service.EDIT if wtype.stages is not None else None,
     )
-    _change_locked(wtype, record)
+    _downtime_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -5399,10 +5511,12 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
         raise _stale_part(row.version if row else 0, expected_version)
     current = {n: getattr(row, n) if row else None for n in DOWNTIME_FIELDS}
     if row is None:
-        current |= {"phase": "planned", "service_ids": [], "ci_ids": []}
+        first_phase = "actual" if wtype.code is WorkItemTypeCode.INCIDENT else "planned"
+        current |= {"phase": first_phase, "service_ids": [], "ci_ids": []}
     given = {n: _clean_detail(n, v) for n, v in values.items() if n in DOWNTIME_FIELDS}
     merged = {**current, **given}
     problems = await _downtime_problems(session, wtype, merged)
+    problems += await _downtime_link_problems(session, subject, current, merged)
     if problems:
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}
@@ -5410,13 +5524,8 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
         return row
     await _downtime_guard(session, wtype, record, merged, adding=row is None, changed=changed)
     if row is None:
-        row = WorkItemDowntime(
-            id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id
-        )
-        session.add(row)
-        row.version = 1
+        row = _new_downtime(session, wtype, record, str(current["phase"]))
         changed = {n: merged[n] for n in DOWNTIME_FIELDS if merged[n] not in (None, [])}
-        row.phase, row.service_ids, row.ci_ids = "planned", [], []
     else:
         row.version += 1
     for name, value in changed.items():
@@ -5431,6 +5540,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     await _part_event(
         session, record, "downtime", row.id, "added" if downtime_id is None else "changed"
     )
+    await _downtime_event(session, record, row)
     return row
 
 
@@ -5461,10 +5571,17 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     source: Source,
 ) -> None:
     """Remove a window (kept, marked removed: soft delete)."""
+    if not _has_downtimes(wtype):
+        raise _not_found(wtype)
     record = await _for_action(
-        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+        session,
+        subject,
+        wtype,
+        "edit",
+        record_id,
+        stage_access=stage_service.EDIT if wtype.stages is not None else None,
     )
-    _change_locked(wtype, record)
+    _downtime_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -5482,6 +5599,34 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
         session, record, [Change(f"downtime.{row.id}", "present", None)], source=source
     )
     await _part_event(session, record, "downtime", row.id, "removed")
+    await _downtime_event(session, record, row)
+
+
+async def _downtime_event(session: AsyncSession, record: WorkItem, row: WorkItemDowntime) -> None:
+    """`work_items.downtime.changed` v1 (WP-053 S5, lane B's shape): one row, IDs and times only.
+
+    No state (the CMDB derives scheduled, active and completed from the times) and no free text
+    (the description stays here).
+    """
+    await record_event(
+        session,
+        WorkItemDowntimeChanged(
+            work_item_id=record.id,
+            type=record.type,
+            downtime_id=row.id,
+            version=row.version,
+            phase=row.phase,
+            kind=row.kind,
+            starts_at=row.starts_at,
+            ends_at=row.ends_at,
+            ci_ids=list(row.ci_ids),
+            service_ids=list(row.service_ids),
+            source_work_item_id=row.source_work_item_id,
+            deleted=row.deleted_at is not None,
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------

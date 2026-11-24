@@ -47,6 +47,7 @@ export const ar: LabelResource = {
   'notification_area.asset': 'الأصول',
   'notification_area.break_glass': 'تسجيلات دخول الطوارئ',
   'notification_area.change': 'التغييرات',
+  'notification_area.cmdb_ci': 'عناصر التهيئة',
   'notification_area.connector': 'الموصلات',
   'notification_area.custom_field': 'الحقول المخصصة',
   'notification_area.incident': 'الحوادث',
@@ -115,6 +116,7 @@ export const ar: LabelResource = {
   'notification_event.change.status_entered': 'دخل التغيير حالة',
   'notification_event.change.submitted': 'تغيير مُقدَّم',
   'notification_event.change.window_reminder': 'نافذة التغيير تبدأ قريبًا',
+  'notification_event.cmdb_ci.state_changed': 'تغيرت حالة عنصر تهيئة',
   'notification_event.connector.failing': 'توقف الموصل عن العمل',
   'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
   'notification_event.custom_field.seal_paused': 'توقف ختم قيم حقل حساس',
@@ -219,6 +221,7 @@ export const ar: LabelResource = {
   'notification_recipient.cab_member': 'عضو المجلس الذي لم يقرر بعد',
   'notification_recipient.change_manager': 'مدير التغيير',
   'notification_recipient.change_owner': 'مالك التغيير',
+  'notification_recipient.ci_owner': 'مالك عنصر التهيئة',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
   'notification_recipient.custom_field_admins': 'من يديرون الحقول المخصصة',
   'notification_recipient.delegate': 'المفوَّض إليه',
@@ -234,12 +237,14 @@ export const ar: LabelResource = {
   'notification_recipient.loan_creator': 'من أنشأ الإعارة',
   'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
   'notification_recipient.major_team': 'فريق الحوادث الكبرى',
+  'notification_recipient.managed_by_group': 'المجموعة المسؤولة عن الإدارة',
   'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
   'notification_recipient.new_follower': 'المتابع الجديد',
   'notification_recipient.new_investigator': 'المحقق المضاف',
   'notification_recipient.on_behalf_of': 'الشخص المعني',
   'notification_recipient.other_tenant_admins': 'مسؤولو المؤسسة الآخرون',
   'notification_recipient.owner': 'مالك المقالة',
+  'notification_recipient.owner_group': 'مجموعة المالك',
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.reviewer': 'المراجِع',
@@ -478,6 +483,12 @@ export const ar: LabelResource = {
     'يبدأ {{ record.display_id }} في {{ window.start }}: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'يبدأ قريبًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت حالة {{ record.display_id }} "{{ record.title }}" الآن {{ record.status }}.\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    'حالة {{ record.display_id }} الآن {{ record.status }}',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: الحالة الآن {{ record.status }}',
   'notification_template.connector.failing.body':
     'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
   'notification_template.connector.failing.in_app':

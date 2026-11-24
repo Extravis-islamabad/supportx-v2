@@ -6,6 +6,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 import supportx from './packages/eslint-plugin/index.js';
+import coversPending from './packages/eslint-plugin/channel-covers-pending.json' with { type: 'json' };
 
 export default tseslint.config(
   // schema.ts is generated from the OpenAPI contract by openapi-typescript (D-022).
@@ -70,6 +71,14 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // A channel hook says which queries it covers, so no refresh is dropped (architecture.md
+    // §8.3). An error for all new code; the files still to convert are listed and shrink to none.
+    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/test/**', 'packages/realtime/**', ...coversPending.files],
+    plugins: { supportx },
+    rules: { 'supportx/channel-covers': 'error' },
   },
   {
     files: ['packages/ui/src/layout/Tabs.tsx', 'packages/ui/src/Drawer.tsx'],

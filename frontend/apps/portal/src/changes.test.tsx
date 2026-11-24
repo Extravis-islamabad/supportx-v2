@@ -96,6 +96,34 @@ describe('portal: my changes', () => {
     // Nothing staff-side is on the page (AC2): no plan, risk or approvals section.
     expect(screen.queryByText(/backout|risk/i)).toBeNull();
   });
+
+  it('a channel catch-up (§8.3) refetches the change and its conversation', async () => {
+    // `covers` on the record channel: before, a `refresh` reloaded the change only, so a reply
+    // missed while offline stayed missing.
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', `/changes/${ID}`);
+    const fake = portal({
+      [`GET /api/v1/portal/changes/${ID}`]: { body: CHANGE },
+      [`GET /api/v1/portal/changes/${ID}/conversation`]: { body: { items: [] } },
+    });
+    render(<App />);
+    await screen.findByTestId('portal-change-planned');
+    await waitFor(() => {
+      expect(realtime.channels().some((c) => c.endsWith(`:portal_wi:${ID}`))).toBe(true);
+    });
+    const record = fake.find('GET', `/api/v1/portal/changes/${ID}`).length;
+    const conversation = fake.find('GET', `/api/v1/portal/changes/${ID}/conversation`).length;
+    act(() => {
+      realtime.publish(`:portal_wi:${ID}`, { type: 'refresh', ids: [] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/portal/changes/${ID}`).length).toBeGreaterThan(record);
+      expect(fake.find('GET', `/api/v1/portal/changes/${ID}/conversation`).length).toBeGreaterThan(
+        conversation,
+      );
+    });
+  });
 });
 
 describe('portal approvals: changes (REQ-CHG-109 AC3)', () => {

@@ -271,6 +271,12 @@ export const en = {
   'measure.change.success_rate': 'Success rate',
   'measure.change.success_rate.help':
     'Share of changes whose implementation passed, of the changes whose implementation has an outcome. No outcome yet means no rate.',
+  'measure.cmdb_ci.count': 'Configuration items',
+  'measure.cmdb_ci.count.help':
+    'Every configuration item that matches the filters and that you may see.',
+  'measure.cmdb_relationship.count': 'Relationships',
+  'measure.cmdb_relationship.count.help':
+    'Every relationship that matches the filters and whose two configuration items you may see.',
   'measure.incident.average_reassignments': 'Average reassignments',
   'measure.incident.average_reassignments.help':
     'Average number of times an incident moved to another group or technician.',
@@ -395,6 +401,12 @@ export const en = {
   'report.changes_success_rate_by_type': 'Success rate by change type',
   'report.changes_success_rate_by_type.description':
     'Success rate and number of changes raised in the last 90 days, by change type.',
+  'report.cmdb_cis_by_type_and_state': 'CIs by type and state',
+  'report.cmdb_cis_by_type_and_state.description':
+    'Every configuration item you may see, by its type and state.',
+  'report.cmdb_relationships_by_type': 'CI relationships',
+  'report.cmdb_relationships_by_type.description':
+    'Relationships between configuration items you may see, by their type.',
   'report.incidents_all': 'All incidents',
   'report.incidents_all.description': 'Every incident created in the period, by status.',
   'report.incidents_by_status': 'Incidents by status',
@@ -602,6 +614,7 @@ export const en = {
   'report_field.warranty_expires_on': 'Warranty ends on',
   'report_folder.assets': 'Assets',
   'report_folder.changes': 'Changes',
+  'report_folder.cmdb': 'CMDB',
   'report_folder.incidents': 'Incidents',
   'report_folder.problems': 'Problems',
   'report_folder.releases': 'Releases',

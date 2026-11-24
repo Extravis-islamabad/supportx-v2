@@ -61,6 +61,28 @@ describe('console: approval delegations', () => {
   });
 });
 
+describe('console: approval delegations, a catch-up', () => {
+  it('a channel refresh (§8.3) refetches the list through covers', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', '/approvals/delegations');
+    const fake = consoleApi({
+      me: ME,
+      routes: { 'GET /api/v1/approval-delegations': { body: { items: [] } } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByText('No delegations.')).toBeTruthy();
+    const before = fake.find('GET', '/api/v1/approval-delegations').length;
+    act(() => {
+      realtime.publish(`:user:${ME.user.id}`, { type: 'refresh', ids: [] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/approval-delegations').length).toBeGreaterThan(before);
+    });
+  });
+});
+
 describe('console: approval delegations, as their manager', () => {
   it("someone else's delegation changing shows on the delegations list channel", async () => {
     const realtime = scriptedRealtime();

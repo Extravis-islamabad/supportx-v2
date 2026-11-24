@@ -52,13 +52,16 @@ export function NotificationBell() {
   const unread = centre.data?.pages[0]?.unread ?? 0;
   const quiet = preferences.data?.do_not_disturb ?? false;
 
-  usePersonalChannel((event) => {
-    if (event.type === 'notifications.created' || event.type === 'notifications.read') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.centre });
-    } else if (event.type === 'notifications.preferences_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.preferences });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.type === 'notifications.created' || event.type === 'notifications.read') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.centre });
+      } else if (event.type === 'notifications.preferences_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.preferences });
+      }
+    },
+    { covers: [queryKeys.notifications.centre, queryKeys.notifications.preferences] },
+  );
 
   // A pop-up for an entry that arrived while you were here (never the ones already there).
   const newest = items[0]?.id;

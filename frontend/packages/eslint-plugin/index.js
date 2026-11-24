@@ -102,9 +102,67 @@ const noLiteralText = {
   },
 };
 
+/**
+ * Channel hooks name the queries they cover (architecture.md §8.3): on a refresh (the
+ * first-subscribe catch-up or a lost channel) the hook refreshes those keys itself, so a handler
+ * that filters on message types can't drop it. The value is the options argument's position.
+ *
+ * Not checked: a hook called as a member (`realtime.useListChannel(...)`) or with spread arguments;
+ * the hooks are imported by name everywhere today. An options variable passes, as its type
+ * (`ChannelOptions`) requires `covers`.
+ */
+const CHANNEL_HOOKS = new Map([
+  ['useChannel', 2],
+  ['useTenantChannel', 1],
+  ['usePersonalChannel', 1],
+  ['useListChannel', 2],
+  ['useRecordEvents', 3],
+  ['useRecordChannel', 3],
+]);
+
+const channelCovers = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Channel hooks say which queries they cover (`covers`).' },
+    schema: [],
+    messages: {
+      covers:
+        "Say which queries this channel covers ({ covers: [...] }; [] with a comment if none), so a refresh can't be dropped (architecture.md §8.3).",
+    },
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        if (node.callee.type !== 'Identifier') return;
+        const at = CHANNEL_HOOKS.get(node.callee.name);
+        if (at === undefined) return;
+        if (node.arguments.some((a) => a.type === 'SpreadElement')) return;
+        const options = node.arguments[at];
+        if (options === undefined) {
+          context.report({ node, messageId: 'covers' });
+          return;
+        }
+        if (options.type !== 'ObjectExpression') return; // a variable: its type requires covers
+        const named = options.properties.some(
+          (p) =>
+            p.type === 'Property' &&
+            !p.computed &&
+            ((p.key.type === 'Identifier' && p.key.name === 'covers') ||
+              (p.key.type === 'Literal' && p.key.value === 'covers')),
+        );
+        if (!named) context.report({ node: options, messageId: 'covers' });
+      },
+    };
+  },
+};
+
 const plugin = {
   meta: { name: '@supportx/eslint-plugin' },
-  rules: { 'no-raw-enum': noRawEnum, 'no-literal-text': noLiteralText },
+  rules: {
+    'no-raw-enum': noRawEnum,
+    'no-literal-text': noLiteralText,
+    'channel-covers': channelCovers,
+  },
 };
 
 export default plugin;

@@ -44,9 +44,14 @@ export function usePaletteIncidents(
   const alias = useAliasLookup(text, active).data ?? null;
   // Live while open: a record changed or created elsewhere updates the results (§8).
   const queryClient = useQueryClient();
-  useListChannel(active ? 'incidents' : null, () => {
-    refreshList(queryClient, [...queryKeys.incidents.all, 'list', 'search']);
-  });
+  useListChannel(
+    active ? 'incidents' : null,
+    (m) => {
+      if (m.covered !== true)
+        refreshList(queryClient, [...queryKeys.incidents.all, 'list', 'search']);
+    },
+    { covers: [[...queryKeys.incidents.all, 'list', 'search']] },
+  );
   return useMemo(() => {
     if (!allowed) return undefined;
     const people = found.data?.people ?? {};

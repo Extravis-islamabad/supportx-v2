@@ -27,7 +27,7 @@ STOPPED=""
 # shellcheck source=deploy/k3d/ha-lib.sh
 . "$ROOT/deploy/k3d/ha-lib.sh"
 cleanup() {
-  rm -f "$COOKIES" "$BODY" "$SETTLE_REASON"
+  rm -f "$COOKIES" "$BODY" "$SETTLE_REASON" "$PHASES"
   # Never leave a node stopped (a local cluster is reused).
   if [ -n "$STOPPED" ]; then k3d node start "$STOPPED" >/dev/null 2>&1 || true; fi
 }

@@ -213,9 +213,14 @@ export function IncidentAnnouncements({ item }: { item: Pick<Incident, 'id'> }) 
   const end = useEndIncidentAnnouncement(item.id);
   const queryClient = useQueryClient();
   // Announcements' own channel (lane C): a publish, end or edit anywhere refreshes the list.
-  useListChannel('announcements', () => {
-    void queryClient.invalidateQueries({ queryKey: incidentAnnouncementsKey(item.id) });
-  });
+  useListChannel(
+    'announcements',
+    (m) => {
+      if (m.covered !== true)
+        void queryClient.invalidateQueries({ queryKey: incidentAnnouncementsKey(item.id) });
+    },
+    { covers: [incidentAnnouncementsKey(item.id)] },
+  );
   const items = found.data ?? [];
   if (items.length === 0) {
     // "None" only once loaded, as the other panels (lane C).

@@ -36,13 +36,19 @@ export function ChangePage() {
   const reply = usePortalChangeReply(id);
   const [draft, setDraft] = useState('');
 
-  useRecordEvents('portal_wi', id, (event) => {
-    if (event.type === 'work_items.portal_conversation_changed') {
-      refreshQueries(queryClient, portalChangeKeys.conversation(id));
-      return;
-    }
-    refreshQueries(queryClient, portalChangeKeys.detail(id));
-  });
+  useRecordEvents(
+    'portal_wi',
+    id,
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed the record and its conversation
+      if (event.type === 'work_items.portal_conversation_changed') {
+        refreshQueries(queryClient, portalChangeKeys.conversation(id));
+        return;
+      }
+      refreshQueries(queryClient, portalChangeKeys.detail(id));
+    },
+    { covers: [portalChangeKeys.detail(id), portalChangeKeys.conversation(id)] },
+  );
 
   if (record.isLoading) return <Skeleton active />;
   if (record.error || record.data === undefined) {

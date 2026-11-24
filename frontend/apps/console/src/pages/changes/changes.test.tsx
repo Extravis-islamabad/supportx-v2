@@ -571,6 +571,38 @@ describe('console: changes', () => {
     expect(screen.getByTestId('change-roles').textContent).not.toContain('Nobody yet');
   });
 
+  it('a channel catch-up (§8.3) refetches the change and its shared conversation', async () => {
+    // The conversation panel keeps its own key, outside the change's detail key: `covers` names it.
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    try {
+      window.history.pushState({}, '', `/changes/${CHG_ID}?tab=conversation`);
+      const path = `/api/v1/changes/${CHG_ID}/conversation`;
+      const fake = api({
+        [`GET ${path}`]: { body: { items: [], people: {}, next_cursor: null } },
+      });
+      render(<App />);
+      await screen.findByTestId('change-stages');
+      await waitFor(() => {
+        expect(fake.find('GET', path).length).toBeGreaterThan(0);
+        expect(realtime.channels()).toContain(`t:${fakeSession().tenant.id}:wi:${CHG_ID}`);
+      });
+      const [record, talk] = [
+        fake.find('GET', `/api/v1/changes/${CHG_ID}`).length,
+        fake.find('GET', path).length,
+      ];
+      act(() => {
+        realtime.publish(`:wi:${CHG_ID}`, { type: 'refresh', ids: [] });
+      });
+      await waitFor(() => {
+        expect(fake.find('GET', `/api/v1/changes/${CHG_ID}`).length).toBeGreaterThan(record);
+        expect(fake.find('GET', path).length).toBeGreaterThan(talk);
+      });
+    } finally {
+      setDefaultClientFactory(inertClientFactory);
+    }
+  });
+
   it('QA-2026-11-11 F-03: history shows labels and local times, never codes, UTC or bookkeeping', async () => {
     window.history.pushState({}, '', `/changes/${CHG_ID}?tab=history`);
     api({

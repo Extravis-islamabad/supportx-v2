@@ -13,7 +13,7 @@ import {
   useWorkflows,
   type WorkflowOut,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   EditDialog,
   FilterBar,
@@ -185,11 +185,15 @@ export function WorkflowsPage() {
   const importing = useImportWorkflow();
   const fileInput = useRef<HTMLInputElement>(null);
   usePageCrumbs([{ label: t('nav.admin_workflows') }]);
-  useListChannel(allowed ? 'workflows' : null, (m) => {
-    if (m.type === 'workflows.changed' || m.type === 'workflow_instances.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['workflows', 'list'] });
-    }
-  });
+  useListChannel(
+    allowed ? 'workflows' : null,
+    (m) => {
+      if (m.type === 'workflows.changed' || m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'list']);
+      }
+    },
+    { covers: [['workflows', 'list']] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_workflows" />;
   const text = search.trim().toLocaleLowerCase();
   const rows = (list.data ?? []).filter(

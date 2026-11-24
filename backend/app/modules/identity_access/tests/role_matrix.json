@@ -21,6 +21,9 @@
   "cmdb.manage": [
    "all"
   ],
+  "cmdb.record_downtime": [
+   "all"
+  ],
   "cmdb.view": [
    "all"
   ],
@@ -57,6 +60,9 @@
    "all"
   ],
   "cmdb.manage": [
+   "all"
+  ],
+  "cmdb.record_downtime": [
    "all"
   ],
   "cmdb.view": [
@@ -818,6 +824,9 @@
   "changes.view_costs": [
    "all"
   ],
+  "cmdb.record_downtime": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -1196,6 +1205,9 @@
    "all"
   ],
   "changes.view_costs": [
+   "all"
+  ],
+  "cmdb.record_downtime": [
    "all"
   ],
   "config.announcements": [

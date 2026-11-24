@@ -145,6 +145,18 @@ export {
   type SubscriberKind,
 } from './cmdbGraph';
 export {
+  useCiDowntimes,
+  useRecordCiDowntime,
+  useRemoveCiDowntime,
+  useUpdateCiDowntime,
+  type CiDowntime,
+  type CiDowntimeInput,
+  type CiDowntimePatch,
+  type CiDowntimes,
+  type CiDowntimeSource,
+  type CiDowntimeState,
+} from './cmdbDowntimes';
+export {
   downloadAuditExport,
   useAuditArchives,
   useAuditEntries,
@@ -919,6 +931,7 @@ export {
   useSetAvailability,
   useTransitionSettings,
   useTriggers,
+  useTriggerEvents,
   type AssignmentSettingsIn,
   type AssignmentSettingsOut,
   type AutomationRunOut,

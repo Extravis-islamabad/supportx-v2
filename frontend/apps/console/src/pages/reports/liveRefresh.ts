@@ -17,15 +17,20 @@ export function useLiveReportRefresh(listPath: string | null): void {
   const queryClient = useQueryClient();
   const last = useRef(0);
   const pending = useRef<number | null>(null);
-  useListChannel(listPath, () => {
-    const wait = Math.max(0, last.current + LIVE_REFRESH_MS - Date.now());
-    if (pending.current !== null) return;
-    pending.current = window.setTimeout(() => {
-      pending.current = null;
-      last.current = Date.now();
-      refreshList(queryClient, queryKeys.reports.runs);
-    }, wait);
-  });
+  useListChannel(
+    listPath,
+    (message) => {
+      if (message.covered === true) return; // a refresh is covered at once, never debounced
+      const wait = Math.max(0, last.current + LIVE_REFRESH_MS - Date.now());
+      if (pending.current !== null) return;
+      pending.current = window.setTimeout(() => {
+        pending.current = null;
+        last.current = Date.now();
+        refreshList(queryClient, queryKeys.reports.runs);
+      }, wait);
+    },
+    { covers: [queryKeys.reports.runs] },
+  );
   useEffect(
     () => () => {
       if (pending.current !== null) window.clearTimeout(pending.current);

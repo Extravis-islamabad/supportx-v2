@@ -48,6 +48,14 @@ def _stage_of(type_code: object, status_code: object) -> str | None:
 
 async def read_event(
     session: AsyncSession, envelope: EventEnvelope
+) -> Sequence[automation.RecordEvent]:
+    """A committed work item event as triggers see it: always one record, or none (S5d)."""
+    happened = await _read_one(session, envelope)
+    return [] if happened is None else [happened]
+
+
+async def _read_one(
+    session: AsyncSession, envelope: EventEnvelope
 ) -> automation.RecordEvent | None:
     """A committed work item event as triggers see it (None: nothing to react to)."""
     payload = envelope.payload

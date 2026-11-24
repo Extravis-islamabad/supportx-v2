@@ -305,6 +305,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "close_requires",
         "worklog_type",
         "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
+        "service_ids",  # a downtime's two CI fields, ("ci_ids", "service_ids") (WP-053 S5)
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)

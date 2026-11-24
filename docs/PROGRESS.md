@@ -26,6 +26,14 @@
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
+- **Realtime `covers` (§8.3, lane C's 2026-11-24 bundle):** every channel hook names the queries it
+  covers, so no refresh is dropped. Files still to convert are listed in
+  `frontend/packages/eslint-plugin/channel-covers-pending.json` (93 at merge: lane A 48, lane B 45).
+  Each lane removes its files as it converts them, and the list is deleted when it's empty.
+  - [x] API, lint rule, package test and lane C's 23 files.
+  - [ ] Lane A's files, including the S3a ServiceRequestPage.
+  - [ ] Lane B's files.
+  - [ ] The empty list deleted (its own one-line PR).
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
@@ -146,6 +154,22 @@ decisions D1-D13 (D-038).
    runs nginx-unprivileged **1.31.7** (mainline, digest-pinned), because stable 1.30.6 has six
    fixable HIGH/CRITICAL nginx CVEs and no stable 1.30.7 image was published. Move back to the
    stable line once 1.30.7 or later is published. Check it at each Monday re-check.
+9. **Release note: CI delete is its own right (lane B, 2026-11-24, #610, a security fix):** vendor
+   support could delete, restore and merge CIs through `cmdb.manage` (D-173); `cmdb.manage` is
+   now never for support, and for every role `cmdb.manage` no longer stands in for
+   `cmdb.delete`. No built-in role changes (the asset manager holds both). **A tenant's custom
+   role with `cmdb.manage` but without `cmdb.delete` can no longer delete or restore CIs**: add
+   `cmdb.delete` to it. Asset delete by vendor support waits on the product owner's decision
+   (`assets.delete`, or `assets.manage` never).
+10. **Known failover latency: Valkey (lane B, 2026-11-24, measured):** while Sentinel fails over,
+   a request that checks its session waits up to about **15.5 s**, then answers. That is the API's
+   Valkey client (`app/core/valkey.py`, valkey-py 6.2.0): its default 5 s socket timeout (the
+   connect timeout falls back to it) times 3 retries, plus the backoff. It is bounded: measured
+   on a throwaway master, replica and three sentinels at the chart's 10 s down-after, the master
+   paused or black-holed, the read came back from the promoted replica after 15.5 s. Not tuned
+   now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
+   phases) and times the master's name lookup from the API pods, so the nightly shows whether a
+   slower write is DNS or this latency.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -3098,6 +3122,14 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     their site or group.
 - [ ] Sessions 2+: relationships, impact maps, baselines, retention setting (D-172 c), MonetX on
   a fixture (D-172 d), the custom rule builder (`fine_grained_access`, Enterprise).
+- [x] **S5a's reports home (lane C, after #606; REQ-CMDB-032, REQ-RPT-015):**
+  - a CMDB tab on the reports home, holding both sources' built-in and saved reports;
+  - two built-ins, "CIs by type and state" and "CI relationships";
+  - the count measure for `cmdb_ci` and `cmdb_relationship`: without it, neither source could
+    run a report;
+  - labels in en, ar and ur;
+  - a DB test: the CI total is the reader's list total, and a link to a CI they may not see is
+    not counted.
 
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 

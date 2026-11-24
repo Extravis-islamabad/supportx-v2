@@ -373,11 +373,14 @@ export function SchedulesButton() {
   const [open, setOpen] = useState(params.get(SCHEDULES_QUERY) === 'open');
   const schedules = useReportSchedules(open);
   const change = useScheduleChange();
-  usePersonalChannel((message) => {
-    if (message.type === 'reports.schedules_changed') {
-      refreshList(queryClient, queryKeys.reports.schedules);
-    }
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.type === 'reports.schedules_changed') {
+        refreshList(queryClient, queryKeys.reports.schedules);
+      }
+    },
+    { covers: [queryKeys.reports.schedules] },
+  );
   const items = useMemo(() => schedules.data?.items ?? [], [schedules.data]);
   // A schedule someone changed first (409): the shared dialog; "Keep my changes" acts again.
   const conflict = useConflict();

@@ -77,10 +77,15 @@ export function ProblemsPage() {
     minWidths: { subject: SUBJECT_MIN },
     label: (key) => t('layout.resize_column', { column: titles[key] ?? '' }),
   });
-  useListChannel('problems', () => {
-    void queryClient.invalidateQueries({ queryKey: [...problemKeys.all, 'list'] });
-    void queryClient.invalidateQueries({ queryKey: problemKeys.views });
-  });
+  useListChannel(
+    'problems',
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: [...problemKeys.all, 'list'] });
+      void queryClient.invalidateQueries({ queryKey: problemKeys.views });
+    },
+    { covers: [[...problemKeys.all, 'list'], problemKeys.views] },
+  );
   if (list.error) reportError(list.error);
   const create = can('problems.create');
   const rows = list.data?.items ?? [];
