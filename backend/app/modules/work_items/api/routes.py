@@ -32,6 +32,7 @@ from app.modules.work_items.api.checklist_routes import (
     add_checklist_routes,
 )
 from app.modules.work_items.api.children_routes import add_children_routes
+from app.modules.work_items.api.clarification_routes import add_clarification_routes
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
@@ -3106,6 +3107,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
     if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
         add_approver_change_routes(router, wtype)  # WP-047a S2b (REQ-SR-042)
+        add_clarification_routes(router, wtype)  # WP-047a S3a (REQ-SR-037)
     elif wtype.code in {
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,

@@ -77,6 +77,7 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    clarifications,
     drafts,
     field_catalogue,
     inbound_mail,
@@ -300,6 +301,7 @@ module = ModuleSpec(
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
     consumers=[
         APPROVER_LEFT,
+        clarifications.ANSWERS,  # WP-047a S3a (REQ-SR-037 AC2): an answer ends the question
         KEPT_INFORMED,
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile

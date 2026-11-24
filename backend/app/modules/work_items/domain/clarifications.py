@@ -26,6 +26,20 @@ class ClarificationEnd(StrEnum):
     CLOSED = "closed"  # the approval itself closed (another decided, withdrawn, restarted)
 
 
+class ClarificationState(StrEnum):
+    """A clarification as shown on its approval: still open, or how it ended."""
+
+    OPEN = "open"
+    ANSWERED = "answered"
+    DECIDED = "decided"
+    CLOSED = "closed"
+
+
+def state_of(ended_how: str | None) -> ClarificationState:
+    """The shown state of a clarification row."""
+    return ClarificationState.OPEN if ended_how is None else ClarificationState(ended_how)
+
+
 def question_problems(question: str) -> list[tuple[str, str]]:
     """Field problems of a question."""
     text = question.strip()

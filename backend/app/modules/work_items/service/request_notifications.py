@@ -37,6 +37,7 @@ from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.events import (
     ServiceRequestReadyToFulfil,
     WorkItemApprovalChanged,
+    WorkItemApprovalClarification,
     WorkItemConversationAdded,
     WorkItemCreated,
     WorkItemStatusChanged,
@@ -71,6 +72,9 @@ WITHDRAWN = "service_request.withdrawn"
 FULFILLED = "service_request.fulfilled"
 REPLY = "service_request.public_reply"  # a reply to the requester, by e-mail (lane B's #359)
 READY = "service_request.ready_to_fulfil"  # D-154 "E1 follows d": to its group, in the app
+# WP-047a S3a (REQ-SR-037 AC2): the approver who asked is told their question was answered;
+# the notice names the request, never the answer (the coordinator's condition 4).
+ANSWERED = "service_request.clarification_answered"
 GROUP = "group"  # the request's group
 REQUESTER = "requester"  # the requester and the person it is for
 APPROVER = "approver"
@@ -128,6 +132,11 @@ EVENTS: tuple[NotificationEvent, ...] = (
         ),
     ),
     NotificationEvent(
+        ANSWERED,
+        NotificationCategory.APPROVAL,
+        EventDefault(enabled=True, recipients=(APPROVER,)),
+    ),
+    NotificationEvent(
         READY,
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=(GROUP,), channels=(NotificationChannel.IN_APP,)),
@@ -166,6 +175,7 @@ class ServiceRequestNotifications:
         WorkItemStatusChanged.event_type,
         ServiceRequestReadyToFulfil.event_type,
         WorkItemConversationAdded.event_type,
+        WorkItemApprovalClarification.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
@@ -175,6 +185,8 @@ class ServiceRequestNotifications:
             # No type on the event: `context` answers only for a request's outbound reply.
             automatic = payload.get("automatic")
             return () if automatic or payload.get("kind") != EntryKind.REPLY else (REPLY,)
+        if envelope.event_type == WorkItemApprovalClarification.event_type:
+            return (ANSWERED,) if payload.get("change") == "answered" else ()
         if envelope.event_type == WorkItemApprovalChanged.event_type:
             if not _opened(envelope):
                 return ()
@@ -198,6 +210,8 @@ class ServiceRequestNotifications:
         if event_code == REPLY:
             return await _reply_context(session, envelope)
         payload = envelope.payload
+        if event_code == ANSWERED:
+            return await _answered_context(session, envelope)
         row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
         record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
         if (
@@ -299,6 +313,36 @@ class ServiceRequestNotifications:
 
 
 REQUESTER_EVENTS = frozenset({RECEIVED, APPROVED, REJECTED, WITHDRAWN, FULFILLED})
+
+
+async def _answered_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:
+    """The approver who asked, while their approval still waits (decided: nobody is told)."""
+    payload = envelope.payload
+    row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
+    record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
+    if (
+        row is None
+        or record is None
+        or record.deleted_at is not None
+        or row.state != rules.ApprovalState.PENDING
+    ):
+        return None
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        public_link=f"/service-requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives={APPROVER: frozenset({uuid.UUID(str(payload["approver_id"]))})},
+        conditions={"priority": record.priority},
+        event_code=ANSWERED,
+    )
 
 
 async def _ready_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:
