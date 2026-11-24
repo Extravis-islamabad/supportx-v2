@@ -18,7 +18,7 @@ The downgrade stops while any tenant has an automatic or a replaced approval (ru
 drops the columns and narrows the checks back.
 
 Revision ID: 0195
-Revises: 0194
+Revises: 0192
 Created: 2026-11-24
 """
 
@@ -29,7 +29,8 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0195"
-down_revision: str | None = "0194"
+# main's head at its queue turn (… 0194 → 0192, WP-047a S2a then CMDB S4b).
+down_revision: str | None = "0192"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

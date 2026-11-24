@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0194"
+BEFORE = "0192"  # 0195's down revision (main's head at its queue turn)
 STATE, CHANNEL, PURPOSE = (
     "ck_work_item_approvals_state_code",
     "ck_work_item_approvals_channel_code",
