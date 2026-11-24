@@ -179,3 +179,41 @@ async def test_the_last_tenant_admin_is_kept_and_it_is_audited(world: World) -> 
     await _follow(world, org, source, org.admin, set())  # left the group: would leave no admin
     assert (await _held(world, org, org.admin))["roles"].get(admin_role) is True
     assert await by_action(world, org, "idp_group_mapping.kept_last_admin")
+    # Kept with its source (lane B's #620 review): once another admin exists, it goes.
+    sources = await world.sql(
+        "SELECT count(*) AS n FROM access_sources WHERE tenant_id = $1 AND user_id = $2",
+        org.tenant, org.admin,
+    )  # fmt: skip
+    assert sources[0]["n"] == 1
+    await world.sql(
+        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
+        org.tenant, org.lead, admin_role,
+    )  # fmt: skip
+    await _follow(world, org, source, org.admin, set())
+    assert admin_role not in (await _held(world, org, org.admin))["roles"]
+
+
+async def test_a_mapped_role_never_gains_a_privileged_right_without_the_opt_in(
+    world: World,
+) -> None:
+    """Lane B's #620 review: editing a role a mapping gives is the same back door."""
+    a = world.a
+    source = uuid.uuid4()
+    name = f"Mapped {uuid.uuid4().hex[:6]}"
+    mapped = await role(world, a, name, [("changes.view", "all")])
+    await _mapping(world, a, source, "sx-mapped", role_id=mapped)
+    current = (await world.call("GET", f"/roles/{mapped}", a, a.admin)).json()
+    patch = {
+        "permissions": [
+            {"permission": "changes.view", "scope": "all"},
+            {"permission": "identity.manage", "scope": "all"},
+        ]
+    }
+    refused = await world.call(
+        "PATCH", f"/roles/{mapped}", a, a.admin, json=patch,
+        headers={"If-Match": f'"{current["version"]}"'},
+    )  # fmt: skip
+    assert (refused.status_code, refused.json()["code"]) == (
+        409,
+        "mapping_grants_privileged_access",
+    )

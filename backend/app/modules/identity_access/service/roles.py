@@ -475,6 +475,13 @@ async def update_role(  # noqa: PLR0913 - keyword-only role fields
             session, role_id
         ):
             raise _refuse_for_service()
+        # WP-057 S5c (lane B's #620 review): a role a mapping gives, directly or through a group,
+        # never gains a never_via_idp right without the tenant's opt-in.
+        from app.modules.identity_access.service import group_mappings  # noqa: PLC0415 - it imports this module
+
+        await group_mappings.guard_role_rights(
+            session, role_id, role.key, {g.permission for g in clean}
+        )
     role = await RoleRepository(session).update(
         role_id, expected_version=expected_version, changes=changes
     )

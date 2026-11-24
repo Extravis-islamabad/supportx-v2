@@ -207,14 +207,18 @@ async def _lose(
     user_id: uuid.UUID,
     changes: Plan,
     source_kind: SourceKind,
-    *,
-    mapping_id: uuid.UUID | None = None,
 ) -> None:
-    """Drop this source's rows, then remove what no source gives any more (last admin kept).
+    """Drop this source's rows and remove what no source gives any more, as one savepoint.
 
-    `mapping_id`: the mapping being removed (remove_mapping), named in the audit when the
-    target was not among `drop_sources` (its row was deleted already).
+    If that would take the tenant's last admin away from this person (they were an admin, are
+    not after, and nobody else is: directly or through a group, WP-042), the whole savepoint is
+    undone, source rows included, so the access stays managed **and** sourced, and a later
+    follow removes it once another admin exists (lane B's #620 review). Audited.
     """
+    if not changes.drop_sources and not changes.lose:
+        return
+    before = await roles.tenant_admin_holders(session) if changes.lose else set()
+    savepoint = await session.begin_nested()
     for item in changes.drop_sources:
         source = await session.get(
             AccessSource,
@@ -224,11 +228,6 @@ async def _lose(
         if source is not None:
             await session.delete(source)
     await session.flush()
-    if not changes.lose:
-        return
-    # The removals in a savepoint: if they'd leave the tenant without an admin (directly or
-    # through a group, WP-042), they're undone and the person keeps their access (audited).
-    savepoint = await session.begin_nested()
     removed: list[Target] = []
     for target in changes.lose:
         target_id = uuid.UUID(target.id)
@@ -238,24 +237,25 @@ async def _lose(
             gone = await remove_member(session, "group", target_id, user_id, via="mapping")
         if gone:
             removed.append(target)
-    if removed and not await roles.tenant_admin_holders(session):
-        await savepoint.rollback()
-        await record(
-            session,
-            action_code=KEPT_LAST_ADMIN,
-            facts=WORKER,
-            object_type="user",
-            object_id=user_id,
-            details={"source": source_kind.value, "targets": [t.id for t in removed]},
-            actor=(AuditActorType.SYSTEM, None),
-        )
-        log.warning("idp_group_mapping_kept_last_admin", user_id=str(user_id))
-        return
+    if removed and user_id in before:
+        after = await roles.tenant_admin_holders(session)
+        if user_id not in after and not after:
+            await savepoint.rollback()
+            await record(
+                session,
+                action_code=KEPT_LAST_ADMIN,
+                facts=WORKER,
+                object_type="user",
+                object_id=user_id,
+                details={"source": source_kind.value, "targets": [t.id for t in removed]},
+                actor=(AuditActorType.SYSTEM, None),
+            )
+            log.warning("idp_group_mapping_kept_last_admin", user_id=str(user_id))
+            return
     await savepoint.commit()
     by_target = {h.target: h for h in changes.drop_sources}
     for target in removed:
-        item = by_target.get(target) or Held(target, str(mapping_id or ""))
-        await _audit(session, item, user_id, "removed")
+        await _audit(session, by_target.get(target) or Held(target, ""), user_id, "removed")
 
 
 async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: str) -> None:
@@ -453,6 +453,30 @@ async def rename_mapping(session: AsyncSession, mapping_id: uuid.UUID, name: str
     mapping.external_name = (name or "").strip()[:MAX_GROUP_ID] or None
 
 
+async def guard_role_rights(
+    session: AsyncSession, role_id: uuid.UUID, role_key: str, rights: set[str]
+) -> None:
+    """409 when a role a live mapping gives would become privileged, without the opt-in.
+
+    Directly, or through a group carrying the role (lane B's #620 review).
+    """
+    if not privileged(role_key, rights) or await privileged_allowed(session):
+        return
+    direct = await session.scalar(
+        select(func.count()).where(
+            IdpGroupMapping.role_id == role_id, IdpGroupMapping.deleted_at.is_(None)
+        )
+    )
+    carrying = select(GroupRole.group_id).where(GroupRole.role_id == role_id)
+    through = await session.scalar(
+        select(func.count()).where(
+            IdpGroupMapping.group_id.in_(carrying), IdpGroupMapping.deleted_at.is_(None)
+        )
+    )
+    if direct or through:
+        raise Conflict(code=PRIVILEGED_CODE)
+
+
 async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:
     """How many people hold access through this mapping (the remove dialog's count)."""
     count = await session.scalar(
@@ -479,8 +503,11 @@ async def remove_mapping(
     )
     if held and on_held is None:
         raise ValidationFailed(errors=[_error("on_held", CHOICE_REQUIRED_CODE)])
+    # In one order (person, then target), so two removals can't deadlock (lane B's review).
+    held.sort(key=lambda r: (str(r.user_id), r.target_kind, str(r.target_id)))
     for row in held:
         await lock_person(session, row.user_id)
+        target = Target(row.target_kind, str(row.target_id))  # type: ignore[arg-type]  # checked in SQL
         others = await session.scalar(
             select(func.count()).where(
                 AccessSource.user_id == row.user_id,
@@ -489,25 +516,25 @@ async def remove_mapping(
                 AccessSource.mapping_id != mapping_id,
             )
         )
-        await session.delete(row)
-        await session.flush()
-        if others:
-            continue  # another mapping still gives it
-        if on_held == "keep":
-            await _make_hand_made(session, row)
-        else:
-            await _lose(
-                session,
-                row.user_id,
-                Plan(
-                    add_sources=(),
-                    drop_sources=(),
-                    gain=(),
-                    lose=(Target(row.target_kind, str(row.target_id)),),  # type: ignore[arg-type]  # checked in SQL
-                ),
-                SourceKind(mapping.source_kind),
-                mapping_id=mapping.id,
-            )
+        if others or on_held == "keep":
+            await session.delete(row)
+            await session.flush()
+            if not others:
+                await _make_hand_made(session, row)
+            continue  # another mapping still gives it, or it stays as hand-made
+        # "remove": the source row goes in the same savepoint as the access (kept last admin
+        # keeps both, lane B's review).
+        await _lose(
+            session,
+            row.user_id,
+            Plan(
+                add_sources=(),
+                drop_sources=(Held(target, str(mapping_id)),),
+                gain=(),
+                lose=(target,),
+            ),
+            SourceKind(mapping.source_kind),
+        )
     mapping.deleted_at = system_clock.now()
     access_changed(session)
 
