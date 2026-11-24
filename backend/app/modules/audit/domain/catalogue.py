@@ -414,6 +414,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.approval_escalated", AuditCategory.RECORDS, "work_items"),
     ("service_request.clarification_asked", AuditCategory.RECORDS, "work_items"),
     ("service_request.clarification_answered", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S3b (REQ-SR-035, -041)
+    ("service_request.approval_restarted", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.created", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.changed", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.ended", AuditCategory.RECORDS, "work_items"),
     ("service_request.approvers_modified", AuditCategory.RECORDS, "work_items"),
     ("service_request.approval_requested", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4

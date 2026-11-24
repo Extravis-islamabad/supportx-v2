@@ -429,6 +429,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "Addressee": "approval_clarification_addressee",
     "ClarificationState": "approval_clarification_state",
     "EscalationTarget": "approval_escalate_to",
+    "RestartOn": "restart_on",  # WP-047a S3b (REQ-SR-041)
     # catalog administration (WP-031)
     "ItemKind": "catalog_item_kind",
     "ItemStatus": "catalog_item_status",

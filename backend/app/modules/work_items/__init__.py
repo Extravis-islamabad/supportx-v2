@@ -277,6 +277,7 @@ module = ModuleSpec(
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
+        SERVICE_REQUEST.feature,  # approval delegations (WP-047a S3b): request approvals
         CHANGE.feature,  # change advisory boards
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
         CHANGE.feature,  # change windows

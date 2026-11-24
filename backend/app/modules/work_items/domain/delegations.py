@@ -31,6 +31,7 @@ FIELD_PROBLEMS = frozenset(
         "delegation_overlaps",
         "delegation_ended",
         "delegate_not_eligible",
+        "delegation_reason_too_long",
     }
 )
 
@@ -76,7 +77,7 @@ def problems(
     elif window.ends_at - window.starts_at > timedelta(days=MAX_DAYS):
         found.append(("ends_at", "delegation_too_long"))
     if reason is not None and len(reason.strip()) > REASON_MAX:
-        found.append(("reason", "too_long"))
+        found.append(("reason", "delegation_reason_too_long"))
     return found
 
 
