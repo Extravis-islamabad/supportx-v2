@@ -11,19 +11,13 @@ import {
   signInAs,
 } from './helpers';
 
-// Problems (WP-044a), releases (WP-058a) and assets (#216) have their screens; the rest are
-// still coming.
-const SECTIONS = ['CMDB'];
-
-test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
-  page,
-}) => {
+// Every section has its screens now (CMDB was the last coming-soon one, WP-053); each below
+// is checked to be a real page, never the coming-soon one.
+test('navigation: every section opens its own page; palette and 404 work', async ({ page }) => {
   await signInAs(page, 'tech');
-  for (const section of SECTIONS) {
-    await goToSection(page, section);
-    await expect(page.getByRole('heading', { name: section, level: 1 })).toBeVisible();
-    await expect(page.getByText(/being built/)).toBeVisible();
-  }
+  await goToSection(page, 'CMDB');
+  await expect(page.getByRole('heading', { name: 'CMDB', level: 1 })).toBeVisible();
+  await expect(page.getByText(/being built/)).toHaveCount(0);
   expect(await navItems(page)).not.toContain('admin'); // not a tenant admin
 
   // Service requests is a real page (WP-030), not a coming-soon one.

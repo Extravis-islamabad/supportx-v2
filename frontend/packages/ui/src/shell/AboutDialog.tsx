@@ -47,7 +47,14 @@ export function AboutDialog({ open, onClose, appName }: AboutDialogProps) {
         {/* D-170: DB-IP Lite is CC BY 4.0; its licence asks for this credit, with the link. */}
         <Typography.Text type="secondary" style={{ textAlign: 'center' }} data-testid="about-geoip">
           {t('about.geoip_attribution')}{' '}
-          <Typography.Link href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
+          {/* Underlined: a link inside a line of text must not rely on colour alone (WCAG 1.4.1,
+              axe link-in-text-block; the nightly k3d run). */}
+          <Typography.Link
+            href="https://db-ip.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            underline
+          >
             {t('about.geoip_provider')}
           </Typography.Link>
         </Typography.Text>

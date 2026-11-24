@@ -1785,3 +1785,23 @@ export {
   type MentionMatchKind,
   type MentionState,
 } from './erasures';
+export {
+  CI_IMPORT_PROGRESS,
+  ciImportProblemsUrl,
+  ciMergeKeys,
+  useCiImport,
+  useCiImports,
+  useCiMergePreview,
+  useMergeCis,
+  useRunCiImport,
+  useStartCiImport,
+  type CiImport,
+  type CiImportKind,
+  type CiImportMatch,
+  type CiImportMode,
+  type CiImportProblem,
+  type CiMergeField,
+  type CiMergePreview,
+  type CiMergeResult,
+  type CiMergeSide,
+} from './cmdbMerge';

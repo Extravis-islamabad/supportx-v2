@@ -2679,15 +2679,21 @@ done, AC2 "below a cost" waits for the price), 18 to come.
   - [ ] S4c: vendor support access (D-173; design note in
     ~/Extravis/plans/wp-057-s4c-vendor-support-design.md; number at S4c).
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
-  - [~] **S5d (#569, migration 0189): REQ-SEC-010 verified e-mail domains, PARTLY DONE.** Built:
-    adding a domain with a TXT record shown once (only its hash kept), one tenant per verified
-    domain (a partial unique index; AC2), Keycloak-native routing (a verified domain marks the
-    organisation's domain verified through the outbox; a lapse or delete removes it on a shared
-    realm and keeps the routing on a single-tenant one; a daily reconcile; AC3, tested in a real
-    Keycloak), the 3-failures-over-72-hours lapse with a notice to admins, a manual verify on
-    single-tenant installations only, the console card. **The DNS check waits for a dependency
-    decision** (dnspython, Haider): until then a check says automatic checking isn't available
-    yet, so on multi-tenant installations no domain can be verified (AC1 is not yet met there).
+  - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
+    e-mail domains, DONE.** Built:
+    - adding a domain with a TXT record shown once (only its hash kept);
+    - one tenant per verified domain (a partial unique index; AC2);
+    - Keycloak-native routing (AC3, tested in a real Keycloak): a verified domain marks the
+      organisation's domain verified through the outbox; a lapse or delete removes it on a shared
+      realm and keeps the routing on a single-tenant one; a daily reconcile;
+    - the 3-failures-over-72-hours lapse with a notice to admins, and the console card;
+    - **the DNS check (D-183):** dnspython on the installation's own resolver (resolv.conf, never a
+      public one), bounded by a query timeout, a lifetime, 20 records and a size limit per record,
+      tested against a local fake DNS server (UDP and TCP). A host with no resolver says automatic
+      checking isn't possible, which never counts towards a lapse;
+    - manual verify on single-tenant installations only (on-prem, air-gapped; a reason, audited).
+      On multi-tenant installations DNS is the way, so AC1 is met there too.
+    - Open: the CLAUDE.md §3 line for D-183 waits for Haider to confirm it in lane C's session.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
   tenant) moved to LATER (D-165).
 

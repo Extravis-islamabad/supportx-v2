@@ -36,6 +36,29 @@ SUITE_PEOPLE = (
     "external_subject IS NULL AND display_name LIKE $1"
     " AND (email IS NULL OR email LIKE 'e2e-person-%@demo.test')"
 )
+# The step that removes whatever else references the suite's work items (see _dependents).
+WORK_ITEM_DEPENDENTS = "work_item_dependents"
+# The suite's own work items, in the tenant this transaction is set to (and RLS agrees).
+SUITE_WORK_ITEMS = (
+    "SELECT id FROM work_items WHERE subject LIKE $1"
+    " AND tenant_id = current_setting('app.tenant_id')::uuid"
+)
+# Foreign keys onto a table's `id` that block a delete (NO ACTION or RESTRICT): CASCADE and SET
+# NULL ones Postgres handles itself. Composite keys (tenant_id, x) -> (tenant_id, id) match on the
+# column paired with `id`; the tenant's own context (RLS) keeps the rest in this tenant.
+_BLOCKING_FKS = """
+SELECT DISTINCT c.conrelid::regclass::text AS child, a.attname AS col,
+       EXISTS (SELECT 1 FROM pg_attribute i WHERE i.attrelid = c.conrelid
+               AND i.attname = 'id' AND NOT i.attisdropped) AS has_id
+FROM pg_constraint c
+CROSS JOIN LATERAL unnest(c.conkey, c.confkey) AS k(child_col, parent_col)
+JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.child_col
+JOIN pg_attribute r ON r.attrelid = c.confrelid AND r.attnum = k.parent_col
+WHERE c.contype = 'f' AND c.confrelid = $1::regclass AND r.attname = 'id'
+  AND c.confdeltype IN ('a', 'r') AND c.conrelid <> c.confrelid
+ORDER BY 1, 2
+"""
+_MAX_DEPTH = 4
 # Children first: history and memberships, then the records. ($1: the matching pattern.)
 SUITE_RECORDS = (
     (
@@ -112,6 +135,10 @@ SUITE_RECORDS = (
         ),
         SUITE_PREFIX,
     ),
+    # Every other table that references the suite's records, found in the catalogue at run time
+    # (children before parents), so a new child table can never leave the teardown failing on a
+    # foreign key again (work_item_reads, the nightly k3d run; lane A's #-notes on the fix).
+    (WORK_ITEM_DEPENDENTS, "", SUITE_PREFIX),
     ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
     (
         # Catalog items the suite made (WP-030/031), after the requests raised from them; one a
@@ -289,13 +316,48 @@ async def delete(url: str) -> int:
         await conn.close()
 
 
+async def _dependents(
+    conn: asyncpg.Connection, table: str, ids: str, pattern: str, depth: int = 0
+) -> int:
+    """Delete every row that references `table`'s rows in `ids` (a subquery on $1), deepest first.
+
+    Read from pg_constraint each run: whatever table a later work package adds is covered.
+    """
+    if depth >= _MAX_DEPTH:
+        return 0
+    if depth == 0 and not await conn.fetchval(
+        "SELECT current_setting('app.tenant_id', true) <> ''"
+    ):
+        msg = "the suite's dependents are removed inside one tenant's context only (rule 5h)"
+        raise RuntimeError(msg)
+    removed = 0
+    for row in await conn.fetch(_BLOCKING_FKS, table):
+        child, col = row["child"], row["col"]
+        rows = f'SELECT id FROM {child} WHERE "{col}" IN ({ids})'  # noqa: S608 - catalogue names
+        if row["has_id"]:
+            removed += await _dependents(conn, child, rows, pattern, depth + 1)
+        status = await conn.execute(
+            f'DELETE FROM {child} WHERE "{col}" IN ({ids})',  # noqa: S608 - catalogue names
+            pattern,
+        )
+        removed += int(status.split()[-1])
+    return removed
+
+
+DEV_TENANTS = (DEMO_TENANT_ID, OTHER_TENANT_ID)
+
+
 async def delete_suite_records(
-    url: str, tenants: tuple[uuid.UUID, ...] = (DEMO_TENANT_ID, OTHER_TENANT_ID)
+    url: str, tenants: tuple[uuid.UUID, ...] = DEV_TENANTS, *, test_tenants: bool = False
 ) -> dict[str, int]:
     """Remove the "E2E …" records the suite created (deleted roles too); returns rows per table.
 
-    `tenants`: the two dev tenants; a test passes its own.
+    `tenants`: the two dev tenants. Any other tenant is refused (rule 5h: this runs against dev
+    databases) unless a test passes its own throwaway tenants with `test_tenants=True`.
     """
+    if not test_tenants and not set(tenants) <= set(DEV_TENANTS):
+        msg = "the e2e teardown only touches the two dev tenants"
+        raise ValueError(msg)
     removed = {table: 0 for table, _, _ in SUITE_RECORDS}
     conn = await asyncpg.connect(url)
     try:
@@ -303,6 +365,11 @@ async def delete_suite_records(
             async with conn.transaction():
                 await _in_tenant(conn, tenant)
                 for table, statement, pattern in SUITE_RECORDS:
+                    if table == WORK_ITEM_DEPENDENTS:
+                        removed[table] += await _dependents(
+                            conn, "work_items", SUITE_WORK_ITEMS, pattern
+                        )
+                        continue
                     status = await conn.execute(statement, pattern)
                     removed[table] += int(status.split()[-1])
     finally:

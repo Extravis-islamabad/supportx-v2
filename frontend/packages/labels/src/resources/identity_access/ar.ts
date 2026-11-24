@@ -195,7 +195,8 @@ export const ar: LabelResource = {
     'تسجيل الدخول السريع هذا غير متاح هنا. يعمل فقط على بيئة التطوير المحلية مع make dev-quick-sign-in.',
   'dev_sign_in.warning':
     'لبيئة التطوير المحلية فقط، بشخصية من Showcase Company. لا يُستخدم أبدًا على تثبيت حقيقي.',
-  'domain_check.dns_check_unavailable': 'التحقق التلقائي غير متاح في هذا التثبيت بعد.',
+  'domain_check.dns_check_unavailable':
+    'لا يوجد خادم DNS مُهيّأ في هذا التثبيت، لذا لا يمكن التحقق من النطاق تلقائيًا.',
   'domain_check.dns_unreachable':
     'تعذّر الوصول إلى DNS من هذا التثبيت. يمكنك توثيق النطاق يدويًا بدلًا من ذلك.',
   'domain_check.domain_verified_elsewhere': 'وثّقت مؤسسة أخرى هذا النطاق بالفعل.',

@@ -681,6 +681,8 @@ export const en = {
   'audit.object.change_task_template': 'Change task template',
   'audit.object.change_template': 'Change template',
   'audit.object.change_window': 'Change window',
+  'audit.object.ci': 'Configuration item',
+  'audit.object.cmdb_import': 'CMDB import from a file',
   'audit.object.connector_settings': 'Connector settings',
   'audit.object.custom_field': 'Custom field',
   'audit.object.department': 'Department',
@@ -1118,6 +1120,7 @@ export const en = {
   'event_type.automation.workflow.webhook_requested': 'Workflow asked for a webhook call',
   'event_type.automation.workflow_instance.changed': 'Workflow moved on',
   'event_type.automation.workflow_job.progressed': 'Workflow job progressed',
+  'event_type.cmdb.import.progressed': 'CMDB import moved on',
   'event_type.identity_access.access_settings.changed': 'Technician visibility changed',
   'event_type.identity_access.account_security.changed':
     'Account locked, or its password or MFA changed',

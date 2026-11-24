@@ -237,6 +237,7 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "work_item_links": 0,
         "action_links": 0,  # service requests: tests/db/test_e2e_fixtures_requests.py
         "work_item_approvals": 0,
+        "work_item_dependents": 0,  # found in the catalogue: test_e2e_fixtures_requests.py
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
         "catalog_items": 0,
         "service_categories": 0,
