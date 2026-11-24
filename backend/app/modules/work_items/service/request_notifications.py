@@ -49,6 +49,7 @@ from app.modules.work_items.service.access import APPROVE_ANY
 from app.modules.work_items.service.file_access import sees_private
 from app.modules.work_items.service.notifications import move_reply_delivery, reply_excerpt
 from app.modules.work_items.service.realtime import RECORD_KIND
+from app.shared import action_links
 from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
@@ -301,6 +302,10 @@ class ServiceRequestNotifications:
         row = await session.get(WorkItemApproval, uuid.UUID(str(envelope.payload["approval_id"])))
         if row is None or row.approver_id != recipient_id:
             return {}  # only the approval's own approver, never anyone else on the message
+        # WP-047a S3a (lane C's #604 review): a reminder mails the approval again, so the links
+        # earlier mails carried are revoked here, before this mail's own is minted at its send.
+        # The approver holds one live no-sign-in link per approval, never one per reminder.
+        await action_links.revoke_for(session, approvals.LINK_OBJECT, row.id)
         return {
             "approval_link": LinkRequest(
                 recipient_id=recipient_id,

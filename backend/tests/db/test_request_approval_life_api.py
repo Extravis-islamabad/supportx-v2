@@ -15,17 +15,20 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.core.tenancy import TenantContext
+from app.modules.work_items.infra.models import WorkItemApproval
 from app.modules.work_items.service import clarifications
 from app.modules.work_items.service import request_approval_reminders as sweeper
+from app.modules.work_items.service.approvals import issue_links
 from app.shared.clock import FrozenClock
 from app.shared.events import EventEnvelope
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, decide, fresh, manager_of
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem
+from tests.db.test_notifications_api import MAIL, run_engine
 from tests.db.test_service_requests_api import an_item, raise_request
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
@@ -376,3 +379,44 @@ async def test_clarifications_are_isolated_by_rls(world: World) -> None:
                     "u": a.tech_a,
                 },
             )
+
+
+async def test_a_reminder_revokes_the_earlier_link_and_the_new_one_decides(world: World) -> None:
+    """Lane C's #604 review: one live no-sign-in link per approval, never one per reminder."""
+    a = world.a
+    await _settle_other_sweeps(world, a)
+    record = await _raised(world, a, a.tech_a)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        rows = list(
+            await session.scalars(
+                select(WorkItemApproval).where(WorkItemApproval.work_item_id == record["id"])
+            )
+        )
+        [earlier] = (await issue_links(session, rows)).values()  # the first mail's link
+    assert await _sweep(world, a, WEDNESDAY_TEN) == 1
+    await run_engine(world, a, settings=MAIL)  # the reminder's mail is dispatched
+    refused = await world.call(
+        "POST",
+        "/action-links/use",
+        a,
+        a.tech_a,
+        json={"token": earlier, "body": {"decision": "approve"}},
+        headers=CONSOLE,
+    )
+    assert problem(refused) == (409, "action_link_revoked")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        rows = list(
+            await session.scalars(
+                select(WorkItemApproval).where(WorkItemApproval.work_item_id == record["id"])
+            )
+        )
+        [fresh_link] = (await issue_links(session, rows)).values()
+    used = await world.call(
+        "POST",
+        "/action-links/use",
+        a,
+        a.tech_a,
+        json={"token": fresh_link, "body": {"decision": "approve"}},
+        headers=CONSOLE,
+    )
+    assert used.status_code == 200, used.text
