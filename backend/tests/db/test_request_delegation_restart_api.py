@@ -291,11 +291,13 @@ async def test_a_manager_never_names_themself_someone_elses_delegate(world: Worl
     )
     assert [r["outcome"] for r in audit] == ["refused"]
     # Since #625 the refused entry names whom the attempt named (lane B's #612 nit).
-    named = await world.sql(
+    named = await world.sql(  # this attempt's own entry (lane B's #622 nit: a shared world)
         "SELECT details->'requested' AS requested FROM audit_entries WHERE tenant_id = $1"
-        " AND action = $2 AND outcome = 'refused'",
+        " AND action = $2 AND outcome = 'refused'"
+        " AND details->'requested'->>'delegate_id' = $3",
         a.tenant,
         delegations.AUDIT_CREATED,
+        str(a.admin),
     )
     assert json.loads(named[0]["requested"]) == {
         "delegator_id": str(a.tech_b),
