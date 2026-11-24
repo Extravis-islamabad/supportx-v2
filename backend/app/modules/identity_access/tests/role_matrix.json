@@ -1,5 +1,8 @@
 {
  "asset_manager@all": {
+  "assets.delete": [
+   "all"
+  ],
   "assets.manage": [
    "all"
   ],
@@ -41,6 +44,9 @@
   ]
  },
  "asset_manager@group": {
+  "assets.delete": [
+   "all"
+  ],
   "assets.manage": [
    "all"
   ],

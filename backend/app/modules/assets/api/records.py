@@ -68,6 +68,8 @@ WRITE: dict[int | str, dict[str, object]] = {
 
 View = Annotated[Subject, Depends(require_permission(service.VIEW))]
 Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
+# D-185: the trash needs assets.delete alone, never assets.manage standing in.
+Delete = Annotated[Subject, Depends(require_permission(service.DELETE))]
 
 
 async def _custom_filters(session: AsyncSession) -> dict[str, FilterField]:
@@ -584,7 +586,7 @@ async def patch_asset(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 async def delete_asset(
     asset_id: uuid.UUID,
     session: TenantSession,
-    subject: Manage,
+    subject: Delete,
     version: ExpectedVersion,
     request: Request,
 ) -> None:
