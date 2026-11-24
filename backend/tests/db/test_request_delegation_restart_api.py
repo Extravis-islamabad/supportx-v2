@@ -5,6 +5,7 @@ never the requester, both dates and a cap, no chains, audited, both told). Resta
 condition 3 (the old round voided with a reason, its approvers told, its links revoked).
 """
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -247,6 +248,71 @@ async def test_condition_1_checks(world: World) -> None:
         headers=_key(),
     )
     assert by_admin.status_code == 201, by_admin.text
+
+
+async def test_two_first_delegations_at_once_leave_one(world: World) -> None:
+    """Lane B's #612 review: with no row yet, the advisory lock still makes the second wait."""
+    a = world.a
+    await _end_all(world, a)
+    [x] = await seed_users(world.db, a.tenant, [{"user_type": "technician"}])
+    first, second = await asyncio.gather(
+        _delegate(world, a, a.admin, a.tech_b, delegator_id=str(x)),
+        _delegate(world, a, a.admin, a.tech_c, delegator_id=str(x)),
+    )
+    codes = sorted([first.status_code, second.status_code])
+    assert codes == [201, 422], (first.text, second.text)  # one set, one delegation_overlaps
+    rows = await world.sql(
+        "SELECT count(*) AS n FROM approval_delegations WHERE tenant_id = $1 AND delegator_id = $2",
+        a.tenant,
+        x,
+    )
+    assert rows[0]["n"] == 1
+
+
+async def test_a_manager_never_names_themself_someone_elses_delegate(world: World) -> None:
+    """The coordinator's decision: refused (segregation of duties), and the attempt audited."""
+    a = world.a
+    await _end_all(world, a)
+    refused = await world.call(
+        "POST",
+        DEL,
+        a,
+        a.admin,
+        json={"delegator_id": str(a.tech_b), "delegate_id": str(a.admin), **_window()},
+        headers=_key(),
+    )
+    assert problem(refused)[0] == 403
+    assert refused.json()["params"]["reason"] == "delegation_self_appointed"
+    audit = await world.sql(
+        "SELECT outcome FROM audit_entries WHERE tenant_id = $1 AND action = $2"
+        " AND outcome <> 'done'",
+        a.tenant,
+        delegations.AUDIT_CREATED,
+    )
+    assert [r["outcome"] for r in audit] == ["refused"]
+
+
+async def test_vendor_support_is_never_a_delegate_or_a_delegator(world: World) -> None:
+    """D-173 (lane B, the coordinator): support accounts never decide for the tenant."""
+    a = world.a
+    await _end_all(world, a)
+    [support] = await seed_users(world.db, a.tenant, [{"user_type": "technician"}])
+    await world.sql(
+        "UPDATE users SET user_type = 'vendor_support' WHERE tenant_id = $1 AND id = $2",
+        a.tenant,
+        support,
+    )
+    as_delegate = await _delegate(world, a, a.tech_a, support)
+    assert problem(as_delegate)[0] == 422
+    as_delegator = await world.call(
+        "POST",
+        DEL,
+        a,
+        a.admin,
+        json={"delegator_id": str(support), "delegate_id": str(a.tech_b), **_window()},
+        headers=_key(),
+    )
+    assert problem(as_delegator)[0] == 422
 
 
 async def test_the_requester_is_never_the_delegate(world: World) -> None:

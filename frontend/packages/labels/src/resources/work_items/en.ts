@@ -17,6 +17,7 @@ export const en = {
   'action_reason.children_open': 'Close or cancel its child changes and releases first.',
   'action_reason.condition_not_met': 'Your role only covers some records of this kind.',
   'action_reason.content_missing': 'Add a title and a message first.',
+  'action_reason.delegation_self_appointed': 'You can’t name yourself as someone else’s delegate.',
   'action_reason.four_eyes': 'Someone other than the author or owner must publish it.',
   'action_reason.freeze_needs_emergency_cab':
     'It is in a freeze: its emergency CAB must approve it, with a reason, or the change manager must override the freeze.',

@@ -20,6 +20,7 @@ export const ur: LabelResource = {
   'action_reason.children_open': 'پہلے اس کی ذیلی تبدیلیاں اور ریلیزیں بند یا منسوخ کریں۔',
   'action_reason.condition_not_met': 'آپ کے کردار کا ایک اصول یہاں اس کی اجازت نہیں دیتا۔',
   'action_reason.content_missing': 'پہلے عنوان اور پیغام شامل کریں۔',
+  'action_reason.delegation_self_appointed': 'آپ خود کو کسی اور کا نائب مقرر نہیں کر سکتے۔',
   'action_reason.four_eyes': 'مصنف یا مالک کے علاوہ کسی اور کو اسے شائع کرنا ہوگا۔',
   'action_reason.freeze_needs_emergency_cab':
     'یہ فریز میں ہے: اس کا ہنگامی بورڈ وجہ کے ساتھ اسے منظور کرے، یا تبدیلی مینیجر فریز سے استثنا دے۔',

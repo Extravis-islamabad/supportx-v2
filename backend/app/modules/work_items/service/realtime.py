@@ -48,7 +48,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTask,
     WorkItemTimer,
 )
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import MANAGE_DELEGATIONS, RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
     ChannelAccess,
@@ -131,8 +131,13 @@ async def _portal_channel(request: ChannelRequest) -> ChannelAccess | None:
     return ChannelAccess(presence=False)
 
 
+# WP-047a S3b (REQ-SR-035; lane C's #612 review): someone else's delegations, for those who
+# manage them (they are on neither person's own channel). IDs only.
+DELEGATIONS_LIST = LiveList("delegations", MANAGE_DELEGATIONS)
+
 CHANNELS = [
     *(lst.spec() for lst in LISTS.values()),
+    DELEGATIONS_LIST.spec(),
     ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
     ChannelSpec(kind=PORTAL_KIND, authorize=_portal_channel),
 ]
@@ -539,14 +544,19 @@ async def _delegation_changed(envelope: EventEnvelope, session: AsyncSession) ->
     people = {_uuid(payload.get("delegator_id")), _uuid(payload.get("delegate_id"))}
     return RealtimeEffects(
         publications=[
-            Publication(
-                personal(envelope.tenant_id, person),
-                DELEGATIONS_CHANGED,
-                ids=ids,
-                version=int(payload["version"]),
-            )
-            for person in people
-            if person is not None
+            *(
+                Publication(
+                    personal(envelope.tenant_id, person),
+                    DELEGATIONS_CHANGED,
+                    ids=ids,
+                    version=int(payload["version"]),
+                )
+                for person in people
+                if person is not None
+            ),
+            *DELEGATIONS_LIST.publications(
+                envelope.tenant_id, DELEGATIONS_CHANGED, uuid.UUID(ids[0])
+            ),
         ]
     )
 

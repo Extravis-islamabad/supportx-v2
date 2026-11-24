@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
-from app.modules.audit import RequestFacts
+from app.modules.audit import AuditNote, RequestFacts, audited
 from app.modules.identity_access import Subject
 from app.modules.work_items.api.routes import RESPONSES
 from app.modules.work_items.domain.delegations import REASON_MAX
@@ -35,6 +35,7 @@ router = APIRouter(
     responses=RESPONSES,
 )
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
+Created_ = Annotated[AuditNote, audited(service.AUDIT_CREATED, object_type="approval_delegation")]
 
 
 class DelegationOut(BaseModel):
@@ -112,14 +113,18 @@ async def list_delegations(
     status_code=status.HTTP_201_CREATED,
     response_model=DelegationOut,
 )
-async def create_delegation(
+async def create_delegation(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: DelegationIn,
     session: TenantSession,
     subject: SignedIn,
     idempotency: Idempotency,
     request: Request,
+    note: Created_,
 ) -> Response:
-    """New request approvals for the delegator go to the delegate while it is active (AC1)."""
+    """New request approvals for the delegator go to the delegate while it is active (AC1).
+
+    Audited here, refused attempts included (a manager naming themself someone's delegate).
+    """
 
     async def run() -> Created:
         row = await service.create(
@@ -132,6 +137,8 @@ async def create_delegation(
             reason=body.reason,
             facts=RequestFacts.of(request),
         )
+        note.object_id = str(row.id)
+        note.details = {"delegator_id": str(row.delegator_id), "delegate_id": str(row.delegate_id)}
         return Created(body=DelegationOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)

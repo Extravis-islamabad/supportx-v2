@@ -22,7 +22,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
-import { refreshQueries, usePersonalChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel, usePersonalChannel } from '@supportx/realtime';
 
 import { PersonName } from '../admin/erasures/words';
 import { UserPicker } from '../incidents/pickers';
@@ -50,18 +50,22 @@ export function DelegationsPage() {
   const { format } = useDateTime();
   const { can } = useAccess();
   const manages = can('requests.manage_delegations');
-  const list = useDelegations();
+  // With the right, the list follows the approver chosen below (someone else's delegations).
+  const [delegator, setDelegator] = useState<string | null>(null);
+  const list = useDelegations(delegator ?? undefined);
   const queryClient = useQueryClient();
   // Live (rule 5c; lane C's #612 review): a change by the other person, an administrator or
   // the sweep's expiry arrives on your own channel as IDs only, and the list refetches.
-  usePersonalChannel((message) => {
+  const onChange = (message: { type: string }) => {
     if (message.type === DELEGATIONS_CHANGED || message.type === 'refresh') {
       refreshQueries(queryClient, delegationKeys.all);
     }
-  });
+  };
+  usePersonalChannel(onChange);
+  // Someone else's delegations reach those who manage them on the delegations list (lane C).
+  useListChannel(manages ? 'delegations' : null, onChange);
   const create = useCreateDelegation();
   const end = useEndDelegation();
-  const [delegator, setDelegator] = useState<string | null>(null);
   const [delegate, setDelegate] = useState<string | null>(null);
   const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [reason, setReason] = useState('');

@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
@@ -65,10 +65,15 @@ def _window(row: ApprovalDelegation) -> domain.Window:
 
 
 async def _eligible(session: AsyncSession, person: uuid.UUID) -> bool:
-    """S2a's check: a live, active person of this tenant who may sign in."""
+    """S2a's check: a live, active person of this tenant who may sign in; never vendor support.
+
+    A vendor support account (D-173) never decides for the tenant, so it is neither a delegate
+    nor a delegator (lane B's #612 review; the coordinator).
+    """
     if person not in await active_user_ids(session, [person]):
         return False
-    return (await person_placement(session, person)).can_sign_in
+    placement = await person_placement(session, person)
+    return placement.can_sign_in and not placement.vendor_support
 
 
 async def active_for(
@@ -165,11 +170,26 @@ async def _audit(
     )
 
 
-def _may_manage(subject: Subject, delegator_id: uuid.UUID) -> None:
-    if delegator_id != subject.user_id and not subject.holds(MANAGE_DELEGATIONS):
+def _may_manage(
+    subject: Subject, delegator_id: uuid.UUID, delegate_id: uuid.UUID | None = None
+) -> None:
+    """One's own delegation, or someone else's with the right, never naming oneself for them.
+
+    A manager naming themself another person's delegate would receive and decide that person's
+    approvals: a segregation-of-duties hole, refused (lane B's #612 review; the coordinator). The
+    refusal is a permission refusal, so the audited route records the attempt.
+    """
+    if delegator_id == subject.user_id:
+        return
+    if not subject.holds(MANAGE_DELEGATIONS):
         raise PermissionDenied(
             code="permission_denied",
             params={"permission": MANAGE_DELEGATIONS, "reason": "no_permission"},
+        )
+    if delegate_id == subject.user_id:
+        raise PermissionDenied(
+            code="permission_denied",
+            params={"permission": MANAGE_DELEGATIONS, "reason": "delegation_self_appointed"},
         )
 
 
@@ -182,11 +202,20 @@ async def _check(  # noqa: PLR0913 - the delegation's values, explicit
     *,
     keep: uuid.UUID | None,
 ) -> None:
-    """Condition 1's checks, the delegate's eligibility, and no overlap (under the lock)."""
+    """Condition 1's checks, both people's eligibility, and no overlap (under the lock)."""
     problems = domain.problems(delegator_id, delegate_id, window, reason=reason)
     if not problems and not await _eligible(session, delegate_id):
         problems.append(("delegate_id", "delegate_not_eligible"))
+    if not problems and (await person_placement(session, delegator_id)).vendor_support:
+        problems.append(("delegator_id", "delegate_not_eligible"))  # D-173: never the tenant's
     if not problems:
+        # One delegator at a time (lane B's #612 review): a row lock covers nothing when there
+        # is no row yet, so two first delegations would both pass. A transaction lock on the
+        # delegator makes the second wait, then see the first.
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": f"approval_delegation:{_tenant(session)}:{delegator_id}"},
+        )
         others = await session.scalars(
             select(ApprovalDelegation)
             .where(
@@ -233,7 +262,7 @@ async def create(  # noqa: PLR0913 - the delegation and its context, explicit
 ) -> ApprovalDelegation:
     """Set a delegation (oneself's, or someone else's with the right); both are told."""
     delegator = delegator_id or subject.user_id
-    _may_manage(subject, delegator)
+    _may_manage(subject, delegator, delegate_id)
     window = domain.Window(starts_at, ends_at)
     text = (reason or "").strip() or None
     await _check(session, delegator, delegate_id, window, text, keep=None)
@@ -247,7 +276,8 @@ async def create(  # noqa: PLR0913 - the delegation and its context, explicit
     )
     session.add(row)
     await session.flush()
-    await _audit(session, row, AUDIT_CREATED, facts)
+    # Audited by its route (`audited(AUDIT_CREATED)`), so a refused attempt is recorded too.
+    del facts
     await _event(session, row, "created")
     return row
 
@@ -278,10 +308,10 @@ async def change(  # noqa: PLR0913 - the delegation, its new values and context,
 ) -> ApprovalDelegation:
     """Change a delegation not yet ended (dates, delegate, reason); both are told."""
     row = await _get(session, delegation_id, expected_version)
-    _may_manage(subject, row.delegator_id)
+    delegate = values.get("delegate_id", row.delegate_id)
+    _may_manage(subject, row.delegator_id, delegate)
     if row.ended_at is not None:
         raise items.field_errors([("ends_at", "delegation_ended")])
-    delegate = values.get("delegate_id", row.delegate_id)
     window = domain.Window(
         values.get("starts_at", row.starts_at), values.get("ends_at", row.ends_at)
     )

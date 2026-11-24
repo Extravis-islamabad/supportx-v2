@@ -19,6 +19,7 @@ export const ar: LabelResource = {
   'action_reason.children_open': 'أغلق أو ألغِ التغييرات والإصدارات التابعة له أولًا.',
   'action_reason.condition_not_met': 'دورك يشمل بعض السجلات من هذا النوع فقط.',
   'action_reason.content_missing': 'أضف عنوانًا ورسالة أولًا.',
+  'action_reason.delegation_self_appointed': 'لا يمكنك تعيين نفسك مفوَّضًا إليه عن شخص آخر.',
   'action_reason.four_eyes': 'يجب أن ينشره شخص غير الكاتب أو المالك.',
   'action_reason.freeze_needs_emergency_cab':
     'إنه ضمن فترة تجميد: يجب أن يوافق عليه المجلس الطارئ مع ذكر السبب، أو أن يتجاوز مدير التغيير فترة التجميد.',
