@@ -7,7 +7,8 @@ something else must be listed here on purpose.
 """
 
 from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, TriggerEvent
-from app.modules.automation.service.registry import record_type, record_types
+from app.modules.automation.service.registry import _READERS, record_type, record_types
+from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES
 from tooling.route_permissions import build_app
 
 CI_EVENTS = frozenset(
@@ -42,3 +43,11 @@ def test_every_work_item_type_keeps_todays_events_and_no_ci_event() -> None:
         assert kind.offered_events == expected, code
         if code not in OWN_OFFERS:
             assert not (kind.offered_events & CI_EVENTS), code
+
+
+def test_every_event_with_a_reader_reaches_the_trigger_consumers() -> None:
+    """A reader the consumers never subscribe to would make a type's triggers silently dead."""
+    build_app()
+    assert set(_READERS) <= set(TRIGGER_EVENT_TYPES), sorted(
+        set(_READERS) - set(TRIGGER_EVENT_TYPES)
+    )

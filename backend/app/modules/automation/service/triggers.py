@@ -75,6 +75,11 @@ TRIGGER_EVENT_TYPES = (
     "work_items.work_item.status_changed",
     "work_items.work_item.assigned",
     "work_items.conversation.added",
+    # WP-053 S5d: configuration items (cmdb's reader). Every event type a module registers a
+    # reader for must be here, or the consumers never hear it: tests/test_trigger_offers.py.
+    "cmdb.ci.created",
+    "cmdb.ci.updated",
+    "cmdb.relationship.changed",
 )
 
 
