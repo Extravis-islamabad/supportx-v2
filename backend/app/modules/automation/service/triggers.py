@@ -81,6 +81,7 @@ TRIGGER_EVENT_TYPES = (
     "cmdb.ci.created",
     "cmdb.ci.updated",
     "cmdb.relationship.changed",
+    "cmdb.downtime.changed",  # a downtime becoming active (downtime_started)
 )
 
 

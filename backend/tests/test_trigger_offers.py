@@ -39,7 +39,6 @@ STAGED = frozenset(w.code.value for w in TYPES.values() if w.stages is not None)
 # Types that offer their own set, on purpose (and what it is checked against below).
 OWN_OFFERS: dict[str, frozenset[TriggerEvent]] = {
     # WP-053 S5d: a CI's own six, the three CI events included.
-    # downtime_started joins with its reader, after #608.
     "cmdb_ci": frozenset(
         {
             TriggerEvent.CREATED,
@@ -47,6 +46,7 @@ OWN_OFFERS: dict[str, frozenset[TriggerEvent]] = {
             TriggerEvent.STATUS_CHANGED,
             TriggerEvent.RELATIONSHIP_ADDED,
             TriggerEvent.RELATIONSHIP_REMOVED,
+            TriggerEvent.DOWNTIME_STARTED,
         }
     ),
 }
@@ -153,6 +153,15 @@ async def test_every_event_the_ci_offers_is_one_its_reader_can_produce() -> None
             "other_ci_ids": [other],
         }
         cases.append(("cmdb.relationship.changed", relationship))
+    downtime: dict[str, object] = {
+        "ci_id": ci,
+        "downtime_id": other,
+        "change": "state",
+        "state": "active",
+        "source": "manual",
+        "version": 2,
+    }
+    cases.append(("cmdb.downtime.changed", downtime))
     for event_type, payload in cases:
         assert event_type in TRIGGER_EVENT_TYPES
         found = await ci_reader(cast("AsyncSession", None), _envelope(event_type, payload))
