@@ -249,44 +249,65 @@ function AssetView({ asset }: { asset: AssetRecord }) {
   // WP-049b s4a: the linked work items (REQ-AST-044) and raising one from here (045).
   const linked = useAssetLinked(asset.id);
   const [raising, setRaising] = useState<RaiseKind>();
-  const viewers = useRecordChannel('asset', asset.id, (event) => {
-    // The asset's files (REQ-AST-050), its notes and cost lines (parts, no version of the asset).
-    if (event.type === 'files.changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('asset', asset.id) });
-      return;
-    }
-    const parts = event.fields ?? [];
-    // WP-049b s3: a scan arrived (REQ-AST-054); a fix from an audit changed the asset itself.
-    if (parts.includes('scans')) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.scans(asset.id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
-      return;
-    }
-    // WP-049b s4a: a work item linked, unlinked or moved on (REQ-AST-044): the counters.
-    if (parts.includes('linked')) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.linked(asset.id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
-      return;
-    }
-    if (parts.includes('notes') || parts.includes('costs')) {
-      if (parts.includes('notes')) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.notes(asset.id) });
+  const viewers = useRecordChannel(
+    'asset',
+    asset.id,
+    (event) => {
+      if (event.covered === true) {
+        // A refresh: `covers` refetched what the page shows; an open edit keeps its draft.
+        if (editing !== undefined) setChangedElsewhere(true);
+        return;
       }
-      if (parts.includes('costs')) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
+      // The asset's files (REQ-AST-050), its notes and cost lines (parts, no version of the asset).
+      if (event.type === 'files.changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('asset', asset.id) });
+        return;
       }
+      const parts = event.fields ?? [];
+      // WP-049b s3: a scan arrived (REQ-AST-054); a fix from an audit changed the asset itself.
+      if (parts.includes('scans')) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.scans(asset.id) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+        return;
+      }
+      // WP-049b s4a: a work item linked, unlinked or moved on (REQ-AST-044): the counters.
+      if (parts.includes('linked')) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.linked(asset.id) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+        return;
+      }
+      if (parts.includes('notes') || parts.includes('costs')) {
+        if (parts.includes('notes')) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.assets.notes(asset.id) });
+        }
+        if (parts.includes('costs')) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
+        }
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
+        return;
+      }
+      if (event.version !== undefined && event.version <= asset.version) return; // our own save
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
-      return;
-    }
-    if (event.version !== undefined && event.version <= asset.version) return; // our own save
-    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.history(asset.id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
-    if (editing === undefined) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.record(asset.id) });
-    } else {
-      setChangedElsewhere(true);
-    }
-  });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.financials(asset.id) });
+      if (editing === undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.record(asset.id) });
+      } else {
+        setChangedElsewhere(true);
+      }
+    },
+    {
+      covers: [
+        queryKeys.files.record('asset', asset.id),
+        queryKeys.assets.scans(asset.id),
+        queryKeys.assets.linked(asset.id),
+        queryKeys.assets.notes(asset.id),
+        queryKeys.assets.financials(asset.id),
+        queryKeys.assets.history(asset.id),
+        // Never the record under an open edit: the page says it changed elsewhere instead.
+        ...(editing === undefined ? [queryKeys.assets.record(asset.id)] : []),
+      ],
+    },
+  );
   const manage = access.can('assets.manage');
   // D-157: without assets.manage, a technician may still change this asset's state, location,
   // notes and fitted parts while it is linked to their own ticket and held by its requester.

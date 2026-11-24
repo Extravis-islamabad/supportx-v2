@@ -141,11 +141,15 @@ export function SyncRulePage() {
     { label: t('cmdb.sync.title'), path: SYNC_RULES_PATH },
     { label: loaded.data?.name ?? t('cmdb.sync.new') },
   ]);
-  useTenantChannel((m) => {
-    if (m.type === 'cmdb.sync_changed' || m.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.sync.all });
-    }
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.covered === true) return; // a refresh: `covers` refetched it
+      if (m.type === 'cmdb.sync_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.sync.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.sync.all] },
+  );
   // The saved rule into the form when it loads or changes elsewhere (live), unless the person
   // has unsaved changes: adjusted during render, as React advises for state that follows props.
   const [shown, setShown] = useState<number>();

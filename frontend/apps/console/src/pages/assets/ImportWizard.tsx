@@ -161,13 +161,17 @@ export function ImportWizard({ open, onClose }: { open: boolean; onClose: () => 
   const [key, setKey] = useState(() => crypto.randomUUID());
   const input = useRef<HTMLInputElement>(null);
   const job = useAssetImport(jobId);
-  usePersonalChannel((message) => {
-    if (jobId === undefined || message.type !== ASSET_IMPORT_PROGRESS) return;
-    if (!message.ids.includes(jobId)) return;
-    void queryClient.invalidateQueries({ queryKey: assetBatchKeys.import(jobId) });
-    // Rows that were applied show in the list: refetch it once the import is done.
-    void queryClient.invalidateQueries({ queryKey: [...queryKeys.assets.all, 'records'] });
-  });
+  usePersonalChannel(
+    (message) => {
+      if (jobId === undefined || message.type !== ASSET_IMPORT_PROGRESS) return;
+      if (!message.ids.includes(jobId)) return;
+      void queryClient.invalidateQueries({ queryKey: assetBatchKeys.import(jobId) });
+      // Rows that were applied show in the list: refetch it once the import is done.
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.assets.all, 'records'] });
+    },
+    // The wizard shows only its import job (the list behind it covers itself).
+    { covers: jobId === undefined ? [] : [assetBatchKeys.import(jobId)] },
+  );
   const kinds = KINDS.filter((k) =>
     k === 'vendors' ? access.can('vendors.create') || access.can('vendors.manage') : true,
   );

@@ -37,10 +37,15 @@ export function IntegrityTab() {
   const start = useStartAuditRun();
   const [range, setRange] = useState<[string | null, string | null]>([null, null]);
   const queryClient = useQueryClient();
-  useListChannel('audit', () => {
-    refreshList(queryClient, queryKeys.audit.status);
-    refreshList(queryClient, queryKeys.audit.runs);
-  });
+  useListChannel(
+    'audit',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.audit.status);
+      refreshList(queryClient, queryKeys.audit.runs);
+    },
+    { covers: [queryKeys.audit.status, queryKeys.audit.runs] },
+  );
   const s = status.data;
   const runStatus = (run: AuditRun | null | undefined) =>
     run === null || run === undefined ? (

@@ -172,22 +172,34 @@ export function AssetsPage() {
   const change = useAssetRecordChange();
   const { problems, show, clear } = useAssetSaveProblems();
   const [adding, setAdding] = useState<{ draft: AssetDraft; key: string }>();
-  useListChannel(allowed ? 'assets' : null, () => {
-    refreshList(queryClient, [...queryKeys.assets.all, 'records']);
-  });
+  useListChannel(
+    allowed ? 'assets' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the list
+      refreshList(queryClient, [...queryKeys.assets.all, 'records']);
+    },
+    { covers: [[...queryKeys.assets.all, 'records']] },
+  );
   // Your views and widths changed in another window of yours (rule 5c): follow them.
-  usePersonalChannel((message) => {
-    if (message.type !== LIST_SETTINGS_CHANGED || !message.ids.includes('assets')) return;
-    void queryClient.invalidateQueries({ queryKey: sharedListKeys.all('assets') });
-    if (message.ids.includes(view)) {
-      void queryClient.invalidateQueries({ queryKey: listSettingKey('assets', view) });
-    }
-  });
-  useTenantChannel((message) => {
-    if (message.type === 'assets.catalogue_changed' || message.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
-    }
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.type !== LIST_SETTINGS_CHANGED || !message.ids.includes('assets')) return;
+      void queryClient.invalidateQueries({ queryKey: sharedListKeys.all('assets') });
+      if (message.ids.includes(view)) {
+        void queryClient.invalidateQueries({ queryKey: listSettingKey('assets', view) });
+      }
+    },
+    { covers: [sharedListKeys.all('assets'), listSettingKey('assets', view)] },
+  );
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'assets.catalogue_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      }
+    },
+    { covers: [queryKeys.assets.all] },
+  );
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   // Bulk moves (WP-049a s3): pick rows, move them to one state; the server checks each one.
   const bulkAllowed = !trash && access.can('assets.manage');

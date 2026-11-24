@@ -79,9 +79,14 @@ export function SystemLogTab() {
     [severity, modules, range],
   );
   const log = useSystemLog(filters);
-  useListChannel('system_log', () => {
-    refreshList(queryClient, queryKeys.audit.systemLogAll);
-  });
+  useListChannel(
+    'system_log',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.audit.systemLogAll);
+    },
+    { covers: [queryKeys.audit.systemLogAll] },
+  );
   const rows = useMemo(() => log.data?.pages.flatMap((page) => page.items) ?? [], [log.data]);
 
   const exportCsv = async () => {

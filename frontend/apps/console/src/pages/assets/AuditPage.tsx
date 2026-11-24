@@ -578,11 +578,21 @@ export function AuditPage() {
   const me = useSession().data?.user.id;
   const list = useListFormat();
   const joinParts = useJoinParts();
-  const viewers = useRecordChannel('asset_audit', allowed ? id : undefined, () => {
-    if (id === undefined) return;
-    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.audit(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.auditItemsAll(id) });
-  });
+  const viewers = useRecordChannel(
+    'asset_audit',
+    allowed ? id : undefined,
+    (message) => {
+      if (id === undefined || message.covered === true) return; // covered: refetched below
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.audit(id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.auditItemsAll(id) });
+    },
+    {
+      covers:
+        id === undefined
+          ? [] // no audit open yet: nothing shown
+          : [queryKeys.assets.audit(id), queryKeys.assets.auditItemsAll(id)],
+    },
+  );
   usePageCrumbs([
     { label: t('assets.audits.title'), path: '/assets/audits' },
     ...(found.data ? [{ label: found.data.display_id }] : []),
