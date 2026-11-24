@@ -80,12 +80,21 @@ export function ReleasePage() {
   ).length;
   const [moving, setMoving] = useState<StageMove>();
   const [tab, setTab] = useState('details');
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    refreshQueries(queryClient, releaseKeys.detail(id));
-    // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
-    refreshQueries(queryClient, queryKeys.incidents.tasks(id));
-    refreshQueries(queryClient, queryKeys.incidents.worklogs(id));
-  });
+  // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
+  const liveKeys = [
+    releaseKeys.detail(id),
+    queryKeys.incidents.tasks(id),
+    queryKeys.incidents.worklogs(id),
+  ];
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered === true) return;
+      for (const key of liveKeys) refreshQueries(queryClient, key);
+    },
+    { covers: liveKeys },
+  );
   // Once per error, not on every render (lane A's review of #219).
   useEffect(() => {
     if (record.error) reportError(record.error);

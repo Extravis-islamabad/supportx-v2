@@ -27,9 +27,13 @@ export function usePaletteKnowledge(
     active,
   );
   const queryClient = useQueryClient();
-  useListChannel(active ? 'knowledge' : null, () => {
-    refreshList(queryClient, [...queryKeys.knowledge.all, 'list']);
-  });
+  useListChannel(
+    active ? 'knowledge' : null,
+    (message) => {
+      if (message.covered !== true) refreshList(queryClient, [...queryKeys.knowledge.all, 'list']);
+    },
+    { covers: [[...queryKeys.knowledge.all, 'list']] },
+  );
   return useMemo(() => {
     if (!allowed || !active) return undefined;
     return {

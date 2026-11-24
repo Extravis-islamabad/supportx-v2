@@ -148,9 +148,13 @@ export function ReleasesPage() {
     include_total: true,
   });
   usePageCrumbs([{ label: t('nav.releases') }]); // the tab's title too (QA6-REL-04)
-  useListChannel('releases', () => {
-    refreshQueries(queryClient, [...releaseKeys.all, 'list']);
-  });
+  useListChannel(
+    'releases',
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, [...releaseKeys.all, 'list']);
+    },
+    { covers: [[...releaseKeys.all, 'list']] },
+  );
   useBulkRefresh('release', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
   });

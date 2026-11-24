@@ -31,11 +31,14 @@ export function ContactDetailsCard() {
   const user = useUser(me);
   const queryClient = useQueryClient();
   // An admin allowed or stopped it (rule 5c): refetch your own record; the API says what's now.
-  useTenantChannel((event) => {
-    if (event.type === CONTACT_EDITING_CHANGED && me !== undefined) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(me) });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === CONTACT_EDITING_CHANGED && me !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(me) });
+      }
+    },
+    { covers: me === undefined ? [] : [queryKeys.users.detail(me)] },
+  );
   if (user.data === undefined) return null;
   // Keyed by version: a saved or live-updated record starts the form from the new values.
   return <ContactDetails key={user.data.version} user={user.data} />;

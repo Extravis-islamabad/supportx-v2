@@ -28,11 +28,14 @@ export function TenantBranding() {
   const { setBranding } = useAppearance();
   const queryClient = useQueryClient();
   const found = useBranding();
-  useTenantChannel((event) => {
-    if (event.type === BRANDING_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.branding.all });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === BRANDING_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.branding.all });
+      }
+    },
+    { covers: [queryKeys.branding.all] },
+  );
   useEffect(() => {
     setBranding('tenant', brandingFrom(found.data));
   }, [found.data, setBranding]);

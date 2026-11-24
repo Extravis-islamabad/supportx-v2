@@ -166,6 +166,9 @@ builds, no over-the-air updates through Expo's servers, no Expo push service, Ex
 **Approved additions (D-141, WP-049b S3):** `segno` (BSD) and `python-barcode` (MIT): asset QR codes
 and barcodes; the label PDF sits behind a small interface so either can be swapped.
 
+**Approved additions (D-183):** `dnspython` (ISC; the bounded TXT lookup behind verified e-mail
+domains, WP-057 S5d), using the installation's own resolver and never a public one.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

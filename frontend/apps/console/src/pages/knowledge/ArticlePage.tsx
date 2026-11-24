@@ -95,18 +95,34 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
   const body = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState(false);
 
-  const viewers = useRecordChannel('kb', article.id, (event) => {
-    const cached = queryClient.getQueryData<KbArticle>(queryKeys.knowledge.detail(article.id));
-    if (event.version !== undefined && cached !== undefined && event.version < cached.version) {
-      return;
-    }
-    void reload();
-    refreshQueries(queryClient, queryKeys.knowledge.versions(article.id));
-    refreshQueries(queryClient, queryKeys.knowledge.links(article.id));
-    refreshQueries(queryClient, queryKeys.knowledge.history(article.id));
-    // A vote anywhere refreshes the score here (REQ-KB-069 AC4).
-    refreshQueries(queryClient, queryKeys.knowledge.votes(article.id));
-  });
+  const viewers = useRecordChannel(
+    'kb',
+    article.id,
+    (event) => {
+      if (event.covered === true) {
+        void reload(); // the rest of the article is covered below
+        return;
+      }
+      const cached = queryClient.getQueryData<KbArticle>(queryKeys.knowledge.detail(article.id));
+      if (event.version !== undefined && cached !== undefined && event.version < cached.version) {
+        return;
+      }
+      void reload();
+      refreshQueries(queryClient, queryKeys.knowledge.versions(article.id));
+      refreshQueries(queryClient, queryKeys.knowledge.links(article.id));
+      refreshQueries(queryClient, queryKeys.knowledge.history(article.id));
+      // A vote anywhere refreshes the score here (REQ-KB-069 AC4).
+      refreshQueries(queryClient, queryKeys.knowledge.votes(article.id));
+    },
+    {
+      covers: [
+        queryKeys.knowledge.versions(article.id),
+        queryKeys.knowledge.links(article.id),
+        queryKeys.knowledge.history(article.id),
+        queryKeys.knowledge.votes(article.id),
+      ],
+    },
+  );
 
   // The path is part of the screen, so it reads in the screen's language (QA10-P4-35), as the
   // topic tree does, whatever language the article itself is shown in.

@@ -51,9 +51,14 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
   const conflict = useConflict();
   const invitationField = useInvitationFieldName();
   const [tried, setTried] = useState<Invitation>();
-  useListChannel(notSignedIn ? 'invitations' : null, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.identity.invitations });
-  });
+  useListChannel(
+    notSignedIn ? 'invitations' : null,
+    (m) => {
+      if (m.covered === true) return; // the refresh is covered below
+      void queryClient.invalidateQueries({ queryKey: queryKeys.identity.invitations });
+    },
+    { covers: [queryKeys.identity.invitations] },
+  );
   if (user.status !== 'active' || !user.can_sign_in) return null;
   const onError = (error: unknown) => {
     problem.show(error);
