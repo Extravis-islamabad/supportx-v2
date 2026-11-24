@@ -406,6 +406,8 @@ def audited(
         )
         # Saves of audited record types made by this route wait for it (LifecycleSink.saved).
         session.info[ROUTE_ACTION_KEY] = action_code
+        # The error observer reads it on a refusal: what the request named, unverified (below).
+        request.state.audit_note = note
         yield note  # an exception here propagates: refusals are logged by the error observer
         saves: list[SavedRecord] = session.info.pop(PENDING_SAVES_KEY, [])
         session.info.pop(ROUTE_ACTION_KEY, None)
@@ -526,6 +528,32 @@ def route_spec(request: Request) -> AuditRouteSpec | None:
     return None
 
 
+def _is_id(value: object) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return isinstance(value, (str, uuid.UUID))
+
+
+def requested_ids(note: AuditNote | None) -> dict[str, Any]:
+    """What a refused request named, from its route's note: IDs only, never free text.
+
+    A route may fill its note from the request before its service runs (lane A's #612); on a
+    refusal those values were never checked, so they go under `requested`, and anything that is
+    not an ID (or a list of IDs) is dropped (§7.4: no free text, no values in the log).
+    """
+    if note is None:
+        return {}
+    found: dict[str, Any] = {}
+    for key, value in note.details.items():
+        if _is_id(value):
+            found[key] = str(value)
+        elif isinstance(value, list) and value and all(_is_id(v) for v in value):
+            found[key] = [str(v) for v in value]
+    return found
+
+
 async def log_refusal(request: Request, status: int, code: str) -> None:
     """Error observer: write a refused/failed entry for an audited route, then check probing."""
     spec = route_spec(request)
@@ -544,7 +572,14 @@ async def log_refusal(request: Request, status: int, code: str) -> None:
             reason_code=code,
             object_type=spec.object_type,
             object_id=request.path_params.get(spec.object_param) if spec.object_param else None,
-            details={"status": status},
+            details={
+                "status": status,
+                **(
+                    {"requested": requested}
+                    if (requested := requested_ids(getattr(request.state, "audit_note", None)))
+                    else {}
+                ),
+            },
         )
         if outcome is AuditOutcome.REFUSED and context.user_id is not None:
             await _check_probing(session, context.user_id, facts)
