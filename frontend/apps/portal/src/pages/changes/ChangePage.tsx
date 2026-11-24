@@ -9,7 +9,7 @@ import {
   usePortalChangeConversation,
   usePortalChangeReply,
 } from '@supportx/api-client';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   EmptyText,
   reportError,
@@ -38,10 +38,10 @@ export function ChangePage() {
 
   useRecordEvents('portal_wi', id, (event) => {
     if (event.type === 'work_items.portal_conversation_changed') {
-      void queryClient.invalidateQueries({ queryKey: portalChangeKeys.conversation(id) });
+      refreshQueries(queryClient, portalChangeKeys.conversation(id));
       return;
     }
-    void queryClient.invalidateQueries({ queryKey: portalChangeKeys.detail(id) });
+    refreshQueries(queryClient, portalChangeKeys.detail(id));
   });
 
   if (record.isLoading) return <Skeleton active />;

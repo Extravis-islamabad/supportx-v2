@@ -31,7 +31,7 @@ import {
   useWithdrawRequest,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   reportError,
   RichTextView,
@@ -73,8 +73,8 @@ export function ServiceRequestPage() {
   const [notDone, setNotDone] = useState(false);
   const [why, setWhy] = useState('');
   useRecordEvents('portal_wi', id, () => {
-    void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
+    refreshQueries(queryClient, portalRequestKeys.detail(id));
+    refreshQueries(queryClient, serviceRequestKeys.detail(id));
   });
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
