@@ -52,47 +52,47 @@ View = Annotated[Subject, Depends(require_permission(catalogue.VIEW))]
 Record = Annotated[Subject, Depends(require_permission(catalogue.RECORD_DOWNTIME))]
 
 # Codes as named schemas (labelled `cmdb_downtime_state.<code>`, `cmdb_downtime_source.<code>`).
-DowntimeState = domain.DowntimeState
-DowntimeSource = domain.DowntimeSource
-DowntimePhase = domain.DowntimePhase
+CiDowntimeState = domain.CiDowntimeState
+CiDowntimeSource = domain.CiDowntimeSource
+CiDowntimePhase = domain.CiDowntimePhase
 
 
-class DowntimeOut(BaseModel):
+class CiDowntimeOut(BaseModel):
     """One downtime of a CI. A synced one names its source record by ID (shown by its ref)."""
 
     id: uuid.UUID
     ci_id: uuid.UUID
-    source: DowntimeSource
+    source: CiDowntimeSource
     source_work_item_id: uuid.UUID | None
-    phase: DowntimePhase
+    phase: CiDowntimePhase
     kind: str | None
     starts_at: datetime
     ends_at: datetime | None
     description: str | None = Field(description="Only on a downtime recorded by hand.")
-    state: DowntimeState
+    state: CiDowntimeState
     editable: bool = Field(description="True for a hand-recorded one (changed here).")
     version: int
 
     @classmethod
-    def of(cls, row: CiDowntime) -> "DowntimeOut":
+    def of(cls, row: CiDowntime) -> "CiDowntimeOut":
         """From the stored row."""
         return cls(
             id=row.id,
             ci_id=row.ci_id,
-            source=DowntimeSource(row.source),
+            source=CiDowntimeSource(row.source),
             source_work_item_id=row.source_work_item_id,
-            phase=DowntimePhase(row.phase),
+            phase=CiDowntimePhase(row.phase),
             kind=row.kind,
             starts_at=row.starts_at,
             ends_at=row.ends_at,
             description=row.description,
-            state=DowntimeState(row.state),
-            editable=row.source == DowntimeSource.MANUAL.value,
+            state=CiDowntimeState(row.state),
+            editable=row.source == CiDowntimeSource.MANUAL.value,
             version=row.version,
         )
 
 
-class DowntimeCountsOut(BaseModel):
+class CiDowntimeCountsOut(BaseModel):
     """A CI's live downtimes by state."""
 
     scheduled: int
@@ -100,14 +100,14 @@ class DowntimeCountsOut(BaseModel):
     completed: int
 
 
-class DowntimesOut(BaseModel):
+class CiDowntimesOut(BaseModel):
     """A CI's downtimes, newest start first, and how many in each state."""
 
-    items: list[DowntimeOut]
-    counts: DowntimeCountsOut
+    items: list[CiDowntimeOut]
+    counts: CiDowntimeCountsOut
 
 
-class DowntimeIn(BaseModel):
+class CiDowntimeIn(BaseModel):
     """A downtime recorded on the CI by hand."""
 
     model_config = ConfigDict(extra="forbid")
@@ -118,7 +118,7 @@ class DowntimeIn(BaseModel):
     description: str | None = Field(default=None, max_length=domain.DESCRIPTION_MAX)
 
 
-class DowntimePatch(BaseModel):
+class CiDowntimePatch(BaseModel):
     """Changes to a hand-recorded downtime (only the fields sent change)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -130,13 +130,13 @@ class DowntimePatch(BaseModel):
 
 
 @router.get("/cis/{ci_id}/downtimes", summary="A CI's downtimes")
-async def get_downtimes(ci_id: uuid.UUID, session: TenantSession, subject: View) -> DowntimesOut:
+async def get_downtimes(ci_id: uuid.UUID, session: TenantSession, subject: View) -> CiDowntimesOut:
     """Scheduled, active and completed downtimes of the CI, with their counts."""
     rows = await downtimes.list_for_ci(session, subject, ci_id)
     counts = downtimes.counts_of(rows)
-    return DowntimesOut(
-        items=[DowntimeOut.of(r) for r in rows],
-        counts=DowntimeCountsOut(
+    return CiDowntimesOut(
+        items=[CiDowntimeOut.of(r) for r in rows],
+        counts=CiDowntimeCountsOut(
             scheduled=counts.scheduled, active=counts.active, completed=counts.completed
         ),
     )
@@ -146,12 +146,12 @@ async def get_downtimes(ci_id: uuid.UUID, session: TenantSession, subject: View)
     "/cis/{ci_id}/downtimes",
     summary="Record a downtime on a CI",
     status_code=status.HTTP_201_CREATED,
-    response_model=DowntimeOut,
+    response_model=CiDowntimeOut,
     dependencies=[audited("cmdb.downtime_recorded", object_type="cmdb_ci", object_param="ci_id")],
 )
 async def create_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     ci_id: uuid.UUID,
-    body: DowntimeIn,
+    body: CiDowntimeIn,
     session: TenantSession,
     subject: Record,
     idempotency: Idempotency,
@@ -170,7 +170,7 @@ async def create_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             description=body.description,
             source=source_of(request),
         )
-        return Created(body=DowntimeOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=CiDowntimeOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
 
@@ -184,13 +184,13 @@ async def create_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 async def patch_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     ci_id: uuid.UUID,
     downtime_id: uuid.UUID,
-    body: DowntimePatch,
+    body: CiDowntimePatch,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Record,
     response: Response,
     request: Request,
-) -> DowntimeOut:
+) -> CiDowntimeOut:
     """If-Match on the downtime's version; a synced downtime answers 409."""
     row = await downtimes.update_manual(
         session,
@@ -202,7 +202,7 @@ async def patch_downtime(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return DowntimeOut.of(row)
+    return CiDowntimeOut.of(row)
 
 
 @router.delete(

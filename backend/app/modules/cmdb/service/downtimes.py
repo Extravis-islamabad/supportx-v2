@@ -35,7 +35,7 @@ from app.core.errors import Conflict, NotFound
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.cmdb.domain import downtimes as domain
-from app.modules.cmdb.domain.downtimes import DowntimeSource, DowntimeState
+from app.modules.cmdb.domain.downtimes import CiDowntimeSource, CiDowntimeState
 from app.modules.cmdb.domain.types import Problem
 from app.modules.cmdb.events import DowntimeChanged
 from app.modules.cmdb.infra.models import Ci, CiDowntime
@@ -107,13 +107,13 @@ async def list_for_ci(
 
 def counts_of(rows: Sequence[CiDowntime]) -> DowntimeCounts:
     """The counts the CI shows, from its listed downtimes."""
-    by = dict.fromkeys(DowntimeState, 0)
+    by = dict.fromkeys(CiDowntimeState, 0)
     for row in rows:
-        by[DowntimeState(row.state)] += 1
+        by[CiDowntimeState(row.state)] += 1
     return DowntimeCounts(
-        scheduled=by[DowntimeState.SCHEDULED],
-        active=by[DowntimeState.ACTIVE],
-        completed=by[DowntimeState.COMPLETED],
+        scheduled=by[CiDowntimeState.SCHEDULED],
+        active=by[CiDowntimeState.ACTIVE],
+        completed=by[CiDowntimeState.COMPLETED],
     )
 
 
@@ -127,8 +127,13 @@ def _checked(starts_at: datetime, ends_at: datetime | None, description: str | N
 
 
 async def _writable_ci(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
-    """404 for a CI the person may not see, 403 if they may not record its downtimes."""
-    if cis.writer(subject, RECORD_DOWNTIME) is None:
+    """404 for a CI the person may not see, 403 if they may not record its downtimes.
+
+    The right itself, never `cmdb.manage` standing in for it (`cis.writer`'s fallback): vendor
+    support holds `cmdb.manage` on a change grant, and a downtime by hand is `never` for it
+    (D-173; lane C's S5b check found the fallback).
+    """
+    if not subject.holds(RECORD_DOWNTIME):
         raise cis._denied(RECORD_DOWNTIME)  # noqa: SLF001 - the CI service's own refusal
     return await cis._writable(session, subject, RECORD_DOWNTIME, ci_id)  # noqa: SLF001
 
@@ -161,10 +166,10 @@ async def record_manual(  # noqa: PLR0913 - the CI, the times, the words and the
         id=new_id(),
         tenant_id=record.tenant_id,
         ci_id=ci_id,
-        source=DowntimeSource.MANUAL.value,
-        phase=domain.DowntimePhase.ACTUAL.value
+        source=CiDowntimeSource.MANUAL.value,
+        phase=domain.CiDowntimePhase.ACTUAL.value
         if starts_at <= _now()
-        else domain.DowntimePhase.PLANNED.value,
+        else domain.CiDowntimePhase.PLANNED.value,
         kind=kind,
         starts_at=starts_at,
         ends_at=ends_at,
@@ -203,7 +208,7 @@ async def _manual_row(
     )
     if row is None:
         raise NotFound(code="cmdb_downtime_not_found")
-    if row.source != DowntimeSource.MANUAL.value:
+    if row.source != CiDowntimeSource.MANUAL.value:
         # Changed at its source record (a change, a release, an incident), never here.
         raise Conflict(code="cmdb_downtime_synced", params={"source": row.source})
     return row
@@ -350,7 +355,7 @@ async def on_downtime_changed(envelope: Any, session: AsyncSession | None) -> No
     fields = {
         "source": source.value,
         "source_work_item_id": work_item_id[0] if work_item_id else None,
-        "phase": str(payload.get("phase") or domain.DowntimePhase.PLANNED.value),
+        "phase": str(payload.get("phase") or domain.CiDowntimePhase.PLANNED.value),
         "kind": payload.get("kind"),
         "starts_at": starts_at,
         "ends_at": ends_at,
@@ -393,7 +398,7 @@ async def sweep_tenant(session: AsyncSession, now: datetime | None = None) -> in
             select(CiDowntime)
             .where(
                 CiDowntime.deleted_at.is_(None),
-                CiDowntime.state != DowntimeState.COMPLETED.value,
+                CiDowntime.state != CiDowntimeState.COMPLETED.value,
                 CiDowntime.starts_at <= at,
             )
             .order_by(CiDowntime.starts_at)

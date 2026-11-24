@@ -6,6 +6,7 @@
   event. A `manual` row is recorded on the CI by hand and names no source downtime.
 - `state` (scheduled, active, completed) is moved by the one-minute sweep as time passes; its
   partial index holds only the rows still to move.
+- Reports may read it (supportx_report, SELECT; for the downtime report source).
 - Tenant first, RLS forced (migrations/helpers.py only), soft delete, actor audit. No foreign
   key to work_items' tables (the modules stay apart, §6.1); the CI's is tenant-scoped.
 
@@ -13,7 +14,7 @@ The downgrade refuses while any tenant has a downtime (rule 5h), per tenant with
 set.
 
 Revision ID: 0198
-Revises: 0195 (main's head now; re-pointed at its queue turn)
+Revises: 0188 (main's head now; re-pointed at its queue turn)
 Created: 2026-11-24
 """
 
@@ -22,10 +23,10 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
+from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app, grant_report
 
 revision: str = "0198"
-down_revision: str | None = "0195"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0188"  # main's head now; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -109,6 +110,9 @@ def upgrade() -> None:
     )
     enable_tenant_rls(TABLE)
     grant_app(TABLE, ("SELECT", "INSERT", "UPDATE"))  # soft delete only
+    # Reports read it as supportx_report (ADR-033): the downtime report source (REQ-CMDB-032)
+    # comes after S5a's sources; granted here so it needs no migration of its own.
+    grant_report(TABLE)
     enable_actor_audit(TABLE)
 
 

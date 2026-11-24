@@ -4,18 +4,18 @@ and which events are stale."""
 from datetime import UTC, datetime, timedelta
 
 from app.modules.cmdb.domain import downtimes as d
-from app.modules.cmdb.domain.downtimes import DowntimeState
+from app.modules.cmdb.domain.downtimes import CiDowntimeState
 
 T0 = datetime(2026, 11, 24, 10, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
 
 
 def test_the_state_follows_the_times() -> None:
-    assert d.state_at(T0, T0 + HOUR, T0 - HOUR) is DowntimeState.SCHEDULED
-    assert d.state_at(T0, T0 + HOUR, T0) is DowntimeState.ACTIVE  # active AT the start (AC1)
-    assert d.state_at(T0, T0 + HOUR, T0 + HOUR / 2) is DowntimeState.ACTIVE
-    assert d.state_at(T0, T0 + HOUR, T0 + HOUR) is DowntimeState.COMPLETED  # over at the end
-    assert d.state_at(T0, None, T0 + 100 * HOUR) is DowntimeState.ACTIVE  # open-ended
+    assert d.state_at(T0, T0 + HOUR, T0 - HOUR) is CiDowntimeState.SCHEDULED
+    assert d.state_at(T0, T0 + HOUR, T0) is CiDowntimeState.ACTIVE  # active AT the start (AC1)
+    assert d.state_at(T0, T0 + HOUR, T0 + HOUR / 2) is CiDowntimeState.ACTIVE
+    assert d.state_at(T0, T0 + HOUR, T0 + HOUR) is CiDowntimeState.COMPLETED  # over at the end
+    assert d.state_at(T0, None, T0 + 100 * HOUR) is CiDowntimeState.ACTIVE  # open-ended
 
 
 def test_the_hand_form_refuses_bad_times_and_long_words() -> None:
@@ -41,4 +41,4 @@ def test_an_event_at_or_below_the_stored_version_is_stale() -> None:
 
 def test_only_changes_releases_and_incidents_send_downtimes() -> None:
     assert set(d.SOURCE_OF_TYPE) == {"change", "release", "incident"}
-    assert d.DowntimeSource.MANUAL not in d.SOURCE_OF_TYPE.values()
+    assert d.CiDowntimeSource.MANUAL not in d.SOURCE_OF_TYPE.values()

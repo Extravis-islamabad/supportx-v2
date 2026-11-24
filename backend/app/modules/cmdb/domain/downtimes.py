@@ -16,7 +16,7 @@ DESCRIPTION_MAX = 2000
 LONGEST = timedelta(days=366)  # a hand-recorded downtime spans at most this
 
 
-class DowntimeState(StrEnum):
+class CiDowntimeState(StrEnum):
     """Where a downtime is in time (`cmdb_downtime_state.<code>`)."""
 
     SCHEDULED = "scheduled"
@@ -24,7 +24,7 @@ class DowntimeState(StrEnum):
     COMPLETED = "completed"
 
 
-class DowntimeSource(StrEnum):
+class CiDowntimeSource(StrEnum):
     """Where it came from (`cmdb_downtime_source.<code>`); only `manual` is edited here."""
 
     CHANGE = "change"
@@ -33,7 +33,7 @@ class DowntimeSource(StrEnum):
     MANUAL = "manual"
 
 
-class DowntimePhase(StrEnum):
+class CiDowntimePhase(StrEnum):
     """Planned ahead, or what actually happened (work_items' phases)."""
 
     PLANNED = "planned"
@@ -42,19 +42,19 @@ class DowntimePhase(StrEnum):
 
 # work_items' record type codes that send downtimes, and the source each becomes.
 SOURCE_OF_TYPE = {
-    "change": DowntimeSource.CHANGE,
-    "release": DowntimeSource.RELEASE,
-    "incident": DowntimeSource.INCIDENT,
+    "change": CiDowntimeSource.CHANGE,
+    "release": CiDowntimeSource.RELEASE,
+    "incident": CiDowntimeSource.INCIDENT,
 }
 
 
-def state_at(starts_at: datetime, ends_at: datetime | None, now: datetime) -> DowntimeState:
+def state_at(starts_at: datetime, ends_at: datetime | None, now: datetime) -> CiDowntimeState:
     """The state at `now`: an open-ended one is active from its start until it is given an end."""
     if now < starts_at:
-        return DowntimeState.SCHEDULED
+        return CiDowntimeState.SCHEDULED
     if ends_at is not None and now >= ends_at:
-        return DowntimeState.COMPLETED
-    return DowntimeState.ACTIVE
+        return CiDowntimeState.COMPLETED
+    return CiDowntimeState.ACTIVE
 
 
 @dataclass(frozen=True)

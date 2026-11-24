@@ -90,6 +90,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "CiHistoryEntryOut.actor_type": "actor_type",
     # CMDB relationships, maps, views and versions (WP-053 S2)
     "RelationshipDirection": "cmdb_relationship_direction",
+    "CiDowntimeState": "cmdb_downtime_state",  # WP-053 S5b (0198)
+    "CiDowntimeSource": "cmdb_downtime_source",
+    "CiDowntimePhase": "cmdb_downtime_phase",
     "BusinessViewLayout": "cmdb_view_layout",
     "CiAttributeChangeOut.kind": "cmdb_compare_kind",
     # Who a business service serves (0185)
