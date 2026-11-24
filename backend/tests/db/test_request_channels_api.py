@@ -376,7 +376,7 @@ async def test_sr_044_a_timeout_expires_the_level_unless_decided_first(world: Wo
                     channel=rules.DecisionChannel.APP,
                     source="ui",
                 )
-        assert late.value.code == "approval_expired"
+        assert late.value.instance_code == "approval_expired"
         # A level decided before its timeout keeps the decision.
         record2, instance2, command2 = await _open_level(world)
         await world.sql(

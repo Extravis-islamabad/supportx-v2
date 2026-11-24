@@ -3127,8 +3127,11 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             if "lifecycle_version" in stage_columns
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
-        **_item_columns(item, values),
-        **({"approval_status": ApprovalStatus.AWAITING_ANSWERS.value} if missing else {}),
+        # REQ-SR-017: a request waiting for answers says so, over the item's own status.
+        **{
+            **_item_columns(item, values),
+            **({"approval_status": ApprovalStatus.AWAITING_ANSWERS.value} if missing else {}),
+        },
         **delivery,
         custom=new_custom.stored,
         custom_text=await _custom_text(session, wtype, new_custom.stored),

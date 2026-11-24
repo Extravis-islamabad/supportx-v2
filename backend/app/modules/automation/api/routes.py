@@ -693,8 +693,18 @@ async def list_runs(
 # --- triggers (WP-029 part 2) ------------------------------------------------------------------
 
 
+class ApprovalApproversIO(BaseModel):
+    """Who an approval asks: named people, groups (each member) and the record's roles."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    roles: list[str] = Field(default_factory=list, max_length=20)
+
+
 class TriggerActionIO(BaseModel):
-    """A trigger's action: `set` a field, add a private `note` or `start_workflow`.
+    """A trigger's action: `set` a field, add a private `note`, `start_workflow` or ask.
 
     `set` fills empty or overwrites and `note` is private (REQ-RUL-010); `start_workflow`
     starts a workflow on the record and is a trigger's only (WP-048b).
@@ -702,13 +712,20 @@ class TriggerActionIO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["set", "note", "start_workflow"]
+    kind: Literal["set", "note", "start_workflow", "start_approval"]
     field: str | None = Field(default=None, max_length=80)
     value: Any = None
     mode: ActionMode = ActionMode.FILL_EMPTY
     text: str | None = Field(default=None, max_length=10000, description="The note (note only).")
     workflow_id: uuid.UUID | None = Field(
         default=None, description="The workflow to start (start_workflow only)."
+    )
+    # WP-047a S4 (REQ-SR-044): an ad hoc ask of named approvers (start_approval only).
+    approvers: ApprovalApproversIO | None = Field(
+        default=None, description="Who is asked (start_approval only): people, groups, roles."
+    )
+    rule: Literal["any", "all", "majority"] | None = Field(
+        default=None, description="How they decide (start_approval only); any by default."
     )
 
 
