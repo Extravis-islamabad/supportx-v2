@@ -125,6 +125,12 @@ async def create_delegation(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
     Audited here, refused attempts included (a manager naming themself someone's delegate).
     """
+    # Named before the service runs (lane B's #612 nit, possible since #625): a refused attempt's
+    # entry says whom it named, under `requested` (unverified IDs only), as a done one does.
+    note.details = {
+        "delegator_id": str(body.delegator_id or subject.user_id),
+        "delegate_id": str(body.delegate_id),
+    }
 
     async def run() -> Created:
         row = await service.create(
@@ -138,7 +144,6 @@ async def create_delegation(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             facts=RequestFacts.of(request),
         )
         note.object_id = str(row.id)
-        note.details = {"delegator_id": str(row.delegator_id), "delegate_id": str(row.delegate_id)}
         return Created(body=DelegationOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
