@@ -1,7 +1,7 @@
 import { Alert, App, Checkbox, Flex, InputNumber, Space, Switch, Typography } from 'antd';
 import { useMemo } from 'react';
 
-import { type AiSettings, useAiSettings, useSaveAiSettings } from '@supportx/api-client';
+import { type AiSettings, queryKeys, useAiSettings, useSaveAiSettings } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
 import { useTenantChannel } from '@supportx/realtime';
 import {
@@ -64,10 +64,12 @@ export function AiSettingsPage() {
   const list = useListFormat();
   const settings = useAiSettings(can('ai.manage'));
   const save = useSaveAiSettings();
-  useTenantChannel((m) => {
-    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
-    if (m.type === 'ai.settings_changed' || m.type === 'refresh') void settings.refetch();
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'ai.settings_changed') void settings.refetch();
+    },
+    { covers: [queryKeys.ai.settings] },
+  );
   const saved = settings.data;
   // Template E (D-147): this page has a form field (retention days), so every setting on it,
   // the switches too, goes through the one save bar; nothing applies on its own.

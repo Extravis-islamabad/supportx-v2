@@ -271,7 +271,9 @@ export class RealtimeConnection {
    * screens treat as "refetch what you show" (architecture.md §8.3).
    */
   join(channel: string, listener: MessageListener, presence = false): () => void {
-    const entry = this.channels.get(channel) ?? this.open(channel, presence);
+    const entry =
+      this.channels.get(channel) ??
+      this.open(channel, presence, (opened) => opened.listeners.add(listener));
     entry.listeners.add(listener);
     return () => {
       entry.listeners.delete(listener);
@@ -281,7 +283,9 @@ export class RealtimeConnection {
 
   /** Who else follows `channel` (record channels only). */
   watchPresence(channel: string, listener: PresenceListener): () => void {
-    const entry = this.channels.get(channel) ?? this.open(channel, true);
+    const entry =
+      this.channels.get(channel) ??
+      this.open(channel, true, (opened) => opened.presenceListeners.add(listener));
     entry.presenceListeners.add(listener);
     listener(this.membersOf(entry));
     return () => {
@@ -294,7 +298,15 @@ export class RealtimeConnection {
     return this.channels.get(channel)?.denied ?? false;
   }
 
-  private open(channel: string, presence: boolean): ChannelEntry {
+  /**
+   * `seed` adds the first listener before subscribing: a client may confirm the subscription
+   * synchronously, and its first-subscribe catch-up must not go to an empty channel.
+   */
+  private open(
+    channel: string,
+    presence: boolean,
+    seed: (entry: ChannelEntry) => void,
+  ): ChannelEntry {
     const existing = this.client.getSubscription(channel);
     if (existing !== null) this.client.removeSubscription(existing);
     const subscription = this.client.newSubscription(channel, {
@@ -325,7 +337,7 @@ export class RealtimeConnection {
         this.deliver(entry, { type: 'refresh', ids: [] }); // fetch what was missed meanwhile
       } else if (first && !ctx.recovered) {
         // The first time it's live: what changed after the screen fetched but before now was
-        // published to nobody. Refresh only data older than this moment (catchup.ts). A
+        // published to nobody, so each active query fetches once more (catchup.ts). A
         // subscription that recovered its stream already got every message it missed.
         duringCatchUp(Date.now(), () => {
           this.deliver(entry, { type: 'refresh', ids: [], catchUp: true });
@@ -354,6 +366,7 @@ export class RealtimeConnection {
       this.notifyPresence(entry);
     });
     this.channels.set(channel, entry);
+    seed(entry);
     subscription.subscribe();
     return entry;
   }

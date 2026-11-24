@@ -49,3 +49,21 @@ tester.run('no-literal-text', plugin.rules['no-literal-text'], {
     { code: 'const a = <p>حفظ</p>;', errors: [{ messageId: 'literal' }] },
   ],
 });
+
+tester.run('channel-covers', plugin.rules['channel-covers'], {
+  valid: [
+    "useListChannel('users', onMessage, { covers: [keys.users] });",
+    'useTenantChannel(onMessage, { covers: [] });',
+    "useRecordChannel('wi', id, onMessage, { covers: [keys.detail(id)] });",
+    "useRecordEvents('portal_wi', id, onMessage, options);",
+    "useChannel(name, onMessage, { 'covers': [] });",
+    'somethingElse(onMessage);',
+  ],
+  invalid: [
+    { code: "useListChannel('users', onMessage);", errors: [{ messageId: 'covers' }] },
+    { code: 'usePersonalChannel(onMessage);', errors: [{ messageId: 'covers' }] },
+    { code: "useRecordChannel('wi', id, onMessage);", errors: [{ messageId: 'covers' }] },
+    { code: 'useTenantChannel(onMessage, {});', errors: [{ messageId: 'covers' }] },
+    { code: 'useChannel(name, onMessage, { other: 1 });', errors: [{ messageId: 'covers' }] },
+  ],
+});

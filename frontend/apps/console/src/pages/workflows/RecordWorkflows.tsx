@@ -276,12 +276,16 @@ export function RecordWorkflows({
   const queryClient = useQueryClient();
   const allowed = can('workflows.run') || can('workflows.manage');
   const runs = useRecordWorkflows(recordType, recordId, allowed);
-  useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
-    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
-    if (m.type === 'workflow_instances.changed' || m.type === 'refresh') {
-      refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
-    }
-  });
+  useRecordEvents(
+    'wi',
+    allowed ? recordId : undefined,
+    (m) => {
+      if (m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
+      }
+    },
+    { covers: [['workflows', 'record', recordType, recordId]] },
+  );
   if (!allowed) return null;
   if (runs.isPending) return <Skeleton active />;
   const list = runs.data ?? [];
@@ -366,12 +370,16 @@ export function WorkflowFailureBanner({
   const allowed = can('workflows.run') || can('workflows.manage');
   const runs = useRecordWorkflows(recordType, recordId, allowed);
   const retry = useRetryInstance();
-  useRecordEvents('wi', allowed ? recordId : undefined, (m) => {
-    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
-    if (m.type === 'workflow_instances.changed' || m.type === 'refresh') {
-      refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
-    }
-  });
+  useRecordEvents(
+    'wi',
+    allowed ? recordId : undefined,
+    (m) => {
+      if (m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
+      }
+    },
+    { covers: [['workflows', 'record', recordType, recordId]] },
+  );
   const failed = (runs.data ?? []).find((r) => r.instance.status === 'failed');
   if (!allowed || failed === undefined) return null;
   const i = failed.instance;

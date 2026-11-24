@@ -90,16 +90,16 @@ export function KnowledgeCard({
   const linkIt = useLinkKbArticle();
   const unlink = useUnlinkKbArticle();
   const [saving, setSaving] = useState(false);
-  useRecordChannel(allowed ? 'wi' : 'none', allowed ? recordId : undefined, (message) => {
-    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
-    if (
-      message.type === 'knowledge.link.saved' ||
-      message.type === 'knowledge.link.removed' ||
-      message.type === 'refresh'
-    ) {
-      refreshQueries(queryClient, queryKeys.knowledge.recordArticles(recordType, recordId));
-    }
-  });
+  useRecordChannel(
+    allowed ? 'wi' : 'none',
+    allowed ? recordId : undefined,
+    (message) => {
+      if (message.type === 'knowledge.link.saved' || message.type === 'knowledge.link.removed') {
+        refreshQueries(queryClient, queryKeys.knowledge.recordArticles(recordType, recordId));
+      }
+    },
+    { covers: [queryKeys.knowledge.recordArticles(recordType, recordId)] },
+  );
   if (!allowed) return null;
   const items = found.data?.items ?? [];
   const restricted = found.data?.restricted ?? 0;

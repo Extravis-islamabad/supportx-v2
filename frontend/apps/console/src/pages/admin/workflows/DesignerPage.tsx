@@ -226,15 +226,25 @@ function Designer({ workflow }: { workflow: WorkflowOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see the line above
   }, [configKey, askPorts]);
 
-  useListChannel('workflows', (m) => {
-    const caughtUp = m.type === 'refresh'; // first-subscribe catch-up or lost channel (§8.3)
-    if (!caughtUp && (m.type !== 'workflows.changed' || !m.ids.includes(workflow.id))) return;
-    // A role given or taken keeps the workflow's version: its run-as refreshes on any change.
-    refreshQueries(queryClient, ['workflows', 'run-as', workflow.id]);
-    if (!caughtUp && (m.version ?? 0) <= workflow.version) return; // our own save, already here
-    if (dirty) setStale(true);
-    else refreshQueries(queryClient, ['workflows', 'detail', workflow.id]);
-  });
+  useListChannel(
+    'workflows',
+    (m) => {
+      // A refresh (catch-up or lost channel, §8.3): run-as is covered; the definition isn't, as
+      // a dirty draft is marked stale rather than overwritten.
+      if (m.covered === true) {
+        if (dirty) setStale(true);
+        else refreshQueries(queryClient, ['workflows', 'detail', workflow.id]);
+        return;
+      }
+      if (m.type !== 'workflows.changed' || !m.ids.includes(workflow.id)) return;
+      // A role given or taken keeps the workflow's version: its run-as refreshes on any change.
+      refreshQueries(queryClient, ['workflows', 'run-as', workflow.id]);
+      if ((m.version ?? 0) <= workflow.version) return; // our own save, already here
+      if (dirty) setStale(true);
+      else refreshQueries(queryClient, ['workflows', 'detail', workflow.id]);
+    },
+    { covers: [['workflows', 'run-as', workflow.id]] },
+  );
 
   const problems = useMemo(() => workflow.problems ?? [], [workflow.problems]);
   const nodeProblems = useMemo(() => {

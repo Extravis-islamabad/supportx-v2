@@ -12,6 +12,8 @@ export interface RealtimeMessage {
   refresh?: boolean;
   /** A first-subscribe catch-up `refresh` (catchup.ts): each active query fetches once more. */
   catchUp?: boolean;
+  /** Set by a channel hook that already refreshed its `covers` for this refresh (hooks.ts). */
+  covered?: boolean;
 }
 
 /**

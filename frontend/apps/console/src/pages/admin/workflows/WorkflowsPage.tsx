@@ -185,16 +185,15 @@ export function WorkflowsPage() {
   const importing = useImportWorkflow();
   const fileInput = useRef<HTMLInputElement>(null);
   usePageCrumbs([{ label: t('nav.admin_workflows') }]);
-  useListChannel(allowed ? 'workflows' : null, (m) => {
-    // `refresh` too: the first-subscribe catch-up and a lost channel (architecture.md §8.3).
-    if (
-      m.type === 'workflows.changed' ||
-      m.type === 'workflow_instances.changed' ||
-      m.type === 'refresh'
-    ) {
-      refreshQueries(queryClient, ['workflows', 'list']);
-    }
-  });
+  useListChannel(
+    allowed ? 'workflows' : null,
+    (m) => {
+      if (m.type === 'workflows.changed' || m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'list']);
+      }
+    },
+    { covers: [['workflows', 'list']] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_workflows" />;
   const text = search.trim().toLocaleLowerCase();
   const rows = (list.data ?? []).filter(

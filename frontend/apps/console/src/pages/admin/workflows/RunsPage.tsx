@@ -111,22 +111,25 @@ export function RunsPage() {
     { label: t('nav.admin_workflows'), path: '/admin/workflows' },
     { label: t('workflows.tab.runs') },
   ]);
-  useListChannel(allowed ? 'workflows' : null, (m) => {
-    if (m.type === 'refresh') {
-      // The first-subscribe catch-up or a lost channel (architecture.md §8.3): runs and jobs.
-      refreshQueries(queryClient, ['workflows', 'runs']);
-      refreshQueries(queryClient, ['workflows', 'job']);
-      return;
-    }
-    if (m.type === 'workflow_instances.changed') {
-      refreshQueries(queryClient, ['workflows', 'runs']);
-    }
-    if (m.type === 'workflow_jobs.changed') {
-      for (const id of m.ids) {
-        refreshQueries(queryClient, ['workflows', 'job', id]);
+  useListChannel(
+    allowed ? 'workflows' : null,
+    (m) => {
+      if (m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'runs']);
       }
-    }
-  });
+      if (m.type === 'workflow_jobs.changed') {
+        for (const id of m.ids) {
+          refreshQueries(queryClient, ['workflows', 'job', id]);
+        }
+      }
+    },
+    {
+      covers: [
+        ['workflows', 'runs'],
+        ['workflows', 'job'],
+      ],
+    },
+  );
   if (!allowed) return <NoAccess titleKey="nav.admin_workflows" />;
 
   const rows = runs.data?.items ?? [];
