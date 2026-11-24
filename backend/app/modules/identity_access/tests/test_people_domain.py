@@ -124,3 +124,12 @@ def test_a_zip_bomb_is_refused_before_it_is_opened() -> None:
 
 def test_flags() -> None:
     assert [flag(v) for v in ("Yes", "x", "0", "", "maybe")] == [True, True, False, False, None]
+
+
+def test_a_vendor_support_placement_says_so() -> None:
+    """WP-047a S3b (lane B's #612 review): work_items reads it, never the type code itself."""
+    from app.modules.identity_access.service.people import Placement  # noqa: PLC0415
+
+    assert Placement(None, None, user_type="vendor_support").vendor_support
+    assert not Placement(None, None, user_type="technician").vendor_support
+    assert not Placement(None, None).vendor_support

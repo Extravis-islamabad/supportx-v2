@@ -1851,7 +1851,34 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
   - **Follow-ups:** asking from the portal approvals page and the mobile app goes with S4
     (channels); history field names (`approval_reminder_sent`, `approval_escalated`,
     `approval_clarification`) get labels with the requests History tab.
-- [ ] **S3b, delegation and restart (0197; REQ-SR-035, -041):** next.
+- [~] **S3b, delegation and restart (0197; REQ-SR-035, -041; lane B blocks delegation):**
+  built 2026-11-24, PR after #604 merges.
+  - REQ-SR-035 (Essentials, the coordinator's condition 1): an approver names a delegate for a
+    date range (both dates, at most 90 days, one at a time, never oneself). While it is active,
+    a new request approval for them goes to the delegate (`on_behalf_of_id`), if the delegate
+    is eligible, not the request's own people and not already on the stage. A delegate's own
+    delegation is never followed. The approver can still decide, and the inbox keeps it for
+    both. A delegate's decision reads "A on behalf of B". When it ends early, or its date comes
+    (the reminder sweep), approvals still pending move back with a fresh link. Create, change
+    and end are audited, and both people are told. One's own delegation needs no right;
+    someone else's needs `requests.manage_delegations` (SDM by default, vendor support never).
+    The console has Approvals › Delegations.
+  - REQ-SR-041 (Essentials, condition 3): a question may restart approval, and so may the
+    quantity or the requested-for person (`restart_on`). `PATCH /service-requests/{id}/answers`
+    is staff-only. A marked change while approval is pending or approved, and before fulfilment
+    has started:
+    - ends this round's pending approvals with the reason in history;
+    - tells the round's approvers;
+    - revokes every link of the round;
+    - moves the request back to awaiting approval;
+    - opens round N+1 from stage 1 on the snapshot as raised.
+
+    An unmarked change does nothing, and one after fulfilment started is recorded only.
+    `work_items.approval_round` is the round the stages count.
+  - **Follow-ups:**
+    - requester edits of answers (`requester_edit_fields`) and a console answers editor;
+    - delegation for change and release approvals;
+    - delegation in the portal for requester-only approvers.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

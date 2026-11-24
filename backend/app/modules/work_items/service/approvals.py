@@ -103,7 +103,9 @@ def _may_decide(subject: Subject, wtype: WorkItemType, row: WorkItemApproval) ->
         return subject.holds(APPROVE_ANY) or subject.holds(wtype.permission(APPROVE))
     if row.approver_id is None:
         return subject.holds(APPROVE_ANY)
-    return row.approver_id == subject.user_id and subject.holds(wtype.permission(APPROVE))
+    # WP-047a S3b (REQ-SR-035): the approver a delegation routed it away from may still act.
+    named = subject.user_id in {row.approver_id, row.on_behalf_of_id}
+    return named and subject.holds(wtype.permission(APPROVE))
 
 
 def _involved(subject: Subject, record: WorkItem) -> bool:
@@ -224,7 +226,11 @@ async def mine(
     session: AsyncSession, subject: Subject, wtype: WorkItemType
 ) -> list[PendingApproval]:
     """The approvals waiting for the subject, oldest first (the console drawer, REQ-SR-025)."""
-    holders = [WorkItemApproval.approver_id == subject.user_id]
+    holders = [
+        WorkItemApproval.approver_id == subject.user_id,
+        # WP-047a S3b (REQ-SR-035): what a delegation routed to someone else stays in yours.
+        WorkItemApproval.on_behalf_of_id == subject.user_id,
+    ]
     if subject.holds(APPROVE_ANY):
         holders.append(WorkItemApproval.approver_id.is_(None))
     rows = await session.execute(

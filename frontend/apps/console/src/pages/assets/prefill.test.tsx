@@ -45,6 +45,7 @@ const laptop: CatalogItem = {
   questions: [
     {
       key: 'model',
+      restarts_approval: false,
       label: { en: 'Model' },
       kind: 'choice',
       required: true,

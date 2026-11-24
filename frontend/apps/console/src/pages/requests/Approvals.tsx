@@ -107,6 +107,8 @@ export function ApprovalsPanel({
   };
   const [asking, setAsking] = useState<Approval>();
   const byId = new Map(items.map((a) => [a.id, a]));
+  // WP-047a S3b (REQ-SR-041): after a restart, the rows of earlier rounds are kept, marked.
+  const latestRound = Math.max(1, ...items.map((a) => a.round));
   const staged = new Set(items.map((a) => a.stage)).size > 1;
   if (approvals.isLoading) return null;
   return (
@@ -182,6 +184,16 @@ export function ApprovalsPanel({
                 {a.branch != null && (
                   <ToneTag tone="info">{t('requests.runs_in_parallel')}</ToneTag>
                 )}
+                {a.on_behalf_of_id != null && a.state === 'pending' && (
+                  <Typography.Text type="secondary" data-testid="approval-on-behalf">
+                    {t('requests.delegated_for', { name: name(a.on_behalf_of_id) })}
+                  </Typography.Text>
+                )}
+                {a.round < latestRound && (
+                  <ToneTag tone="info" testId="approval-earlier-round">
+                    {t('requests.earlier_round', { n: a.round })}
+                  </ToneTag>
+                )}
                 <ToneTag tone={TONE[a.state]} testId="approval-state">
                   {t(`approval_state.${a.state}`)}
                 </ToneTag>
@@ -253,7 +265,14 @@ export function ApprovalsPanel({
               {a.decided_at != null && a.auto_reason == null && (
                 <Typography.Text type="secondary">
                   {t('requests.decided_by', {
-                    name: name(a.decided_by),
+                    // REQ-SR-035 AC2: "A on behalf of B" when a delegate decided it.
+                    name:
+                      a.on_behalf_of_id != null && a.decided_by !== a.on_behalf_of_id
+                        ? t('requests.on_behalf_of', {
+                            name: name(a.decided_by),
+                            principal: name(a.on_behalf_of_id),
+                          })
+                        : name(a.decided_by),
                     when: format(a.decided_at),
                     channel: a.channel == null ? '' : t(`approval_channel.${a.channel}`),
                   })}

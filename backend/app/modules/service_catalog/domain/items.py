@@ -133,6 +133,9 @@ class Question:
     help: Mapping[str, str] = field(default_factory=dict)
     default: Any = None
     shown_to: frozenset[QuestionAudience] = frozenset(QuestionAudience)
+    # WP-047a S3b (REQ-SR-041, Essentials): a change to this answer after submitting restarts the
+    # request's approval from its first stage.
+    restarts_approval: bool = False
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -146,6 +149,7 @@ class Question:
             "help": dict(self.help),
             "default": self.default,
             "shown_to": sorted(a.value for a in self.shown_to),
+            **({"restarts_approval": True} if self.restarts_approval else {}),
         }
 
 
@@ -195,6 +199,13 @@ class EscalationTarget(StrEnum):
     NONE = "none"  # reminders only
 
 
+class RestartOn(StrEnum):
+    """A request value whose change restarts approval (REQ-SR-041), beside marked questions."""
+
+    QUANTITY = "quantity"
+    REQUESTED_FOR = "requested_for"
+
+
 @dataclass(frozen=True)
 class AutoRule:
     """A rule that approves a stage automatically (WP-047a S2b; REQ-SR-033).
@@ -232,6 +243,8 @@ class ItemRules:
     extra: Mapping[str, Any] = field(default_factory=dict)
     # WP-047a S2a: every stage in order (`approval` is the first); empty: no approval.
     stages: Sequence[ApprovalStage] = ()
+    # WP-047a S3b (REQ-SR-041): the request's own values whose change restarts approval.
+    restart_on: frozenset["RestartOn"] = frozenset()
 
 
 def name_problems(at: str, names: Mapping[str, str] | None, *, required: bool) -> list[Problem]:

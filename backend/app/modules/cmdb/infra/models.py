@@ -394,6 +394,68 @@ class ServiceSubscriber(TenantEntity):
     ref_id: Mapped[uuid.UUID]
 
 
+# --- CI downtimes (WP-053 S5b, REQ-CMDB-020; migration 0198) -------------------------------------
+
+DOWNTIME_SOURCES = ("change", "release", "incident", "manual")
+DOWNTIME_STATES = ("scheduled", "active", "completed")
+DOWNTIME_PHASES = ("planned", "actual")
+
+
+class CiDowntime(TenantEntity):
+    """One downtime of one CI: from work_items (a change's, a release's, an incident's) or by hand.
+
+    A synced row is keyed by (source downtime, CI) and kept in step by `work_items.downtime.
+    changed`, never edited here; `source_version` drops a replayed or out-of-order event. Only a
+    `manual` row carries a description (a synced one shows its source record instead). `state`
+    is moved by the one-minute sweep as time passes (REQ-CMDB-020 AC1).
+    """
+
+    __tablename__ = "cmdb_ci_downtimes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_downtimes_ci",
+        ),
+        CheckConstraint(
+            "source IN ('change', 'release', 'incident', 'manual')", name="source_code"
+        ),
+        CheckConstraint("state IN ('scheduled', 'active', 'completed')", name="state_code"),
+        CheckConstraint("phase IN ('planned', 'actual')", name="phase_code"),
+        CheckConstraint("ends_at IS NULL OR ends_at > starts_at", name="ends_after_start"),
+        # A synced row names its source; a hand-recorded one never does.
+        CheckConstraint("(source = 'manual') = (source_downtime_id IS NULL)", name="source_ref"),
+        Index(
+            "uq_cmdb_ci_downtimes_source",
+            "tenant_id",
+            "source_downtime_id",
+            "ci_id",
+            unique=True,
+            postgresql_where="deleted_at IS NULL AND source_downtime_id IS NOT NULL",
+        ),
+        Index("ix_cmdb_ci_downtimes_tenant_ci", "tenant_id", "ci_id", "starts_at"),
+        Index(
+            "ix_cmdb_ci_downtimes_tenant_sweep",
+            "tenant_id",
+            "state",
+            "starts_at",
+            postgresql_where="deleted_at IS NULL AND state <> 'completed'",
+        ),
+    )
+
+    ci_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20))
+    source_work_item_id: Mapped[uuid.UUID | None]
+    source_downtime_id: Mapped[uuid.UUID | None]
+    source_version: Mapped[int | None]
+    phase: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str | None] = mapped_column(String(40))
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime | None]
+    description: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), server_default="scheduled")
+
+
 # --- sync rules and their runs (WP-053 S4a, migration 0191) ---------------------------------------
 
 SYNC_SOURCES = ("assets",)

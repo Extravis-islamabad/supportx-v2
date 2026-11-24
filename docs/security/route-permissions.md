@@ -56,6 +56,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/api-keys/rules` | signed_in | - |
 | GET | `/api/v1/api-keys/scopes` | signed_in | - |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
+| GET | `/api/v1/approval-delegations` | signed_in | - |
+| POST | `/api/v1/approval-delegations` | signed_in | - |
+| PATCH | `/api/v1/approval-delegations/{delegation_id}` | signed_in | - |
+| POST | `/api/v1/approval-delegations/{delegation_id}/end` | signed_in | - |
 | GET | `/api/v1/approvals/settings` | signed_in | - |
 | PATCH | `/api/v1/approvals/settings` | signed_in | - |
 | GET | `/api/v1/assets` | `assets.view` | assets.view: all/site/group/own |
@@ -491,6 +495,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
+| GET | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.view` | cmdb.view: all/site/group/own |
+| POST | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
@@ -1391,6 +1399,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/{record_id}` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}` | `requests.edit` | requests.edit: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/actions/{action}` | `requests.view` | requests.view: all/site/group/own |
+| PATCH | `/api/v1/service-requests/{record_id}/answers` | `requests.edit` | requests.edit: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/approvals` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/approvals` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
@@ -1520,6 +1529,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | asset_manager | `cmdb.delete` | all | all |
 | asset_manager | `cmdb.edit` | all | all |
 | asset_manager | `cmdb.manage` | all | all |
+| asset_manager | `cmdb.record_downtime` | all | all |
 | asset_manager | `cmdb.view` | all | all |
 | asset_manager | `groups.view` | all | all |
 | asset_manager | `profile.edit` | own | own |
@@ -1654,6 +1664,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `changes.take` | all | all |
 | service_desk_manager | `changes.view` | all | all |
 | service_desk_manager | `changes.view_costs` | all | all |
+| service_desk_manager | `cmdb.record_downtime` | all | all |
 | service_desk_manager | `config.announcements` | all | all |
 | service_desk_manager | `config.service_desk` | all | all |
 | service_desk_manager | `dashboards.create` | own | own |
@@ -1740,6 +1751,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `requests.delete` | all | all |
 | service_desk_manager | `requests.edit` | all | all |
 | service_desk_manager | `requests.edit_due_dates` | all | all |
+| service_desk_manager | `requests.manage_delegations` | all | all |
 | service_desk_manager | `requests.manage_followers` | all | all |
 | service_desk_manager | `requests.modify_approvers` | all | all |
 | service_desk_manager | `requests.reopen` | all | all |
@@ -2048,6 +2060,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `cmdb.delete` | all | all |
 | tenant_admin | `cmdb.edit` | all | all |
 | tenant_admin | `cmdb.manage` | all | all |
+| tenant_admin | `cmdb.record_downtime` | all | all |
 | tenant_admin | `cmdb.view` | all | all |
 | tenant_admin | `config.announcements` | all | all |
 | tenant_admin | `config.assets` | all | all |
@@ -2165,6 +2178,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `requests.delete` | all | all |
 | tenant_admin | `requests.edit` | all | all |
 | tenant_admin | `requests.edit_due_dates` | all | all |
+| tenant_admin | `requests.manage_delegations` | all | all |
 | tenant_admin | `requests.manage_followers` | all | all |
 | tenant_admin | `requests.modify_approvers` | all | all |
 | tenant_admin | `requests.reopen` | all | all |

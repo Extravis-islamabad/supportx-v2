@@ -643,3 +643,63 @@ export function useStopNotifyLink() {
       call(api.POST('/api/v1/public/notify-links/stop', { body: { token, tenant } })),
   });
 }
+
+// WP-047a S3b (REQ-SR-035): approval delegations.
+export type Delegation = components['schemas']['DelegationOut'];
+export type DelegationInput = components['schemas']['DelegationIn'];
+export type DelegationPatch = components['schemas']['DelegationPatch'];
+
+export const delegationKeys = {
+  all: ['approval-delegations'] as const,
+  list: (delegatorId: string | undefined) =>
+    ['approval-delegations', 'list', delegatorId ?? 'mine'] as const,
+};
+
+/** Your delegations (as delegator or delegate), or one person's with the right. */
+export function useDelegations(delegatorId?: string) {
+  return useQuery({
+    queryKey: delegationKeys.list(delegatorId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/approval-delegations', {
+          params: { query: delegatorId ? { delegator_id: delegatorId } : {} },
+        }),
+      ),
+  });
+}
+
+/** Set a delegation; one Idempotency-Key per form. */
+export function useCreateDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: DelegationInput; key: string }) =>
+      call(
+        api.POST('/api/v1/approval-delegations', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
+  });
+}
+
+/** End a delegation now (If-Match): what is still pending moves back. */
+export function useEndDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/approval-delegations/{delegation_id}/end', {
+          params: {
+            path: { delegation_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
+  });
+}

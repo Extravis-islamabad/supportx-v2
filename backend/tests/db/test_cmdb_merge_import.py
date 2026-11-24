@@ -227,19 +227,26 @@ async def test_a_merge_calls_the_links_port_with_both_ids_only(world: World) -> 
 
     keep = await _made(world, a, "Port keep")
     dupe = await _made(world, a, "Port dupe")
+    # Work items registers the real port at import; put it back after, or every later test in
+    # this process sees none (lane A's test_work_item_cis_api, #612's shard 8).
+    real = links.ci_links_port()
     links.register_ci_links(port)
     try:
         done = await _merge(world, a, keep, dupe)
-    finally:
         links.clear_ci_links()
-    assert done.status_code == 201, done.text
-    # The person's own source (the console here), passed on by keyword.
-    assert calls == [(uuid.UUID(dupe["id"]), uuid.UUID(keep["id"]), "ui")]
-    assert done.json()["moved"]["work_items"] == 3
-    # Without a port (before S5) nothing moves and the merge still succeeds.
-    third = await _made(world, a, "Port third")
-    keep = await _fresh(world, a, keep)
-    assert (await _merge(world, a, keep, third)).json()["moved"]["work_items"] == 0
+        assert done.status_code == 201, done.text
+        # The person's own source (the console here), passed on by keyword.
+        assert calls == [(uuid.UUID(dupe["id"]), uuid.UUID(keep["id"]), "ui")]
+        assert done.json()["moved"]["work_items"] == 3
+        # Without a port (before S5) nothing moves and the merge still succeeds.
+        third = await _made(world, a, "Port third")
+        keep = await _fresh(world, a, keep)
+        assert (await _merge(world, a, keep, third)).json()["moved"]["work_items"] == 0
+    finally:
+        if real is None:
+            links.clear_ci_links()
+        else:
+            links.register_ci_links(real)
 
 
 async def test_a_merge_needs_manage_on_both_cis(world: World) -> None:

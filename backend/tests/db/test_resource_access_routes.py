@@ -45,6 +45,7 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/as-of": CIS,
     "/cmdb/cis/{ci_id}/change-type-preview": CIS,
     "/cmdb/cis/{ci_id}/compare": CIS,
+    "/cmdb/cis/{ci_id}/downtimes": CIS,  # S5b: the CI is read through cis._visible first
     "/cmdb/cis/{ci_id}/history": CIS,
     "/cmdb/cis/{ci_id}/impact": CIS,  # S3b: redacts through the same filter
     "/cmdb/cis/{ci_id}/neighbours": CIS,
@@ -271,6 +272,8 @@ def _record_bodies(state_id: str, type_id: str, rel_type_id: str, other: str) ->
         "POST /assets/{asset_id}/move": {"to_state_id": state_id},
         "POST /assets/{asset_id}/notes": {"body": "Probe"},
         "POST /cmdb/cis/{ci_id}/change-type": {"type_id": type_id},
+        "POST /cmdb/cis/{ci_id}/downtimes": {"starts_at": f"{today}T09:00:00Z"},  # S5b
+        "PATCH /cmdb/cis/{ci_id}/downtimes/{downtime_id}": {"description": "Probe"},
         "POST /cmdb/cis/{ci_id}/relationships": {
             "type_id": rel_type_id, "direction": "forward", "targets": [other],
         },
@@ -426,6 +429,7 @@ async def test_every_cmdb_and_asset_record_write_refuses_an_unseen_record(world:
             ("cmdb.manage", "all"),
             ("cmdb.delete", "all"),
             ("cmdb.add", "all"),
+            ("cmdb.record_downtime", "all"),  # S5b: so its writes are walked, not just 403
             ("assets.view", "all"),
             ("assets.manage", "all"),
             ("assets.edit_disposed", "all"),
@@ -469,6 +473,7 @@ async def test_every_cmdb_and_asset_record_write_refuses_an_unseen_record(world:
         "{cost_id}": str(uuid.uuid4()),
         "{link_id}": str(uuid.uuid4()),
         "{group_id}": str(uuid.uuid4()),
+        "{downtime_id}": str(uuid.uuid4()),
     }
     states = (await world.call("GET", "/assets/states", a, a.admin)).json()
     state_id = (states["items"] if isinstance(states, dict) else states)[0]["id"]
