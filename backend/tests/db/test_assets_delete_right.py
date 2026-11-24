@@ -63,3 +63,75 @@ async def test_delete_alone_trashes_an_asset(world: World) -> None:
     )
     gone = await _delete(world, a, a.requester2, asset)
     assert gone.status_code == 204, gone.text
+
+
+# --- lane C's #623 review: no other path trashes an asset without assets.delete -------------
+
+
+async def test_a_merge_needs_delete_on_the_asset_it_trashes(world: World) -> None:
+    a = world.a
+    keep, dupe = await _laptop(world, a), await _laptop(world, a)
+    await _given(world, a, a.tech_c, "Merger", [("assets.view", "all"), ("assets.manage", "all")])
+    preview = await world.call(
+        "GET",
+        "/assets/merge-preview",
+        a,
+        a.tech_c,
+        params={"first": keep["id"], "second": dupe["id"]},
+    )
+    assert preview.status_code == 403, preview.text
+    merge = await world.call(
+        "POST",
+        "/assets/merges",
+        a,
+        a.tech_c,
+        json={
+            "survivor_id": keep["id"],
+            "survivor_version": keep["version"],
+            "merged_id": dupe["id"],
+            "merged_version": dupe["version"],
+            "choices": {},
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert merge.status_code == 403, merge.text
+    assert merge.json()["params"]["permission"] == "assets.delete"
+
+
+async def test_an_overdue_rule_that_trashes_needs_delete(world: World) -> None:
+    a = world.a
+    await _laptop(world, a)  # the enterprise plan
+    await _given(world, a, a.tech_b, "Asset configurer", [("config.assets", "all")])
+    preview = await world.call(
+        "POST", "/assets/overdue-rule/preview", a, a.tech_b, json={"action": "trash"}
+    )
+    assert preview.status_code == 403, preview.text
+    rule = (await world.call("GET", "/assets/overdue-rule", a, a.admin)).json()
+    saved = await world.call(
+        "PATCH",
+        "/assets/overdue-rule",
+        a,
+        a.tech_b,
+        json={"action": "trash"},
+        headers={"If-Match": f'"{rule["version"]}"'},
+    )
+    assert saved.status_code == 403, saved.text
+    assert saved.json()["params"]["permission"] == "assets.delete"
+
+
+async def test_a_bulk_delete_is_refused_at_start_without_delete(world: World) -> None:
+    a = world.a
+    asset = await _laptop(world, a)
+    await _given(
+        world, a, a.lead, "Bulk keeper", [("assets.view", "all"), ("assets.manage", "all")]
+    )
+    started = await world.call(
+        "POST",
+        "/assets/bulk-jobs",
+        a,
+        a.lead,
+        json={"action": "delete", "asset_ids": [asset["id"]]},
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert started.status_code == 403, started.text
+    assert started.json()["params"]["permission"] == "assets.delete"

@@ -65,6 +65,7 @@ from app.modules.assets.infra.models import (
     AssetState,
 )
 from app.modules.assets.service.assets import (
+    DELETE,
     RECORD_TYPE,
     VIEW,
     _refuse,
@@ -395,12 +396,23 @@ async def _terms(
     )
 
 
+def _may_set_trash(subject: Subject, action: OverdueAction) -> None:
+    """A rule that trashes needs assets.delete to set or preview (D-185, lane C's #623 review).
+
+    The system then trashes assets, so config.assets alone (which vendor support may hold) is not
+    enough. Any change to a rule that trashes counts, whatever field it touches.
+    """
+    if action is OverdueAction.TRASH:
+        _require(subject, DELETE)
+
+
 async def preview(session: AsyncSession, subject: Subject, values: Mapping[str, Any]) -> int:
     """How many of the tenant's assets the rule, as sent, would act on now (AC2)."""
     require_configure(subject)
     # Read-only (it is not audited, tests/test_audit_routes.py): the stored rule or its defaults,
     # never created here.
     terms = await _terms(session, values, await _stored_rule(session))
+    _may_set_trash(subject, terms.action)
     found = await session.scalar(
         select(func.count()).select_from(
             (await _overdue(session, terms, system_clock.now())).subquery()
@@ -432,6 +444,7 @@ async def save_rule(
     assert row is not None  # noqa: S101 - get_rule made it
     await _fresh(session, row, expected_version, RULE_RECORD_TYPE)
     terms = await _terms(session, values, row)
+    _may_set_trash(subject, terms.action)
     wanted = {
         "enabled": terms.enabled,
         "days": terms.days,
