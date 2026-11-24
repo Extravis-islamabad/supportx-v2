@@ -1091,6 +1091,9 @@
   "requests.edit_due_dates": [
    "all"
   ],
+  "requests.manage_delegations": [
+   "all"
+  ],
   "requests.manage_followers": [
    "all"
   ],
@@ -1472,6 +1475,9 @@
    "all"
   ],
   "requests.edit_due_dates": [
+   "all"
+  ],
+  "requests.manage_delegations": [
    "all"
   ],
   "requests.manage_followers": [

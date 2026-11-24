@@ -110,6 +110,7 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         **_never("tenant_decision", "requests.modify_approvers"),
         # D-185 (product owner, 2026-11-24): deleting an asset is the tenant's own decision.
         **_never("tenant_decision", "assets.delete"),
+        **_never("tenant_decision", "requests.manage_delegations"),  # WP-047a S3b (lane B)
         **_record_type("problems", ("edit_analysis", "edit_solution", "mark_known_error")),
         "problems.view_root_cause": _V,
         **_record_type("changes", ("manage_windows",)),

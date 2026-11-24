@@ -41,6 +41,7 @@ export const en = {
   'notice.sign_in_secret.item_client_secret': 'client secret',
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
+  'notification_area.approval_delegation': 'Approval delegations',
   'notification_area.asset': 'Assets',
   'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
@@ -79,6 +80,9 @@ export const en = {
   'notification_condition_operator.not_in': 'is not one of',
   'notification_event.announcement.ended': 'An announcement you follow ended',
   'notification_event.announcement.updated': 'An announcement you follow was updated',
+  'notification_event.approval_delegation.changed': 'An approval delegation was changed',
+  'notification_event.approval_delegation.ended': 'An approval delegation ended',
+  'notification_event.approval_delegation.set': 'An approval delegation was set',
   'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
   'notification_event.asset.erased_holder_items': 'A person being erased still holds assets',
@@ -170,6 +174,7 @@ export const en = {
   'notification_event.service_account.needs_owner': 'A service account needs a new owner',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
+  'notification_event.service_request.approval_restarted': "A request's approval started again",
   'notification_event.service_request.approved': 'Request approved',
   'notification_event.service_request.clarification_answered':
     'Your question on a request was answered',
@@ -219,6 +224,8 @@ export const en = {
   'notification_recipient.ci_owner': 'Configuration item owner',
   'notification_recipient.connector_admins': 'People who set up this connector',
   'notification_recipient.custom_field_admins': 'Those who manage custom fields',
+  'notification_recipient.delegate': 'The delegate',
+  'notification_recipient.delegator': 'The approver who delegated',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
@@ -281,6 +288,22 @@ export const en = {
     'Hello {{ recipient.name }},\n\nThe announcement "{{ record.title }}" that you follow has been updated.',
   'notification_template.announcement.updated.in_app': 'Updated: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'Updated: {{ record.title }}',
+  'notification_template.approval_delegation.changed.body':
+    "Hello {{ recipient.name }},\n\nThe delegation of {{ delegation.delegator }}'s approvals now runs from {{ delegation.starts_at }} to {{ delegation.ends_at }}, to {{ delegation.delegate }}.",
+  'notification_template.approval_delegation.changed.in_app':
+    "Delegation of {{ delegation.delegator }}'s approvals changed",
+  'notification_template.approval_delegation.changed.subject': 'Approval delegation changed',
+  'notification_template.approval_delegation.ended.body':
+    "Hello {{ recipient.name }},\n\nThe delegation of {{ delegation.delegator }}'s approvals to {{ delegation.delegate }} has ended. Approvals still waiting are back with {{ delegation.delegator }}.",
+  'notification_template.approval_delegation.ended.in_app':
+    "Delegation of {{ delegation.delegator }}'s approvals ended",
+  'notification_template.approval_delegation.ended.subject': 'Approval delegation ended',
+  'notification_template.approval_delegation.set.body':
+    'Hello {{ recipient.name }},\n\nFrom {{ delegation.starts_at }} to {{ delegation.ends_at }}, new request approvals for {{ delegation.delegator }} go to {{ delegation.delegate }}. {{ delegation.delegator }} can still decide them.',
+  'notification_template.approval_delegation.set.in_app':
+    'Approvals of {{ delegation.delegator }} go to {{ delegation.delegate }} until {{ delegation.ends_at }}',
+  'notification_template.approval_delegation.set.subject':
+    'Approvals delegated to {{ delegation.delegate }}',
   'notification_template.asset.ack_disputed.body':
     'Hello {{ recipient.name }},\n\n{{ holder.name }} disputed {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
   'notification_template.asset.ack_disputed.in_app':
@@ -800,6 +823,12 @@ export const en = {
     '{{ record.display_id }} waits for your approval: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_restarted.body':
+    'Hello {{ recipient.name }},\n\nAn answer on {{ record.display_id }} "{{ record.title }}" changed, so its approval started again. Your earlier approval and its link no longer count; you\'ll be asked again if you\'re an approver.',
+  'notification_template.service_request.approval_restarted.in_app':
+    'Approval of {{ record.display_id }} started again after a change',
+  'notification_template.service_request.approval_restarted.subject':
+    'Approval started again: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approved.body':
     'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was approved. We are working on it now.',
   'notification_template.service_request.approved.in_app':
@@ -929,6 +958,10 @@ export const en = {
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.custom_field.direction': 'Custom field › What was running',
   'notification_variable.custom_field.name': 'Custom field › Name',
+  'notification_variable.delegation.delegate': 'Delegate',
+  'notification_variable.delegation.delegator': 'Delegating approver',
+  'notification_variable.delegation.ends_at': 'Delegation end',
+  'notification_variable.delegation.starts_at': 'Delegation start',
   'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.holdings.assets': 'Holdings › Assets',
   'notification_variable.holdings.count': 'Holdings › Count',

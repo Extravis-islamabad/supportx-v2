@@ -15,7 +15,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0198"  # 0202's down revision (re-pointed with it at its queue turn)
+BEFORE = "0197"  # 0202's down revision
 
 
 async def _tenant_with_roles(url: str) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:

@@ -36,7 +36,7 @@ from app.modules.work_items.domain.approval_reminders import family_states
 from app.modules.work_items.domain.request_stages import Candidate, Opened, StagePlan
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
-from app.modules.work_items.service import asset_links
+from app.modules.work_items.service import approval_rows, asset_links
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
 from app.modules.work_items.service.followers import RECORD_TYPE
@@ -165,7 +165,12 @@ async def _automatic(  # noqa: PLR0913 - the stage, its row and why, explicit
 
 
 async def _rows(session: AsyncSession, record: WorkItem) -> list[WorkItemApproval]:
-    return list(
+    """The request's approval rows of its current round (WP-047a S3b, REQ-SR-041).
+
+    A restart opens the next round: earlier rounds stay in history and on the Approvals tab,
+    never in what the stages' rules count or open.
+    """
+    found = list(
         await session.scalars(
             select(WorkItemApproval)
             .where(
@@ -177,6 +182,7 @@ async def _rows(session: AsyncSession, record: WorkItem) -> list[WorkItemApprova
             .order_by(WorkItemApproval.stage, WorkItemApproval.created_at)
         )
     )
+    return [r for r in found if r.round == record.approval_round]
 
 
 def _outcomes(
@@ -351,6 +357,7 @@ async def _open_one(
         )
         opened = progression.open_with_earlier(assignments, rules.LevelRule(stage.rule), earlier)
         rows = [_decided_automatically(base, o) for o in opened]
+    await approval_rows.prepare(session, record, rows)  # WP-047a S3b: round, delegation
     session.add_all(rows)
     await session.flush()
     for row in rows:

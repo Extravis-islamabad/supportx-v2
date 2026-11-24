@@ -43,6 +43,7 @@ export const en = {
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_delegation_not_found': 'This delegation no longer exists.',
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_not_running':
     '{{display_id}} has no approval waiting, so its approvers can no longer be changed.',
@@ -487,6 +488,13 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
+  'errors.field.delegate_is_delegator': "You can't delegate approvals to yourself.",
+  'errors.field.delegate_not_eligible':
+    "This person can't take approvals: they must be active and able to sign in.",
+  'errors.field.delegation_ended': "This delegation has ended and can't be changed.",
+  'errors.field.delegation_overlaps': 'Another delegation already covers these dates.',
+  'errors.field.delegation_reason_too_long': 'The reason can be at most 500 characters.',
+  'errors.field.delegation_too_long': 'A delegation can last at most 90 days.',
   'errors.field.department_not_found': 'Choose an active department.',
   'errors.field.dependency_loop': 'A task cannot wait for itself, directly or through other tasks.',
   'errors.field.desk_not_found': 'Choose an active desk.',
