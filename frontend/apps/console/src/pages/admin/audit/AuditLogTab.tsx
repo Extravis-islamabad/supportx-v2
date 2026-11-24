@@ -143,13 +143,19 @@ export function AuditLogTab() {
     const index = items.findIndex((item) => item.id === top);
     return index === -1 ? items.length : index;
   }, [head.data, top]);
-  useListChannel('audit', () => {
-    void head.refetch().then((result) => {
-      const index = (result.data?.items ?? []).findIndex((item) => item.id === top);
-      // Only sealing or status moved: refresh in place (the rows keep their order).
-      if (index === 0) void entries.refetch();
-    });
-  });
+  useListChannel(
+    'audit',
+    () => {
+      void head.refetch().then((result) => {
+        const index = (result.data?.items ?? []).findIndex((item) => item.id === top);
+        // Only sealing or status moved: refresh in place (the rows keep their order).
+        if (index === 0) void entries.refetch();
+      });
+    },
+    // Nothing for the hook to refetch: this handler runs on every message, a refresh included,
+    // and decides itself (a new top entry keeps the reader's place instead of moving the rows).
+    { covers: [] },
+  );
 
   const setFilter = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params);

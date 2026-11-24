@@ -28,6 +28,7 @@ import {
   useCreateApiKey,
   useRevokeApiKey,
   useSession,
+  queryKeys,
 } from '@supportx/api-client';
 import { useListChannel, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
@@ -427,14 +428,23 @@ export function ApiKeysPanel({ mode }: { mode: Mode }) {
   const refetch = () => void keys.refetch();
   useListChannel(
     mode === 'admin' && rules.data?.manages_keys === true ? 'api_keys' : null,
-    refetch,
+    (m) => {
+      if (m.covered !== true) refetch(); // a refresh: `covers` refetched the keys
+    },
+    { covers: [queryKeys.apiKeys.list] },
   );
-  usePersonalChannel((m) => {
-    if (m.type === 'api_keys.changed') refetch();
-  });
-  useTenantChannel((m) => {
-    if (m.type === 'api_keys.rules_changed') void rules.refetch();
-  });
+  usePersonalChannel(
+    (m) => {
+      if (m.type === 'api_keys.changed') refetch();
+    },
+    { covers: [queryKeys.apiKeys.list] },
+  );
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'api_keys.rules_changed') void rules.refetch();
+    },
+    { covers: [queryKeys.apiKeys.rules] },
+  );
 
   if (rules.data === undefined) return null;
   if (mode === 'mine' && !rules.data.may_create && (keys.data ?? []).length === 0) return null;

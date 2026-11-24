@@ -124,13 +124,17 @@ export function useMapGraph(
       ),
     [graph.nodes],
   );
-  useListChannel(enabled ? 'cmdb' : null, (message) => {
-    const touches = message.refresh === true || message.ids.some((id) => ids.has(id));
-    if (!touches) return;
-    for (const id of sources) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.neighboursOf(id) });
-    }
-  });
+  useListChannel(
+    enabled ? 'cmdb' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched every source
+      if (!message.ids.some((id) => ids.has(id))) return;
+      for (const id of sources) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.neighboursOf(id) });
+      }
+    },
+    { covers: sources.map((id) => queryKeys.cmdb.neighboursOf(id)) },
+  );
   return { ...graph, loading: answers.pending && enabled, error: answers.error };
 }
 
