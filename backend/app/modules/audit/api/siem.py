@@ -210,8 +210,9 @@ async def list_destinations(session: TenantSession, subject: Manage) -> list[Sie
     status_code=status.HTTP_201_CREATED,
     response_model=SiemDestinationMadeOut,
     # Professional (REQ-AUD-011): adding and changing need the feature; a lapse keeps the list
-    # and stops sending (siem.py), so only these two routes are gated.
-    dependencies=[RecentAuth, requires_feature(Feature.SIEM_STREAM)],
+    # and stops sending (siem.py), so only these two routes are gated. Before RecentAuth: a plan
+    # without it is refused without asking the admin to confirm their identity first.
+    dependencies=[requires_feature(Feature.SIEM_STREAM), RecentAuth],
 )
 async def add_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: SiemDestinationIn,
@@ -250,7 +251,7 @@ _SKIP = frozenset({"content-length", "content-type"})
 @router.patch(
     "/destinations/{destination_id}",
     summary="Change a destination",
-    dependencies=[RecentAuth, requires_feature(Feature.SIEM_STREAM)],
+    dependencies=[requires_feature(Feature.SIEM_STREAM), RecentAuth],
 )
 async def change_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     destination_id: uuid.UUID,
