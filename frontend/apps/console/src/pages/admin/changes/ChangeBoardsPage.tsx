@@ -15,6 +15,7 @@ import {
 import { useMemo, useState } from 'react';
 
 import {
+  changeBoardKeys,
   useChangeBoards,
   useChangeTemplates,
   useCreateChangeBoard,
@@ -411,7 +412,7 @@ export function ChangeBoardsPage() {
     (m) => {
       if (m.type === 'work_items.change_boards_changed') void boards.refetch();
     },
-    { covers: [['change-boards']] }, // useChangeBoards' key (not exported)
+    { covers: [changeBoardKeys.all] },
   );
   const rows = [...(boards.data ?? [])].sort((a, b) => a.position - b.position);
   const move = (board: ChangeBoard, by: -1 | 1) => {

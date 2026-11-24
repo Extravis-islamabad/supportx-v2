@@ -125,10 +125,13 @@ export function useMyTasks(enabled = true) {
   });
 }
 
+/** My Tasks' query key (exported so its screen names it in `covers`, §8.3). */
+export const myTasksKey = ['my-tasks'] as const;
+
 /** Your open tasks on every type, due first, overdue marked (REQ-INC-076). */
 export function useAllMyTasks(enabled = true) {
   return useQuery({
-    queryKey: ['my-tasks'] as const,
+    queryKey: myTasksKey,
     queryFn: () => call(api.GET('/api/v1/my-tasks')),
     enabled,
   });

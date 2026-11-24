@@ -187,6 +187,10 @@ export function useMyApprovals() {
   });
 }
 
+/** One type's approvals waiting for you (exported so screens name it in `covers`, §8.3). */
+export const typeApprovalsKey = (type: 'problems' | 'releases' | 'changes') =>
+  [type, 'my-approvals'] as const;
+
 /**
  * Problem and release approvals waiting for you (QA10-P1-08): the header drawer lists them with
  * the service requests'. Optional: a plan without the type answers with an error, and the drawer
@@ -194,7 +198,7 @@ export function useMyApprovals() {
  */
 export function useMyTypeApprovals(type: 'problems' | 'releases' | 'changes') {
   return useQuery({
-    queryKey: [type, 'my-approvals'] as const,
+    queryKey: typeApprovalsKey(type),
     meta: { silent: true },
     retry: false,
     queryFn: () =>
@@ -270,7 +274,7 @@ export function useDecideApproval() {
     },
     onSettled: (_data, _error, { recordId, type }) => {
       if (type === 'changes') {
-        void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+        void queryClient.invalidateQueries({ queryKey: typeApprovalsKey('changes') });
         return;
       }
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });

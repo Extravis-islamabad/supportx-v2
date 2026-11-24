@@ -229,6 +229,8 @@ export function ConflictsPanel({ id }: { id: string }) {
   const conflicts = useChangeConflicts(id);
   useTenantChannel(
     (m) => {
+      // Only a window change moves conflicts; the tenant channel carries every other signal
+      // too. A catch-up's `refresh` matches no type here: `covers` has refetched them already.
       if (m.type === 'work_items.change_windows_changed') {
         void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
       }
