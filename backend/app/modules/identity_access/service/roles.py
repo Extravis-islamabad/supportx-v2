@@ -606,6 +606,33 @@ async def _remove(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID)
     return removed
 
 
+async def assign_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+    """A group mapping gives the role (WP-057 S5c `follow`): managed if newly held."""
+    return await _assign(session, user_id, role_id, managed=True)
+
+
+async def remove_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+    """A group mapping takes the role back: only a managed one, never a hand-made one."""
+    result = await session.execute(
+        delete(UserRole)
+        .where(UserRole.user_id == user_id, UserRole.role_id == role_id, UserRole.managed)
+        .returning(UserRole.role_id)
+    )
+    removed = result.first() is not None
+    if removed:
+        await record_event(
+            session,
+            UserRoleChanged(user_id=user_id, role_id=role_id, change="removed"),
+            aggregate_id=user_id,
+        )
+    return removed
+
+
+async def tenant_admin_holders(session: AsyncSession) -> set[uuid.UUID]:
+    """Active people holding tenant admin now, directly or through an active group (WP-042)."""
+    return await _tenant_admin_holders(session)
+
+
 async def assign_role(  # noqa: PLR0913 - the request, the two IDs and which route asks
     session: AsyncSession,
     policy: PolicyService,
