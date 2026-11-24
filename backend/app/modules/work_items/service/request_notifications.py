@@ -38,6 +38,7 @@ from app.modules.work_items.events import (
     ServiceRequestReadyToFulfil,
     WorkItemApprovalChanged,
     WorkItemApprovalClarification,
+    WorkItemApprovalRestarted,
     WorkItemConversationAdded,
     WorkItemCreated,
     WorkItemStatusChanged,
@@ -76,6 +77,9 @@ READY = "service_request.ready_to_fulfil"  # D-154 "E1 follows d": to its group,
 # WP-047a S3a (REQ-SR-037 AC2): the approver who asked is told their question was answered;
 # the notice names the request, never the answer (the coordinator's condition 4).
 ANSWERED = "service_request.clarification_answered"
+# WP-047a S3b (REQ-SR-041; the coordinator's condition 3): the approvers of a round that ended
+# with a restart are told it no longer needs them (their links were revoked).
+RESTARTED = "service_request.approval_restarted"
 GROUP = "group"  # the request's group
 REQUESTER = "requester"  # the requester and the person it is for
 APPROVER = "approver"
@@ -133,6 +137,12 @@ EVENTS: tuple[NotificationEvent, ...] = (
         ),
     ),
     NotificationEvent(
+        RESTARTED,
+        NotificationCategory.APPROVAL,
+        EventDefault(enabled=True, recipients=(APPROVER,)),
+        required=True,  # condition 3: the old approvers are always told
+    ),
+    NotificationEvent(
         ANSWERED,
         NotificationCategory.APPROVAL,
         EventDefault(enabled=True, recipients=(APPROVER,)),
@@ -177,6 +187,7 @@ class ServiceRequestNotifications:
         ServiceRequestReadyToFulfil.event_type,
         WorkItemConversationAdded.event_type,
         WorkItemApprovalClarification.event_type,
+        WorkItemApprovalRestarted.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
@@ -186,6 +197,8 @@ class ServiceRequestNotifications:
             # No type on the event: `context` answers only for a request's outbound reply.
             automatic = payload.get("automatic")
             return () if automatic or payload.get("kind") != EntryKind.REPLY else (REPLY,)
+        if envelope.event_type == WorkItemApprovalRestarted.event_type:
+            return (RESTARTED,) if payload.get("approver_ids") else ()
         if envelope.event_type == WorkItemApprovalClarification.event_type:
             return (ANSWERED,) if payload.get("change") == "answered" else ()
         if envelope.event_type == WorkItemApprovalChanged.event_type:
@@ -206,13 +219,15 @@ class ServiceRequestNotifications:
         """The request now, and who is told now (a decided approval tells nobody)."""
         if event_code in REQUESTER_EVENTS:
             return await _requester_context(session, event_code, envelope)
-        if event_code == READY:
-            return await _ready_context(session, envelope)
-        if event_code == REPLY:
-            return await _reply_context(session, envelope)
+        special = {
+            READY: _ready_context,
+            REPLY: _reply_context,
+            ANSWERED: _answered_context,  # WP-047a S3a
+            RESTARTED: _restarted_context,  # WP-047a S3b
+        }.get(event_code)
+        if special is not None:
+            return await special(session, envelope)
         payload = envelope.payload
-        if event_code == ANSWERED:
-            return await _answered_context(session, envelope)
         row = await session.get(WorkItemApproval, uuid.UUID(str(payload["approval_id"])))
         record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
         if (
@@ -318,6 +333,35 @@ class ServiceRequestNotifications:
 
 
 REQUESTER_EVENTS = frozenset({RECEIVED, APPROVED, REJECTED, WITHDRAWN, FULFILLED})
+
+
+async def _restarted_context(
+    session: AsyncSession, envelope: EventEnvelope
+) -> RecordContext | None:
+    """The approvers of the round that ended, told the request's approval started again."""
+    payload = envelope.payload
+    record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
+    if record is None or record.deleted_at is not None:
+        return None
+    told = frozenset(uuid.UUID(str(p)) for p in payload.get("approver_ids") or [])
+    if not told:
+        return None
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        public_link=f"/service-requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives={APPROVER: told},
+        conditions={"priority": record.priority},
+        event_code=RESTARTED,
+    )
 
 
 async def _answered_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:

@@ -45,6 +45,7 @@ export const ur: LabelResource = {
   'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
+  'errors.approval_delegation_not_found': 'یہ تفویض اب موجود نہیں۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_not_running':
     '{{display_id}} پر کوئی منظوری زیرِ انتظار نہیں، اس لیے منظور کنندگان اب نہیں بدلے جا سکتے۔',
@@ -486,6 +487,13 @@ export const ur: LabelResource = {
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
+  'errors.field.delegate_is_delegator': 'آپ منظوریاں خود کو تفویض نہیں کر سکتے۔',
+  'errors.field.delegate_not_eligible':
+    'یہ شخص منظوریاں نہیں لے سکتا: اسے فعال اور سائن ان کے قابل ہونا چاہیے۔',
+  'errors.field.delegation_ended': 'یہ تفویض ختم ہو چکی ہے اور تبدیل نہیں ہو سکتی۔',
+  'errors.field.delegation_overlaps': 'ایک اور تفویض پہلے ہی ان تاریخوں کا احاطہ کرتی ہے۔',
+  'errors.field.delegation_reason_too_long': 'وجہ زیادہ سے زیادہ 500 حروف کی ہو سکتی ہے۔',
+  'errors.field.delegation_too_long': 'تفویض زیادہ سے زیادہ 90 دن رہ سکتی ہے۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
   'errors.field.dependency_loop':
     'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',

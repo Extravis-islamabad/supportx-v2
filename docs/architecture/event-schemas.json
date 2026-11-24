@@ -6449,6 +6449,95 @@
         "type": "object"
       }
     },
+    "work_items.approval.restarted": {
+      "1": {
+        "description": "A request's approval started again after a relevant change (WP-047a S3b; REQ-SR-041).\n\nThe approvers of the round that ended are told (the coordinator's condition 3). `keys` are\nthe changed answer keys (codes), never the answers themselves.",
+        "properties": {
+          "approver_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Approver Ids",
+            "type": "array"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "round",
+          "approver_ids",
+          "keys"
+        ],
+        "title": "WorkItemApprovalRestarted",
+        "type": "object"
+      }
+    },
+    "work_items.approval_delegation.changed": {
+      "1": {
+        "description": "An approval delegation was set, changed or ended (WP-047a S3b; REQ-SR-035). IDs only.\n\nBoth people are told (the coordinator's condition 1); their screens refresh.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "changed",
+              "ended",
+              "expired"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "delegate_id": {
+            "format": "uuid",
+            "title": "Delegate Id",
+            "type": "string"
+          },
+          "delegation_id": {
+            "format": "uuid",
+            "title": "Delegation Id",
+            "type": "string"
+          },
+          "delegator_id": {
+            "format": "uuid",
+            "title": "Delegator Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delegation_id",
+          "delegator_id",
+          "delegate_id",
+          "change",
+          "version"
+        ],
+        "title": "ApprovalDelegationChanged",
+        "type": "object"
+      }
+    },
     "work_items.approval_settings.changed": {
       "1": {
         "description": "The tenant's approval settings changed (the D-146 chair): open settings pages reload.",

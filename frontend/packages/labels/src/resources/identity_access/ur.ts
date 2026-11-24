@@ -1080,6 +1080,9 @@ export const ur: LabelResource = {
   'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
   'permission.requests.edit_due_dates.description':
     'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.manage_delegations': 'دوسروں کی منظوری کی تفویضات سنبھالیں',
+  'permission.requests.manage_delegations.description':
+    'کسی اور کے لیے منظوری کی تفویض مقرر، تبدیل یا ختم کریں۔ ہر کوئی اپنی تفویض سنبھال سکتا ہے۔',
   'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
   'permission.requests.manage_followers.description':
     'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',

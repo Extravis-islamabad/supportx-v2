@@ -50,6 +50,7 @@ from app.modules.work_items.api.change_window_routes import (
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.checklist_routes import my_reminders_router
+from app.modules.work_items.api.delegation_routes import router as delegation_router
 from app.modules.work_items.api.draft_routes import router as draft_router
 from app.modules.work_items.api.notify_links import public_router as notify_links_router
 from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
@@ -80,6 +81,7 @@ from app.modules.work_items.service import (
     checklists,
     ci_links,
     clarifications,
+    delegation_notifications,
     drafts,
     field_catalogue,
     inbound_mail,
@@ -230,6 +232,7 @@ change_notifications.register()  # WP-045d S3: replaces the change reply-only so
 view_audit.register()  # D-176: an owner hears their shared view was made private
 task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
 reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
+delegation_notifications.register()  # WP-047a S3b: both people hear of a delegation
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
@@ -258,6 +261,7 @@ module = ModuleSpec(
         portal_request_router,  # WP-030 D9
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
+        delegation_router,  # WP-047a S3b (REQ-SR-035): approval delegations
         change_board_router,  # WP-045b S2
         repeat_router,  # WP-044c D16: the problem module's
         change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
@@ -279,6 +283,7 @@ module = ModuleSpec(
         SERVICE_REQUEST.feature,
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
+        SERVICE_REQUEST.feature,  # approval delegations (WP-047a S3b): request approvals
         CHANGE.feature,  # change advisory boards
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
         CHANGE.feature,  # change windows

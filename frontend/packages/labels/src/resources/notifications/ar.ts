@@ -43,6 +43,7 @@ export const ar: LabelResource = {
   'notice.sign_in_secret.item_client_secret': 'سر العميل',
   'notification.open_record': 'فتح {{id}}',
   'notification_area.announcement': 'الإعلانات',
+  'notification_area.approval_delegation': 'تفويضات الموافقة',
   'notification_area.asset': 'الأصول',
   'notification_area.break_glass': 'تسجيلات دخول الطوارئ',
   'notification_area.change': 'التغييرات',
@@ -81,6 +82,9 @@ export const ar: LabelResource = {
   'notification_condition_operator.not_in': 'ليس أحد',
   'notification_event.announcement.ended': 'انتهاء إعلان تتابعه',
   'notification_event.announcement.updated': 'تحديث إعلان تتابعه',
+  'notification_event.approval_delegation.changed': 'تغيّر تفويض موافقة',
+  'notification_event.approval_delegation.ended': 'انتهى تفويض موافقة',
+  'notification_event.approval_delegation.set': 'عُيّن تفويض موافقة',
   'notification_event.asset.ack_disputed': 'اعترض حامل الأصل عليه',
   'notification_event.asset.ack_requested': 'أصل سُلّم إليك: يرجى الإقرار به',
   'notification_event.asset.erased_holder_items': 'شخص يجري محوه لا تزال لديه أصول',
@@ -172,6 +176,7 @@ export const ar: LabelResource = {
   'notification_event.service_account.needs_owner': 'حساب خدمة يحتاج إلى مالك جديد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
+  'notification_event.service_request.approval_restarted': 'بدأت موافقة طلب من جديد',
   'notification_event.service_request.approved': 'الموافقة على الطلب',
   'notification_event.service_request.clarification_answered': 'أُجيب عن سؤالك على طلب',
   'notification_event.service_request.fulfilled': 'تنفيذ الطلب',
@@ -219,6 +224,8 @@ export const ar: LabelResource = {
   'notification_recipient.ci_owner': 'مالك عنصر التهيئة',
   'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
   'notification_recipient.custom_field_admins': 'من يديرون الحقول المخصصة',
+  'notification_recipient.delegate': 'المفوَّض إليه',
+  'notification_recipient.delegator': 'الموافق المفوِّض',
   'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
   'notification_recipient.followers': 'المتابعون',
   'notification_recipient.group': 'أعضاء المجموعة',
@@ -281,6 +288,22 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nتم تحديث الإعلان "{{ record.title }}" الذي تتابعه.',
   'notification_template.announcement.updated.in_app': 'تم التحديث: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'تم التحديث: {{ record.title }}',
+  'notification_template.approval_delegation.changed.body':
+    'مرحبًا {{ recipient.name }}،\n\nيسري تفويض موافقات {{ delegation.delegator }} الآن من {{ delegation.starts_at }} إلى {{ delegation.ends_at }}، إلى {{ delegation.delegate }}.',
+  'notification_template.approval_delegation.changed.in_app':
+    'تغيّر تفويض موافقات {{ delegation.delegator }}',
+  'notification_template.approval_delegation.changed.subject': 'تغيّر تفويض الموافقة',
+  'notification_template.approval_delegation.ended.body':
+    'مرحبًا {{ recipient.name }}،\n\nانتهى تفويض موافقات {{ delegation.delegator }} إلى {{ delegation.delegate }}. عادت الموافقات المنتظرة إلى {{ delegation.delegator }}.',
+  'notification_template.approval_delegation.ended.in_app':
+    'انتهى تفويض موافقات {{ delegation.delegator }}',
+  'notification_template.approval_delegation.ended.subject': 'انتهى تفويض الموافقة',
+  'notification_template.approval_delegation.set.body':
+    'مرحبًا {{ recipient.name }}،\n\nمن {{ delegation.starts_at }} إلى {{ delegation.ends_at }}، تذهب موافقات الطلبات الجديدة لـ {{ delegation.delegator }} إلى {{ delegation.delegate }}. ولا يزال بإمكان {{ delegation.delegator }} البت فيها.',
+  'notification_template.approval_delegation.set.in_app':
+    'تذهب موافقات {{ delegation.delegator }} إلى {{ delegation.delegate }} حتى {{ delegation.ends_at }}',
+  'notification_template.approval_delegation.set.subject':
+    'فُوّضت الموافقات إلى {{ delegation.delegate }}',
   'notification_template.asset.ack_disputed.body':
     'مرحبًا {{ recipient.name }}،\n\nاعترض {{ holder.name }} على {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
   'notification_template.asset.ack_disputed.in_app':
@@ -796,6 +819,12 @@ export const ar: LabelResource = {
     '{{ record.display_id }} بانتظار موافقتك: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'موافقتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_restarted.body':
+    'مرحبًا {{ recipient.name }}،\n\nتغيّرت إجابة على {{ record.display_id }} "{{ record.title }}"، فبدأت موافقته من جديد. لم تعد موافقتك السابقة ورابطها محتسبين؛ سيُطلب منك مجددًا إن كنت موافقًا.',
+  'notification_template.service_request.approval_restarted.in_app':
+    'بدأت موافقة {{ record.display_id }} من جديد بعد تغيير',
+  'notification_template.service_request.approval_restarted.subject':
+    'بدأت الموافقة من جديد: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approved.body':
     'مرحبًا {{ recipient.name }}،\n\nتمت الموافقة على طلبك {{ record.display_id }} «{{ record.title }}». نعمل عليه الآن.',
   'notification_template.service_request.approved.in_app':
@@ -920,6 +949,10 @@ export const ar: LabelResource = {
   'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
   'notification_variable.custom_field.direction': 'الحقل المخصص › ما كان قيد التشغيل',
   'notification_variable.custom_field.name': 'الحقل المخصص › الاسم',
+  'notification_variable.delegation.delegate': 'المفوَّض إليه',
+  'notification_variable.delegation.delegator': 'الموافق المفوِّض',
+  'notification_variable.delegation.ends_at': 'نهاية التفويض',
+  'notification_variable.delegation.starts_at': 'بداية التفويض',
   'notification_variable.holder.name': 'الحامل › الاسم',
   'notification_variable.holdings.assets': 'العهدة › الأصول',
   'notification_variable.holdings.count': 'العهدة › العدد',

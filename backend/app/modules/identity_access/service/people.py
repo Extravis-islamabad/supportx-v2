@@ -101,6 +101,11 @@ class Placement:
     active: bool = True  # an active, not deleted person (lane B review, #182)
     can_sign_in: bool = True
 
+    @property
+    def vendor_support(self) -> bool:
+        """A vendor support account (D-173): never a delegate, never the tenant's voice."""
+        return self.user_type == SUPPORT_USER_TYPE
+
 
 @dataclass(frozen=True)
 class Reactivation:

@@ -35,6 +35,7 @@ from app.modules.service_catalog.domain.items import (
     ItemAudience,
     QuestionAudience,
     QuestionKind,
+    RestartOn,
     StageRule,
 )
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
@@ -69,6 +70,10 @@ class QuestionIO(BaseModel):
     help: dict[str, str] = Field(default_factory=dict)
     default: Any = None
     shown_to: list[QuestionAudience] = Field(default_factory=lambda: list(QuestionAudience))
+    restarts_approval: bool = Field(
+        default=False,
+        description="A change to this answer after submitting restarts approval (REQ-SR-041).",
+    )
 
 
 class ApproverIO(BaseModel):
@@ -147,6 +152,11 @@ class ApprovalIO(ApprovalStageIO):
         description="Every stage in order (WP-047a S2a). When given, the top-level stage "
         "fields are ignored on save; on read they repeat the first stage.",
     )
+    restart_on: list[RestartOn] = Field(
+        default_factory=list,
+        description="The request's own values whose change restarts approval (REQ-SR-041): "
+        "quantity, requested_for. Marked questions restart it too.",
+    )
 
     @classmethod
     def read(cls, stored: dict[str, Any] | None) -> "ApprovalIO | None":
@@ -157,7 +167,8 @@ class ApprovalIO(ApprovalStageIO):
             return cls.model_validate(stored)
         stages = stored["stages"] or []
         first = dict(stages[0]) if stages else {}
-        return cls.model_validate({**first, "stages": stages})
+        extra = {"restart_on": stored["restart_on"]} if stored.get("restart_on") else {}
+        return cls.model_validate({**first, "stages": stages, **extra})
 
 
 class PlannedTaskIO(BaseModel):

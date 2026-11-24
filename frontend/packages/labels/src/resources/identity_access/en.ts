@@ -1086,6 +1086,9 @@ export const en = {
   'permission.requests.edit_due_dates': 'Set request due dates by hand',
   'permission.requests.edit_due_dates.description':
     "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.manage_delegations': "Manage others' approval delegations",
+  'permission.requests.manage_delegations.description':
+    'Set, change or end an approval delegation for someone else. Anyone may manage their own.',
   'permission.requests.manage_followers': 'Manage followers of requests',
   'permission.requests.manage_followers.description':
     'Add other people as followers of service requests and remove them.',

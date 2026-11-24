@@ -56,6 +56,10 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/api-keys/rules` | signed_in | - |
 | GET | `/api/v1/api-keys/scopes` | signed_in | - |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
+| GET | `/api/v1/approval-delegations` | signed_in | - |
+| POST | `/api/v1/approval-delegations` | signed_in | - |
+| PATCH | `/api/v1/approval-delegations/{delegation_id}` | signed_in | - |
+| POST | `/api/v1/approval-delegations/{delegation_id}/end` | signed_in | - |
 | GET | `/api/v1/approvals/settings` | signed_in | - |
 | PATCH | `/api/v1/approvals/settings` | signed_in | - |
 | GET | `/api/v1/assets` | `assets.view` | assets.view: all/site/group/own |
@@ -1395,6 +1399,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/service-requests/{record_id}` | `requests.view` | requests.view: all/site/group/own |
 | PATCH | `/api/v1/service-requests/{record_id}` | `requests.edit` | requests.edit: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/actions/{action}` | `requests.view` | requests.view: all/site/group/own |
+| PATCH | `/api/v1/service-requests/{record_id}/answers` | `requests.edit` | requests.edit: all/site/group/own |
 | GET | `/api/v1/service-requests/{record_id}/approvals` | signed_in | - |
 | POST | `/api/v1/service-requests/{record_id}/approvals` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
 | POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
@@ -1746,6 +1751,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | service_desk_manager | `requests.delete` | all | all |
 | service_desk_manager | `requests.edit` | all | all |
 | service_desk_manager | `requests.edit_due_dates` | all | all |
+| service_desk_manager | `requests.manage_delegations` | all | all |
 | service_desk_manager | `requests.manage_followers` | all | all |
 | service_desk_manager | `requests.modify_approvers` | all | all |
 | service_desk_manager | `requests.reopen` | all | all |
@@ -2172,6 +2178,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `requests.delete` | all | all |
 | tenant_admin | `requests.edit` | all | all |
 | tenant_admin | `requests.edit_due_dates` | all | all |
+| tenant_admin | `requests.manage_delegations` | all | all |
 | tenant_admin | `requests.manage_followers` | all | all |
 | tenant_admin | `requests.modify_approvers` | all | all |
 | tenant_admin | `requests.reopen` | all | all |
