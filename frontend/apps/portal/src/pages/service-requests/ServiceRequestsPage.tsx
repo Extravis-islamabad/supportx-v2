@@ -22,11 +22,14 @@ export function ServiceRequestsPage() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<PortalState | 'all'>('open');
   const list = usePortalRequests(state === 'all' ? undefined : state);
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.changed') {
-      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === 'work_items.changed') {
+        void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
+      }
+    },
+    { covers: [portalRequestKeys.all] },
+  );
   if (list.error) reportError(list.error);
   const items = list.data?.items ?? [];
   return (

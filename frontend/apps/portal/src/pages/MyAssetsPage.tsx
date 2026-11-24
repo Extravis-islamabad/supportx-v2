@@ -89,11 +89,14 @@ export function MyAssetsPage() {
   const mine = useMyAssets();
   const answer = useAnswerAcknowledgement();
   const [disputing, setDisputing] = useState<MyAsset>();
-  usePersonalChannel((event) => {
-    if (event.type === MINE_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.mine });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === MINE_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.mine });
+      }
+    },
+    { covers: [queryKeys.assets.mine] },
+  );
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Title level={1}>{t('my_assets.title')}</Typography.Title>

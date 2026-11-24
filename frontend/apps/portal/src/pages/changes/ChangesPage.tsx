@@ -20,11 +20,14 @@ export function ChangesPage() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<PortalState | 'all'>('open');
   const list = usePortalChanges(state === 'all' ? undefined : state);
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.changed') {
-      void queryClient.invalidateQueries({ queryKey: portalChangeKeys.all });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === 'work_items.changed') {
+        void queryClient.invalidateQueries({ queryKey: portalChangeKeys.all });
+      }
+    },
+    { covers: [portalChangeKeys.all] },
+  );
   if (list.error) reportError(list.error);
   const items = list.data?.items ?? [];
   return (

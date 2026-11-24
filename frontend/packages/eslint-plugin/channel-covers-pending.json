@@ -82,17 +82,6 @@
     "apps/console/src/pages/requests/ApprovalsDrawer.tsx",
     "apps/console/src/pages/requests/RequestPage.tsx",
     "apps/console/src/pages/requests/RequestsPage.tsx",
-    "apps/console/src/pages/tasks/MyTasksPage.tsx",
-    "apps/portal/src/PortalLayout.tsx",
-    "apps/portal/src/pages/HomePage.tsx",
-    "apps/portal/src/pages/MyAssetsPage.tsx",
-    "apps/portal/src/pages/MyBookings.tsx",
-    "apps/portal/src/pages/approvals/ApprovalsPage.tsx",
-    "apps/portal/src/pages/changes/ChangePage.tsx",
-    "apps/portal/src/pages/changes/ChangesPage.tsx",
-    "apps/portal/src/pages/requests/RequestPage.tsx",
-    "apps/portal/src/pages/requests/RequestsPage.tsx",
-    "apps/portal/src/pages/service-requests/ServiceRequestPage.tsx",
-    "apps/portal/src/pages/service-requests/ServiceRequestsPage.tsx"
+    "apps/console/src/pages/tasks/MyTasksPage.tsx"
   ]
 }
