@@ -18,7 +18,7 @@ production profile always has a database, so the gate is always installed there.
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol
 
-from fastapi import Request, Response
+from fastapi import Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import REQUEST_SESSION_STATE
@@ -29,6 +29,10 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 _EXEMPT_ATTR = "__supportx_entitlement_exempt__"
 _READ_ONLY_EXEMPT_ATTR = "__supportx_read_only_exempt__"
+# On each guard: (feature or None, MODULE_LEVEL or ROUTE_LEVEL), read by the route-permission map.
+FEATURE_ATTR = "__supportx_feature__"
+MODULE_LEVEL = "module"
+ROUTE_LEVEL = "route"
 
 
 class EntitlementGate(Protocol):
@@ -58,8 +62,12 @@ def read_only_exempt[Endpoint: Callable[..., Any]](endpoint: Endpoint) -> Endpoi
     return endpoint
 
 
-def route_guard(feature: str | None) -> Callable[[Request, Response], Awaitable[None]]:
-    """Dependency the module registry adds to every route of a module needing `feature`."""
+def _guard(feature: str | None, *, level: str) -> Callable[[Request, Response], Awaitable[None]]:
+    """The one entitlement check, for a router's feature or a single route's (lane B, rule 8).
+
+    Both levels share this body, so an exempt endpoint, the read-only write rule and the headers
+    behave the same whichever level names the feature: only where the feature comes from differs.
+    """
 
     async def guard(request: Request, response: Response) -> None:
         endpoint = request.scope.get("endpoint")
@@ -77,4 +85,21 @@ def route_guard(feature: str | None) -> Callable[[Request, Response], Awaitable[
         headers = await gate.check_request(context, feature=feature, write=write, session=session)
         response.headers.update(headers)
 
+    # `make route-permissions` reads it for the Feature column: which feature, at which level.
+    setattr(guard, FEATURE_ATTR, (feature, level))
     return guard
+
+
+def route_guard(feature: str | None) -> Callable[[Request, Response], Awaitable[None]]:
+    """Dependency the module registry adds to every route of a module needing `feature`."""
+    return _guard(feature, level=MODULE_LEVEL)
+
+
+def requires_feature(feature: str) -> Any:  # noqa: ANN401 - FastAPI's Depends(...) marker
+    """One route narrower than its router: `dependencies=[requires_feature(Feature.X)]`.
+
+    The router's own check (`_guard`), so a tenant without `feature` is refused with 403
+    `entitlement_required` before the endpoint runs. The service keeps its own check (callers
+    outside HTTP, and defence in depth).
+    """
+    return Depends(_guard(str(feature), level=ROUTE_LEVEL))

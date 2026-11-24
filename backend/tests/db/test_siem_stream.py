@@ -412,3 +412,35 @@ async def test_pems_are_checked_and_rotation_is_guarded(world: World) -> None:
     )  # fmt: skip
     assert finished.status_code == 200, finished.text
     assert finished.json()["rotating"] is False
+
+
+async def test_a_lapsed_plan_is_refused_at_the_route_and_audited(world: World) -> None:
+    """`requires_feature(SIEM_STREAM)` on add (the route-permission map's `route` level): a plan
+    without the feature gets 403 `entitlement_required` before the service runs, and the refusal
+    is still audited as refused (lane B's condition 3 on the route feature column)."""
+    from tests.db.test_audit_api import by_action  # noqa: PLC0415 - this test only
+    from tests.db.test_resource_access import _edition  # noqa: PLC0415 - this test only
+
+    a = world.a
+    was = await world.sql("SELECT edition FROM tenant_subscriptions WHERE tenant_id = $1", a.tenant)
+    await _edition(world, a, "essentials")
+    try:
+        name = f"Lapsed {uuid.uuid4().hex[:6]}"
+        refused = await world.call(
+            "POST", BASE, a, a.admin,
+            json={"name": name, "kind": "webhook", "url": "https://siem.example.test/in"},
+            headers={"Idempotency-Key": str(uuid.uuid4())},
+        )  # fmt: skip
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["code"] == "entitlement_required"
+        assert refused.json()["params"] == {"feature": "siem_stream"}
+        attempts = [
+            e
+            for e in await by_action(world, a, "audit.siem_destination_added")
+            if e["outcome"] == "refused" and e["reason_code"] == "entitlement_required"
+        ]
+        assert attempts, "the route-level refusal was not audited"
+        # The list stays readable on a lapsed plan (only adding and changing are gated).
+        assert (await world.call("GET", BASE, a, a.admin)).status_code == 200
+    finally:
+        await _edition(world, a, str(was[0]["edition"]))
