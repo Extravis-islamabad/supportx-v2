@@ -51,6 +51,9 @@ const NONE = '';
 const EFFECTIVE_ORDER = ['clear', 'read_only', 'masked', 'hidden'] as const;
 
 /** Record types are work item types, except the CMDB's CIs (0175 part 2), which have their own label. */
+/** The type the tab opens on when the catalogue has it. */
+const DEFAULT_TYPE = 'incident';
+
 const recordTypeLabel = (type: string) =>
   type === 'ci' ? 'cmdb.record_type.ci' : `work_item_type.${type}`;
 
@@ -76,7 +79,12 @@ export function FieldAccessTab({ roleId }: { roleId: string }) {
   });
 
   const types = catalogue.data ?? [];
-  const current = recordType ?? types[0]?.record_type;
+  // Opens on Incident, the type most rules are for, never on whichever type sorts first: the
+  // catalogue is alphabetical, so the first was Change, and a rule meant for incidents was
+  // saved on changes without a word (#595's journey; the coordinator's UX follow-up).
+  const current =
+    recordType ??
+    (types.some((c) => c.record_type === DEFAULT_TYPE) ? DEFAULT_TYPE : types[0]?.record_type);
   const fields = types.find((c) => c.record_type === current)?.fields ?? [];
   const label = (f: RuleableField) =>
     f.custom ? fieldName({ labels: f.labels }, locale) : t(f.label_key ?? f.key);
@@ -112,7 +120,8 @@ export function FieldAccessTab({ roleId }: { roleId: string }) {
       },
       {
         onSuccess: () => {
-          void message.success(t('field_access.saved'));
+          // Names the record type, so a rule saved on another type than meant is seen at once.
+          void message.success(t('field_access.saved', { type: t(recordTypeLabel(current)) }));
         },
         onError: (error) => {
           if (error instanceof ApiError && error.isConflict) setStale(field.key);
