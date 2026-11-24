@@ -364,6 +364,7 @@ export const ar: LabelResource = {
   'mail_outcome.too_large': 'كبير جدًا',
   'mail_waiting_reason.approval_reply_already_decided': 'رد على موافقة تم البت فيها',
   'mail_waiting_reason.approval_reply_comment_required': 'رد موافقة دون التعليق المطلوب',
+  'mail_waiting_reason.approval_reply_not_allowed': 'رد موافقة لم تسمح به قواعد الموافقة',
   'mail_waiting_reason.approval_reply_sender_not_verified': 'رد موافقة من مرسل تعذّر التأكد منه',
   'mail_waiting_reason.approval_reply_unclear': 'رد موافقة غير واضح',
   'mail_waiting_reason.approval_reply_wrong_sender': 'رد موافقة من شخص لم يُطلب منه الموافقة',
@@ -392,6 +393,9 @@ export const ar: LabelResource = {
   'mailbox_answer.approval_reply.comment_required.body':
     'لم يُطبَّق ردك بشأن {{display_id}}: تحتاج هذه الموافقة إلى تعليق. اكتبه في الأسطر التي تلي "موافق" أو "مرفوض"، أو قرِّر في التطبيق.',
   'mailbox_answer.approval_reply.comment_required.subject': 'رد: {{subject}}',
+  'mailbox_answer.approval_reply.not_allowed.body':
+    'لم يُطبَّق ردك بشأن {{display_id}}: لا يمكنك البت في هذه الموافقة. يمكنك معرفة السبب في التطبيق.',
+  'mailbox_answer.approval_reply.not_allowed.subject': 'رد: {{subject}}',
   'mailbox_answer.approval_reply.sender_not_verified.body':
     'لم نتمكن من التأكد من أن ردك بشأن {{display_id}} صادر عنك، لذا لم يُطبَّق. يُرجى الموافقة أو الرفض في التطبيق.',
   'mailbox_answer.approval_reply.sender_not_verified.subject': 'رد: {{subject}}',

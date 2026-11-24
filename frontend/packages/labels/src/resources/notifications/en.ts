@@ -175,6 +175,7 @@ export const en = {
   'notification_event.service_request.answers_needed': 'Request from email: answers needed',
   'notification_event.service_request.answers_needed_no_access':
     'Request from email: answers needed, no portal access',
+  'notification_event.service_request.approval_decided_by_mail': 'Approval decided by email reply',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approval_restarted': "A request's approval started again",
@@ -826,6 +827,12 @@ export const en = {
     '{{ record.display_id }} needs a few answers before it can go ahead',
   'notification_template.service_request.answers_needed_no_access.subject':
     'Your request {{ record.display_id }} needs a few answers',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'Hello {{ recipient.name }},\n\nYour approval on {{ record.display_id }} "{{ record.title }}" was decided by a reply to its email. If you did not send that reply, tell your service desk now.',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'Your email reply decided your approval on {{ record.display_id }}',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'Your email reply decided an approval on {{ record.display_id }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':

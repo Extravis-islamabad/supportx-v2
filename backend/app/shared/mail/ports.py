@@ -162,6 +162,9 @@ class ApprovalReply:
     record_id: uuid.UUID
     display_id: str
     reason: str | None = None
+    # False when the sender is unverified or not the approver (lane B's #627 condition 1):
+    # answering would be backscatter to a forged From and would leak the request's ID.
+    answer_sender: bool = True
 
 
 class ApprovalReplies(Protocol):

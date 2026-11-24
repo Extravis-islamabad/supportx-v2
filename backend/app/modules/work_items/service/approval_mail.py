@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, Conflict, PermissionDenied, ValidationFailed
 from app.modules.audit import WORKER as AUDIT_WORKER
+from app.modules.audit import AuditActorType
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import subject_for
 from app.modules.notifications import mail_recipients_for
@@ -45,16 +46,27 @@ WRONG_SENDER = "wrong_sender"
 ALREADY_DECIDED = "already_decided"
 UNCLEAR = "unclear"
 COMMENT_REQUIRED = "comment_required"
-REASONS = frozenset({NOT_VERIFIED, WRONG_SENDER, ALREADY_DECIDED, UNCLEAR, COMMENT_REQUIRED})
+NOT_ALLOWED = "not_allowed"  # the engine's own rules refused it (segregation of duties ...)
+REASONS = frozenset(
+    {NOT_VERIFIED, WRONG_SENDER, ALREADY_DECIDED, UNCLEAR, COMMENT_REQUIRED, NOT_ALLOWED}
+)
+# Never answered (lane B's #627 condition 1): the From is unverified or not the approver, so an
+# answer would be backscatter to a possibly forged address, naming the request. Ledger and audit
+# keep them.
+SILENT = frozenset({NOT_VERIFIED, WRONG_SENDER})
 
 
 async def _audit(
     session: AsyncSession, record: WorkItem, reason: str | None, row: WorkItemApproval | None
 ) -> None:
+    # A decision is the approver's own act (lane B's condition 3); an ignored reply is the
+    # system's, as nobody verified acted.
+    decided_by = row.approver_id if reason is None and row is not None else None
     await record_audit(
         session,
         action_code=DECIDED if reason is None else IGNORED,
         facts=AUDIT_WORKER,
+        actor=(AuditActorType.PERSON, decided_by) if decided_by is not None else None,
         object_type="service_request",
         object_id=str(record.id),
         details={
@@ -72,7 +84,13 @@ async def _outcome(
     row: WorkItemApproval | None = None,
 ) -> ApprovalReply:
     await _audit(session, record, reason, row)
-    return ApprovalReply(SERVICE_REQUEST.code.value, record.id, record.display_id, reason)
+    return ApprovalReply(
+        SERVICE_REQUEST.code.value,
+        record.id,
+        record.display_id,
+        reason,
+        answer_sender=reason not in SILENT,
+    )
 
 
 class ApprovalsFromMail:
@@ -137,10 +155,10 @@ class ApprovalsFromMail:
             )
         except (Conflict, PermissionDenied, ValidationFailed) as refused:
             # The engine's own rules (segregation of duties, a closed stage): told, not applied.
-            reason = ALREADY_DECIDED if isinstance(refused, Conflict) else UNCLEAR
+            reason = ALREADY_DECIDED if isinstance(refused, Conflict) else NOT_ALLOWED
             return await _outcome(session, record, reason, row)
         except AppError:  # pragma: no cover - any other refusal is still never a 500 for mail
-            return await _outcome(session, record, UNCLEAR, row)
+            return await _outcome(session, record, NOT_ALLOWED, row)
         return await _outcome(session, record, None, row)
 
 

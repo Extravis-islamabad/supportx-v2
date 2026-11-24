@@ -369,6 +369,8 @@ export const ur: LabelResource = {
   'mail_outcome.too_large': 'بہت بڑا',
   'mail_waiting_reason.approval_reply_already_decided': 'ایسی منظوری کا جواب جس کا فیصلہ ہو چکا',
   'mail_waiting_reason.approval_reply_comment_required': 'مطلوبہ تبصرے کے بغیر منظوری جواب',
+  'mail_waiting_reason.approval_reply_not_allowed':
+    'ایسا منظوری جواب جس کی منظوری کے قواعد نے اجازت نہیں دی',
   'mail_waiting_reason.approval_reply_sender_not_verified':
     'ایسے بھیجنے والے کا منظوری جواب جس کی تصدیق نہ ہو سکی',
   'mail_waiting_reason.approval_reply_unclear': 'غیر واضح منظوری جواب',
@@ -396,6 +398,9 @@ export const ur: LabelResource = {
   'mailbox_answer.approval_reply.comment_required.body':
     '{{display_id}} کے بارے میں آپ کے جواب پر عمل نہیں ہوا: اس منظوری کے لیے تبصرہ درکار ہے۔ اسے "منظور" یا "مسترد" کے بعد والی سطروں میں لکھیں، یا ایپ میں فیصلہ کریں۔',
   'mailbox_answer.approval_reply.comment_required.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.not_allowed.body':
+    '{{display_id}} کے بارے میں آپ کے جواب پر عمل نہیں ہوا: آپ اس منظوری کا فیصلہ نہیں کر سکتے۔ وجہ ایپ میں دیکھ سکتے ہیں۔',
+  'mailbox_answer.approval_reply.not_allowed.subject': 'جواب: {{subject}}',
   'mailbox_answer.approval_reply.sender_not_verified.body':
     'ہم تصدیق نہیں کر سکے کہ {{display_id}} کے بارے میں آپ کا جواب آپ ہی کا ہے، اس لیے اس پر عمل نہیں ہوا۔ براہِ کرم ایپ میں منظور یا مسترد کریں۔',
   'mailbox_answer.approval_reply.sender_not_verified.subject': 'جواب: {{subject}}',

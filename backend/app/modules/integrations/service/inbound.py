@@ -272,7 +272,7 @@ async def _approval_reply(
     )
     if decided is None:
         return None
-    if decided.reason is not None:
+    if decided.reason is not None and decided.answer_sender:
         await _answer(
             session,
             settings,

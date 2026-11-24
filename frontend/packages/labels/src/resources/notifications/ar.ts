@@ -177,6 +177,8 @@ export const ar: LabelResource = {
   'notification_event.service_request.answers_needed': 'طلب من البريد: إجابات مطلوبة',
   'notification_event.service_request.answers_needed_no_access':
     'طلب من البريد: إجابات مطلوبة، دون وصول إلى البوابة',
+  'notification_event.service_request.approval_decided_by_mail':
+    'بُتّ في موافقة عبر الرد على البريد',
   'notification_event.service_request.approval_fallback': 'موافقة بانتظار المسؤولين',
   'notification_event.service_request.approval_requested': 'طلب موافقة',
   'notification_event.service_request.approval_restarted': 'بدأت موافقة طلب من جديد',
@@ -822,6 +824,12 @@ export const ar: LabelResource = {
     '{{ record.display_id }} يحتاج إلى بعض الإجابات قبل المتابعة',
   'notification_template.service_request.answers_needed_no_access.subject':
     'طلبك {{ record.display_id }} يحتاج إلى بعض الإجابات',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'مرحبًا {{ recipient.name }}،\n\nتم البت في موافقتك على {{ record.display_id }} "{{ record.title }}" عبر رد على بريدها. إذا لم ترسل هذا الرد، أبلغ مكتب الخدمة الآن.',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'ردك بالبريد بتّ في موافقتك على {{ record.display_id }}',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'ردك بالبريد بتّ في موافقة على {{ record.display_id }}',
   'notification_template.service_request.approval_fallback.body':
     'مرحبًا {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» ليس له موافق نشط، لذا هو بانتظار مسؤول موافقات.',
   'notification_template.service_request.approval_fallback.in_app':

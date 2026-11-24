@@ -202,8 +202,8 @@ async def _reply(
     sender: uuid.UUID | None,
     verified: bool = True,
     text: str,
-) -> str | None:
-    """The reply's outcome code (None: applied), as if it answered the approval mail."""
+) -> tuple[str | None, bool]:
+    """The reply's outcome code (None: applied) and whether its sender is answered."""
 
     async def mails(*_: Any, **__: Any) -> list[tuple[uuid.UUID, uuid.UUID, datetime]]:  # noqa: ANN401
         return [(record_id, approver, datetime.now(UTC) + timedelta(minutes=1))]
@@ -222,7 +222,7 @@ async def _reply(
     finally:
         await database.dispose()
     assert found is not None
-    return found.reason
+    return found.reason, found.answer_sender
 
 
 async def test_sr_038_a_clear_reply_from_the_approver_decides_once(
@@ -230,40 +230,36 @@ async def test_sr_038_a_clear_reply_from_the_approver_decides_once(
 ) -> None:
     a = world.a
     record_id, row_id, approver = await _waiting_request(world, a)
+    # Lane B's condition 1: an unverified or foreign sender is never answered (no backscatter).
     assert await _reply(world, monkeypatch, record_id, approver, sender=a.tech_c, text="ok") == (
-        approval_mail.WRONG_SENDER
+        approval_mail.WRONG_SENDER,
+        False,
     )
-    assert (
-        await _reply(
-            world,
-            monkeypatch,
-            record_id,
-            approver,
-            sender=approver,
-            verified=False,
-            text="Approved",
-        )
-        == approval_mail.NOT_VERIFIED
-    )
-    assert (
-        await _reply(
-            world, monkeypatch, record_id, approver, sender=approver, text="approve only if cheaper"
-        )
-        == approval_mail.UNCLEAR
-    )
+    assert await _reply(
+        world,
+        monkeypatch,
+        record_id,
+        approver,
+        sender=approver,
+        verified=False,
+        text="Approved",
+    ) == (approval_mail.NOT_VERIFIED, False)
+    assert await _reply(
+        world, monkeypatch, record_id, approver, sender=approver, text="approve only if cheaper"
+    ) == (approval_mail.UNCLEAR, True)
     applied = await _reply(
         world, monkeypatch, record_id, approver, sender=approver, text="Approved, thanks"
     )
-    assert applied is None  # AC1
+    assert applied == (None, True)  # AC1
     (row,) = await world.sql("SELECT state, channel FROM work_item_approvals WHERE id = $1", row_id)
     assert (row["state"], row["channel"]) == ("approved", "email_reply")
     # Condition 1: a second reply changes nothing.
-    assert (
-        await _reply(world, monkeypatch, record_id, approver, sender=approver, text="Reject")
-        == approval_mail.ALREADY_DECIDED
-    )
+    assert await _reply(
+        world, monkeypatch, record_id, approver, sender=approver, text="Reject"
+    ) == (approval_mail.ALREADY_DECIDED, True)
     audit = await world.sql(
-        "SELECT action, details->>'reason' AS reason FROM audit_entries WHERE tenant_id = $1"
+        "SELECT action, details->>'reason' AS reason, actor_id FROM audit_entries"
+        " WHERE tenant_id = $1"
         " AND object_id = $2 AND action LIKE 'service_request.approval_mail_%' ORDER BY id",
         a.tenant,
         str(record_id),
@@ -275,6 +271,8 @@ async def test_sr_038_a_clear_reply_from_the_approver_decides_once(
         ("decided", None),
         ("ignored", "already_decided"),
     ]
+    # Lane B's condition 3: the decision is the approver's own act in the audit log.
+    assert [r["actor_id"] for r in audit if r["action"].endswith("decided")] == [approver]
 
 
 # --- SR-043 -----------------------------------------------------------------------------------

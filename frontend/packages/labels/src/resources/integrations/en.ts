@@ -368,6 +368,8 @@ export const en = {
     'An approval reply to an approval already decided',
   'mail_waiting_reason.approval_reply_comment_required':
     'An approval reply without the comment it needed',
+  'mail_waiting_reason.approval_reply_not_allowed':
+    'An approval reply the approval rules did not allow',
   'mail_waiting_reason.approval_reply_sender_not_verified':
     'An approval reply from a sender that could not be confirmed',
   'mail_waiting_reason.approval_reply_unclear': 'An approval reply that was not clear',
@@ -394,6 +396,9 @@ export const en = {
   'mailbox_answer.approval_reply.comment_required.body':
     'Your reply about {{display_id}} was not applied: this approval needs a comment. Write it on the lines after "Approve" or "Reject", or decide in the app.',
   'mailbox_answer.approval_reply.comment_required.subject': 'Re: {{subject}}',
+  'mailbox_answer.approval_reply.not_allowed.body':
+    'Your reply about {{display_id}} was not applied: this approval cannot be decided by you. You can see why in the app.',
+  'mailbox_answer.approval_reply.not_allowed.subject': 'Re: {{subject}}',
   'mailbox_answer.approval_reply.sender_not_verified.body':
     'We could not confirm that your reply about {{display_id}} came from you, so it was not applied. Please approve or reject it in the app.',
   'mailbox_answer.approval_reply.sender_not_verified.subject': 'Re: {{subject}}',

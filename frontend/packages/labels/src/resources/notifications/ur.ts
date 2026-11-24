@@ -180,6 +180,7 @@ export const ur: LabelResource = {
   'notification_event.service_request.answers_needed': 'ای میل سے درخواست: جوابات درکار',
   'notification_event.service_request.answers_needed_no_access':
     'ای میل سے درخواست: جوابات درکار، پورٹل تک رسائی نہیں',
+  'notification_event.service_request.approval_decided_by_mail': 'ای میل جواب سے منظوری کا فیصلہ',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approval_restarted': 'درخواست کی منظوری دوبارہ شروع ہوئی',
@@ -831,6 +832,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} کو آگے بڑھنے سے پہلے چند جوابات درکار ہیں',
   'notification_template.service_request.answers_needed_no_access.subject':
     'آپ کی درخواست {{ record.display_id }} کے لیے چند جوابات درکار ہیں',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کی منظوری کا فیصلہ اس کی ای میل کے جواب سے ہوا۔ اگر آپ نے یہ جواب نہیں بھیجا تو ابھی اپنے سروس ڈیسک کو بتائیں۔',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر آپ کی منظوری کا فیصلہ کیا',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر منظوری کا فیصلہ کیا',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':

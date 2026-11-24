@@ -84,6 +84,9 @@ RESTARTED = "service_request.approval_restarted"
 # WP-047a S4 (REQ-SR-017 AC2): made from mail with required answers missing. One who may sign in
 # gets the portal page that asks only the missing questions; one who may not (a requester made
 # from mail, lane B) gets no link and is told their service desk gives portal access.
+# WP-047a S4 (REQ-SR-038; lane B's #627 condition 2): a reply to the approval mail decided, so
+# its approver hears of it at the address on file; a forged reply would then be noticed.
+DECIDED_BY_MAIL = "service_request.approval_decided_by_mail"
 ANSWERS_NEEDED = "service_request.answers_needed"
 ANSWERS_NO_ACCESS = "service_request.answers_needed_no_access"
 GROUP = "group"  # the request's group
@@ -115,6 +118,12 @@ EVENTS: tuple[NotificationEvent, ...] = (
         EventDefault(enabled=True, recipients=(REQUESTER,), notify_actor=True),
     ),
     # Required: without it the request waits on answers nobody asked for.
+    NotificationEvent(
+        DECIDED_BY_MAIL,
+        NotificationCategory.APPROVAL,
+        EventDefault(enabled=True, recipients=(APPROVER,), notify_actor=True),
+        required=True,  # the only sign a forged reply was applied in their name
+    ),
     NotificationEvent(
         ANSWERS_NEEDED,
         NotificationCategory.CREATED,
@@ -221,6 +230,11 @@ class ServiceRequestNotifications:
         if envelope.event_type == WorkItemApprovalClarification.event_type:
             return (ANSWERED,) if payload.get("change") == "answered" else ()
         if envelope.event_type == WorkItemApprovalChanged.event_type:
+            if (
+                payload.get("change") == "decided"
+                and payload.get("type") == SERVICE_REQUEST.code.value
+            ):
+                return (DECIDED_BY_MAIL,)  # `context` keeps it to a decision made by reply
             if not _opened(envelope):
                 return ()
             return (REQUESTED,) if payload.get("approver_id") else (FALLBACK,)
@@ -241,6 +255,7 @@ class ServiceRequestNotifications:
             pick = _created_context if event_code in CREATED_EVENTS else _requester_context
             return await pick(session, event_code, envelope)
         special = {
+            DECIDED_BY_MAIL: _decided_by_mail_context,  # WP-047a S4
             READY: _ready_context,
             REPLY: _reply_context,
             ANSWERED: _answered_context,  # WP-047a S3a
@@ -519,6 +534,33 @@ async def _requester_context(
         relatives={REQUESTER: people},
         conditions={"priority": record.priority},
         event_code=event_code,
+    )
+
+
+async def _decided_by_mail_context(
+    session: AsyncSession, envelope: EventEnvelope
+) -> RecordContext | None:
+    """The approver, when their approval was decided by a reply to its mail (lane B's #627)."""
+    row = await session.get(WorkItemApproval, uuid.UUID(str(envelope.payload["approval_id"])))
+    if row is None or row.channel != rules.DecisionChannel.EMAIL_REPLY or row.approver_id is None:
+        return None
+    record = await session.get(WorkItem, row.work_item_id)
+    if record is None or record.deleted_at is not None:
+        return None
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives={APPROVER: frozenset({row.approver_id})},
+        conditions={"priority": record.priority},
+        event_code=DECIDED_BY_MAIL,
     )
 
 
