@@ -47,6 +47,21 @@ import { conditionAt, isAt, missingProblems, useEditorProblems, whereOf } from '
 import { ProblemList } from './ProblemList';
 
 type TriggerEvent = TriggerOut['events'][number];
+// The order the editor lists events in (lane A's nit): the life of a record, not the alphabet.
+const EVENT_ORDER: readonly TriggerEvent[] = [
+  'created',
+  'updated',
+  'status_changed',
+  'stage_entered',
+  'assigned',
+  'note_added',
+  'requester_replied',
+  'relationship_added',
+  'relationship_removed',
+  'downtime_started',
+];
+const inOrder = (events: readonly TriggerEvent[]) =>
+  [...events].sort((a, b) => EVENT_ORDER.indexOf(a) - EVENT_ORDER.indexOf(b));
 const STATE_TONE: Record<TriggerOut['state'], Tone> = {
   enabled: 'success',
   draft: 'default',
@@ -72,7 +87,8 @@ export function TriggersTab({
   const { can } = useAccess();
   const editable = can('automation.manage');
   const triggers = useTriggers(recordType, can('automation.view'));
-  const offered = new Set<string>(useTriggerEvents(recordType).data?.offered ?? []);
+  // Undefined while it loads: nothing is tagged until the offer is known (lane A).
+  const offer = useTriggerEvents(recordType).data?.offered;
   const { orderTriggers, deleteTrigger } = useAutomationChange();
   const [editing, setEditing] = useState<TriggerOut | 'new'>();
   const list = triggers.data ?? [];
@@ -166,7 +182,7 @@ export function TriggersTab({
             render: (_, trigger) => (
               <Space size={4} wrap>
                 {listFormat(trigger.events.map((e) => t(`trigger_event.${e}`)))}
-                {offered.size > 0 && trigger.events.some((e) => !offered.has(e)) && (
+                {offer !== undefined && trigger.events.some((e) => !offer.includes(e)) && (
                   // A stored trigger on an event its type no longer offers never runs (L3).
                   <ToneTag tone="warning" testId={`trigger-unoffered-${trigger.name}`}>
                     {t('automation.triggers.event_not_offered')}
@@ -289,7 +305,8 @@ function TriggerEditor({
   const t = useLabel();
   const { message } = App.useApp();
   const fields = useRuleFields(recordType, open);
-  const offered = useTriggerEvents(recordType, open).data?.offered ?? [];
+  const offer = useTriggerEvents(recordType, open).data?.offered;
+  const offered = inOrder(offer ?? []);
   const { createTrigger, updateTrigger } = useAutomationChange();
   const [draft, setDraft] = useState<Draft>(() => draftOf(trigger));
   const [opened, setOpened] = useState<string | undefined>(trigger?.id);
@@ -408,7 +425,7 @@ function TriggerEditor({
                 ...offered.map((e) => ({ value: e, label: t(`trigger_event.${e}`) })),
                 // A saved event the type no longer offers stays visible, marked, so a save never
                 // drops it without the admin seeing it (lane C's L5).
-                ...draft.events
+                ...(offer === undefined ? [] : draft.events)
                   .filter((e: TriggerEvent) => !offered.includes(e))
                   .map((e) => ({
                     value: e,

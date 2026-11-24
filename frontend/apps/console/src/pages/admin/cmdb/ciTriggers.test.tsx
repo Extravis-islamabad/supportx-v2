@@ -8,7 +8,7 @@ import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
 
 // WP-053 S5d (REQ-CMDB-023): Admin › CMDB lists triggers on configuration items. The editor is the
-// incidents' one for the CI record type: the CI's six events by label (the server's offer), and
+// incidents' one for the CI record type: the CI's events by label (the server's offer), in a record's life order, and
 // only "set a field" (a CI has no notes); its list and offer are asked for the CI record type.
 
 let restore: () => void = () => undefined;
@@ -27,9 +27,9 @@ const ADMIN = fakeSession(
     ],
   },
 );
-const CI_SIX = [
+// downtime_started joins with its reader, after #608.
+const CI_OFFER = [
   'created',
-  'downtime_started',
   'relationship_added',
   'relationship_removed',
   'status_changed',
@@ -44,7 +44,7 @@ function api() {
       'GET /api/v1/cmdb/ci-types': { body: { items: [] } },
       'GET /api/v1/cmdb/ci-states': { body: { items: [] } },
       'GET /api/v1/automation/triggers': { body: [] },
-      'GET /api/v1/automation/trigger-events': { body: { offered: CI_SIX } },
+      'GET /api/v1/automation/trigger-events': { body: { offered: CI_OFFER } },
       'GET /api/v1/automation/fields': {
         body: [
           { name: 'state_id', kind: 'reference', values: null, settable: true, derived: false },
@@ -65,7 +65,7 @@ function api() {
 }
 
 describe('Admin › CMDB › Configuration item triggers (WP-053 S5d)', () => {
-  it("offers the CI's six events by label and only setting a field", async () => {
+  it("offers the CI's events by label, in order, and only setting a field", async () => {
     setDefaultClientFactory(inertClientFactory);
     const fake = api();
     window.history.pushState({}, '', '/admin/cmdb');
@@ -75,10 +75,20 @@ describe('Admin › CMDB › Configuration item triggers (WP-053 S5d)', () => {
     fireEvent.click(await within(block).findByTestId('trigger-add'));
     const events = await screen.findByTestId('trigger-events');
     await waitFor(() => {
-      expect(within(events).getAllByRole('checkbox')).toHaveLength(6);
+      expect(within(events).getAllByRole('checkbox')).toHaveLength(5);
     });
     expect(events.textContent).toContain('When a relationship is added');
-    expect(events.textContent).toContain('When a downtime starts');
+    const labels = within(events)
+      .getAllByRole('checkbox')
+      .map((box) => box.closest('label')?.textContent);
+    expect(labels).toEqual([
+      'When created',
+      'When fields change',
+      'When the status changes',
+      'When a relationship is added',
+      'When a relationship is removed',
+    ]);
+    expect(events.textContent).not.toContain('When a downtime starts');
     expect(events.textContent).not.toMatch(/trigger_event|_/);
     const kind = screen.getByTestId('trigger-action-0-kind');
     fireEvent.mouseDown(kind.querySelector('.ant-select-selector') ?? kind);
