@@ -724,10 +724,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          # The commit this run's checkout was built on (a PR's merge ref, a queue group), not
+          # the branch as it is by the time this step runs: main moving mid-run (another PR's
+          # list shrinking) must not read as files added here (#619).
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || '' }}
         run: |
           # Read through the API: this job checks out shallow, without credentials (§8.3, #609).
           # A missing file (404) is an answer; any other error fails, never passing unchecked.
-          base_ref="${GITHUB_BASE_REF:-main}"
+          base_ref="${BASE_SHA:-${GITHUB_BASE_REF:-main}}"
           plugin=frontend/packages/eslint-plugin
           fetch() {  # <path> <out>: 0 found, 1 not on the target branch; exits on any other error
             if gh api -H 'Accept: application/vnd.github.raw' \

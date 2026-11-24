@@ -54,11 +54,19 @@
   unknown problem approver is refused, and raising on behalf of an unknown person is refused
   by the scope (`on_behalf_out_of_scope`; under `all_users` it used to pass the scope and be
   refused only by a later field check, a 422).
-- **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
-  WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
-  `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
-  route-level feature declaration (a `require_feature` dependency) and a Feature column in the
-  generated map. Until then a WP's PR body lists each REQ's edition and where it is gated.
+- [x] **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
+  WP-047a S1). Done (lane C, 2026-11-24):
+  - **The Feature column** in `docs/security/route-permissions.md` names each route's licence
+    feature and where it's declared: `module` (the module's or router's), `route` (the new
+    `app.core.entitlements.requires_feature`, the same check as the router's) or `permission`.
+  - **The SIEM add and change routes** declare `siem_stream` on the route.
+  - **Still service-only, so not shown yet:**
+    - **Whole-route gates.** Their owners add `requires_feature` on the route when next in those
+      files: work_items' CI-link and asset-link routes (lane A) and integrations LDAP (lane A).
+    - **Conditional on the request** (a feature needed only for one option in the body). These
+      stay in the service by design, and the WP's PR body names them: request stages and
+      quantities, approver changes, service catalogue, the work item settings check, and the
+      personal-data log setting.
 
 ### Engineering-practices audit (#444), lane B security items
 
