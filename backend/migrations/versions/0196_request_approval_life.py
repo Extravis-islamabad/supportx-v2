@@ -19,7 +19,7 @@ The downgrade stops while any tenant has an escalated approval, paused time or a
 (rule 5h), then drops the table and the columns and narrows the checks back.
 
 Revision ID: 0196
-Revises: 0195
+Revises: 0188
 Created: 2026-11-24
 """
 
@@ -32,7 +32,8 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0196"
-down_revision: str | None = "0195"
+# main's head at its queue turn (… 0195 → 0188, lane C's #594).
+down_revision: str | None = "0188"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

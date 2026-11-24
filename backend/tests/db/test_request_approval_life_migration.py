@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0195"
+BEFORE = "0188"  # 0196's down revision (main's head at its queue turn)
 ORIGIN, REASON = "ck_work_item_approvals_origin_code", "ck_work_item_approvals_reason_code"
 COLUMNS = {
     "work_item_type_settings.approval_reminder_after_days",
