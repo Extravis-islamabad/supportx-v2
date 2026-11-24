@@ -491,8 +491,18 @@ class _Sync:
         """
         if not self.config.mapped:
             return
-        people = sorted({p for _, p in self.run.joined} | {p for _, p in self.run.left})
         async with self._session() as session:
+            people = sorted({p for _, p in self.run.joined} | {p for _, p in self.run.left})
+            if self.config.groups_link is None:
+                # A full read (first run, or the mappings or scope changed): existing members are
+                # never "joined", so every person of this directory follows (lane A's #620 point).
+                people = sorted(
+                    await session.scalars(
+                        select(DirectoryPersonLink.external_id).where(
+                            DirectoryPersonLink.connector_id == self.config.id
+                        )
+                    )
+                )
             for person in people:
                 link = await self._link(session, person)
                 if link is None:

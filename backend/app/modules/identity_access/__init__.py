@@ -181,6 +181,9 @@ from app.modules.identity_access.service.group_mappings import (
 from app.modules.identity_access.service.group_mappings import (
     remove_mapping as remove_group_mapping,
 )
+from app.modules.identity_access.service.group_mappings import (
+    rename_mapping as rename_group_mapping,
+)
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
 from app.modules.identity_access.service.masking import contacts_masked, names_masked
@@ -680,6 +683,7 @@ __all__ = [
     "remove_group_mapping",
     "remove_ldap_federation",
     "remove_service_identity_role",
+    "rename_group_mapping",
     "require",
     "restricted_fields",
     "role_names",

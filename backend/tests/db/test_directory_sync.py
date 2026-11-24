@@ -553,3 +553,23 @@ async def test_a_mapping_made_through_the_connector_is_listed_and_a_deleted_one_
     fake.set_members(finance, [ada, cy])
     await _sync(world, directory_id)
     assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team) == []
+
+
+async def test_a_new_mapping_reaches_people_already_in_the_directory_group(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Lane A's #620 point: a changed mapping set reads everyone again, and every person follows."""
+    ada = fake.add_user(**_ada())
+    finance = fake.add_group("Finance", [ada])
+    team = await unit(world, world.a, "groups", "Finance team, added later", [])
+    directory_id = await _create(world, fake)  # no mapping yet
+    await _sync(world, directory_id)
+    assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team) == []
+    await _update(
+        world,
+        directory_id,
+        group_mappings=[{"external_id": finance, "name": "Finance", "group_id": str(team)}],
+    )
+    await _sync(world, directory_id)  # Ada was in Finance all along: never "joined" this run
+    members = await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team)
+    assert [m["user_id"] for m in members] == [(await _person(world, directory_id, ada))["id"]]

@@ -33,6 +33,7 @@ from app.modules.identity_access import (
     register_source_freshness,
     release_from_directory,
     remove_group_mapping,
+    rename_group_mapping,
 )
 from app.modules.integrations.domain.connector_health import SYNC_MINUTES
 from app.modules.integrations.domain.directory import (
@@ -241,7 +242,7 @@ async def _save_mappings(
     }
     for (external, group), name in wanted.items():
         if (external, group) in current:
-            current[(external, group)].external_name = name or None
+            await rename_group_mapping(session, current[(external, group)].id, name)
             continue
         await create_group_mapping(
             session,
@@ -328,17 +329,19 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
         raise ValidationFailed(errors=errors)
     await _groups_exist(session, values, by)
     stored = _stored(values)
-    mappings_changed = await _save_mappings(session, directory_id, values, on_held=on_held)
     # Who is synced changed: the next round reads everyone again (delta links start over).
-    if mappings_changed or (stored["scope"], stored["scope_groups"], stored["mapping"]) != (
+    if (stored["scope"], stored["scope_groups"], stored["mapping"]) != (
         current.scope,
         current.scope_groups,
         current.mapping,
     ):
         stored["users_delta_link"] = stored["groups_delta_link"] = None
+    # The version first (If-Match), then the mappings: a stale edit changes nothing (lane A).
     row = await DirectoryRepository(session).update(
         directory_id, expected_version=expected_version, changes=stored
     )
+    if await _save_mappings(session, directory_id, values, on_held=on_held):
+        row.users_delta_link = row.groups_delta_link = None
     if credential:
         row.secret_ref = await secrets.put_owned(
             session,

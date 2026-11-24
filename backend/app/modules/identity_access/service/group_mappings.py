@@ -180,7 +180,14 @@ async def _gain(session: AsyncSession, user_id: uuid.UUID, item: Held) -> None:
     if item.target.kind == "role":
         made = await roles.assign_mapped(session, user_id, target_id)
     else:
-        made = await add_member(session, "group", target_id, user_id, by=SYSTEM_PATH, managed=True)
+        try:
+            made = await add_member(
+                session, "group", target_id, user_id, by=SYSTEM_PATH, managed=True
+            )
+        except NotFound:
+            # The support group was removed: nothing to give (lane A; the old sync's REFUSED).
+            log.info("idp_group_mapping_target_gone", group_id=str(target_id))
+            return
     session.add(
         AccessSource(
             tenant_id=_tenant(session),
@@ -436,6 +443,14 @@ async def guard_group_role(
         return
     if await role_is_privileged(session, catalogue, role_id):
         raise Conflict(code=PRIVILEGED_CODE)
+
+
+async def rename_mapping(session: AsyncSession, mapping_id: uuid.UUID, name: str | None) -> None:
+    """A mapping's display name (the source's group name); its ID and target never change."""
+    mapping = await session.get(IdpGroupMapping, mapping_id)
+    if mapping is None or mapping.deleted_at is not None:
+        raise NotFound(code="mapping_not_found")
+    mapping.external_name = (name or "").strip()[:MAX_GROUP_ID] or None
 
 
 async def holders(session: AsyncSession, mapping_id: uuid.UUID) -> int:
