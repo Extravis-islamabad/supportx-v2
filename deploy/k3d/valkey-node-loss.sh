@@ -43,6 +43,13 @@ CASE="${VALKEY_NODE_LOSS_CASE:-master}"
 case "$CASE" in master|master-with-dns) ;; *) echo "unknown VALKEY_NODE_LOSS_CASE $CASE"; exit 2 ;; esac
 # shellcheck source=deploy/k3d/ha-lib.sh
 . "$ROOT/deploy/k3d/ha-lib.sh"
+stop_lookups() {  # the watcher and its children (an in-flight kubectl exec, its pipeline, sleep)
+  [ -n "$LOOKUP_WATCH" ] || return 0
+  pkill -P "$LOOKUP_WATCH" 2>/dev/null || true
+  kill "$LOOKUP_WATCH" 2>/dev/null || true
+  wait "$LOOKUP_WATCH" 2>/dev/null || true  # reaped quietly: no "Terminated" line in the log
+  LOOKUP_WATCH=""
+}
 cleanup() {
   stop_lookups
   rm -f "$COOKIES" "$BODY" "$SETTLE_REASON" "$PHASES" "$LOOKUP_TRACE"
@@ -90,13 +97,6 @@ watch_lookups() {  # watch_lookups <stopped node>: runs in the background until 
       done
     sleep 3
   done
-}
-stop_lookups() {  # the watcher and its children (an in-flight kubectl exec, its pipeline, sleep)
-  [ -n "$LOOKUP_WATCH" ] || return 0
-  pkill -P "$LOOKUP_WATCH" 2>/dev/null || true
-  kill "$LOOKUP_WATCH" 2>/dev/null || true
-  wait "$LOOKUP_WATCH" 2>/dev/null || true  # reaped quietly: no "Terminated" line in the log
-  LOOKUP_WATCH=""
 }
 show_lookups() {  # the watcher's lines, each change once per pod
   [ -s "$LOOKUP_TRACE" ] || return 0
