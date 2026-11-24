@@ -34,3 +34,10 @@ def test_an_id_is_logged_in_its_canonical_form() -> None:
     one = uuid.uuid4()
     note = AuditNote(details={"a_id": str(one).upper(), "b_ids": [f"{{{one}}}", one.urn]})
     assert requested_ids(note) == {"a_id": str(one), "b_ids": [str(one), str(one)]}
+
+
+def test_a_long_list_is_capped_with_its_count() -> None:
+    many = [str(uuid.uuid4()) for _ in range(150)]
+    found = requested_ids(AuditNote(details={"asset_ids": many}))
+    assert found["asset_ids"] == many[:100]
+    assert found["asset_ids_count"] == 150

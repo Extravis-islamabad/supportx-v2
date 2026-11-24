@@ -528,6 +528,9 @@ def route_spec(request: Request) -> AuditRouteSpec | None:
     return None
 
 
+REQUESTED_LIST_MAX = 100  # IDs kept per list in a refused entry's `requested`
+
+
 def _is_id(value: object) -> bool:
     try:
         uuid.UUID(str(value))
@@ -551,7 +554,10 @@ def requested_ids(note: AuditNote | None) -> dict[str, Any]:
         if _is_id(value):
             found[key] = str(uuid.UUID(str(value)))
         elif isinstance(value, list) and value and all(_is_id(v) for v in value):
-            found[key] = [str(uuid.UUID(str(v))) for v in value]
+            # A long list is capped, its full length kept beside it (lane C, #625).
+            found[key] = [str(uuid.UUID(str(v))) for v in value[:REQUESTED_LIST_MAX]]
+            if len(value) > REQUESTED_LIST_MAX:
+                found[f"{key}_count"] = len(value)
     return found
 
 
