@@ -103,7 +103,7 @@ export function DowntimesTab({ ciId }: { ciId: string }) {
             <ToneTag key={state} tone={STATE_TONE[state]}>
               {t('cmdb.downtime.count', {
                 state: t(`cmdb_downtime_state.${state}`),
-                count: counts[state],
+                number: counts[state],
               })}
             </ToneTag>
           ))}
@@ -152,7 +152,10 @@ export function DowntimesTab({ ciId }: { ciId: string }) {
                   <span>
                     {d.ends_at === null
                       ? t('cmdb.downtime.open_ended', { start: format(d.starts_at) })
-                      : `${format(d.starts_at)} – ${format(d.ends_at)}`}
+                      : t('cmdb.downtime.between', {
+                          start: format(d.starts_at),
+                          end: format(d.ends_at),
+                        })}
                   </span>
                 </Space>
                 {d.description !== null && (
