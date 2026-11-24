@@ -97,7 +97,8 @@ api:
 # consumers 264 MiB (~4-8 s of CPU). Requests sit at that floor (320Mi) so a node can really give
 # it; limits keep >= 30% headroom (512Mi; consumers 768Mi for whole-file scans). A worker at its
 # limit throttles and misses its 60 s startup probe. CPU requests are 100m: under contention a
-# container's CPU share follows its request, and the import needs ~4-8 s of CPU (lane C, #621). Re-measure these when modules are added
+# container's CPU share follows its request, and the import needs ~4-8 s of CPU (lane C, #621).
+# Re-measure these when modules are added
 # (`python -c "import workers.<w>.__main__; from app.core.modules import discover_modules;
 # discover_modules()"` and the process's peak RSS) and keep the headroom.
 relay:
