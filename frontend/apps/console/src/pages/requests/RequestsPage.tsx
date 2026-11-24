@@ -21,7 +21,7 @@ import {
   type ApprovalStatus,
   type FilterExpression,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 
 import { BulkBar, BulkDialog, BulkProgress } from '../incidents/list/bulk';
 import { useBulkRefresh, type Selection } from '../incidents/list/model';
@@ -188,7 +188,7 @@ export function RequestsPage() {
   const items = useCatalogItems();
   const byId = new Map((items.data ?? []).map((i) => [i.id, i]));
   useListChannel('service-requests', () => {
-    void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });
+    refreshQueries(queryClient, [...serviceRequestKeys.all, 'list']);
   });
   useBulkRefresh('service_request', () => {
     void queryClient.invalidateQueries({ queryKey: [...serviceRequestKeys.all, 'list'] });

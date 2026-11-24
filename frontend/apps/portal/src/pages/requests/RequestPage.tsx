@@ -12,7 +12,7 @@ import {
   usePortalReply,
   useRecordFiles,
 } from '@supportx/api-client';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   Attachments,
   EmptyText,
@@ -51,11 +51,11 @@ export function RequestPage() {
 
   useRecordEvents('portal_wi', id, (event) => {
     if (event.type === 'work_items.portal_conversation_changed') {
-      void queryClient.invalidateQueries({ queryKey: portalKeys.conversation(id) });
+      refreshQueries(queryClient, portalKeys.conversation(id));
       return;
     }
-    void queryClient.invalidateQueries({ queryKey: portalKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('incident', id) });
+    refreshQueries(queryClient, portalKeys.detail(id));
+    refreshQueries(queryClient, queryKeys.files.record('incident', id));
   });
 
   if (record.isLoading) return <Skeleton active />;
