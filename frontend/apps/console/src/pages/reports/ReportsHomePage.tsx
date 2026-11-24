@@ -54,6 +54,7 @@ const MODULES = [
   'changes',
   'releases',
   'assets',
+  'cmdb',
 ] as const;
 const MODULE_OF_ENTITY: Record<string, string> = {
   incident: 'incidents',
@@ -62,6 +63,9 @@ const MODULE_OF_ENTITY: Record<string, string> = {
   change: 'changes',
   release: 'releases',
   asset: 'assets',
+  // The CMDB's two sources (#606) share one tab.
+  cmdb_ci: 'cmdb',
+  cmdb_relationship: 'cmdb',
 };
 /** Modules whose reporting data has not arrived yet: their tab says so. */
 const COMING = new Set(['changes']);

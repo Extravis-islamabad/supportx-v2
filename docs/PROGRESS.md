@@ -3078,6 +3078,14 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
     their site or group.
 - [ ] Sessions 2+: relationships, impact maps, baselines, retention setting (D-172 c), MonetX on
   a fixture (D-172 d), the custom rule builder (`fine_grained_access`, Enterprise).
+- [x] **S5a's reports home (lane C, after #606; REQ-CMDB-032, REQ-RPT-015):**
+  - a CMDB tab on the reports home, holding both sources' built-in and saved reports;
+  - two built-ins, "CIs by type and state" and "CI relationships";
+  - the count measure for `cmdb_ci` and `cmdb_relationship`: without it, neither source could
+    run a report;
+  - labels in en, ar and ur;
+  - a DB test: the CI total is the reader's list total, and a link to a CI they may not see is
+    not counted.
 
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 
