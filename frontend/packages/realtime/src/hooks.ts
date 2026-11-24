@@ -1,9 +1,4 @@
-import {
-  useQuery,
-  type InvalidateQueryFilters,
-  type QueryClient,
-  type QueryKey,
-} from '@tanstack/react-query';
+import { useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import {
   useContext,
   useEffect,
@@ -160,23 +155,39 @@ export function useRealtimeUser(): string | null {
  * names, and only if the cached copy is older than the change.
  */
 export function refreshList(queryClient: QueryClient, queryKey: QueryKey): void {
-  void queryClient.invalidateQueries(catchUpFilter(queryKey));
+  refreshQueries(queryClient, queryKey);
 }
 
 /**
- * The filter for a refresh. Inside a first-subscribe catch-up (catchup.ts) it keeps only the
- * queries whose data is older than the subscription going live and that aren't fetching already:
- * at most one refetch per query, never one for data that arrived after the channel was live.
+ * A refresh of `queryKey`'s active queries. Inside a first-subscribe catch-up (catchup.ts) every
+ * one of them is fetched once more, so nothing read before the subscription went live is left on
+ * screen (lane B's #602 review):
+ * - a query with data is invalidated, and TanStack's default `cancelRefetch` restarts any
+ *   refetch already in flight, so its read happens after the live moment;
+ * - a first fetch still in flight (no data yet) can't be restarted: TanStack hands the caller the
+ *   running request instead. Its server read may predate the change that went to nobody, so it is
+ *   fetched again once it lands.
+ * Either way, one catch-up fetch per query. Exported for channel handlers that refresh a key
+ * directly: `refreshQueries(queryClient, key)` in place of `queryClient.invalidateQueries(...)`
+ * gets them the same catch-up (lane A's #602 review).
  */
-function catchUpFilter(queryKey: QueryKey): InvalidateQueryFilters {
-  const since = catchUpSince();
-  if (since === null) return { queryKey, refetchType: 'active' };
-  return {
-    queryKey,
-    refetchType: 'active',
-    predicate: (query) =>
-      query.state.fetchStatus !== 'fetching' && query.state.dataUpdatedAt < since,
-  };
+export function refreshQueries(queryClient: QueryClient, queryKey: QueryKey): void {
+  if (catchUpSince() === null) {
+    void queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+    return;
+  }
+  for (const query of queryClient.getQueryCache().findAll({ queryKey, type: 'active' })) {
+    const exact = { queryKey: query.queryKey, exact: true, refetchType: 'active' } as const;
+    if (query.state.fetchStatus === 'fetching' && query.state.data === undefined) {
+      const stop = queryClient.getQueryCache().subscribe((event) => {
+        if (event.query !== query || query.state.fetchStatus === 'fetching') return;
+        stop();
+        if (query.state.status === 'success') void queryClient.invalidateQueries(exact);
+      });
+    } else {
+      void queryClient.invalidateQueries(exact);
+    }
+  }
 }
 
 export function refreshRecord(
@@ -192,5 +203,5 @@ export function refreshRecord(
   ) {
     return; // we already have this version (often: our own save)
   }
-  void queryClient.invalidateQueries(catchUpFilter(queryKey));
+  refreshQueries(queryClient, queryKey);
 }

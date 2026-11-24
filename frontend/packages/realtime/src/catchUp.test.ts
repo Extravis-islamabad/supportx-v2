@@ -3,14 +3,14 @@ import type { Centrifuge } from 'centrifuge';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RealtimeConnection } from './connection';
-import { refreshList } from './hooks';
+import { refreshList, refreshQueries } from './hooks';
 import type { RealtimeMessage } from './types';
 
 /**
  * architecture.md §8.3, the first-subscribe catch-up (vendor-support.spec:105): a screen fetched
  * its list, a change was published, and only then did its subscription go live, so the change
- * was never shown. The first `subscribed` now refreshes data older than going live, once per
- * query, and never data that arrived afterwards or a query already fetching.
+ * was never shown. The first `subscribed` now fetches each active query once more (a first fetch
+ * still in flight, once it lands), and nothing for data that only arrived after going live.
  */
 
 type Handler = (ctx: never) => void;
@@ -122,7 +122,7 @@ describe('the first-subscribe catch-up', () => {
     unmount();
   });
 
-  it('a query still fetching when the channel goes live is not fetched twice', async () => {
+  it('a first fetch still in flight when the channel goes live is fetched once more after it lands', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(1_000);
     const { fetches, subscription, mount } = setUp();
@@ -136,9 +136,14 @@ describe('the first-subscribe catch-up', () => {
     const unmount = mount(); // its first fetch, still in flight
     vi.setSystemTime(1_900);
     subscription.emit('subscribed', LIVE);
+    // Its server read may predate the change that went to nobody (lane B's #602 review): once it
+    // lands, it is fetched once more, and only once.
     finish(['grant']);
+    await vi.waitFor(() => {
+      expect(fetches).toHaveBeenCalledTimes(2);
+    });
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(fetches).toHaveBeenCalledTimes(1);
+    expect(fetches).toHaveBeenCalledTimes(2);
     unmount();
   });
 
@@ -157,6 +162,42 @@ describe('the first-subscribe catch-up', () => {
     subscription.emit('subscribed', { wasRecovering: true, recovered: true }); // nothing missed
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(heard).toHaveLength(1);
+    expect(fetches).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+});
+
+describe('refreshQueries, for handlers that refresh a key directly', () => {
+  it('gives a direct handler the same catch-up, a first fetch in flight included', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1_000);
+    const client = new FakeClient();
+    const connection = new RealtimeConnection(() => client as unknown as Centrifuge);
+    const queryClient = new QueryClient();
+    const fetches = vi.fn(() => Promise.resolve(['request']));
+    let finish: (value: string[]) => void = () => undefined;
+    fetches.mockImplementationOnce(
+      () =>
+        new Promise<string[]>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    // A handler like the request pages': it refreshes its key whatever the message says.
+    connection.join(CHANNEL, () => {
+      refreshQueries(queryClient, ['requests']);
+    });
+    const unmount = new QueryObserver(queryClient, {
+      queryKey: ['requests'],
+      queryFn: fetches,
+      staleTime: Infinity,
+    }).subscribe(() => undefined);
+    vi.setSystemTime(1_900);
+    client.subscriptions.get(CHANNEL)?.emit('subscribed', LIVE);
+    finish(['request']);
+    await vi.waitFor(() => {
+      expect(fetches).toHaveBeenCalledTimes(2);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(fetches).toHaveBeenCalledTimes(2);
     unmount();
   });
