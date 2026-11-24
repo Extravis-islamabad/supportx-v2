@@ -29,8 +29,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
+import asyncpg
 from fastapi import Depends, Request
 from sqlalchemy import event, text
+from sqlalchemy import exc as sa_exc
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -44,6 +46,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
+from app.core.request_context import current_request_id
 from app.core.tenancy import TenantContext, resolve_tenant, with_support
 from app.core.tls import verified_context
 
@@ -74,6 +77,13 @@ _SET_CONTEXT = text(
     "SELECT set_config('app.tenant_id', :tenant_id, true), "
     "set_config('app.user_id', :user_id, true)"
 )
+# The API's request transactions (the HA smoke's failover): PostgreSQL cancels a statement that
+# runs longer than this. SET LOCAL, so it never outlives the transaction on a pooled connection.
+SESSION_REQUEST_TIMEOUT_KEY = "supportx.request_statement_timeout_ms"
+_SET_REQUEST_TIMEOUT = text("SELECT set_config('statement_timeout', :timeout_ms, true)")
+# The API engine's client-side limit is the server's plus this: it only ends a wait on a server
+# that stopped answering (a paused or failed-over primary), never a query PostgreSQL is running.
+REQUEST_BACKSTOP_SECONDS = 5.0
 # A report transaction cannot write (read-only transaction AND a role with SELECT only) and is
 # cancelled in the database at its time limit, whatever SQL the report compiler produced.
 _SET_REPORT = text(
@@ -82,6 +92,58 @@ _SET_REPORT = text(
 )
 # nosemgrep: sx.sql-format - REPORT_ROLE is a constant role name in this module
 _SET_REPORT_ROLE = text(f"SET LOCAL ROLE {REPORT_ROLE}")
+
+
+# The two ways a request transaction fails on the database side (the HA smoke's failover), each
+# with its own code: PostgreSQL cancelled a statement at the request bound (slow, not down), or
+# the server never answered or the connection was lost (down, or failing over).
+REQUEST_TOO_SLOW = "request_too_slow"
+DATABASE_UNAVAILABLE = "database_unavailable"
+_QUERY_CANCELED = "57014"  # PostgreSQL's query_canceled: statement_timeout fired
+
+
+def _from_driver(error: BaseException) -> bool:
+    """Whether a TimeoutError was raised inside asyncpg or SQLAlchemy (never the app's own)."""
+    tb = error.__traceback__
+    while tb is not None:
+        module = str(tb.tb_frame.f_globals.get("__name__", ""))
+        if module.startswith(("asyncpg", "sqlalchemy")):
+            return True
+        tb = tb.tb_next
+    return False
+
+
+def database_failure(error: BaseException) -> str | None:
+    """`request_too_slow`, `database_unavailable`, or None for anything else (never guessed).
+
+    Looks through SQLAlchemy's wrapping (`.orig`) and the exception chain.
+    """
+    seen: set[int] = set()
+    pending: list[BaseException | None] = [error]
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, asyncpg.QueryCanceledError) or (
+            getattr(current, "sqlstate", None) == _QUERY_CANCELED
+        ):
+            return REQUEST_TOO_SLOW
+        if isinstance(
+            current,
+            asyncpg.ConnectionDoesNotExistError
+            | asyncpg.InterfaceError
+            | asyncpg.CannotConnectNowError
+            | ConnectionError
+            | sa_exc.TimeoutError,  # the pool had no connection to give within pool_timeout
+        ) or (isinstance(current, TimeoutError) and _from_driver(current)):
+            return DATABASE_UNAVAILABLE
+        if isinstance(current, sa_exc.DBAPIError):
+            if current.connection_invalidated:
+                return DATABASE_UNAVAILABLE
+            pending.append(current.orig)
+        pending.extend((current.__cause__, current.__context__))
+    return None
 
 
 class TenantContextMissingError(RuntimeError):
@@ -220,6 +282,9 @@ def _apply_context(
     session: Session, _transaction: SessionTransaction, connection: Connection
 ) -> None:
     """Write the tenant into the transaction before the first statement runs."""
+    request_ms = session.info.get(SESSION_REQUEST_TIMEOUT_KEY)
+    if request_ms is not None:
+        connection.execute(_SET_REQUEST_TIMEOUT, {"timeout_ms": str(int(request_ms))})
     if session.info.get(SESSION_PLATFORM_KEY):
         return
     context = session.info.get(SESSION_TENANT_KEY)
@@ -269,18 +334,40 @@ for _name in ("after_commit", "after_rollback", "after_soft_rollback"):
 class Database:
     """Engine plus session factories for one process."""
 
-    def __init__(self, engine: AsyncEngine, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        settings: Settings | None = None,
+        *,
+        request_timeout_seconds: float | None = None,
+    ) -> None:
         self.engine = engine
         self.settings = settings
+        # Set for the API's request path only (`from_settings(..., request_path=True)`).
+        self._request_ms = (
+            None if request_timeout_seconds is None else request_timeout_seconds * 1000
+        )
         self._sessions = async_sessionmaker(
             engine, expire_on_commit=False, sync_session_class=TenantAwareSession
         )
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> "Database | None":
-        """The application database, or None when SUPPORTX_DATABASE_URL is not configured."""
+    def from_settings(cls, settings: Settings, *, request_path: bool = False) -> "Database | None":
+        """The application database, or None when SUPPORTX_DATABASE_URL is not configured.
+
+        `request_path` (the API process): each transaction gets PostgreSQL's statement_timeout
+        and the connections a client limit just above it, so a request answers within a bound
+        when the server is slow or has stopped answering (a failover). Workers, jobs and reports
+        keep db_command_timeout_seconds.
+        """
         if settings.database_url is None:
             return None
+        request = settings.db_request_statement_timeout_seconds if request_path else None
+        command = (
+            request + REQUEST_BACKSTOP_SECONDS
+            if request is not None
+            else settings.db_command_timeout_seconds
+        )
         return cls(
             create_engine(
                 settings.database_url.get_secret_value(),
@@ -289,10 +376,11 @@ class Database:
                 max_overflow=settings.db_max_overflow,
                 pool_timeout=settings.db_pool_timeout_seconds,
                 connect_timeout=settings.db_connect_timeout_seconds,
-                command_timeout=settings.db_command_timeout_seconds,
+                command_timeout=command,
                 ssl=database_ssl(settings.database_ssl_root_cert),
             ),
             settings,
+            request_timeout_seconds=request,
         )
 
     @asynccontextmanager
@@ -304,13 +392,37 @@ class Database:
         info: dict[str, object] = {SESSION_TENANT_KEY: with_support(context)}
         if self.settings is not None:
             info[SESSION_SETTINGS_KEY] = self.settings
-        async with self._sessions(info=info) as session, session.begin():
+        if self._request_ms is not None:
+            info[SESSION_REQUEST_TIMEOUT_KEY] = self._request_ms
+        async with self._bounded(), self._sessions(info=info) as session, session.begin():
             yield session
+
+    @asynccontextmanager
+    async def _bounded(self) -> AsyncIterator[None]:
+        """On the request path, a database failure is a labelled 503, never a 500 or a hang."""
+        try:
+            yield
+        except ServiceUnavailable:
+            raise
+        except Exception as error:
+            # Only while an HTTP request is served (its request ID is bound): startup hooks and
+            # in-process tasks keep the driver's own error, which some catch on purpose (a
+            # database that is down at start is retried at the next one).
+            serving = self._request_ms is not None and current_request_id() is not None
+            code = database_failure(error) if serving else None
+            if code is None:
+                raise
+            # IDs and codes only: the statement and its values never reach the log.
+            log.warning("request_database_failure", code=code, error=type(error).__name__)
+            raise ServiceUnavailable(code=code) from error
 
     @asynccontextmanager
     async def platform_session(self) -> AsyncIterator[AsyncSession]:
         """A session with no tenant. RLS still applies: business tables return no rows."""
-        async with self._sessions(info={SESSION_PLATFORM_KEY: True}) as session, session.begin():
+        info: dict[str, object] = {SESSION_PLATFORM_KEY: True}
+        if self._request_ms is not None:
+            info[SESSION_REQUEST_TIMEOUT_KEY] = self._request_ms
+        async with self._bounded(), self._sessions(info=info) as session, session.begin():
             yield session
 
     @classmethod

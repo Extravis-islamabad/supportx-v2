@@ -237,6 +237,7 @@ export const ar: LabelResource = {
     'يمكن لمالكها فقط تغيير لوحة المعلومات هذه. انسخها لإنشاء نسختك.',
   'errors.dashboard_not_found': 'لوحة المعلومات هذه غير موجودة أو غير مشتركة معك.',
   'errors.database_not_configured': 'لم تكتمل تهيئة الخدمة بعد. يرجى التواصل مع المسؤول.',
+  'errors.database_unavailable': 'قاعدة البيانات لا تستجيب الآن. يرجى المحاولة مرة أخرى بعد لحظات.',
   'errors.default_board_kept':
     'لا يمكن إزالة المجلس الاستشاري الافتراضي للتغييرات، فهو يراجع التغييرات التي لا يراجعها مجلس آخر.',
   'errors.default_site_required':
@@ -1121,6 +1122,8 @@ export const ar: LabelResource = {
   'errors.report_schedule_not_found': 'هذه الجدولة غير موجودة أو ليست لك.',
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
+  'errors.request_too_slow':
+    'استغرق هذا وقتًا طويلًا فأُوقف. جرّب بحثًا أو تصفية أضيق، أو حاول لاحقًا.',
   'errors.requester_action_closed': 'لم يعد بإمكانك تغيير هذا: فقد حُلّ أو أُغلق أو أُلغي بالفعل.',
   'errors.requester_cancel_not_possible':
     'لا يمكن إلغاء هذا في هذه المرحلة. أرسل ردًا لإبلاغ الفريق.',

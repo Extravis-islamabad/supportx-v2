@@ -258,6 +258,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.database_unavailable':
+    "The database isn't answering right now. Please try again in a moment.",
   'errors.default_board_kept':
     'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
@@ -1207,6 +1209,8 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.request_too_slow':
+    'This took too long to finish, so it was stopped. Try a narrower search or filter, or try again later.',
   'errors.requester_action_closed':
     "You can no longer change this: it's already resolved, closed or cancelled.",
   'errors.requester_cancel_not_possible':
