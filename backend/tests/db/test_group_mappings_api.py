@@ -15,7 +15,7 @@ import pytest
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_audit_api import by_action
-from tests.db.test_incidents_api import Org, World, role
+from tests.db.test_incidents_api import Org, World, make_org, role
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
@@ -122,3 +122,47 @@ async def test_privileged_access_needs_the_tenant_opt_in(world: World) -> None:
     assert group_mapping.status_code == 201, group_mapping.text
     onto = await world.call("PUT", f"/roles/{admin_role}/groups/{a.gb}", a, a.admin)
     assert (onto.status_code, onto.json()["code"]) == (409, "mapping_grants_privileged_access")
+
+
+async def test_a_stale_or_switched_off_directory_with_managed_access_is_flagged(
+    world: World,
+) -> None:
+    """The coordinator's condition: visible on the security overview, never failing closed."""
+    from datetime import UTC, datetime, timedelta  # noqa: PLC0415 - this test only
+
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.domain.group_mappings import SourceKind  # noqa: PLC0415
+    from app.modules.identity_access.service import group_mappings  # noqa: PLC0415
+
+    org = await make_org(world, f"Stale {uuid.uuid4().hex[:6]}")
+    source = await _directory(world, org)
+    group = (await world.sql(
+        "SELECT id FROM support_groups WHERE tenant_id = $1 LIMIT 1", org.tenant
+    ))[0]["id"]  # fmt: skip
+    made = await _create(
+        world, org, source_kind="directory", source_id=str(source),
+        external_group_id="sx-desk", group_id=str(group),
+    )  # fmt: skip
+    assert made.status_code == 201, made.text
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        await group_mappings.follow(
+            session, source_kind=SourceKind.DIRECTORY, source_id=source,
+            user_id=org.requester, group_ids=frozenset({"sx-desk"}),
+        )  # fmt: skip
+
+    async def flagged() -> int:
+        async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+            return await group_mappings.stale_sources(session, datetime.now(UTC))
+
+    long_ago = datetime.now(UTC) - timedelta(hours=30)
+    await world.sql(
+        "UPDATE directory_connectors SET last_synced_at = $2 WHERE id = $1", source, long_ago
+    )
+    assert await flagged() == 1  # over a day without a successful sync
+    await world.sql("UPDATE directory_connectors SET last_synced_at = now() WHERE id = $1", source)
+    assert await flagged() == 0  # fresh
+    await world.sql("UPDATE directory_connectors SET enabled = false WHERE id = $1", source)
+    assert await flagged() == 1  # switched off: no run will ever say so, the flag does
+    overview = await world.call("GET", "/identity/security-overview", org, org.admin)
+    assert overview.status_code == 200, overview.text
+    assert "directory_access_stale" in overview.text

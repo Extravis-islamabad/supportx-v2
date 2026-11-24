@@ -30,6 +30,7 @@ from app.modules.identity_access import (
     create_group_mapping,
     list_group_mappings,
     register_group_source,
+    register_source_freshness,
     release_from_directory,
     remove_group_mapping,
 )
@@ -450,6 +451,21 @@ async def _directory_exists(session: AsyncSession, directory_id: uuid.UUID) -> b
     return found is not None
 
 
+async def _last_successful_sync(session: AsyncSession, directory_id: uuid.UUID) -> datetime | None:
+    """When the directory last brought its people in; None when it can't any more.
+
+    A connector an admin switched off (or removed) never syncs again, so its managed access is
+    as stale as a failing one's, and no failing run would say so (the coordinator, 2026-11-25).
+    """
+    row = await session.scalar(
+        select(DirectoryConnector).where(DirectoryConnector.id == directory_id)
+    )
+    if row is None or row.deleted_at is not None or not row.enabled:
+        return None
+    return row.last_synced_at
+
+
 def register_mapping_source() -> None:
-    """identity_access checks a directory mapping's source through this (rule e)."""
+    """identity_access checks a directory mapping's source, and its freshness, through these."""
     register_group_source(GroupSourceKind.DIRECTORY, _directory_exists)
+    register_source_freshness(GroupSourceKind.DIRECTORY, _last_successful_sync)

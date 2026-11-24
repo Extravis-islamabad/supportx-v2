@@ -11,6 +11,7 @@ The rules live in domain/group_mappings.py; the plan is ~/Extravis/plans/wp-057-
 
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import func, select
@@ -291,6 +292,41 @@ async def require_source(session: AsyncSession, kind: SourceKind, source_id: uui
         exists = check is not None and await check(session, source_id)
     if not exists:
         raise NotFound(code="mapping_source_not_found")
+
+
+# How fresh a source's groups are (rule e): integrations registers the directory's last
+# successful sync. A directory that hasn't synced for STALE_AFTER keeps its managed access, and
+# the security overview counts it (the coordinator, 2026-11-24: visible, never fail closed).
+STALE_AFTER = timedelta(hours=24)
+Freshness = Callable[[AsyncSession, uuid.UUID], Awaitable["datetime | None"]]
+_FRESHNESS: dict[SourceKind, Freshness] = {}
+
+
+def register_source_freshness(kind: SourceKind, last_success: Freshness) -> None:
+    """A module says when one of its sources last brought its groups in successfully."""
+    _FRESHNESS[kind] = last_success
+
+
+async def stale_sources(session: AsyncSession, now: "datetime") -> int:
+    """Directory sources holding managed access whose last successful sync is over a day old."""
+    last_success = _FRESHNESS.get(SourceKind.DIRECTORY)
+    if last_success is None:
+        return 0
+    sources = await session.scalars(
+        select(IdpGroupMapping.source_id)
+        .where(
+            IdpGroupMapping.source_kind == SourceKind.DIRECTORY.value,
+            IdpGroupMapping.deleted_at.is_(None),
+            IdpGroupMapping.id.in_(select(AccessSource.mapping_id)),
+        )
+        .distinct()
+    )
+    stale = 0
+    for source in sources:
+        last = await last_success(session, source)
+        if last is None or now - last > STALE_AFTER:
+            stale += 1
+    return stale
 
 
 async def mapped_external_groups(

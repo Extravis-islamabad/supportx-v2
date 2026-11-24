@@ -176,6 +176,7 @@ from app.modules.identity_access.service.group_mappings import (
 from app.modules.identity_access.service.group_mappings import (
     mapped_external_groups,
     register_group_source,
+    register_source_freshness,
 )
 from app.modules.identity_access.service.group_mappings import (
     remove_mapping as remove_group_mapping,
@@ -674,6 +675,7 @@ __all__ = [
     "register_person_data",
     "register_rule_listener",
     "register_seal_counter",
+    "register_source_freshness",
     "release_from_directory",
     "remove_group_mapping",
     "remove_ldap_federation",
