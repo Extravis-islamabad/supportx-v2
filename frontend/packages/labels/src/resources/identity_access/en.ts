@@ -266,7 +266,7 @@ export const en = {
   'field_access.no_rule': 'No rule',
   'field_access.nobody': 'Nobody',
   'field_access.record_type': 'Record type',
-  'field_access.saved': 'Field access saved',
+  'field_access.saved': 'Field access saved for {{type}}',
   'field_access.search': 'Find a field',
   'field_access.stale':
     'Someone else changed this rule meanwhile. The row now shows what is saved.',

@@ -273,7 +273,7 @@ export const ar: LabelResource = {
   'field_access.no_rule': 'بلا قاعدة',
   'field_access.nobody': 'لا أحد',
   'field_access.record_type': 'نوع السجل',
-  'field_access.saved': 'حُفظ الوصول إلى الحقول',
+  'field_access.saved': 'حُفظ الوصول إلى الحقول لـ {{type}}',
   'field_access.search': 'ابحث عن حقل',
   'field_access.stale': 'غيّر شخص آخر هذه القاعدة في هذه الأثناء. يعرض الصف الآن ما هو محفوظ.',
   'field_access.unlicensed':

@@ -185,6 +185,31 @@ describe('Admin › Roles › Field access', () => {
     );
   });
 
+  it('opens on Incident even when another type sorts first, and the toast names the type', async () => {
+    // The catalogue is alphabetical, so Change came first and a rule meant for incidents was
+    // saved on changes without a word (#595's journey).
+    const change: FieldCatalogue = { record_type: 'change', fields: CATALOGUE[0]?.fields ?? [] };
+    const fake = routes({
+      'GET /api/v1/field-access/catalogue': { body: [change, ...CATALOGUE] },
+      'POST /api/v1/field-access/rules': { status: 201, body: { ...RULE, id: 'rule-2' } },
+    });
+    await openTab();
+    expect(within(screen.getByTestId('field-access-type')).getByText('Incident')).toBeDefined();
+    fireEvent.mouseDown(
+      within(screen.getByTestId('field-access-mode-impact_details')).getByRole('combobox'),
+    );
+    fireEvent.click(
+      await screen.findByText('Hidden', { selector: '.ant-select-item-option-content' }),
+    );
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/field-access/rules')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/field-access/rules')[0]?.body).toMatchObject({
+      record_type: 'incident',
+    });
+    expect(await screen.findByText('Field access saved for Incident')).toBeDefined();
+  });
+
   it('a CI catalogue shows the record type by its label, never a raw key', async () => {
     routes({
       'GET /api/v1/field-access/catalogue': {

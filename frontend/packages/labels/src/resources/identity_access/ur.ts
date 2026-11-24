@@ -271,7 +271,7 @@ export const ur: LabelResource = {
   'field_access.no_rule': 'کوئی قاعدہ نہیں',
   'field_access.nobody': 'کوئی نہیں',
   'field_access.record_type': 'ریکارڈ کی قسم',
-  'field_access.saved': 'فیلڈ تک رسائی محفوظ ہو گئی',
+  'field_access.saved': '{{type}} کے لیے فیلڈ تک رسائی محفوظ ہو گئی',
   'field_access.search': 'فیلڈ تلاش کریں',
   'field_access.stale': 'اس دوران کسی اور نے یہ قاعدہ بدل دیا۔ قطار اب وہی دکھاتی ہے جو محفوظ ہے۔',
   'field_access.unlicensed':
