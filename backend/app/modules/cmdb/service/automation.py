@@ -24,6 +24,7 @@ from app.modules.cmdb.domain.types import CiImpact
 from app.modules.cmdb.events import CiCreated, CiUpdated, RelationshipsChanged
 from app.modules.cmdb.infra.models import Ci
 from app.modules.cmdb.service import cis
+from app.modules.cmdb.service.refs import can_see
 from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
 
@@ -109,7 +110,7 @@ async def _labels(
 
 
 async def _may_view(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
-    return await cis.may_view(session, subject, ci_id)
+    return await can_see(session, subject, ci_id)
 
 
 async def _may_edit(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:

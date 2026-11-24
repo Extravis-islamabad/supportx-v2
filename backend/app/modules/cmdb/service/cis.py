@@ -1425,15 +1425,6 @@ async def automated_update(
     return sorted(columns)
 
 
-async def may_view(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
-    """Whether the person may see the CI (role scope and ADR-053 narrowing; WP-053 S5d)."""
-    try:
-        await _visible(session, subject, ci_id)
-    except NotFound:
-        return False
-    return True
-
-
 async def may_edit(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
     """Whether the person may edit the CI (`cmdb.edit` or `cmdb.manage`, in scope; S5d)."""
     try:

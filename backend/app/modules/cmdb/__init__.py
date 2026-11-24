@@ -39,6 +39,7 @@ from app.modules.cmdb.events import EVENTS
 from app.modules.cmdb.service import access_criteria as _access_criteria
 from app.modules.cmdb.service import automation as _automation
 from app.modules.cmdb.service import field_catalogue as _field_catalogue
+from app.modules.cmdb.service import notifications as _notifications
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
 from app.modules.cmdb.service import type_tree as _type_tree
@@ -119,6 +120,7 @@ _type_tree.register()  # custom fields scoped to a CI type subtree (0175 part 2)
 _field_catalogue.register()  # CI custom fields an admin may restrict per role (ADR-047)
 _access_criteria.register()  # what fine-grained access rules may narrow CIs to (ADR-053)
 _automation.register()  # CIs as trigger sources and targets (WP-053 S5d)
+_notifications.register()  # a CI's state change, to its owner and groups (S5d)
 
 __all__ = [
     "LINKED_TYPES",
