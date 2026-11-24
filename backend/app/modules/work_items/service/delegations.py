@@ -107,11 +107,15 @@ async def route(session: AsyncSession, record: WorkItem, rows: Sequence[WorkItem
         )
     )
     for row in rows:
+        # A row not yet flushed has no purpose or state of its own until the column defaults
+        # apply (record, pending), so an unset one reads as the default.
+        purpose = vars(row).get("purpose") or rules.ApprovalPurpose.RECORD.value
+        state = vars(row).get("state") or rules.ApprovalState.PENDING.value
         if (
             row.approver_id is None
             or row.on_behalf_of_id is not None
-            or row.purpose != rules.ApprovalPurpose.RECORD.value
-            or row.state != rules.ApprovalState.PENDING.value
+            or purpose != rules.ApprovalPurpose.RECORD.value
+            or state != rules.ApprovalState.PENDING.value
         ):
             continue
         delegation = await active_for(session, row.approver_id)

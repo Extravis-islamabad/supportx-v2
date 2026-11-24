@@ -4,6 +4,7 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   DatePicker,
   Flex,
   Form,
@@ -836,6 +837,24 @@ function ApprovalTab({ draft, set }: TabProps) {
               />
             </>
           )}
+          {/* WP-047a S3b (REQ-SR-041, Essentials): request values whose change restarts approval;
+              marked questions restart it too (the Form tab). */}
+          <Form.Item
+            label={t('catalog_admin.approval.restart_on')}
+            extra={t('catalog_admin.approval.restart_on_help')}
+          >
+            <Checkbox.Group
+              value={approval.restart_on ?? []}
+              onChange={(restart_on) => {
+                put({ restart_on });
+              }}
+              options={(['quantity', 'requested_for'] as const).map((code) => ({
+                value: code,
+                label: t(`restart_on.${code}`),
+              }))}
+              data-testid="cat-approval-restart-on"
+            />
+          </Form.Item>
           <Flex gap={24} wrap>
             {!staged && (
               <>

@@ -75,6 +75,16 @@ export function ApprovalsDrawer() {
         }}
         data-testid="approvals-drawer"
       >
+        {/* WP-047a S3b (REQ-SR-035): away for a while? Hand your approvals to someone. */}
+        <Link
+          to="/approvals/delegations"
+          onClick={() => {
+            setOpen(false);
+          }}
+          data-testid="approvals-delegations-link"
+        >
+          {t('delegations.title')}
+        </Link>
         <List
           dataSource={items}
           locale={{

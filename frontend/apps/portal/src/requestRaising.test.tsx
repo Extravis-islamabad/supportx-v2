@@ -40,6 +40,7 @@ const item: CatalogItem = {
   questions: [
     {
       key: 'size',
+      restarts_approval: false,
       label: { en: 'Size' },
       kind: 'text',
       required: true,

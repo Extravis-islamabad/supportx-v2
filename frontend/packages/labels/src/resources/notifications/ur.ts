@@ -43,6 +43,7 @@ export const ur: LabelResource = {
   'notice.sign_in_secret.item_client_secret': 'کلائنٹ کی خفیہ کلید',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
+  'notification_area.approval_delegation': 'منظوری کی تفویضات',
   'notification_area.asset': 'اثاثے',
   'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
@@ -80,6 +81,9 @@ export const ur: LabelResource = {
   'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
   'notification_event.announcement.ended': 'آپ کا فالو کردہ اعلان ختم ہوا',
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
+  'notification_event.approval_delegation.changed': 'منظوری کی تفویض تبدیل کی گئی',
+  'notification_event.approval_delegation.ended': 'منظوری کی تفویض ختم ہوئی',
+  'notification_event.approval_delegation.set': 'منظوری کی تفویض مقرر کی گئی',
   'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
   'notification_event.asset.erased_holder_items':
@@ -173,6 +177,7 @@ export const ur: LabelResource = {
   'notification_event.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
+  'notification_event.service_request.approval_restarted': 'درخواست کی منظوری دوبارہ شروع ہوئی',
   'notification_event.service_request.approved': 'درخواست منظور',
   'notification_event.service_request.clarification_answered':
     'درخواست پر آپ کے سوال کا جواب آ گیا',
@@ -222,6 +227,8 @@ export const ur: LabelResource = {
   'notification_recipient.change_owner': 'تبدیلی کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
   'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
+  'notification_recipient.delegate': 'نائب',
+  'notification_recipient.delegator': 'تفویض کرنے والا منظوری دہندہ',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
@@ -282,6 +289,22 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" اپ ڈیٹ ہو گیا ہے۔',
   'notification_template.announcement.updated.in_app': 'اپ ڈیٹ: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'اپ ڈیٹ: {{ record.title }}',
+  'notification_template.approval_delegation.changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.delegator }} کی منظوریوں کی تفویض اب {{ delegation.starts_at }} سے {{ delegation.ends_at }} تک، {{ delegation.delegate }} کو ہے۔',
+  'notification_template.approval_delegation.changed.in_app':
+    '{{ delegation.delegator }} کی منظوریوں کی تفویض تبدیل ہوئی',
+  'notification_template.approval_delegation.changed.subject': 'منظوری کی تفویض تبدیل ہوئی',
+  'notification_template.approval_delegation.ended.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.delegator }} کی منظوریوں کی {{ delegation.delegate }} کو تفویض ختم ہو گئی۔ منتظر منظوریاں واپس {{ delegation.delegator }} کے پاس ہیں۔',
+  'notification_template.approval_delegation.ended.in_app':
+    '{{ delegation.delegator }} کی منظوریوں کی تفویض ختم ہوئی',
+  'notification_template.approval_delegation.ended.subject': 'منظوری کی تفویض ختم ہوئی',
+  'notification_template.approval_delegation.set.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.starts_at }} سے {{ delegation.ends_at }} تک، {{ delegation.delegator }} کی نئی درخواست منظوریاں {{ delegation.delegate }} کو جائیں گی۔ {{ delegation.delegator }} اب بھی ان کا فیصلہ کر سکتے ہیں۔',
+  'notification_template.approval_delegation.set.in_app':
+    '{{ delegation.delegator }} کی منظوریاں {{ delegation.ends_at }} تک {{ delegation.delegate }} کو',
+  'notification_template.approval_delegation.set.subject':
+    'منظوریاں {{ delegation.delegate }} کو تفویض',
   'notification_template.asset.ack_disputed.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} نے {{ record.display_id }} "{{ record.title }}" پر اعتراض کیا: {{ acknowledgement.comment }}',
   'notification_template.asset.ack_disputed.in_app':
@@ -794,6 +817,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_restarted.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کا ایک جواب بدل گیا، اس لیے اس کی منظوری دوبارہ شروع ہوئی۔ آپ کی پچھلی منظوری اور اس کا لنک اب شمار نہیں؛ اگر آپ منظوری دہندہ ہیں تو آپ سے دوبارہ پوچھا جائے گا۔',
+  'notification_template.service_request.approval_restarted.in_app':
+    'تبدیلی کے بعد {{ record.display_id }} کی منظوری دوبارہ شروع ہوئی',
+  'notification_template.service_request.approval_restarted.subject':
+    'منظوری دوبارہ شروع: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approved.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» منظور ہو گئی۔ ہم اب اس پر کام کر رہے ہیں۔',
   'notification_template.service_request.approved.in_app':
@@ -922,6 +951,10 @@ export const ur: LabelResource = {
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
   'notification_variable.custom_field.direction': 'اپنی مرضی کا خانہ › کیا چل رہا تھا',
   'notification_variable.custom_field.name': 'اپنی مرضی کا خانہ › نام',
+  'notification_variable.delegation.delegate': 'نائب',
+  'notification_variable.delegation.delegator': 'تفویض کرنے والا منظوری دہندہ',
+  'notification_variable.delegation.ends_at': 'تفویض کا اختتام',
+  'notification_variable.delegation.starts_at': 'تفویض کا آغاز',
   'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.holdings.assets': 'ہولڈنگز › اثاثے',
   'notification_variable.holdings.count': 'ہولڈنگز › تعداد',

@@ -304,7 +304,7 @@ async def test_041_ac1_ac3_a_marked_change_restarts_from_stage_1(world: World) -
         if json.loads(e["envelope"])["payload"]["work_item_id"] == record["id"]
     ]
     assert (told["round"], told["approver_ids"], told["keys"]) == (2, [str(a.tech_a)], ["model"])
-    assert "pro" not in json.dumps(told)  # the keys, never the answers
+    assert '"pro"' not in json.dumps(told)  # the keys, never the answers
     links = await world.sql(
         "SELECT count(*) AS n FROM action_links WHERE tenant_id = $1 AND object_id = $2"
         " AND revoked_at IS NULL",
