@@ -137,8 +137,9 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         "cmdb.view": _V,
         "cmdb.add": _C,
         "cmdb.edit": _C,
-        # A downtime recorded on a CI by hand is a change to that CI (WP-053 S5b): as editing.
-        "cmdb.record_downtime": _C,
+        # A downtime recorded on a CI by hand is an operational write, outside desk configuration
+        # (D-173; the coordinator on WP-053 S5b): never for vendor support, whatever the grant.
+        **_never("not_desk", "cmdb.record_downtime"),
         "cmdb.configure": _C,
         "cmdb.manage": _C,
         **_never("tenant_decision", "cmdb.delete"),
