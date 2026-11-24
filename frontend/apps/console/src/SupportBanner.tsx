@@ -23,9 +23,12 @@ export function SupportBanner() {
   const recheck = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.session });
   };
-  usePersonalChannel((message) => {
-    if (message.type === GRANT_CHANGED) recheck();
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.type === GRANT_CHANGED) recheck();
+    },
+    { covers: [queryKeys.session] },
+  );
   const endsAt = support?.ends_at;
   useEffect(() => {
     if (endsAt === undefined) return undefined;

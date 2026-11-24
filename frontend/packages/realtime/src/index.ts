@@ -12,6 +12,7 @@ export {
   type ClientFactory,
 } from './connection';
 export {
+  isRefresh,
   refreshList,
   refreshQueries,
   refreshRecord,
@@ -24,6 +25,7 @@ export {
   useRecordChannel,
   useTenantChannel,
 } from './hooks';
+export type { ChannelOptions } from './hooks';
 export { REALTIME_KEY, listChannelsKey } from './keys';
 export { RealtimeContext, type RealtimeContextValue } from './context';
 export { RealtimeProvider, type RealtimeProviderProps } from './RealtimeProvider';

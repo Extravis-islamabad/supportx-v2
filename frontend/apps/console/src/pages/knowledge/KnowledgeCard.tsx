@@ -25,7 +25,7 @@ import {
   useUnlinkKbArticle,
   type KbFromRecord,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import { reportError, useAccess, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -90,13 +90,16 @@ export function KnowledgeCard({
   const linkIt = useLinkKbArticle();
   const unlink = useUnlinkKbArticle();
   const [saving, setSaving] = useState(false);
-  useRecordChannel(allowed ? 'wi' : 'none', allowed ? recordId : undefined, (message) => {
-    if (message.type === 'knowledge.link.saved' || message.type === 'knowledge.link.removed') {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.knowledge.recordArticles(recordType, recordId),
-      });
-    }
-  });
+  useRecordChannel(
+    allowed ? 'wi' : 'none',
+    allowed ? recordId : undefined,
+    (message) => {
+      if (message.type === 'knowledge.link.saved' || message.type === 'knowledge.link.removed') {
+        refreshQueries(queryClient, queryKeys.knowledge.recordArticles(recordType, recordId));
+      }
+    },
+    { covers: [queryKeys.knowledge.recordArticles(recordType, recordId)] },
+  );
   if (!allowed) return null;
   const items = found.data?.items ?? [];
   const restricted = found.data?.restricted ?? 0;

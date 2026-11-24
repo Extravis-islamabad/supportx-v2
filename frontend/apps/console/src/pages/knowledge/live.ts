@@ -14,10 +14,26 @@ export function useKnowledgeLive(enabled: boolean) {
     refreshList(queryClient, queryKeys.knowledge.types);
     refreshList(queryClient, queryKeys.knowledge.settings);
   };
-  useListChannel(enabled ? 'knowledge' : null, refresh);
-  useTenantChannel((message) => {
-    if (enabled && (message.type === 'knowledge.changed' || message.type === 'refresh')) {
-      refresh();
-    }
-  });
+  const covers = enabled
+    ? [
+        [...queryKeys.knowledge.all, 'list'],
+        queryKeys.knowledge.topics,
+        queryKeys.knowledge.approvals,
+        queryKeys.knowledge.types,
+        queryKeys.knowledge.settings,
+      ]
+    : [];
+  useListChannel(
+    enabled ? 'knowledge' : null,
+    (message) => {
+      if (message.covered !== true) refresh();
+    },
+    { covers },
+  );
+  useTenantChannel(
+    (message) => {
+      if (enabled && message.type === 'knowledge.changed') refresh();
+    },
+    { covers },
+  );
 }

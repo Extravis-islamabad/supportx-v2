@@ -41,7 +41,7 @@ VOLUMES="app.kubernetes.io/part-of=supportx,app.kubernetes.io/component=seaweedf
 # shellcheck source=deploy/k3d/ha-lib.sh
 . "$ROOT/deploy/k3d/ha-lib.sh"
 cleanup() {
-  rm -rf "$COOKIES" "$BODY" "$WORK" "$SETTLE_REASON"
+  rm -rf "$COOKIES" "$BODY" "$WORK" "$SETTLE_REASON" "$PHASES"
   # Never leave a node stopped (a local cluster is reused, and the next steps need it).
   if [ -n "$STOPPED" ]; then
     echo "starting $STOPPED again (cleanup)"

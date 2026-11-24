@@ -12,23 +12,42 @@ sign_in() {  # sign_in <user>: a session through the BFF (ha_login.py), its cook
   HA_LOGIN_PASSWORD="$(jq -r --arg u "$1" '.users[] | select(.username == $u) | .credentials[0].value' "$realm")" \
     uv run --project "$ROOT/backend" python "$ROOT/deploy/k3d/ha_login.py" "$PUBLIC_URL" "$1" "$COOKIES"
 }
+PHASES="$(mktemp)"  # the last request's timings (curl's own): name lookup, connect, first byte, total
 api() {  # api METHOD PATH [curl args...]: prints the status; the body goes to $BODY
-  local method="$1" path="$2"
+  local method="$1" path="$2" out
   shift 2
-  curl -s -m 10 -X "$method" -o "$BODY" -w '%{http_code}' -H "Cookie: $(cat "$COOKIES")" \
-    -H 'X-SupportX-Client: console' "$@" "$PUBLIC_URL/api/v1$path" || true  # -w already wrote 000
+  out="$(curl -s -m 10 -X "$method" -o "$BODY" \
+    -w '%{http_code} %{time_namelookup} %{time_connect} %{time_starttransfer} %{time_total}' \
+    -H "Cookie: $(cat "$COOKIES")" -H 'X-SupportX-Client: console' "$@" \
+    "$PUBLIC_URL/api/v1$path" || true)"  # -w writes even when curl gives up (status 000)
+  echo "${out#* }" > "$PHASES"
+  echo "${out%% *}"
 }
 WRITE_TRACE="$(mktemp)"  # each failed write attempt: when, which step, its status and code
 write_failed() {  # write_failed <step> <status>: one trace line (never a body's data)
-  local code
+  local code phases
   code="$(jq -r '.code // empty' "$BODY" 2>/dev/null | head -c 60)"
-  echo "t+${SECONDS}s $1 -> $2${code:+ ($code)}" >> "$WRITE_TRACE"
+  # Where the time went (curl -m 10 gives up at 10 s and reports 000): a slow name lookup or
+  # connect is the network's; a connect in time and no first byte is the API taking that long.
+  phases="$(awk 'NF == 4 {
+    # curl reports 0 for a phase it never finished, so a 0 before a long total says which.
+    w = "nothing"
+    if ($1 >= 2) w = "the name lookup"
+    else if ($2 == 0 && $4 >= 9) w = "the name lookup or the connect, never done"
+    else if ($2 - $1 >= 2) w = "the connect"
+    else if ($3 == 0 && $4 >= 9) w = "the API, no answer"
+    else if ($3 - $2 >= 2) w = "the API"
+    printf "waited on %s: lookup %.1fs, connect %.1fs, first byte %.1fs, total %.1fs", w, $1, $2, $3, $4
+  }' "$PHASES" 2>/dev/null)"
+  echo "t+${SECONDS}s $1 -> $2${code:+ ($code)}${phases:+ [$phases]}" >> "$WRITE_TRACE"
   return 1
 }
 show_write_trace() {  # the attempts' story, each change once (a slow or failed write says why)
   [ -s "$WRITE_TRACE" ] || return 0
   echo "write attempts (step -> status, changes only):"
-  awk '{key=$2" "$3" "$4" "$5} key!=last {print "  "$0; last=key}' "$WRITE_TRACE" | tail -n 30
+  # The same step, status and wait once (the timings themselves vary every attempt).
+  awk '{key=$0; sub(/^[^ ]+ /, "", key); sub(/: lookup .*$/, "", key)} key!=last {print "  "$0; last=key}' \
+    "$WRITE_TRACE" | tail -n 30
   : > "$WRITE_TRACE"
 }
 save_locale() {  # save_locale <"ar" | null>: 0 once the API stored it

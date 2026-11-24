@@ -36,7 +36,7 @@ import {
   type ChangeWindow,
   type StagedPath,
 } from '@supportx/api-client';
-import { useListChannel, useTenantChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
   DateField,
   Drawer,
@@ -186,15 +186,26 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     { label: t(kind.title) },
   ]);
   // Live: a record saved or moved (its list channel) and a window changed (broadcast).
-  useListChannel(kind.type, () => {
-    void queryClient.invalidateQueries({ queryKey: kind.queryKey });
-  });
-  useListChannel(other.type, () => {
-    void queryClient.invalidateQueries({ queryKey: other.queryKey });
-  });
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_windows_changed') void windows.refetch();
-  });
+  useListChannel(
+    kind.type,
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, kind.queryKey);
+    },
+    { covers: [kind.queryKey] },
+  );
+  useListChannel(
+    other.type,
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, other.queryKey);
+    },
+    { covers: [other.queryKey] },
+  );
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'work_items.change_windows_changed') void windows.refetch();
+    },
+    { covers: [['change-windows']] },
+  );
   const entries: Entry[] = [
     ...(calendar.data ?? []).map((e) => ({ ...e, of: kind.type })),
     ...(showOther && mayOther ? (others.data ?? []) : [])

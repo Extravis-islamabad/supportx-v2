@@ -53,9 +53,15 @@ export function SsoPolicyCard() {
   const [edited, setDraft] = useState<Draft | null>(null);
   const problem = useFormProblem();
   // A person's marks change on their user record: the users channel says so (rule 5c).
-  useListChannel('users', () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy });
-  });
+  useListChannel(
+    'users',
+    (m) => {
+      if (m.covered !== true) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.identity.ssoPolicy });
+      }
+    },
+    { covers: [queryKeys.identity.ssoPolicy] },
+  );
   if (policy.data === undefined) return <Card loading data-testid="security-sso-policy" />;
   const saved = policy.data;
   const draft = edited ?? draftFrom(saved);
