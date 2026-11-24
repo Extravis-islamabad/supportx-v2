@@ -116,8 +116,17 @@ async def test_each_type_lists_its_own_trigger_events(world: World) -> None:
     )
     assert incident.status_code == 200, incident.text
     offered = set(incident.json()["offered"])
-    assert len(offered) == 7
-    assert not offered & {"relationship_added", "relationship_removed", "downtime_started"}
+    assert len(offered) == 6  # no stage_entered: an incident has no stages (lane A)
+    assert not offered & {
+        "stage_entered",
+        "relationship_added",
+        "relationship_removed",
+        "downtime_started",
+    }
+    release = await world.call(
+        "GET", "/automation/trigger-events", a, a.admin, params={"record_type": "release"}
+    )
+    assert "stage_entered" in release.json()["offered"]
 
 
 async def test_a_trigger_on_an_event_its_type_does_not_offer_is_refused(world: World) -> None:

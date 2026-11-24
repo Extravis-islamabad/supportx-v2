@@ -27,7 +27,7 @@ from app.modules.automation.domain.rules import (
     RulesOutcome,
     TraceLine,
 )
-from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
+from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, People, Relative, TriggerEvent
 from app.modules.automation.events import (
     EVENTS,
     WorkflowCommandFinished,
@@ -169,6 +169,7 @@ module = ModuleSpec(
 
 __all__ = [
     "TRANSITION_NOT_FOR_YOU",
+    "WORK_ITEM_EVENTS",
     "Applier",
     "AssignmentChoice",
     "AssignmentResult",

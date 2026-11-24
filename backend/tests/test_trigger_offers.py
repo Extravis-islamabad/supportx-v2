@@ -13,6 +13,7 @@ from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, TriggerEven
 from app.modules.automation.service.registry import _READERS, record_type, record_types
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES
 from app.modules.cmdb.service.automation import read_event as ci_reader
+from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.service.automated import read_event as work_item_reader
 from app.shared.events import EventEnvelope
 from tooling.route_permissions import build_app
@@ -27,6 +28,8 @@ CI_EVENTS = frozenset(
         TriggerEvent.DOWNTIME_STARTED,
     }
 )
+# Work item types with a stage model (ADR-041): only they offer stage_entered (lane A, S5d).
+STAGED = frozenset(w.code.value for w in TYPES.values() if w.stages is not None)
 # Types that offer their own set, on purpose (and what it is checked against below).
 OWN_OFFERS: dict[str, frozenset[TriggerEvent]] = {
     # WP-053 S5d: a CI's own six, the three CI events included.
@@ -48,7 +51,9 @@ def test_every_work_item_type_keeps_todays_events_and_no_ci_event() -> None:
     for code in codes:
         kind = record_type(code)
         assert kind is not None
-        expected = OWN_OFFERS.get(code, WORK_ITEM_EVENTS)
+        staged = code in STAGED
+        unstaged = WORK_ITEM_EVENTS - {TriggerEvent.STAGE_ENTERED}
+        expected = OWN_OFFERS.get(code, WORK_ITEM_EVENTS if staged else unstaged)
         assert kind.offered_events == expected, code
         if code not in OWN_OFFERS:
             assert not (kind.offered_events & CI_EVENTS), code
