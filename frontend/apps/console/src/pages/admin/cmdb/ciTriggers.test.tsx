@@ -44,7 +44,9 @@ function api() {
       'GET /api/v1/cmdb/ci-types': { body: { items: [] } },
       'GET /api/v1/cmdb/ci-states': { body: { items: [] } },
       'GET /api/v1/automation/triggers': { body: [] },
-      'GET /api/v1/automation/trigger-events': { body: { offered: CI_OFFER } },
+      'GET /api/v1/automation/trigger-events': {
+        body: { offered: CI_OFFER, offered_actions: ['set'] },
+      },
       'GET /api/v1/automation/fields': {
         body: [
           { name: 'state_id', kind: 'reference', values: null, settable: true, derived: false },

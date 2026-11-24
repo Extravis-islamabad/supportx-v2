@@ -38,7 +38,16 @@ function api() {
         ],
       },
       'GET /api/v1/automation/triggers': { body: [] },
-      'GET /api/v1/automation/trigger-events': { body: { offered: ['created', 'updated'] } },
+      // The offer is the server's (lane C's #627 review): only an approvable type may ask.
+      'GET /api/v1/automation/trigger-events': (call) => ({
+        body: {
+          offered: ['created', 'updated'],
+          offered_actions:
+            call.url.searchParams.get('record_type') === 'service_request'
+              ? ['set', 'note', 'start_workflow', 'start_approval']
+              : ['set', 'note'],
+        },
+      }),
       'GET /api/v1/automation/workflows/node-types': {
         body: [
           {

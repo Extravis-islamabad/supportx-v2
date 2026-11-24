@@ -62,9 +62,9 @@ const EVENT_ORDER: readonly TriggerEvent[] = [
 ];
 const inOrder = (events: readonly TriggerEvent[]) =>
   [...events].sort((a, b) => EVENT_ORDER.indexOf(a) - EVENT_ORDER.indexOf(b));
-// The record types whose approvals can be decided: a trigger there may ask for one (WP-047a S4;
-// the server refuses others with `action_not_offered`).
-const APPROVABLE = new Set(['service_request', 'problem', 'change', 'release']);
+// The actions this editor can edit; which of them a type offers comes from the server
+// (`offered_actions`, WP-047a S4; lane C's #627 review), which refuses any other on save.
+const EDITABLE: readonly TriggerActionIO['kind'][] = ['set', 'note', 'start_approval'];
 const DEFAULT_KINDS = ['set', 'note'] as const;
 
 const STATE_TONE: Record<TriggerOut['state'], Tone> = {
@@ -310,7 +310,8 @@ function TriggerEditor({
   const t = useLabel();
   const { message } = App.useApp();
   const fields = useRuleFields(recordType, open);
-  const offer = useTriggerEvents(recordType, open).data?.offered;
+  const events = useTriggerEvents(recordType, open).data;
+  const offer = events?.offered;
   const offered = inOrder(offer ?? []);
   const { createTrigger, updateTrigger } = useAutomationChange();
   const [draft, setDraft] = useState<Draft>(() => draftOf(trigger));
@@ -371,11 +372,12 @@ function TriggerEditor({
     }
   };
   const all = fields.data ?? [];
-  // Asking for an approval is a trigger's only, where the type's approvals can be decided.
-  const kinds: readonly TriggerActionIO['kind'][] = [
-    ...(actionKinds ?? DEFAULT_KINDS),
-    ...(APPROVABLE.has(recordType) ? (['start_approval'] as const) : []),
-  ];
+  // The server's offer for this type (asking for an approval only where its approvals can be
+  // decided); until it loads, the caller's kinds or the defaults.
+  const kinds: readonly TriggerActionIO['kind'][] =
+    events === undefined
+      ? (actionKinds ?? DEFAULT_KINDS)
+      : EDITABLE.filter((k) => events.offered_actions.includes(k));
   return (
     <Drawer
       open={open}
