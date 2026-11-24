@@ -35,7 +35,14 @@ def _add_route(world: World, target: uuid.UUID) -> None:
         subject: Annotated[Subject, Depends(require_signed_in())],
     ) -> None:
         del subject
-        note.details.update({"delegate_id": str(target), "reason": "free text, never logged"})
+        note.details.update(
+            {
+                "delegate_id": str(target),
+                "reason": "free text, never logged",
+                "api_key": "sx_live_secret_value_never_logged",  # a sealed value
+                "count": 3,
+            }
+        )
         raise PermissionDenied(code="permission_denied", params={"reason": "self_appointed"})
 
     world.app.include_router(router)
@@ -57,3 +64,5 @@ async def test_a_refused_request_names_its_target_under_requested(world: World) 
     assert details["status"] == 403
     assert details["requested"] == {"delegate_id": str(target)}
     assert "free text" not in str(details)
+    assert "sx_live_secret" not in str(details)
+    assert set(details["requested"]) == {"delegate_id"}  # only the ID, nothing else named
