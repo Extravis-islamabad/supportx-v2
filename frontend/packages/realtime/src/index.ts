@@ -13,6 +13,7 @@ export {
 } from './connection';
 export {
   refreshList,
+  refreshQueries,
   refreshRecord,
   useChannel,
   useListChannel,

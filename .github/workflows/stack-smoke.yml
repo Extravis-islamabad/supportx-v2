@@ -23,6 +23,10 @@ on:
         type: choice
         options: [full, smoke]
         default: full
+      spec:
+        description: "full only: run just this one spec file (tests/<name>.spec.ts) in one shard, on its own fresh stack"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -59,7 +63,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        # A manual run naming one spec needs one stack, not three.
+        shard: ${{ fromJSON(inputs.spec != '' && '[1]' || '[1, 2, 3]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -160,10 +165,18 @@ jobs:
         working-directory: frontend
         env:
           SHARD: ${{ matrix.shard }}
+          ONE_SPEC: ${{ inputs.spec }}
         run: |
           # The same split in every shard (shard-weights.json). Paths are relative to
           # frontend/e2e (tests/…), where the image runs Playwright.
-          mapfile -t specs < <(node e2e/shards.ts "$SHARD/3")
+          if [ -n "$ONE_SPEC" ]; then
+            # A manual run's one spec, alone on a fresh stack: a name, never a path or a flag.
+            [[ "$ONE_SPEC" =~ ^tests/[a-z0-9-]+\.spec\.ts$ ]] && [ -f "e2e/$ONE_SPEC" ] ||
+              { echo "::error::spec must be an existing tests/<name>.spec.ts, got '$ONE_SPEC'"; exit 1; }
+            specs=("$ONE_SPEC")
+          else
+            mapfile -t specs < <(node e2e/shards.ts "$SHARD/3")
+          fi
           echo "Shard $SHARD/3: ${specs[*]}"
           (( ${#specs[@]} > 0 )) || { echo "::error::shard $SHARD/3 has no spec files"; exit 1; }
           {

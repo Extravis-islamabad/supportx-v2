@@ -14,7 +14,9 @@ from app.modules import assets, cmdb
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_asset_holders_api import _asset, _hold
 from tests.db.test_cmdb_api import _ci
+from tests.db.test_cmdb_merge_import import _fresh, _made, _merge
 from tests.db.test_incidents_api import World
+from tests.db.test_knowledge_api import _match
 
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
@@ -84,3 +86,70 @@ async def test_ci_owners_are_the_owner_person_and_group(world: World) -> None:
     }
     async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
         assert await cmdb.owners_of(session, ids) == {}
+
+
+async def test_a_merged_ci_answers_with_its_survivors_owner(world: World) -> None:
+    """Lane B's follow-up to S4b: a merged CI's ID gets the owner its survivor has now.
+
+    Keyed by the ID asked for, following a chain of merges. A survivor with no owner gives
+    nothing (the caller's fallback), and a merge undone by restoring the merged CI ends the
+    alias: the restored CI answers with its own owner again.
+    """
+    a, b = world.a, world.b
+    tag = uuid.uuid4().hex[:6]
+    keep = await _made(
+        world, a, f"Keep {tag}", owner_user_id=str(a.tech_b), owner_group_id=str(a.gb)
+    )
+    dupe = await _made(world, a, f"Dupe {tag}", owner_user_id=str(a.tech_a))
+    middle = await _made(world, a, f"Middle {tag}", owner_group_id=str(a.ga))
+    first = await _made(world, a, f"First {tag}", owner_user_id=str(a.tech_a))
+    bare = await _made(world, a, f"Bare {tag}")
+    owned = await _made(world, a, f"Owned {tag}", owner_user_id=str(a.tech_a))
+    # The negative control: before any merge, each answers with its own owner.
+    ids = {
+        name: uuid.UUID(ci["id"])
+        for name, ci in {
+            "keep": keep,
+            "dupe": dupe,
+            "middle": middle,
+            "first": first,
+            "owned": owned,
+        }.items()
+    }
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        before = await cmdb.owners_of(session, [ids["dupe"], ids["first"]])
+    assert before == {
+        ids["dupe"]: cmdb.Owner(user_id=a.tech_a, group_id=None),
+        ids["first"]: cmdb.Owner(user_id=a.tech_a, group_id=None),
+    }
+
+    assert (await _merge(world, a, keep, dupe)).status_code == 201
+    # A chain: first into middle, then middle into keep.
+    assert (await _merge(world, a, middle, first)).status_code == 201
+    assert (
+        await _merge(world, a, await _fresh(world, a, keep), await _fresh(world, a, middle))
+    ).status_code == 201
+    # A survivor kept without an owner (the merger chose its empty fields): the merged CI's
+    # old owner never comes back through the alias.
+    keep_empty = {"owner_user_id": "survivor", "owner_group_id": "survivor"}
+    assert (await _merge(world, a, bare, owned, choices=keep_empty)).status_code == 201
+
+    asked = [ids["dupe"], ids["first"], ids["middle"], ids["owned"], ids["keep"]]
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        after = await cmdb.owners_of(session, asked)
+    now = cmdb.Owner(user_id=a.tech_b, group_id=a.gb)  # keep's own owner
+    assert after == {ids["dupe"]: now, ids["first"]: now, ids["middle"]: now, ids["keep"]: now}
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        assert await cmdb.owners_of(session, asked) == {}  # another tenant: nothing
+
+    # Undo dupe's merge by restoring it: the alias ends and dupe answers for itself again.
+    binned = await world.call("GET", "/cmdb/cis/trash", a, a.admin)
+    version = next(c["version"] for c in binned.json()["items"] if c["id"] == dupe["id"])
+    back = await world.call(
+        "POST", f"/cmdb/cis/{dupe['id']}/restore", a, a.admin,
+        params={"confirm_merged": "true"}, headers=_match(version),
+    )  # fmt: skip
+    assert back.status_code == 200, back.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        restored = await cmdb.owners_of(session, [ids["dupe"]])
+    assert restored == {ids["dupe"]: cmdb.Owner(user_id=a.tech_a, group_id=None)}

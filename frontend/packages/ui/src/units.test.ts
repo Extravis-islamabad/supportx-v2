@@ -246,3 +246,23 @@ describe('featureState (D-044 joins here)', () => {
     expect(featureState('problem', { has, managesLicence: false })).toBe('hidden');
   });
 });
+
+describe('database outage and slow request problems (the request-path bound)', () => {
+  it('names each case in words, never the raw code, and keeps them apart', () => {
+    const slow = describeError(new ApiError(503, problem(503, 'request_too_slow'), null), t);
+    const down = describeError(new ApiError(503, problem(503, 'database_unavailable'), null), t);
+    expect(slow.title).toBe(
+      'This took too long to finish, so it was stopped. Try a narrower search or filter, or try again later.',
+    );
+    expect(down.title).toBe(
+      "The database isn't answering right now. Please try again in a moment.",
+    );
+    for (const lang of ['en', 'ar', 'ur'] as const) {
+      for (const code of ['request_too_slow', 'database_unavailable']) {
+        const text = label(`errors.${code}`, lang);
+        expect(text).not.toContain(code);
+        expect(text).not.toBe(`errors.${code}`);
+      }
+    }
+  });
+});

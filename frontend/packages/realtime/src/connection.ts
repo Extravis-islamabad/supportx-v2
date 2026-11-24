@@ -8,6 +8,7 @@ import {
 } from '@supportx/api-client';
 
 import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types';
+import { duringCatchUp } from './catchup';
 
 /** Disconnect code the server uses after an access change (backend app/shared/realtime). */
 export const ACCESS_CHANGED = 4000;
@@ -36,6 +37,8 @@ interface ChannelEntry {
   denied: boolean;
   /** Not subscribed although a screen follows it: refused, or ended by the server. */
   lost: boolean;
+  /** Live at least once: the first `subscribed` catches up on what changed before it (§8.3). */
+  liveOnce: boolean;
   retries: number;
   retryTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -305,6 +308,7 @@ export class RealtimeConnection {
       presence,
       denied: false,
       lost: false,
+      liveOnce: false,
       retries: 0,
       retryTimer: null,
     };
@@ -315,8 +319,17 @@ export class RealtimeConnection {
       entry.denied = false;
       const wasLost = entry.lost;
       this.stopRetry(entry);
+      const first = !entry.liveOnce;
+      entry.liveOnce = true;
       if ((ctx.wasRecovering && !ctx.recovered) || wasLost) {
         this.deliver(entry, { type: 'refresh', ids: [] }); // fetch what was missed meanwhile
+      } else if (first && !ctx.recovered) {
+        // The first time it's live: what changed after the screen fetched but before now was
+        // published to nobody. Refresh only data older than this moment (catchup.ts). A
+        // subscription that recovered its stream already got every message it missed.
+        duringCatchUp(Date.now(), () => {
+          this.deliver(entry, { type: 'refresh', ids: [], catchUp: true });
+        });
       }
       if (entry.presence) void this.loadPresence(entry);
       if (wasLost && this.status === 'limited' && !this.anyLost()) this.setStatus('connected');
