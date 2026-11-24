@@ -665,6 +665,8 @@ export const ar: LabelResource = {
   'audit.object.change_task_template': 'قالب مهام التغييرات',
   'audit.object.change_template': 'قالب تغييرات',
   'audit.object.change_window': 'نافذة التغيير',
+  'audit.object.ci': 'عنصر تهيئة',
+  'audit.object.cmdb_import': 'استيراد من ملف لقاعدة إدارة التهيئة',
   'audit.object.connector_settings': 'إعدادات الموصل',
   'audit.object.custom_field': 'حقل مخصص',
   'audit.object.department': 'قسم',
@@ -1107,6 +1109,7 @@ export const ar: LabelResource = {
   'event_type.automation.workflow.webhook_requested': 'طلب سير العمل استدعاء خطاف ويب',
   'event_type.automation.workflow_instance.changed': 'تقدّم سير العمل',
   'event_type.automation.workflow_job.progressed': 'تقدّمت مهمة سير عمل',
+  'event_type.cmdb.import.progressed': 'تقدّم استيراد قاعدة إدارة التهيئة',
   'event_type.identity_access.access_settings.changed': 'تغيّر نطاق رؤية الفنيين',
   'event_type.identity_access.account_security.changed':
     'قُفل حساب أو تغيّرت كلمة مروره أو تحقق دخوله',
