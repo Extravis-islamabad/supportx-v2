@@ -88,6 +88,11 @@ def _tenant(session: AsyncSession) -> uuid.UUID:
     return context.tenant_id
 
 
+# A hand removal of a role or membership a group mapping gave (WP-057 S5c AC3; organization's
+# remove_member uses the same code).
+FROM_IDENTITY_PROVIDER = "assignment_from_identity_provider"
+
+
 def _refresh(session: AsyncSession, policy: PolicyService) -> None:
     """Compiled permissions of the tenant go stale once this transaction commits."""
     del policy  # registered as the process's access invalidator at startup
@@ -551,7 +556,14 @@ async def _assignable(
     return role
 
 
-async def _assign(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+async def _assign(
+    session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID, *, managed: bool = False
+) -> bool:
+    """Insert the role (idempotent).
+
+    `managed`: given by a group mapping (WP-057 S5c). A role already held stays as it is, so a
+    hand-made one never becomes managed.
+    """
     context = session.info[SESSION_TENANT_KEY]
     try:
         result = await session.execute(
@@ -561,6 +573,7 @@ async def _assign(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID)
                 user_id=user_id,
                 role_id=role_id,
                 created_by=context.user_id,
+                managed=managed,
             )
             .on_conflict_do_nothing()
             .returning(UserRole.role_id)
@@ -631,8 +644,17 @@ async def remove_role(
     user_id: uuid.UUID,
     role_id: uuid.UUID,
 ) -> bool:
-    """Take the role away (idempotent). The last tenant admin keeps theirs."""
+    """Take the role away (idempotent). The last tenant admin keeps theirs.
+
+    A role a group mapping gave is never taken away by hand (409, WP-057 S5c AC3): it goes when
+    the person leaves the mapped group, or when an admin turns the mapping off.
+    """
     role = await _assignable(session, policy, subject, role_id)
+    managed = await session.scalar(
+        select(UserRole.managed).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+    )
+    if managed:
+        raise Conflict(code=FROM_IDENTITY_PROVIDER)
     if role.key == TENANT_ADMIN:
         # Two admins removing each other at once must not leave the tenant without one.
         lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)

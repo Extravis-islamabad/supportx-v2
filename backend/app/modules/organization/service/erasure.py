@@ -21,9 +21,9 @@ async def erase_person_units(
     """Memberships removed; leadership and headship moved to `successor_id`. Counts by kind."""
     found = await units.memberships(session, person_id)
     for site_id in sorted(found.site_ids):
-        await units.remove_member(session, "site", site_id, person_id)
+        await units.remove_member(session, "site", site_id, person_id, via="system")
     for group_id in sorted(found.group_ids):
-        await units.remove_member(session, "group", group_id, person_id)
+        await units.remove_member(session, "group", group_id, person_id, via="system")
     # Memberships of removed sites and groups (no screen shows them): gone too, no event.
     leftover_sites = await session.execute(
         delete(SiteMember).where(SiteMember.user_id == person_id)
