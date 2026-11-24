@@ -912,6 +912,9 @@ class WorkItem(TenantEntity):
     catalog_item_id: Mapped[uuid.UUID | None]
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     approval_status: Mapped[str | None] = mapped_column(String(20))
+    # WP-047a S3b (0197; REQ-SR-041): the approval round its rows count in; a restart opens the
+    # next, earlier rounds staying in history only.
+    approval_round: Mapped[int] = mapped_column(Integer, server_default="1")
     # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
     quantity: Mapped[int | None] = mapped_column(Integer)
     needed_by: Mapped[datetime | None]
@@ -2008,6 +2011,14 @@ class WorkItemApproval(TenantEntity):
             ondelete="RESTRICT",
         ),
         CheckConstraint("paused_seconds >= 0", name="paused_seconds_positive"),
+        # WP-047a S3b (0197): the delegated approver's principal, and the approval round.
+        ForeignKeyConstraint(
+            ["tenant_id", "on_behalf_of_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_wia_on_behalf_of",
+        ),
+        CheckConstraint("round >= 1", name="round_positive"),
+        Index("ix_wia_tenant_item_round", "tenant_id", "work_item_id", "round"),
         CheckConstraint(
             "escalated_from_id IS NULL OR origin IN ('escalated', 'administrators')",
             name="escalated_origin",
@@ -2061,6 +2072,46 @@ class WorkItemApproval(TenantEntity):
     # clarification (REQ-SR-037), which pushes the reminder plan back.
     escalated_from_id: Mapped[uuid.UUID | None]
     paused_seconds: Mapped[int] = mapped_column(Integer, server_default="0")
+    # WP-047a S3b (REQ-SR-035): the approver it was routed away from by a delegation (they may
+    # still decide it); (REQ-SR-041) the round it belongs to: a restart opens the next one and
+    # only the latest counts, earlier decisions staying in history.
+    on_behalf_of_id: Mapped[uuid.UUID | None]
+    round: Mapped[int] = mapped_column(Integer, server_default="1")
+
+
+class ApprovalDelegation(TenantEntity):
+    """An approver's delegate for a date range (WP-047a S3b, 0197; REQ-SR-035).
+
+    While it is active, new request approvals for the delegator go to the delegate; the delegator
+    can still act. Ended early by `ended_at`; never deleted by the application (history).
+    """
+
+    __tablename__ = "approval_delegations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "delegator_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_approval_delegations_delegator",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "delegate_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_approval_delegations_delegate",
+        ),
+        CheckConstraint("delegator_id <> delegate_id", name="not_oneself"),
+        CheckConstraint("ends_at > starts_at", name="ends_after_start"),
+        CheckConstraint("ends_at - starts_at <= interval '90 days'", name="length_capped"),
+        CheckConstraint("reason IS NULL OR char_length(reason) <= 500", name="reason_length"),
+        Index("ix_approval_delegations_tenant_delegator", "tenant_id", "delegator_id", "starts_at"),
+        Index("ix_approval_delegations_tenant_delegate", "tenant_id", "delegate_id"),
+    )
+
+    delegator_id: Mapped[uuid.UUID]
+    delegate_id: Mapped[uuid.UUID]
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime]
+    ended_at: Mapped[datetime | None]
+    reason: Mapped[str | None] = mapped_column(Text)
 
 
 class ApprovalClarification(TenantEntity):

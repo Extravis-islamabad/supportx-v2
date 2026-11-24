@@ -18,6 +18,7 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import ApprovalChange, WorkItemApprovalChanged
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
+from app.modules.work_items.service import approval_rows
 from app.shared.events import record_event
 from app.shared.history import Source
 
@@ -114,8 +115,10 @@ async def open_stage(
             self_approval=item.self_approval,
             comments_required=item.comments_required,
         )
-        session.add(row)
         opened.append(row)
+    # WP-047a S3b: the round, and an approver away on a delegation asked through its delegate.
+    await approval_rows.prepare(session, record, opened)
+    session.add_all(opened)
     await session.flush()
     for row in opened:
         await approval_event(session, record, row, "opened")

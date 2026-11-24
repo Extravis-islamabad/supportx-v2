@@ -171,6 +171,12 @@ class ApprovalOut(BaseModel):
     comments_required: bool
     self_approved: bool = Field(description="Decided by the requester or the person it is for.")
     can_decide: bool
+    on_behalf_of_id: uuid.UUID | None = Field(
+        default=None,
+        description="Requests: the approver a delegation routed it away from (REQ-SR-035); "
+        "they may still decide it. Decided by `decided_by` on their behalf.",
+    )
+    round: int = Field(default=1, description="Requests: the approval round (REQ-SR-041).")
     escalated_from_id: uuid.UUID | None = Field(
         default=None,
         description="Requests: the approval this one was escalated from (REQ-SR-034); the "
@@ -215,6 +221,8 @@ class ApprovalOut(BaseModel):
             comments_required=row.comments_required,
             self_approved=view.self_approved,
             can_decide=view.can_decide,
+            on_behalf_of_id=row.on_behalf_of_id,
+            round=row.round,
             escalated_from_id=row.escalated_from_id,
             clarification=ClarificationOut.of(clarification) if clarification else None,
             created_at=row.created_at,
@@ -268,7 +276,9 @@ async def approvals_out(
         if found
         else {}
     )
-    names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
+    names = {
+        p for v in found for p in (v.row.approver_id, v.row.decided_by, v.row.on_behalf_of_id) if p
+    }
     names |= {c.row.asked_by for c in asked.values()}
     return ApprovalsOut(
         items=[ApprovalOut.of(v, asked.get(v.row.id)) for v in found],

@@ -24,6 +24,7 @@ from app.modules.audit import AuditNote, RequestFacts, audited, entries_for_chan
 from app.modules.audit import record as record_audit
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.announce_routes import add_announce_routes
+from app.modules.work_items.api.answer_routes import add_answer_routes
 from app.modules.work_items.api.approval_routes import add_approval_routes
 from app.modules.work_items.api.approver_change_routes import add_approver_change_routes
 from app.modules.work_items.api.asset_routes import add_asset_routes
@@ -3118,6 +3119,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0912, PLR0
         add_approval_routes(router, wtype)  # WP-030 s2: before the /{record_id} routes
         add_approver_change_routes(router, wtype)  # WP-047a S2b (REQ-SR-042)
         add_clarification_routes(router, wtype)  # WP-047a S3a (REQ-SR-037)
+        add_answer_routes(router, wtype)  # WP-047a S3b (REQ-SR-041)
     elif wtype.code in {
         WorkItemTypeCode.RELEASE,
         WorkItemTypeCode.PROBLEM,

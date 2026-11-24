@@ -743,6 +743,7 @@ INCIDENT_SPECS: tuple[PermissionSpec, ...] = (
     ),
 )
 APPROVE_ANY = "work_items.approve_any"
+MANAGE_DELEGATIONS = "requests.manage_delegations"
 APPROVE_SPECS: tuple[PermissionSpec, ...] = (
     PermissionSpec(
         "requests.approve",
@@ -760,5 +761,11 @@ APPROVE_SPECS: tuple[PermissionSpec, ...] = (
         "service_request",
         ALL_SCOPES,
         defaults=((SERVICE_DESK_MANAGER, "all"),),
+    ),
+    # WP-047a S3b (REQ-SR-035, the coordinator's Q1; lane B confirmed the defaults): set, change
+    # or end someone else's approval delegation. A person manages their own with no right at
+    # all; this is for the service desk manager (and tenant admins, who hold every right).
+    PermissionSpec(
+        MANAGE_DELEGATIONS, "service_request", ("all",), defaults=((SERVICE_DESK_MANAGER, "all"),)
     ),
 )

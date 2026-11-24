@@ -41,7 +41,7 @@ from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCate
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
-from app.modules.work_items.service import request_stages
+from app.modules.work_items.service import approval_rows, request_stages
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.approval_stage import approval_event, requested_for
 from app.modules.work_items.service.followers import RECORD_TYPE
@@ -237,6 +237,7 @@ async def add_approver(  # noqa: PLR0913 - the request, the person and why, expl
     await _check_person(session, subject, record, approver_id, _named_on(rows, stage))
     template = next(r for r in rows if r.stage == stage)
     row = _like(template, approver_id)
+    await approval_rows.prepare(session, record, [row])  # WP-047a S3b: round, delegation
     session.add(row)
     await session.flush()
     await approval_event(session, record, row, "opened")
@@ -282,6 +283,7 @@ async def replace_approver(  # noqa: PLR0913 - the request, the people and why, 
     old.state = rules.ApprovalState.REPLACED.value
     old.version += 1
     new = _like(old, approver_id)
+    await approval_rows.prepare(session, record, [new])  # WP-047a S3b: round, delegation
     session.add(new)
     await session.flush()
     await approval_event(session, record, old, "closed")
