@@ -68,14 +68,21 @@ async function logDiagnostics(
     const session = async (page: Page) =>
       ((await json(await page.request.get('/api/v1/auth/me'))) ?? { user: {} }) as Session;
     const [adminSession, techSession] = [await session(admin), await session(tech)];
-    // Through the admin's session: the technician's own read of their user row may be refused,
-    // and the role IDs are what tells "a second role with no rule" from a delay (lane B).
-    const techUserRead = await admin.request.get(`/api/v1/users/${techSession.user.id}`);
-    const techUser = ((await json(techUserRead)) ?? {}) as { roles?: unknown };
-    const roleIds = Array.isArray(techUser.roles)
-      ? techUser.roles.map((r: unknown) =>
-          typeof r === 'object' && r !== null && 'id' in r ? String(r.id) : String(r),
-        )
+    // Through the admin's session: the technician's direct roles and the roles their groups
+    // carry. "Clearest wins": a second role without the rule (one an earlier spec gave a group
+    // they're in) leaves the field visible, so these IDs tell that from a delay (lane B). The
+    // user row (`/users/{id}`) carries no roles: `/users/{id}/access` does.
+    const techUserRead = await admin.request.get(`/api/v1/users/${techSession.user.id}/access`);
+    const techAccess = ((await json(techUserRead)) ?? {}) as {
+      role_ids?: unknown;
+      group_roles?: unknown;
+    };
+    const roleIds = Array.isArray(techAccess.role_ids) ? techAccess.role_ids.map(String) : null;
+    const groupRoles = Array.isArray(techAccess.group_roles)
+      ? techAccess.group_roles.map((g: unknown) => {
+          const pair = (g ?? {}) as { role_id?: unknown; group_id?: unknown };
+          return { role_id: String(pair.role_id), group_id: String(pair.group_id) };
+        })
       : null;
     const polls: {
       ms: number;
@@ -121,6 +128,7 @@ async function logDiagnostics(
         tech_role_keys: techSession.user.roles ?? null,
         tech_user_read: techUserRead.status(),
         tech_role_ids: roleIds,
+        tech_group_roles: groupRoles,
         polls,
       }),
     );
@@ -133,7 +141,9 @@ async function logDiagnostics(
 async function removeRule(admin: Page, roleId: string): Promise<void> {
   const listed = await call(admin, 'GET', `/field-access/rules?role_id=${roleId}`);
   for (const rule of (await listed.json()) as Rule[]) {
-    if (rule.field === FIELD && rule.record_type === 'incident') {
+    // Every record type: a run that saved its rule on another type (the tab opened on Change, the
+    // first type alphabetically) left one behind, and the next run's Hidden then saved nothing.
+    if (rule.field === FIELD) {
       await call(admin, 'DELETE', `/field-access/rules/${rule.id}`, undefined, rule.version);
     }
   }
@@ -170,6 +180,11 @@ test('a field hidden for a role reads "Not shown to you" on an open record, live
     await admin.page.getByTestId('role-row-technician').click();
     await admin.page.getByRole('tab', { name: 'Field access' }).click();
     await expect(admin.page.getByTestId('field-access-help')).toBeVisible();
+    // The tab opens on the first record type alphabetically (Change): pick Incident, the record
+    // the technician has open, or the rule lands on changes and the incident rightly keeps it.
+    await admin.page.getByTestId('field-access-type').click();
+    await admin.page.locator('.ant-select-item-option[title="Incident"]').click();
+    await expect(admin.page.getByTestId('field-access-type')).toContainText('Incident');
     await admin.page.getByTestId(`field-access-mode-${FIELD}`).click();
     const posted = admin.page.waitForResponse(
       (r) => r.request().method() === 'POST' && r.url().endsWith('/api/v1/field-access/rules'),

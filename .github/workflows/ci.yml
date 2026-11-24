@@ -857,6 +857,8 @@ jobs:
         with:
           path: ~/.cache/kubeconform-schemas
           key: kubeconform-schemas-${{ hashFiles('deploy/scripts/chart-lint.sh') }}
+          # A chart-lint.sh edit starts from the last schemas, never a full re-download (lane B).
+          restore-keys: kubeconform-schemas-
       - name: Lint, render and validate every profile
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: KUBECONFORM_CACHE="$HOME/.cache/kubeconform-schemas" make chart-lint

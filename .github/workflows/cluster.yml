@@ -174,13 +174,28 @@ jobs:
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h / | tail -1
+      # The k3d binary is cached by version and checksum, and fetched with retries on a miss: a
+      # GitHub releases error (curl exit 22) failed the HA smoke in run 45266668370 (#591). The
+      # checksum is verified on every run, cached or not.
+      - &k3d-cache
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        name: k3d download (cached by version and checksum)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/k3d
+          key: k3d-${{ env.K3D_VERSION }}-${{ env.K3D_SHA256 }}
       - &install-k3d
         if: ${{ steps.changes.outputs.run != 'false' }}
         name: Install k3d (pinned, checksum-verified)
         run: |
-          curl -fsSL -o /tmp/k3d "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
-          echo "$K3D_SHA256  /tmp/k3d" | sha256sum -c -
-          sudo install -m 0755 /tmp/k3d /usr/local/bin/k3d
+          binary=~/.cache/k3d/k3d-$K3D_VERSION-linux-amd64
+          if [ ! -f "$binary" ]; then
+            mkdir -p ~/.cache/k3d
+            curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "$binary" \
+              "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
+          fi
+          echo "$K3D_SHA256  $binary" | sha256sum -c -
+          sudo install -m 0755 "$binary" /usr/local/bin/k3d
           # Browsers resolve *.localhost themselves; tools on the runner get it from /etc/hosts.
           echo "127.0.0.1 supportx.localhost" | sudo tee -a /etc/hosts
       - &cluster-up
@@ -256,6 +271,7 @@ jobs:
       # Four k3d nodes each hold their own copy of the images: the runner's disk ran out
       # (evictions at "low on resource: ephemeral-storage"). Toolchains this job never uses go.
       - *free-disk
+      - *k3d-cache
       - *install-k3d
       - name: Four-node cluster (k3s v1.36.5) and prerequisites
         if: ${{ steps.changes.outputs.run != 'false' }}
@@ -387,6 +403,7 @@ jobs:
         with:
           path: deploy/helm/supportx/charts/*.tgz
           key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
+      - *k3d-cache
       - *install-k3d
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend
