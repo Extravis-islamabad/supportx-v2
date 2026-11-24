@@ -1,4 +1,9 @@
-import { useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import {
+  useQuery,
+  type InvalidateQueryFilters,
+  type QueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import {
   useContext,
   useEffect,
@@ -10,6 +15,7 @@ import {
 
 import { fetchListChannels } from '@supportx/api-client';
 
+import { catchUpSince } from './catchup';
 import { listChannelsKey } from './keys';
 import { RealtimeContext } from './context';
 import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types';
@@ -154,7 +160,23 @@ export function useRealtimeUser(): string | null {
  * names, and only if the cached copy is older than the change.
  */
 export function refreshList(queryClient: QueryClient, queryKey: QueryKey): void {
-  void queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+  void queryClient.invalidateQueries(catchUpFilter(queryKey));
+}
+
+/**
+ * The filter for a refresh. Inside a first-subscribe catch-up (catchup.ts) it keeps only the
+ * queries whose data is older than the subscription going live and that aren't fetching already:
+ * at most one refetch per query, never one for data that arrived after the channel was live.
+ */
+function catchUpFilter(queryKey: QueryKey): InvalidateQueryFilters {
+  const since = catchUpSince();
+  if (since === null) return { queryKey, refetchType: 'active' };
+  return {
+    queryKey,
+    refetchType: 'active',
+    predicate: (query) =>
+      query.state.fetchStatus !== 'fetching' && query.state.dataUpdatedAt < since,
+  };
 }
 
 export function refreshRecord(
@@ -170,5 +192,5 @@ export function refreshRecord(
   ) {
     return; // we already have this version (often: our own save)
   }
-  void queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+  void queryClient.invalidateQueries(catchUpFilter(queryKey));
 }
