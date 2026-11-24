@@ -10,7 +10,7 @@ else is read under the reporting role (withheld fields are worked out in the app
 SELECT only; RLS still filters by tenant. No data step.
 
 Revision ID: 0200
-Revises: 0195 (main's head now; re-pointed at its queue turn)
+Revises: 0196
 Created: 2026-11-24
 """
 
@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from migrations.helpers import grant_report, revoke_report
 
 revision: str = "0200"
-down_revision: str | None = "0195"  # main's head now; re-pointed at its queue turn
+down_revision: str | None = "0196"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
