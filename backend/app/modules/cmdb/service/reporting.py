@@ -27,7 +27,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -105,6 +105,21 @@ def _subject(subject: Any) -> Subject:  # noqa: ANN401 - the port is typed for s
     return subject
 
 
+def ci_rows(subject: Subject) -> Select[Any]:
+    """The CI source's rows: the list's own narrowed query (the guard proves its scope_filter)."""
+    return cis.visible_rows(subject)
+
+
+def relationship_rows(subject: Subject) -> Select[Any]:
+    """Live relationships whose two CIs the reader may both see (both ends narrowed)."""
+    visible = ci_rows(subject).with_only_columns(Ci.id).scalar_subquery()
+    return select(Relationship).where(
+        Relationship.deleted_at.is_(None),
+        Relationship.from_ci_id.in_(visible),
+        Relationship.to_ci_id.in_(visible),
+    )
+
+
 class CiSource:
     """The reporting provider of CIs."""
 
@@ -141,7 +156,7 @@ class CiSource:
         }
         return ReportingSource(
             entity=CI_ENTITY,
-            rows=cis.visible_rows(reader),
+            rows=ci_rows(reader),
             fields=ResourceFields(cis.CI_FIELDS.name, fields, cis.CI_FIELDS.id_column),
             dimensions={n: d for n, d in dimensions.items() if n in fields},
             list_path=LIST_PATH,
@@ -170,16 +185,9 @@ class RelationshipSource:
     async def source(self, session: AsyncSession, subject: Any) -> ReportingSource:  # noqa: ANN401 - Subject; the port is typed for shared code
         """Live relationships whose two CIs the reader may both see; nothing else counts."""
         del session
-        reader = _subject(subject)
-        visible = cis.visible_rows(reader).with_only_columns(Ci.id).scalar_subquery()
-        rows = select(Relationship).where(
-            Relationship.deleted_at.is_(None),
-            Relationship.from_ci_id.in_(visible),
-            Relationship.to_ci_id.in_(visible),
-        )
         return ReportingSource(
             entity=RELATIONSHIP_ENTITY,
-            rows=rows,
+            rows=relationship_rows(_subject(subject)),
             fields=RELATIONSHIP_FIELDS,
             dimensions=RELATIONSHIP_DIMENSIONS,
             list_path=LIST_PATH,

@@ -21,6 +21,7 @@ from sqlalchemy.dialects import postgresql
 from app.core.authorization import Scope
 from app.modules.ai.service import conversations, embeddings, records
 from app.modules.assets.service.assets import ASSETS, staff_rows
+from app.modules.cmdb.service import reporting as cmdb_reporting
 from app.modules.cmdb.service.cis import CIS, visible_rows
 from app.modules.identity_access.domain import resource_access as rules
 from app.modules.identity_access.domain.policy import Grant, Subject
@@ -124,7 +125,21 @@ def test_no_cmdb_or_asset_ai_source_exists_unproven() -> None:
         assert owned == [], owned
 
 
-def test_the_only_cmdb_or_asset_reporting_source_is_the_scoped_one() -> None:
-    """The asset source's rows are `staff_rows` (scope_filtered, proven above); none for CIs."""
-    owned = [kind for kind in reporting.registered_entities() if kind.startswith(OWNED)]
-    assert owned == ["asset"], owned
+def test_every_cmdb_or_asset_reporting_source_is_a_scoped_one() -> None:
+    """Each source's rows go through scope_filter, proven here (the coordinator, 2026-11-20).
+
+    asset: `staff_rows` (above). cmdb_ci: `visible_rows` (above), through `ci_rows`.
+    cmdb_relationship: both of its CIs through `visible_rows` (WP-053 S5a; lane C).
+    """
+    owned = sorted(kind for kind in reporting.registered_entities() if kind.startswith(OWNED))
+    assert owned == ["asset", "cmdb_ci", "cmdb_relationship"], owned
+
+
+def test_the_cmdb_report_rows_carry_the_reader_s_narrowing() -> None:
+    """A CI rule reaches the CI source's rows, and BOTH ends of the relationship source's."""
+    narrowed = _narrowed("ci", {"site_ids": [SITE]}, "cmdb.view")
+    assert SITE in _sql(cmdb_reporting.ci_rows(narrowed))
+    assert SITE not in _sql(cmdb_reporting.ci_rows(_subject(rules.EMPTY)))
+    linked = _sql(cmdb_reporting.relationship_rows(narrowed))
+    assert linked.count(SITE) >= 2, linked  # the from end and the to end
+    assert SITE not in _sql(cmdb_reporting.relationship_rows(_subject(rules.EMPTY)))
