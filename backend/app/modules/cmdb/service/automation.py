@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import automation
 from app.modules.cmdb.domain.types import CiImpact
-from app.modules.cmdb.events import CiCreated, CiUpdated, RelationshipsChanged
+from app.modules.cmdb.events import CiCreated, CiUpdated, DowntimeChanged, RelationshipsChanged
 from app.modules.cmdb.infra.models import Ci
 from app.modules.cmdb.service import cis
 from app.modules.cmdb.service.refs import can_see
@@ -37,8 +37,8 @@ OFFERED = frozenset(
         automation.TriggerEvent.STATUS_CHANGED,
         automation.TriggerEvent.RELATIONSHIP_ADDED,
         automation.TriggerEvent.RELATIONSHIP_REMOVED,
-        # downtime_started joins with its reader, after S5b's event lands (#608): offered before
-        # anything reads cmdb.downtime.changed, a trigger on it would never fire (lane C).
+        # A downtime becoming active (S5b's cmdb.downtime.changed, read below).
+        automation.TriggerEvent.DOWNTIME_STARTED,
     }
 )
 _IMPACTS = frozenset(i.value for i in CiImpact)
@@ -135,8 +135,26 @@ async def read_event(
             automation.RecordEvent(RECORD_TYPE, end, event, changed=["relationships"])
             for end in sorted(ends, key=str)
         ]
+    if envelope.event_type == DowntimeChanged.event_type:
+        return _downtime_started(payload, ci_id)
     one = _one(envelope.event_type, payload, ci_id)
     return [] if one is None else [one]
+
+
+# A downtime *becomes* active: the sweep moved it there (`state`), or it was recorded already
+# under way (`added`). An edit while active is not a start (the event carries only the new state,
+# so an `updated` can't say it moved), and a removal never is.
+_STARTS = frozenset({"added", "state"})
+
+
+def _downtime_started(payload: Mapping[str, Any], ci_id: uuid.UUID) -> list[automation.RecordEvent]:
+    if payload.get("state") != "active" or payload.get("change") not in _STARTS:
+        return []
+    return [
+        automation.RecordEvent(
+            RECORD_TYPE, ci_id, automation.TriggerEvent.DOWNTIME_STARTED, changed=["downtimes"]
+        )
+    ]
 
 
 def _one(
@@ -174,5 +192,11 @@ def register() -> None:
         )
     )
     automation.register_event_reader(
-        (CiCreated.event_type, CiUpdated.event_type, RelationshipsChanged.event_type), read_event
+        (
+            CiCreated.event_type,
+            CiUpdated.event_type,
+            RelationshipsChanged.event_type,
+            DowntimeChanged.event_type,
+        ),
+        read_event,
     )

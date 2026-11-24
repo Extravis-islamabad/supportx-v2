@@ -14,6 +14,7 @@ The coordinator's conditions (C1-C3) and lane C's shape (L1-L5, R1-R6):
 """
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -24,7 +25,7 @@ from app.core.tenancy import TenantContext
 from app.modules.automation.domain.triggers import RATE_CAP
 from app.modules.automation.service import workflow_events
 from app.modules.automation.service.registry import record_type
-from app.modules.cmdb.service import cis
+from app.modules.cmdb.service import cis, downtimes
 from app.shared.events import EventEnvelope
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_automation_api import set_
@@ -39,12 +40,13 @@ pytestmark = [pytest.mark.db, pytest.mark.valkey, MODULE_LOOP]
 __all__ = ["module_world", "shared_world"]  # the fixtures, used by name
 
 CMDB = "/cmdb"
-CI_OFFER = {  # downtime_started joins with its reader, after #608 (lane C, lane A)
+CI_OFFER = {
     "created",
     "updated",
     "status_changed",
     "relationship_added",
     "relationship_removed",
+    "downtime_started",
 }
 
 
@@ -438,3 +440,47 @@ async def test_ac1_the_owner_hears_once_and_someone_who_cannot_see_it_hears_noth
     assert owner, told  # the owner hears of it ...
     assert len({d["channel"] for d in owner}) == len(owner)  # ... once per channel, one change
     assert all(d["user_id"] != a.requester2 for d in reached), told
+
+
+async def test_a_downtime_starting_fires_once_and_recording_one_for_later_does_not(
+    world: World,
+) -> None:
+    """S5d: downtime_started fires when the sweep makes a downtime active, never on recording it."""
+    a = world.a
+    made = await _trigger(
+        world,
+        a,
+        name="Downtime begins",
+        events=["downtime_started"],
+        actions=[set_("business_impact", "high", "overwrite")],
+    )
+    assert made.status_code == 201, made.text
+    ci = await _made(world, a, f"Maintained box {uuid.uuid4().hex[:6]}")
+    starts = datetime.now(UTC) + timedelta(hours=1)
+    recorded = await world.call(
+        "POST",
+        f"{CMDB}/cis/{ci['id']}/downtimes",
+        a,
+        a.admin,
+        json={
+            "starts_at": starts.isoformat(),
+            "ends_at": (starts + timedelta(hours=1)).isoformat(),
+            "kind": "maintenance",
+            "description": "Disk swap",
+        },
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert recorded.status_code == 201, recorded.text
+    await drain(world, a)
+    mine = [r for r in await _runs(world, a, ci) if r["automation_name"] == "Downtime begins"]
+    assert mine == []  # scheduled for later is not a start
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await downtimes.sweep_tenant(session, starts) >= 1
+    await drain(world, a)
+    mine = [r for r in await _runs(world, a, ci) if r["automation_name"] == "Downtime begins"]
+    assert [r["outcome"] for r in mine] == ["applied"], mine
+    got = await world.call("GET", f"{CMDB}/cis/{ci['id']}", a, a.admin)
+    assert got.json()["business_impact"] == "high"
+    # Nothing about the downtime itself reaches the run's log (only "downtimes" changed).
+    assert recorded.json()["id"] not in str(mine)
+    assert "Disk swap" not in str(mine)
