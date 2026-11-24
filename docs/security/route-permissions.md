@@ -479,7 +479,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | POST | `/api/v1/cmdb/cis/from-assets` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/picker` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/trash` | `cmdb.view` | cmdb.view: all/site/group/own |
-| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` | cmdb.delete: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
 | PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own |
@@ -491,7 +491,7 @@ with, broadest first (`all`, `site`, `group`, `own`), from the permission catalo
 | GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` or `cmdb.manage` | cmdb.delete: all/site/group/own; cmdb.manage: all |
+| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` | cmdb.delete: all/site/group/own |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.view` | cmdb.view: all/site/group/own |
 | PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
 | GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
