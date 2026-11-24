@@ -207,6 +207,8 @@ export const ar: LabelResource = {
   'errors.checklist_item_not_found': 'لم يعد عنصر قائمة التحقق هذا موجودًا.',
   'errors.checklist_library_not_found': 'لم تعد قائمة التحقق هذه في المكتبة موجودة أو متاحة.',
   'errors.checklist_not_found': 'لم تعد قائمة التحقق هذه موجودة.',
+  'errors.clarification_open':
+    'لا يزال هناك سؤال مفتوح على هذه الموافقة. انتظر الإجابة، أو اتخذ القرار.',
   'errors.client_id_invalid': 'أدخل معرّف التطبيق (العميل) لتطبيق المزامنة.',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
   'errors.command_in_flight':
@@ -556,6 +558,7 @@ export const ar: LabelResource = {
   'errors.field.ip_allow_locks_you_out':
     'ستمنعك هذه القائمة من الدخول: عنوانك {{address}} ليس فيها. أضفه، أو نطاقًا يتضمنه.',
   'errors.field.ip_allow_too_many': 'استخدم {{max}} إدخالًا على الأكثر.',
+  'errors.field.is_you': 'لا يمكنك أن تسأل نفسك.',
   'errors.field.kb_vote_comment_too_long': 'اجعل التعليق في حدود 1000 حرف.',
   'errors.field.kb_vote_reason_for_no_only': 'السبب يُذكر مع «لا» فقط.',
   'errors.field.kb_vote_reason_unknown': 'اختر أحد الأسباب المعروضة.',
@@ -596,6 +599,7 @@ export const ar: LabelResource = {
   'errors.field.needs_collapsible': 'يمكن أن يبدأ القسم القابل للطي فقط مغلقًا.',
   'errors.field.needs_scheduled_start': 'يحتاج التذكير قبل البدء إلى موعد بدء مجدول.',
   'errors.field.no_default_allowed': 'لا يمكن أن يكون لهذا الحقل قيمة أولية.',
+  'errors.field.no_technician': 'لم يُعيَّن أحد لهذا الطلب بعد.',
   'errors.field.not_a_field': 'هذا الحقل غير موجود لهذا النوع.',
   'errors.field.not_a_form_field': 'هذا الحقل ليس في النموذج.',
   'errors.field.not_a_person_question': 'اختر سؤالًا في هذا النموذج يطلب شخصًا.',
@@ -649,6 +653,7 @@ export const ar: LabelResource = {
   'errors.field.port_not_allowed': 'استخدم منفذ بريد: 993 (TLS) أو 143.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.field.quantity_over_max': 'يمكنك طلب {{max}} كحد أقصى.',
+  'errors.field.question_too_long': 'يمكن أن يتكون السؤال من 2000 حرف كحد أقصى.',
   'errors.field.range_end_before_start': 'يجب أن تكون النهاية بعد البداية.',
   'errors.field.read_category_unknown': 'لا يمكن تسجيل هذا النوع من القراءة.',
   'errors.field.read_only': 'لا يمكن تغيير هذا الحقل هنا.',

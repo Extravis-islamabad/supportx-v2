@@ -233,3 +233,62 @@ describe('request again on a past request (REQ-SR-016)', () => {
     expect(disabled.querySelector('button')?.disabled).toBe(true);
   });
 });
+
+describe('the conversation on a request (WP-047a S3a; REQ-SR-037)', () => {
+  const open = {
+    id: SR,
+    display_id: 'SR-72',
+    subject: 'Monitor',
+    portal_status: 'awaiting_approval',
+    reach: 'own',
+    requester_id: session.user.id,
+    on_behalf_of_id: null,
+    catalog_item_id: ITEM,
+    answers: {},
+    approval_status: 'pending',
+    quantity: null,
+    needed_by: null,
+    expected_delivery_at: null,
+    needed_earlier: false,
+    created_at: '2026-11-03T09:00:00Z',
+    updated_at: '2026-11-03T10:00:00Z',
+    resolution: null,
+    resolution_due_at: null,
+    version: 2,
+  };
+
+  it("shows the approver's question and sends the requester's answer", async () => {
+    window.history.pushState({}, '', `/service-requests/${SR}`);
+    const fake = api({
+      [`GET /api/v1/portal/service-requests/${SR}`]: { body: open },
+      [`GET /api/v1/portal/service-requests/${SR}/steps`]: {
+        body: { items: [], done: 0, total: 0 },
+      },
+      [`GET /api/v1/service-requests/${SR}/approvals`]: { body: [] },
+      [`GET /api/v1/portal/service-requests/${SR}/request-again`]: {
+        body: { catalog_item_id: ITEM, available: true, reason: null, answers: {}, dropped: [] },
+      },
+      [`GET /api/v1/portal/service-requests/${SR}/conversation`]: {
+        body: {
+          items: [
+            {
+              id: '01a1a2b3-0000-7000-8000-00000000e571',
+              kind: 'reply',
+              body: '<p>Which size do you need?</p>',
+              created_at: '2026-11-24T09:00:00Z',
+              author_name: 'Omar Manager',
+              by_you: false,
+            },
+          ],
+        },
+      },
+      [`POST /api/v1/portal/service-requests/${SR}/replies`]: { status: 201, body: open },
+    });
+    render(<App />);
+    const talk = await screen.findByTestId('portal-request-conversation');
+    expect(await screen.findByText('Which size do you need?')).toBeDefined();
+    expect(talk.textContent).toContain('Omar Manager');
+    expect(await screen.findByTestId('portal-request-reply-send')).toBeDefined();
+    expect(fake.find('GET', `/api/v1/portal/service-requests/${SR}/conversation`)).toHaveLength(1);
+  });
+});

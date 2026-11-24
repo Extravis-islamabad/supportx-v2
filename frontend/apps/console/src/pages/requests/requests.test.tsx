@@ -51,6 +51,7 @@ const laptop: CatalogItem = {
     comments_required: false,
     rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
   plan: [],
   default_priority: 'p2',
@@ -882,6 +883,111 @@ describe('console: automatic approval and changing approvers (WP-047a S2b)', () 
         reason: 'Omar is away',
       });
       expect(sent?.headers.get('If-Match')).toBe(`"${String(request.version)}"`);
+    });
+  });
+});
+
+describe('console: approval reminders, escalation and clarification (WP-047a S3a)', () => {
+  const ESCALATED = '01a1a2b3-0000-7000-8000-00000000a031';
+  const BACKUP = '01a1a2b3-0000-7000-8000-00000000b031';
+
+  it('REQ-SR-034/-036: an escalated approval names whom it was escalated from', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            pendingApproval,
+            {
+              ...pendingApproval,
+              id: ESCALATED,
+              approver_id: BACKUP,
+              origin: 'escalated',
+              escalated_from_id: APPROVAL_ID,
+              can_decide: false,
+            },
+          ],
+          people: {
+            ...approvalsBody.people,
+            [BACKUP]: { display_name: 'Bea Backup', email: 'bea@example.com' },
+          },
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const row = await screen.findByTestId(`sr-approval-${ESCALATED}`);
+    expect(within(row).getByText('Escalated to')).toBeDefined();
+    expect(within(row).getByTestId('approval-escalated-from').textContent).toBe(
+      'Added after Omar Manager was reminded without answering',
+    );
+  });
+
+  it('REQ-SR-037: shows an open question and its answer, in words', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          ...approvalsBody,
+          items: [
+            {
+              ...pendingApproval,
+              clarification: {
+                id: '01a1a2b3-0000-7000-8000-00000000c031',
+                state: 'answered',
+                addressee: 'requester',
+                asked_by: MANAGER,
+                asked_at: '2026-11-24T09:00:00Z',
+                ended_at: '2026-11-24T10:00:00Z',
+                question: '<p>Which colour?</p>',
+                answer: '<p>Silver, please</p>',
+              },
+            },
+          ],
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const asked = await screen.findByTestId('approval-clarification');
+    expect(within(asked).getByTestId('approval-clarification-state').textContent).toBe('Answered');
+    expect(within(asked).getByText(/Asked of the Requester/)).toBeDefined();
+    expect(within(asked).getByTestId('approval-clarification-question').textContent).toBe(
+      'Which colour?',
+    );
+    expect(within(asked).getByTestId('approval-clarification-answer').textContent).toBe(
+      'Silver, please',
+    );
+  });
+
+  it('REQ-SR-037 AC1: asking sends the question and whom it is for, with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: null },
+      },
+      [`POST /api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/clarification`]: {
+        body: { ...pendingApproval, version: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    fireEvent.click(await screen.findByTestId('approval-ask'));
+    const send = await screen.findByTestId('clarification-send');
+    expect((send as HTMLButtonElement).disabled).toBe(true); // nothing asked yet
+    fireEvent.change(screen.getByTestId('clarification-question'), {
+      target: { value: '  Which colour?  ' },
+    });
+    fireEvent.click(screen.getByTestId('clarification-send'));
+    await waitFor(() => {
+      const [sent] = fake.find(
+        'POST',
+        `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/clarification`,
+      );
+      expect(sent?.body).toEqual({ question: 'Which colour?', addressee: 'requester' });
+      expect(sent?.headers.get('If-Match')).toBe('"1"');
     });
   });
 });

@@ -9,6 +9,7 @@ import pytest
 
 from app.modules.work_items.domain.change_boards import FIELD_PROBLEMS as BOARD_PROBLEMS
 from app.modules.work_items.domain.changes import CHANGE_MODEL
+from app.modules.work_items.domain.clarifications import FIELD_PROBLEMS as CLARIFICATION_PROBLEMS
 from app.modules.work_items.domain.classification import (
     DEFAULT_MATRIX,
     SCALE_CODES,
@@ -330,6 +331,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | KEPT_PROBLEMS
         | CHILD_PROBLEMS
         | APPROVER_CHANGE_PROBLEMS
+        | CLARIFICATION_PROBLEMS
     )
     # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
     found -= set(get_args(Relation))

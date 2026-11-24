@@ -169,6 +169,8 @@ export const en = {
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
   'notification_event.service_request.approved': 'Request approved',
+  'notification_event.service_request.clarification_answered':
+    'Your question on a request was answered',
   'notification_event.service_request.fulfilled': 'Request fulfilled',
   'notification_event.service_request.public_reply': 'Reply to the requester',
   'notification_event.service_request.ready_to_fulfil': 'Request ready to fulfil',
@@ -793,6 +795,12 @@ export const en = {
     '{{ record.display_id }} was approved: {{ record.title }}',
   'notification_template.service_request.approved.subject':
     'Approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.clarification_answered.body':
+    'Hello {{ recipient.name }},\n\nYour question on {{ record.display_id }} "{{ record.title }}" was answered. Open the request to read the answer and decide.',
+  'notification_template.service_request.clarification_answered.in_app':
+    'Your question on {{ record.display_id }} was answered',
+  'notification_template.service_request.clarification_answered.subject':
+    'Answered: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.fulfilled.body':
     'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" is done. Please confirm you received it, or tell us if something is missing.',
   'notification_template.service_request.fulfilled.in_app':

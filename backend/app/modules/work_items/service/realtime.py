@@ -742,7 +742,10 @@ ROUTES = [
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
     RealtimeRoute(("work_items.asset_link.changed",), _asset_link_changed),
-    RealtimeRoute(("work_items.approval.changed",), _approval_changed),
+    # WP-047a S3a (REQ-SR-037): a question asked or answered refreshes the same screens.
+    RealtimeRoute(
+        ("work_items.approval.changed", "work_items.approval.clarification"), _approval_changed
+    ),
     RealtimeRoute(
         ("work_items.problem_repeat.detected", "work_items.problem_repeat.changed"),
         _repeats_changed,

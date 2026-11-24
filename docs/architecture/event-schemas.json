@@ -6351,6 +6351,61 @@
         "type": "object"
       }
     },
+    "work_items.approval.clarification": {
+      "1": {
+        "description": "An approver's question on a request approval was asked, answered or ended (REQ-SR-037).\n\nWP-047a S3a. `approver_id` is the person who asked. IDs and codes only: never the question\nor the answer, which their screens read through the API (the coordinator's condition 4).",
+        "properties": {
+          "addressee": {
+            "title": "Addressee",
+            "type": "string"
+          },
+          "approval_id": {
+            "format": "uuid",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "approver_id": {
+            "format": "uuid",
+            "title": "Approver Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "asked",
+              "answered",
+              "ended"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "clarification_id": {
+            "format": "uuid",
+            "title": "Clarification Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "approval_id",
+          "approver_id",
+          "clarification_id",
+          "addressee",
+          "change"
+        ],
+        "title": "WorkItemApprovalClarification",
+        "type": "object"
+      }
+    },
     "work_items.approval_settings.changed": {
       "1": {
         "description": "The tenant's approval settings changed (the D-146 chair): open settings pages reload.",

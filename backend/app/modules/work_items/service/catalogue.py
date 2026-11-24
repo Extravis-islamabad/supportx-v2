@@ -195,6 +195,10 @@ class Catalogue:
     approvals_hidden_from_requesters: bool  # WP-030 s2, REQ-SR-024 AC3
     approvals_require_sign_in: bool  # D-132: e-mailed approval links need a signed-in approver
     auto_approve_earlier: bool  # WP-047a S2b, REQ-SR-033: the tenant's "approved earlier"
+    # WP-047a S3a, REQ-SR-034: the reminder schedule for request approvals.
+    approval_reminder_after_days: int
+    approval_reminder_count: int
+    approval_reminder_minute: int
     first_task_starts_work: bool  # D-154c: the first ticked task moves a request on
     # WP-046a S6: commands written in a mail (off), the fields they may set, and whether the
     # first mail's Cc joins the people kept informed (REQ-INC-025, REQ-INC-066).
@@ -958,6 +962,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         approvals_hidden_from_requesters=settings.approvals_hidden_from_requesters,
         approvals_require_sign_in=settings.approvals_require_sign_in,
         auto_approve_earlier=settings.auto_approve_earlier,
+        approval_reminder_after_days=settings.approval_reminder_after_days,
+        approval_reminder_count=settings.approval_reminder_count,
+        approval_reminder_minute=settings.approval_reminder_minute,
         first_task_starts_work=settings.first_task_starts_work,
         mail_commands=settings.mail_commands,
         mail_command_fields=tuple(settings.mail_command_fields),
