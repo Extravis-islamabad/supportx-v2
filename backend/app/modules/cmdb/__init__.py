@@ -40,6 +40,7 @@ from app.modules.cmdb.service import access_criteria as _access_criteria
 from app.modules.cmdb.service import field_catalogue as _field_catalogue
 from app.modules.cmdb.service import person_data as _person_data
 from app.modules.cmdb.service import person_mentions as _person_mentions
+from app.modules.cmdb.service import reporting as _reporting
 from app.modules.cmdb.service import type_tree as _type_tree
 from app.modules.cmdb.service.approver_owners import Owner, owners_of
 from app.modules.cmdb.service.catalogue import ADD, CONFIGURE, DELETE, EDIT, MANAGE, VIEW
@@ -111,6 +112,7 @@ _person_mentions.register()  # the mentions report and redaction (ADR-052 S1b; 0
 _type_tree.register()  # custom fields scoped to a CI type subtree (0175 part 2)
 _field_catalogue.register()  # CI custom fields an admin may restrict per role (ADR-047)
 _access_criteria.register()  # what fine-grained access rules may narrow CIs to (ADR-053)
+_reporting.register()  # CIs and relationships for reports and dashboards (REQ-CMDB-032, S5a)
 
 __all__ = [
     "AffectedUsers",
