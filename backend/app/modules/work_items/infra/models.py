@@ -1069,6 +1069,40 @@ class WorkItemAsset(TenantEntity):
     source: Mapped[str] = mapped_column(String(20), server_default="ui")
 
 
+class WorkItemCi(TenantEntity):
+    """A configuration item linked to a work item (WP-053 S5; REQ-CMDB-019). Unlinking soft-deletes.
+
+    Only the CI's ID: work items never read CMDB tables (CLAUDE.md rule e). A CI is named through
+    `cmdb.ci_refs` when read, so a CI the reader may not see is never named, in the record or in
+    its history. `at_creation`: linked as the record was raised (a CI's "Raise" menu, AC1).
+    """
+
+    __tablename__ = "work_item_cis"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_cis_work_item"),
+        Index(
+            "uq_wic_tenant_item_ci",
+            "tenant_id",
+            "work_item_id",
+            "ci_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wic_tenant_ci",
+            "tenant_id",
+            "ci_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    ci_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20), server_default="ui")
+    at_creation: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
 class WorkItemAnnouncement(TenantEntity):
     """An announcement made from a work item (WP-046b S4, REQ-INC-129).
 

@@ -451,6 +451,7 @@ export const ur: LabelResource = {
   'errors.field.child_has_children':
     'اس واقعے کے اپنے ذیلی واقعات ہیں، اس لیے یہ ذیلی نہیں بن سکتا۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
+  'errors.field.ci_not_linkable': 'آپ یہ کنفیگریشن آئٹم منسلک نہیں کر سکتے، یا یہ موجود نہیں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
@@ -577,6 +578,8 @@ export const ur: LabelResource = {
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
   'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
+  'errors.field.incident_actual_only':
+    'انسیڈنٹ اپنی وجہ سے ہونے والا ڈاؤن ٹائم درج کرتا ہے: صرف اصل اوقات۔',
   'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
   'errors.field.invalid_code': 'حروف، اعداد، نقطے یا ڈیش استعمال کریں (زیادہ سے زیادہ 50)۔',
   'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
@@ -833,6 +836,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_assets': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} اثاثے ہو سکتے ہیں۔',
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
+  'errors.field.too_many_cis': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} کنفیگریشن آئٹمز ہو سکتے ہیں۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
   'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
@@ -1396,6 +1400,7 @@ export const ur: LabelResource = {
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
   'errors.work_item_asset_not_found': 'یہ اثاثہ اب ریکارڈ سے منسلک نہیں۔',
+  'errors.work_item_ci_not_found': 'یہ کنفیگریشن آئٹم اب ریکارڈ سے منسلک نہیں ہے۔',
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',
