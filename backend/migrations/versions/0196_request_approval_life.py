@@ -49,10 +49,10 @@ UNIQUE = "uq_work_item_approvals_tenant_id_id"
 SELF_FK = "fk_wia_escalated_from"
 ADDED_ORIGINS = ("escalated",)
 ADDED_REASONS = ("no_escalation_target",)
-SCHEDULE = (
-    ("approval_reminder_after_days", "2"),
-    ("approval_reminder_count", "3"),
-    ("approval_reminder_minute", "600"),
+SCHEDULE = (  # column, default, range
+    ("approval_reminder_after_days", "2", "BETWEEN 1 AND 30"),
+    ("approval_reminder_count", "3", "BETWEEN 0 AND 10"),
+    ("approval_reminder_minute", "600", "BETWEEN 0 AND 1439"),
 )
 
 # Business tables force RLS: the check runs once per tenant (D-113).
@@ -117,11 +117,12 @@ def _users_fk(column: str, name: str) -> sa.ForeignKeyConstraint:
 
 def upgrade() -> None:
     """The schedule, the escalation and pause columns, the widened codes and the table."""
-    for column, default in SCHEDULE:
+    for column, default, limits in SCHEDULE:
         op.add_column(
             SETTINGS,
             sa.Column(column, sa.SmallInteger(), server_default=default, nullable=False),
         )
+        op.create_check_constraint(op.f(f"ck_{SETTINGS}_{column}"), SETTINGS, f"{column} {limits}")
     op.add_column(APPROVALS, sa.Column("escalated_from_id", sa.Uuid(), nullable=True))
     op.add_column(
         APPROVALS,
@@ -230,5 +231,6 @@ def downgrade() -> None:
     op.drop_constraint(UNIQUE, APPROVALS, type_="unique")
     op.drop_column(APPROVALS, "paused_seconds")
     op.drop_column(APPROVALS, "escalated_from_id")
-    for column, _default in reversed(SCHEDULE):
+    for column, _default, _limits in reversed(SCHEDULE):
+        op.drop_constraint(op.f(f"ck_{SETTINGS}_{column}"), SETTINGS, type_="check")
         op.drop_column(SETTINGS, column)

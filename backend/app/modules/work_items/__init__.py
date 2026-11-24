@@ -93,6 +93,7 @@ from app.modules.work_items.service import (
     reminders,
     repeat_rules,
     report_names,
+    request_approval_reminders,
     request_notifications,
     resolution,
     rule_step_notifications,
@@ -330,6 +331,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-047a S3a (REQ-SR-034): request approval reminders and escalation, each slot once.
+        ScheduleSpec(
+            "work_items__request_approval_reminders",
+            request_approval_reminders.EVERY_SECONDS,
+            request_approval_reminders.reminders_schedule,
         ),
         # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
         ScheduleSpec(

@@ -49,6 +49,7 @@ from app.modules.service_catalog.domain.items import (
     Approver,
     ApproverKind,
     AutoRule,
+    EscalationTarget,
     ItemAudience,
     ItemRules,
     PlannedTask,
@@ -199,6 +200,7 @@ def _stage(raw: Mapping[str, Any]) -> ApprovalStage:
             AutoRule(dict(r.get("name") or {}), r.get("condition") or {})
             for r in raw.get("auto_rules") or []
         ),
+        escalate_to=EscalationTarget(raw.get("escalate_to") or EscalationTarget.BACKUP.value),
     )
 
 
@@ -271,6 +273,8 @@ def _stage_shape(stage: Mapping[str, Any], at: str) -> list[tuple[str, str]]:
         or not all(isinstance(r, Mapping) and isinstance(r.get("name"), Mapping) for r in rules)
     ):
         found.append((f"{at}.auto_rules", "invalid_value"))
+    if stage.get("escalate_to") is not None and stage["escalate_to"] not in set(EscalationTarget):
+        found.append((f"{at}.escalate_to", "invalid_choice"))  # WP-047a S3a (REQ-SR-034)
     return found
 
 
@@ -333,6 +337,8 @@ def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C9
         for name in ("parallel_group", "condition", "auto_earlier"):
             if raw.get(name) is not None:
                 kept[name] = raw[name]
+        if raw.get("escalate_to") not in (None, EscalationTarget.BACKUP.value):  # S3a
+            kept["escalate_to"] = str(raw["escalate_to"])
         if raw.get("auto_rules"):  # WP-047a S2b (REQ-SR-033)
             kept["auto_rules"] = [
                 {"name": dict(r["name"]), "condition": r["condition"]} for r in raw["auto_rules"]
@@ -1013,6 +1019,8 @@ class StageSpec:
     # automatic rules, each (name per language, condition).
     auto_earlier: bool | None = None
     auto_rules: tuple[tuple[Mapping[str, str], Mapping[str, Any]], ...] = ()
+    # WP-047a S3a (REQ-SR-034): where it goes after its last reminder (an EscalationTarget code).
+    escalate_to: str = "backup"
 
 
 @dataclass(frozen=True)
@@ -1121,6 +1129,7 @@ def _spec(stage: ApprovalStage) -> StageSpec:
         condition=stage.condition,
         auto_earlier=stage.auto_earlier,
         auto_rules=tuple((dict(r.name), r.condition) for r in stage.auto_rules),
+        escalate_to=stage.escalate_to.value,
     )
 
 

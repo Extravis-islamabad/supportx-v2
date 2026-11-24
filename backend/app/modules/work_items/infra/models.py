@@ -110,6 +110,14 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint("checklist_item_max BETWEEN 1 AND 1000", name="checklist_item_max_range"),
         CheckConstraint("copy_limit BETWEEN 1 AND 100", name="copy_limit_range"),
         CheckConstraint("first_contact_minutes BETWEEN 0 AND 1440", name="first_contact_minutes"),
+        # WP-047a S3a (0196; REQ-SR-034): the reminder schedule's limits.
+        CheckConstraint(
+            "approval_reminder_after_days BETWEEN 1 AND 30", name="approval_reminder_after_days"
+        ),
+        CheckConstraint("approval_reminder_count BETWEEN 0 AND 10", name="approval_reminder_count"),
+        CheckConstraint(
+            "approval_reminder_minute BETWEEN 0 AND 1439", name="approval_reminder_minute"
+        ),
         CheckConstraint(
             "task_dependency_mode IN ('block', 'warn')", name="task_dependency_mode_code"
         ),
