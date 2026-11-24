@@ -259,6 +259,8 @@ export const ur: LabelResource = {
   'errors.dashboard_not_found': 'یہ ڈیش بورڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
   'errors.database_not_configured':
     'سروس ابھی مکمل طور پر ترتیب نہیں دی گئی۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.database_unavailable':
+    'ڈیٹا بیس اس وقت جواب نہیں دے رہا۔ براہ کرم کچھ دیر بعد دوبارہ کوشش کریں۔',
   'errors.default_board_kept':
     'تبدیلیوں کا طے شدہ مشاورتی بورڈ ہٹایا نہیں جا سکتا۔ جن تبدیلیوں کا جائزہ کوئی اور بورڈ نہیں لیتا، وہ اسی کے پاس جاتی ہیں۔',
   'errors.default_site_required':
@@ -1229,6 +1231,8 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.request_too_slow':
+    'اس میں بہت زیادہ وقت لگا، اس لیے اسے روک دیا گیا۔ محدود تلاش یا فلٹر آزمائیں، یا بعد میں دوبارہ کوشش کریں۔',
   'errors.requester_action_closed':
     'اب آپ اسے تبدیل نہیں کر سکتے: یہ پہلے ہی حل، بند یا منسوخ ہو چکا ہے۔',
   'errors.requester_cancel_not_possible':
