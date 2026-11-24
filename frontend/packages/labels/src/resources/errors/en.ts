@@ -344,6 +344,7 @@ export const en = {
   'errors.erasure_storage_unavailable':
     'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
+  'errors.field.action_not_offered': 'This kind of record cannot take this action.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
   'errors.field.already_has_parent': 'That incident already has a parent; remove it there first.',
@@ -840,6 +841,7 @@ export const en = {
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trigger_event_not_offered': 'This kind of record does not offer that event.',
   'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",

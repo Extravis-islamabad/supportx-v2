@@ -44,6 +44,7 @@ export const en = {
   'notification_area.asset': 'Assets',
   'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
+  'notification_area.cmdb_ci': 'Configuration items',
   'notification_area.connector': 'Connectors',
   'notification_area.custom_field': 'Custom fields',
   'notification_area.incident': 'Incidents',
@@ -109,6 +110,7 @@ export const en = {
   'notification_event.change.status_entered': 'Change entered a status',
   'notification_event.change.submitted': 'Change submitted',
   'notification_event.change.window_reminder': 'Change window starts soon',
+  'notification_event.cmdb_ci.state_changed': "A configuration item's state changed",
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.custom_field.seal_paused': "Sealing a sensitive field's values has paused",
@@ -456,6 +458,12 @@ export const en = {
     '{{ record.display_id }} starts at {{ window.start }}: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'Starts soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now {{ record.status }}.\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    '{{ record.display_id }} is now {{ record.status }}',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: now {{ record.status }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
