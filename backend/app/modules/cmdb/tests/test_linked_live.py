@@ -2,7 +2,8 @@
 
 import asyncio
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
@@ -76,13 +77,26 @@ def test_a_link_or_unlink_publishes_on_that_cis_record_channel_ids_only() -> Non
     assert str(item) not in repr(one)  # which work item is the API's to say, per reader
 
 
-def test_a_linked_records_status_change_reaches_each_of_its_cis() -> None:
-    first, second, item = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    linked.register_ci_linked_records(_Port([first, second]))
+@contextmanager
+def _port(port: "_Port | None") -> Iterator[None]:
+    """Use `port` (None: no port) and give back whatever was registered before (lane A: work
+    items register the real one at import, so a later test must still find it)."""
+    before = linked.linked_records_port()
+    linked.clear_ci_linked_records()
+    if port is not None:
+        linked.register_ci_linked_records(port)
     try:
-        effects = _run("work_items.work_item.status_changed", {"work_item_id": str(item)})
+        yield
     finally:
         linked.clear_ci_linked_records()
+        if before is not None:
+            linked.register_ci_linked_records(before)
+
+
+def test_a_linked_records_status_change_reaches_each_of_its_cis() -> None:
+    first, second, item = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    with _port(_Port([first, second])):
+        effects = _run("work_items.work_item.status_changed", {"work_item_id": str(item)})
     assert sorted(p.channel.key or "" for p in effects.publications) == sorted(
         [str(first), str(second)]
     )
@@ -90,6 +104,6 @@ def test_a_linked_records_status_change_reaches_each_of_its_cis() -> None:
 
 
 def test_without_the_port_a_status_change_publishes_nothing() -> None:
-    linked.clear_ci_linked_records()
-    effects = _run("work_items.work_item.status_changed", {"work_item_id": str(uuid.uuid4())})
+    with _port(None):
+        effects = _run("work_items.work_item.status_changed", {"work_item_id": str(uuid.uuid4())})
     assert effects.publications == []
