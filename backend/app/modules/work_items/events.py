@@ -404,6 +404,9 @@ class WorkItemPartChanged(DomainEvent):
     # Tasks only, additive (WP-048b, lane C's task node waits for "done"): the task's status
     # after the change, a code (open, in_progress, done, ...); None for other parts.
     task_status: str | None = None
+    # Tasks only, additive (WP-047a S5, lane C's review): who owned it before this change took
+    # it away, so their own task lists drop it live; None when the owner did not change.
+    previous_owner_id: uuid.UUID | None = None
 
 
 class WorkItemAssetLinkChanged(DomainEvent):

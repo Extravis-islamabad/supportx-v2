@@ -106,6 +106,14 @@ class LinkRepository(Repository[WorkItemLink]):
     model = WorkItemLink
 
 
+def _owner_before(changes: list[Change]) -> uuid.UUID | None:
+    """The owner a task change took it away from (None: its owner did not change)."""
+    for change in changes:
+        if change.field == "task.owner_id" and change.old not in (None, change.new):
+            return uuid.UUID(str(change.old))
+    return None
+
+
 async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what changed, explicit
     session: AsyncSession,
     record: WorkItem,
@@ -134,6 +142,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
             part_id=part_id,
             change=_CHANGES[kind],
             task_status=task.status if task is not None else None,
+            previous_owner_id=_owner_before(changes) if part == "task" else None,
         ),
         aggregate_id=record.id,
     )

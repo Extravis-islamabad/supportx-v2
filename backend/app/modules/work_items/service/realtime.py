@@ -684,15 +684,18 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
         )
-        if owner is not None:
-            publications.append(
-                Publication(
-                    personal(envelope.tenant_id, owner),
-                    MY_TASKS_CHANGED,
-                    ids=(str(part_id),),
-                    actor_id=_actor(envelope),
-                )
+        # The owner now, and the one a hand-off took it from (lane C's #630 review): both
+        # people's own task lists ("Your tasks", My tasks, an open task page) refresh live.
+        before = _uuid(payload.get("previous_owner_id"))
+        publications.extend(
+            Publication(
+                personal(envelope.tenant_id, person),
+                MY_TASKS_CHANGED,
+                ids=(str(part_id),),
+                actor_id=_actor(envelope),
             )
+            for person in dict.fromkeys(p for p in (owner, before) if p is not None)
+        )
     return RealtimeEffects(publications=publications)
 
 
