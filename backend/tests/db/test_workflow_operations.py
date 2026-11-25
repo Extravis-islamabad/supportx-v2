@@ -91,12 +91,24 @@ async def test_req_wf_026_stop_asks_for_a_reason_keeps_the_log_and_is_audited(
     )
     assert [r["reason"] for r in said] == ["Raised by mistake"]
     history = await world.sql(
-        "SELECT reason FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
-        " AND field = 'workflow_stopped'",
+        "SELECT reason, source, actor_id, new_value FROM field_changes WHERE tenant_id = $1"
+        " AND record_id = $2 AND field = 'workflow_stopped'",
         a.tenant,
         uuid.UUID(item["id"]),
     )
-    assert [r["reason"] for r in history] == ["Raised by mistake"]
+    [line] = history
+    assert line["reason"] == "Raised by mistake"
+    # A person stopped it (lane C's #636 review): the stop's own source and the person, and
+    # the workflow by its name, never its ID (rule d).
+    assert line["source"] in {"ui", "api"}
+    assert line["actor_id"] == str(a.admin)
+    [flow] = await world.sql(
+        "SELECT w.name FROM workflows w JOIN workflow_instances i ON i.workflow_id = w.id"
+        " WHERE i.tenant_id = $1 AND i.id = $2",
+        a.tenant,
+        instance,
+    )
+    assert json.loads(line["new_value"]) == flow["name"]
     again = await _post(world, a, a.admin, instance, "stop", reason="Twice")
     assert again.status_code == 409
     assert again.json()["code"] == "instance_not_running"
