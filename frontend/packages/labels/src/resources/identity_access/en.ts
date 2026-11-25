@@ -678,6 +678,9 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.delete': 'Delete assets (move them to the trash)',
+  'permission.assets.delete.description':
+    'Move assets to the trash. Managing assets no longer includes this; vendor support never has it.',
   'permission.assets.edit_disposed': 'Change disposed assets',
   'permission.assets.edit_disposed.description':
     'Change an asset after it is disposed of, giving a reason each time.',

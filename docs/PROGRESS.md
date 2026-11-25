@@ -178,7 +178,15 @@ decisions D1-D13 (D-038).
    now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
    phases) and times the master's name lookup from the API pods, so the nightly shows whether a
    slower write is DNS or this latency.
-11. **OpenFeature is approved but not set up (lane C, 2026-11-25; the coordinator):** D-004 lists
+11. **Release note: deleting an asset is its own right (lane B, 2026-11-24, D-185, a security
+   fix):** `DELETE /assets/{asset_id}` needs `assets.delete`; `assets.manage` no longer stands in,
+   and vendor support never holds it. Migration 0202 gave `assets.delete` to every role that held
+   `assets.manage` (same scope), so existing roles keep deleting; its log counts the roles held by
+   service identities, for an admin to review. **A role made from now on needs `assets.delete`
+   ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
+   overdue-scan rule whose action is the trash need it too. An overdue rule already set to trash
+   before upgrading keeps running: review its action after the upgrade.
+12. **OpenFeature is approved but not set up (lane C, 2026-11-25; the coordinator):** D-004 lists
    the OpenFeature SDK for release flags, but no SDK, provider or flag exists in the backend or
    the frontend yet. WP-057 S5c-1a uses a module constant (`SSO_GROUP_MAPPINGS_READY`, deleted by
    S5c-1b) instead. The first lane that needs a real release flag sets OpenFeature up in its own

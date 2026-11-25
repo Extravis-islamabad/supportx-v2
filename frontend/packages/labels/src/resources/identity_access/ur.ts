@@ -682,6 +682,9 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.delete': 'اثاثے حذف کریں (ردی کی ٹوکری میں منتقل کریں)',
+  'permission.assets.delete.description':
+    'اثاثے ردی کی ٹوکری میں منتقل کریں۔ اثاثوں کے انتظام میں اب یہ شامل نہیں، اور وینڈر سپورٹ کو یہ کبھی نہیں ملتا۔',
   'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
   'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
