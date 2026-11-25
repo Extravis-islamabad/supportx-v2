@@ -861,6 +861,13 @@ export const SCREENS: Screen[] = [
     app: 'console',
     state: { name: 'conflict', open: ciConflict },
   },
+  // WP-053 S5c (lane C's #645 review): the Raise menu's dialog, opened from More actions.
+  {
+    key: 'ci-raise',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: { name: 'raise', open: ciRaise },
+  },
   { key: 'ci-new', path: '/cmdb/new', app: 'console' },
   { key: 'admin-cmdb', path: '/admin/cmdb', app: 'console' },
   // WP-053 S2 (lane B; lane C's condition 14): the CI's Map tab as it is, the map with a
@@ -2222,6 +2229,16 @@ function ciChangeType(blocked: boolean): (page: Page) => Promise<void> {
 }
 
 /** The CI record's edit, with its save beaten by someone else's (a 409 answered here). */
+async function ciRaise(page: Page): Promise<void> {
+  await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
+  await page.getByTestId('ci-raise-incident').click({ timeout: STATE_TIMEOUT });
+  // The dialog has finished zooming in before the shot.
+  await page.getByTestId('ci-raise-ok').waitFor({ timeout: STATE_TIMEOUT });
+  await page
+    .locator('.ant-modal-wrap .ant-zoom-enter, .ant-modal-wrap .ant-zoom-appear')
+    .waitFor({ state: 'detached', timeout: STATE_TIMEOUT });
+}
+
 async function ciConflict(page: Page): Promise<void> {
   const url = '**/api/v1/cmdb/cis/*';
   const answer = (route: Route) =>
