@@ -18,6 +18,8 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "ChargeTo": "catalog_charge_to",  # WP-047b S1
+    "PricePeriod": "price_period",  # WP-047b S1
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",

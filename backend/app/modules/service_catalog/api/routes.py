@@ -19,10 +19,12 @@ POST   /api/v1/catalog/starter/publish         choose their group and publish th
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
@@ -38,6 +40,7 @@ from app.modules.service_catalog.domain.items import (
     RestartOn,
     StageRule,
 )
+from app.modules.service_catalog.domain.pricing import ChargeTo, PricePeriod
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
 from app.modules.service_catalog.service import catalog as service
 from app.modules.service_catalog.service import categories, search, settings, starter
@@ -67,6 +70,8 @@ class QuestionIO(BaseModel):
     required: bool = False
     options: list[str] = Field(default_factory=list, max_length=50)
     option_labels: dict[str, dict[str, str]] = Field(default_factory=dict)
+    # WP-047b S1 (REQ-CAT-020): a choice's extra price per option (amounts as decimal text).
+    option_prices: dict[str, str] = Field(default_factory=dict, max_length=50)
     help: dict[str, str] = Field(default_factory=dict)
     default: Any = None
     shown_to: list[QuestionAudience] = Field(default_factory=lambda: list(QuestionAudience))
@@ -227,6 +232,12 @@ class CatalogItemIn(BaseModel):
     # WP-047a S1: REQ-SR-014 (Professional: `catalog`) and REQ-SR-015.
     max_quantity: int | None = Field(default=None, ge=1, le=10_000)
     asks_needed_by: bool | None = None
+    # WP-047b S1 (REQ-CAT-020, -021; Professional): base currency only (D-164).
+    price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    price_period: PricePeriod | None = None
+    internal_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    charge_to: ChargeTo | None = None
+    charge_question_key: str | None = Field(default=None, max_length=40)
 
 
 class CatalogMissingTranslation(BaseModel):
@@ -291,6 +302,12 @@ class CatalogItemOut(BaseModel):
         default=None, description="The most one request may ask for; null: no quantity asked."
     )
     asks_needed_by: bool = False
+    # WP-047b S1: to staff, and to requesters only when the tenant shows prices (D-184).
+    price: Decimal | None = None
+    price_period: PricePeriod = PricePeriod.ONCE
+    internal_cost: Decimal | None = Field(default=None, description="Staff only.")
+    charge_to: ChargeTo = ChargeTo.REQUESTED_FOR_DEPARTMENT
+    charge_question_key: str | None = None
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
@@ -302,7 +319,12 @@ class CatalogItemOut(BaseModel):
 
     @classmethod
     def of(
-        cls, view: service.ItemView, *, staff: bool, quantity_offered: bool = True
+        cls,
+        view: service.ItemView,
+        *,
+        staff: bool,
+        quantity_offered: bool = True,
+        prices_shown: bool = True,
     ) -> "CatalogItemOut":
         """From the service's view; requesters never see questions meant for others.
 
@@ -320,6 +342,13 @@ class CatalogItemOut(BaseModel):
         fields = {name: getattr(item, name) for name in service.ITEM_FIELDS}
         if not quantity_offered:
             fields["max_quantity"] = None
+        if not staff:  # an internal cost is the desk's, never a requester's (REQ-CAT-020)
+            fields["internal_cost"] = None
+            fields["charge_to"] = ChargeTo.REQUESTED_FOR_DEPARTMENT.value
+            fields["charge_question_key"] = None
+        if not prices_shown:  # D-184: requesters see prices only when the tenant shows them
+            fields["price"] = None
+            questions = [{k: v for k, v in q.items() if k != "option_prices"} for q in questions]
         return cls.model_validate(
             {
                 **fields,
@@ -398,12 +427,14 @@ class CatalogSettingsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     hide_default_incident_template: bool | None = None
+    requesters_see_prices: bool | None = None  # WP-047b S1 (D-184), off by default
 
 
 class CatalogSettingsOut(BaseModel):
     """The tenant's catalog settings."""
 
     hide_default_incident_template: bool
+    requesters_see_prices: bool = False
     version: int
 
     @classmethod
@@ -411,6 +442,7 @@ class CatalogSettingsOut(BaseModel):
         """From the row (or the defaults)."""
         return cls(
             hide_default_incident_template=row.hide_default_incident_template,
+            requesters_see_prices=row.requesters_see_prices,
             version=row.version,
         )
 
@@ -549,8 +581,19 @@ async def list_items(
         statuses=item_status or (),
         featured=featured,
     )
-    offered = staff or await service.quantity_licensed(subject)
-    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
+    offered, prices = await _shown(session, subject, staff=staff)
+    return [
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
+        for v in views
+    ]
+
+
+async def _shown(session: AsyncSession, subject: Subject, *, staff: bool) -> tuple[bool, bool]:
+    """(a quantity is offered, prices are shown) for this person (REQ-SR-014; D-184)."""
+    if staff:
+        return True, True
+    licensed = await service.quantity_licensed(subject)  # both are the catalog feature
+    return licensed, licensed and (await settings.read(session)).requesters_see_prices
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
@@ -562,8 +605,11 @@ async def popular_items(
     """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
     staff = is_staff(subject)
     views = await service.popular_items(session, subject, limit=limit)
-    offered = staff or await service.quantity_licensed(subject)
-    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
+    offered, prices = await _shown(session, subject, staff=staff)
+    return [
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
+        for v in views
+    ]
 
 
 @router.get("/items/search", summary="Search the catalog items you may see")
@@ -575,9 +621,9 @@ async def search_items(
 ) -> list[CatalogItemOut]:
     """Names, keywords, summaries and descriptions in every language; best match first."""
     staff = is_staff(subject)
-    offered = staff or await service.quantity_licensed(subject)
+    offered, prices = await _shown(session, subject, staff=staff)
     return [
-        CatalogItemOut.of(v, staff=staff, quantity_offered=offered)
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
         for v in await search.search_items(session, subject, q, limit=limit)
     ]
 
@@ -590,8 +636,8 @@ async def get_item(
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
     staff = is_staff(subject)
-    offered = staff or await service.quantity_licensed(subject)
-    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered)
+    offered, prices = await _shown(session, subject, staff=staff)
+    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered, prices_shown=prices)
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(

@@ -136,6 +136,8 @@ class Question:
     # WP-047a S3b (REQ-SR-041, Essentials): a change to this answer after submitting restarts the
     # request's approval from its first stage.
     restarts_approval: bool = False
+    # WP-047b S1 (REQ-CAT-020): a choice's extra price per option, decimal text (domain/pricing).
+    option_prices: Mapping[str, str] = field(default_factory=dict)
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -150,6 +152,7 @@ class Question:
             "default": self.default,
             "shown_to": sorted(a.value for a in self.shown_to),
             **({"restarts_approval": True} if self.restarts_approval else {}),
+            **({"option_prices": dict(self.option_prices)} if self.option_prices else {}),
         }
 
 
