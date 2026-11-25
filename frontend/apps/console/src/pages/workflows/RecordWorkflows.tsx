@@ -3,11 +3,13 @@ import { Alert, App, Collapse, Flex, Form, Input, Skeleton, Space, Table, Typogr
 import { useMemo, useRef } from 'react';
 
 import {
+  useCustomFields,
   useRecordWorkflows,
   useRestartInstance,
   useRetryInstance,
   useSkipInstance,
   useStopInstance,
+  type CustomFieldEntity,
   type RecordWorkflowOut,
 } from '@supportx/api-client';
 import {
@@ -32,6 +34,7 @@ import {
 } from '@supportx/ui';
 
 import { NodeView } from '../admin/workflows/NodeView';
+import { fieldName } from '../customFields/values';
 import { isKnownPort } from '../admin/workflows/nodes';
 
 import { failureText, stoppedText } from './failure';
@@ -416,5 +419,74 @@ export function WorkflowFailureBanner({
         </Space>
       }
     />
+  );
+}
+
+/**
+ * What a waiting workflow on the record waits for (WP-047a S5; REQ-SR-053 AC1): a field to be
+ * filled, a date, tasks to be done, an approval, or something to happen, each named in words.
+ * Filling the field resumes it through the record's own events (AC2); live with its channel.
+ */
+export function WorkflowWaitingBanner({
+  recordType,
+  recordId,
+}: {
+  recordType: string;
+  recordId: string;
+}) {
+  const t = useLabel();
+  const dates = useDateTime();
+  const { locale } = useAppearance();
+  const { can } = useAccess();
+  const queryClient = useQueryClient();
+  const allowed = can('workflows.run') || can('workflows.manage');
+  const runs = useRecordWorkflows(recordType, recordId, allowed);
+  const customFields = useCustomFields(recordType as CustomFieldEntity, true, allowed);
+  useRecordEvents(
+    'wi',
+    allowed ? recordId : undefined,
+    (m) => {
+      if (m.type === 'workflow_instances.changed') {
+        refreshQueries(queryClient, ['workflows', 'record', recordType, recordId]);
+      }
+    },
+    { covers: [['workflows', 'record', recordType, recordId]] },
+  );
+  const waiting = (runs.data ?? []).filter((r) => (r.waiting_for ?? []).length > 0);
+  if (!allowed || waiting.length === 0) return null;
+  const fieldWord = (name: string) => {
+    if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
+    const found = customFields.data?.find((f) => `custom.${f.key}` === name);
+    return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+  };
+  return (
+    <Flex vertical gap={8} style={{ marginBottom: 12 }} data-testid="workflow-waiting-banner">
+      {waiting.flatMap((run) =>
+        (run.waiting_for ?? []).map((wait) => (
+          <Alert
+            key={`${run.instance.id}-${wait.node}`}
+            type="info"
+            showIcon
+            data-testid={`workflow-waiting-${wait.node}`}
+            message={t('workflows.record.waiting', {
+              workflow: run.workflow_name,
+              what: t(`workflow_wait_kind.${wait.kind}`),
+            })}
+            description={[
+              (wait.fields ?? []).length > 0
+                ? t('workflows.record.waiting_fields', {
+                    fields: (wait.fields ?? []).map(fieldWord).join(', '),
+                  })
+                : null,
+              wait.until != null
+                ? t('workflows.record.waiting_until', { date: dates.format(wait.until) })
+                : null,
+            ]
+              .filter((line): line is string => line !== null)
+              .join(' ')}
+          />
+        )),
+      )}
+    </Flex>
   );
 }

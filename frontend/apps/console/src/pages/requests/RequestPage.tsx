@@ -42,7 +42,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
-import { RecordWorkflows } from '../workflows/RecordWorkflows';
+import { RecordWorkflows, WorkflowWaitingBanner } from '../workflows/RecordWorkflows';
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
@@ -76,13 +76,25 @@ export function RequestPage() {
     'wi',
     id === '' ? undefined : id,
     (m) => {
-      if (m.covered !== true) refreshQueries(queryClient, serviceRequestKeys.detail(id));
+      if (m.covered === true) return;
+      refreshQueries(queryClient, serviceRequestKeys.detail(id));
+      // WP-047a S5 (REQ-SR-052 AC3): the worklog totals and the actual cost follow a task or
+      // a worklog change; that panel keeps the shared parts key.
+      if (m.type === 'work_items.part_changed') {
+        refreshQueries(queryClient, queryKeys.incidents.worklogs(id));
+      }
     },
     {
-      // Its SLA, approvals and tasks sit under the detail key; the shared conversation panel
-      // keeps its own (no id: nothing joined or shown).
+      // Its SLA, approvals and tasks sit under the detail key; the shared conversation and
+      // worklog panels keep their own (no id: nothing joined or shown).
       covers:
-        id === '' ? [] : [serviceRequestKeys.detail(id), queryKeys.incidents.conversation(id)],
+        id === ''
+          ? []
+          : [
+              serviceRequestKeys.detail(id),
+              queryKeys.incidents.conversation(id),
+              queryKeys.incidents.worklogs(id),
+            ],
     },
   );
   if (record.isLoading) return <Skeleton active />;
@@ -402,6 +414,8 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           />
         }
       >
+        {/* WP-047a S5 (REQ-SR-053 AC1): what the request's workflow waits for. */}
+        <WorkflowWaitingBanner recordType="service_request" recordId={r.id} />
         <Tabs
           data-testid="sr-tabs"
           destroyOnHidden

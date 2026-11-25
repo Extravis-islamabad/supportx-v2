@@ -6,8 +6,11 @@ import {
 } from '@ant-design/icons';
 import { Button, Card, Checkbox, Flex, Input, Select, Typography } from 'antd';
 
-import { useUnits, type CatalogItem } from '@supportx/api-client';
+import { useUnits, type CatalogItem, type CatalogQuestion } from '@supportx/api-client';
 import { lengthLimit, useLabel } from '@supportx/ui';
+
+import { freshKey } from './planKeys';
+import { PlanStepParts } from './PlanStepParts';
 
 type Task = CatalogItem['plan'][number];
 const LANGUAGES = ['en', 'ar', 'ur'] as const;
@@ -16,15 +19,20 @@ const LANGUAGES = ['en', 'ar', 'ur'] as const;
  * The fulfilment plan (WP-031 plan D9; REQ-SR-046): ordered tasks, each with its title per
  * language, a group of its own (or the item's), required or not, and internal (requesters see
  * only "step n of m"). The last required task done fulfils the request when auto-fulfil is on.
+ * WP-047a S5: each step's owner, kind, order, condition and fields (`PlanStepParts`).
  */
 export function PlanEditor({
   value,
   onChange,
   disabled,
+  questions = [],
+  licensed = true,
 }: {
   value: Task[];
   onChange: (next: Task[]) => void;
   disabled: boolean;
+  questions?: CatalogQuestion[];
+  licensed?: boolean;
 }) {
   const t = useLabel();
   const groups = useUnits('groups');
@@ -80,7 +88,15 @@ export function PlanEditor({
                 aria-label={t('catalog_admin.plan.remove')}
                 disabled={disabled}
                 onClick={() => {
-                  onChange(value.filter((_, i) => i !== index));
+                  // Nothing waits for a removed step any more (REQ-SR-047).
+                  onChange(
+                    value
+                      .filter((_, i) => i !== index)
+                      .map((other) => ({
+                        ...other,
+                        waits_for: (other.waits_for ?? []).filter((k) => k !== task.key),
+                      })),
+                  );
                 }}
               />
             </Flex>
@@ -138,6 +154,14 @@ export function PlanEditor({
                 {t('catalog_admin.plan.internal')}
               </Checkbox>
             </Flex>
+            <PlanStepParts
+              tasks={value}
+              index={index}
+              questions={questions}
+              licensed={licensed}
+              disabled={disabled}
+              onChange={onChange}
+            />
           </Flex>
         </Card>
       ))}
@@ -148,7 +172,15 @@ export function PlanEditor({
         onClick={() => {
           onChange([
             ...value,
-            { title: {}, group_id: null, owner_id: null, required: true, internal: false },
+            {
+              title: {},
+              group_id: null,
+              owner_id: null,
+              required: true,
+              internal: false,
+              key: freshKey(value, value.length),
+              kind: 'task',
+            },
           ]);
         }}
         data-testid="cat-task-add"

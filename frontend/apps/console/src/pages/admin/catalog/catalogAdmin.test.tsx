@@ -247,6 +247,39 @@ describe('Admin › Service catalog', () => {
       asks_needed_by: true,
     });
   });
+
+  it('WP-047a S5: a step waits for another, asks a field and both get keys', async () => {
+    window.history.pushState({}, '', `/admin/catalog/items/${ITEM}`);
+    const fake = api({
+      [`PATCH /api/v1/catalog/items/${ITEM}`]: { body: { ...laptop, version: 4 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Fulfil/ }));
+    fireEvent.click(await screen.findByTestId('cat-task-add'));
+    fireEvent.click(screen.getByTestId('cat-task-add'));
+    fireEvent.change(screen.getByTestId('cat-task-0-title-en'), { target: { value: 'Order' } });
+    fireEvent.change(screen.getByTestId('cat-task-1-title-en'), { target: { value: 'Deliver' } });
+    // The second waits for the first (REQ-SR-047).
+    const waits = within(screen.getByTestId('cat-task-1-waits-for')).getByRole('combobox');
+    fireEvent.mouseDown(waits);
+    fireEvent.click(await screen.findByTitle('Order'));
+    // And asks its owner for a serial number (REQ-SR-049).
+    fireEvent.click(screen.getByTestId('cat-task-1-field-add'));
+    const field = screen.getByTestId('cat-task-1-field-0');
+    fireEvent.change(within(field).getByRole('textbox', { name: 'Key' }), {
+      target: { value: 'serial' },
+    });
+    fireEvent.click(screen.getByTestId('cat-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)).toHaveLength(1);
+    });
+    const sent = fake.find('PATCH', `/api/v1/catalog/items/${ITEM}`)[0]?.body as {
+      plan: { key: string; waits_for?: string[]; fields?: { key: string }[] }[];
+    };
+    expect(sent.plan.map((step) => step.key)).toEqual(['step_1', 'step_2']);
+    expect(sent.plan[1]?.waits_for).toEqual(['step_1']);
+    expect(sent.plan[1]?.fields?.map((f) => f.key)).toEqual(['serial']);
+  });
 });
 
 // WP-047a S2a (REQ-SR-029..032): the stages editor.

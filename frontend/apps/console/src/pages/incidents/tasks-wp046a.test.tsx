@@ -136,6 +136,43 @@ describe('Tasks (WP-046a S1)', () => {
     });
   });
 
+  it('WP-047a S5: a plan task shows its review flag and saves its own fields', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    const planned = task(FIRST, 'Deliver the laptop', {
+      from_plan: true,
+      needs_review: true,
+      fields: [
+        {
+          key: 'serial',
+          label: { en: 'Serial number' },
+          kind: 'text',
+          required: true,
+          options: [],
+          requester_visible: false,
+        },
+      ],
+      field_values: {},
+    });
+    const fake = api({
+      [`GET ${PATH}/tasks`]: { body: { items: [planned], done: 0, total: 1 } },
+      'GET /api/v1/incidents/task-templates': { body: [] },
+      [`PATCH ${PATH}/tasks/${FIRST}`]: { body: { ...planned, version: 2 } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-task-details-0'));
+    const drawer = await screen.findByTestId('task-details');
+    expect(within(drawer).getByText(/no longer needs this task/)).toBeTruthy();
+    fireEvent.change(within(drawer).getByTestId('sr-q-serial'), { target: { value: 'SN-42' } });
+    fireEvent.click(within(drawer).getByTestId('plan-task-save-fields'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `${PATH}/tasks/${FIRST}`)).toHaveLength(1);
+    });
+    expect(fake.find('PATCH', `${PATH}/tasks/${FIRST}`)[0]?.body).toEqual({
+      field_values: { serial: 'SN-42' },
+    });
+  });
+
   it('REQ-INC-076: My tasks lists tasks on every type and links each record', async () => {
     window.history.pushState({}, '', '/my-tasks');
     api({
