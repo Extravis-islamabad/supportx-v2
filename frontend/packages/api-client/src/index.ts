@@ -157,6 +157,13 @@ export {
   type CiDowntimeState,
 } from './cmdbDowntimes';
 export {
+  useCiLinked,
+  useCiLinkedPage,
+  type CiLinkedKind,
+  type CiLinkedKinds,
+  type CiLinkedRecord,
+} from './cmdbLinked';
+export {
   downloadAuditExport,
   useAuditArchives,
   useAuditEntries,
