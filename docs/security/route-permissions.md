@@ -878,6 +878,15 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/list-settings/{list_key}/saved-views/{view_id}` | signed_in | - | - |
 | GET | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - | - |
 | PUT | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - | - |
+| GET | `/api/v1/monitoring/connections` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| POST | `/api/v1/monitoring/connections` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| DELETE | `/api/v1/monitoring/connections/{connection_id}` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| GET | `/api/v1/monitoring/connections/{connection_id}` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| PUT | `/api/v1/monitoring/connections/{connection_id}` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| GET | `/api/v1/monitoring/connections/{connection_id}/runs` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| POST | `/api/v1/monitoring/connections/{connection_id}/runs` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| GET | `/api/v1/monitoring/connections/{connection_id}/test` | `monitoring.manage` | monitoring.manage: all | `monetx_integration` (module) |
+| GET | `/api/v1/monitoring/health` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (permission) |
 | GET | `/api/v1/my-reminders` | signed_in | - | - |
 | DELETE | `/api/v1/my-reminders/{reminder_id}` | signed_in | - | - |
 | PATCH | `/api/v1/my-reminders/{reminder_id}` | signed_in | - | - |
@@ -2137,6 +2146,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `knowledge.withdraw` | all | all |
 | tenant_admin | `licence.manage` | all | all |
 | tenant_admin | `mailboxes.manage` | all | all |
+| tenant_admin | `monitoring.manage` | all | all |
 | tenant_admin | `notifications.manage` | all | all |
 | tenant_admin | `people.erase` | all | all |
 | tenant_admin | `people.export` | all | all |

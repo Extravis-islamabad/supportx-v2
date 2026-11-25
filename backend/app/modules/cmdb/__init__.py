@@ -72,6 +72,14 @@ from app.modules.cmdb.service.linked import (
     register_ci_linked_records,
 )
 from app.modules.cmdb.service.links import CiLinksPort, register_ci_links
+from app.modules.cmdb.service.monitoring_sync import (
+    MonitoredUpdate,
+    monitored_ci_create,
+    monitored_ci_update,
+    monitored_link,
+    monitored_retire,
+    monitored_unlink,
+)
 from app.modules.cmdb.service.open_counts import (
     LINKED_TYPES,
     Count,
@@ -79,7 +87,7 @@ from app.modules.cmdb.service.open_counts import (
     OpenCountsPort,
     register_open_counts,
 )
-from app.modules.cmdb.service.realtime import CHANNELS, ROUTES
+from app.modules.cmdb.service.realtime import CHANNELS, ROUTES, ci_field_publications
 from app.modules.cmdb.service.refs import CiRef, can_link, can_see, ci_refs, visible_ci_ids
 from app.modules.cmdb.service.sync import on_asset_changed, run_sync_rules
 from app.shared.events import ConsumerSpec
@@ -167,15 +175,22 @@ __all__ = [
     "ImpactCi",
     "ImpactDirection",
     "ImpactService",
+    "MonitoredUpdate",
     "OpenCounts",
     "OpenCountsPort",
     "Owner",
     "can_link",
     "can_see",
+    "ci_field_publications",
     "ci_refs",
     "clear_ci_linked_records",
     "impact_of",
     "module",
+    "monitored_ci_create",
+    "monitored_ci_update",
+    "monitored_link",
+    "monitored_retire",
+    "monitored_unlink",
     "owners_of",
     "register_ci_linked_records",
     "register_ci_links",

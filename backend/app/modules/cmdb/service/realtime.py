@@ -98,6 +98,20 @@ def _ci_publications(
     ]
 
 
+async def ci_field_publications(
+    session: AsyncSession, tenant: uuid.UUID, ci_id: uuid.UUID, fields: tuple[str, ...]
+) -> list[Publication]:
+    """Publications for another module's live field on a CI (WP-053 S6: `health`).
+
+    The CI's record channel and its list audiences, as for a CMDB change of `fields`. Field names
+    only, never values.
+    """
+    row = await session.scalar(select(Ci).where(Ci.id == ci_id, Ci.deleted_at.is_(None)))
+    if row is None:
+        return []
+    return _ci_publications(tenant, row, fields, None, None)
+
+
 async def _ci_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     ci_id = uuid.UUID(str(envelope.payload["ci_id"]))
     row = await session.scalar(select(Ci).where(Ci.id == ci_id))

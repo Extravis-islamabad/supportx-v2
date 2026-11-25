@@ -34,3 +34,9 @@ ecf1df020b57418a0aa946a5b493418d2a1b186b:backend/tests/test_list_by_post_spans.p
 # used nowhere else). A later commit on the branch makes it at test time. Lane C, 2026-11-23,
 # for the coordinator's check.
 ebc4a574c9a4885ec07df065ebd0cb1522b2a279:frontend/apps/console/src/pages/vendorSupport/vendorSupport.test.tsx:generic-api-key:19
+
+# A made-up value in a DB test, not a real secret: WP-053 S6's MonetX connection tests run against
+# FakeMonetX (an in-process stand-in; no real MonetX exists, D-172), and the value was only the
+# stand-in's expected bearer token. The constant is now built at runtime from a uuid so no later
+# commit carries a token-shaped literal (lane B, 2026-11-25).
+26c9b692e94ce4fd9afc74799f918d1d06cfe88e:backend/tests/db/test_monitoring_integrations.py:generic-api-key:48

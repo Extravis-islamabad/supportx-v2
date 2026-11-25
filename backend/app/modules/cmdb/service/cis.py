@@ -1136,7 +1136,12 @@ async def sync_create(
 
 
 async def sync_update(
-    session: AsyncSession, record: Ci, changes: Mapping[str, Any], *, source: Source
+    session: AsyncSession,
+    record: Ci,
+    changes: Mapping[str, Any],
+    *,
+    source: Source,
+    stamp_as: AttributeSource = AttributeSource.ASSET_SYNC,
 ) -> Ci:
     """Change a CI's attributes by the sync identity (core fields and `custom.<key>` values).
 
@@ -1165,7 +1170,7 @@ async def sync_update(
         expected_version=record.version,
         columns=columns,
         source=source,
-        stamp_as=AttributeSource.ASSET_SYNC,
+        stamp_as=stamp_as,
     )
 
 

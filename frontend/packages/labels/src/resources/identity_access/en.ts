@@ -932,6 +932,9 @@ export const en = {
   'permission.mailboxes.manage': 'Manage mailboxes',
   'permission.mailboxes.manage.description':
     'Replaced by "Set up email connectors"; still works until it is removed.',
+  'permission.monitoring.manage': 'Set up monitoring connections',
+  'permission.monitoring.manage.description':
+    'Connect MonetX, set its API token and import its topology.',
   'permission.notifications.manage': 'Manage notification rules',
   'permission.notifications.manage.description':
     'Choose which events notify whom, on which channels.',
@@ -1189,6 +1192,7 @@ export const en = {
   'permission_module.knowledge': 'Knowledge',
   'permission_module.licence': 'Licence',
   'permission_module.mailboxes': 'Mailboxes',
+  'permission_module.monitoring': 'Monitoring',
   'permission_module.notifications': 'Notifications',
   'permission_module.people': 'Personal data',
   'permission_module.problems': 'Problems',

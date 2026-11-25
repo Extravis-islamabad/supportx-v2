@@ -355,6 +355,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("directory.federation_failed", AuditCategory.CONFIGURATION, "integrations"),
     ("directory.federation_removed", AuditCategory.CONFIGURATION, "integrations"),
     ("connector_settings.changed", AuditCategory.CONFIGURATION, "integrations"),  # D-041
+    # MonetX connections and topology imports (WP-053 S6).
+    ("monitoring.connection_created", AuditCategory.CONFIGURATION, "monitoring_integrations"),
+    ("monitoring.connection_changed", AuditCategory.CONFIGURATION, "monitoring_integrations"),
+    ("monitoring.connection_removed", AuditCategory.CONFIGURATION, "monitoring_integrations"),
+    ("monitoring.topology_requested", AuditCategory.CONFIGURATION, "monitoring_integrations"),
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),

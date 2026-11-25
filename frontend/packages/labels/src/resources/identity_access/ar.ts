@@ -927,6 +927,9 @@ export const ar: LabelResource = {
   'permission.mailboxes.manage': 'إدارة صناديق البريد',
   'permission.mailboxes.manage.description':
     'استُبدلت بـ «إعداد موصلات البريد الإلكتروني»؛ ما زالت تعمل حتى تُزال.',
+  'permission.monitoring.manage': 'إعداد اتصالات المراقبة',
+  'permission.monitoring.manage.description':
+    'ربط MonetX وضبط رمز واجهة البرمجة واستيراد الطوبولوجيا.',
   'permission.notifications.manage': 'إدارة قواعد الإشعارات',
   'permission.notifications.manage.description':
     'اختيار الأحداث التي تُرسل إشعارات ولمن وعبر أي قنوات.',
@@ -1173,6 +1176,7 @@ export const ar: LabelResource = {
   'permission_module.knowledge': 'المعرفة',
   'permission_module.licence': 'الترخيص',
   'permission_module.mailboxes': 'صناديق البريد',
+  'permission_module.monitoring': 'المراقبة',
   'permission_module.notifications': 'الإشعارات',
   'permission_module.people': 'البيانات الشخصية',
   'permission_module.problems': 'المشكلات',

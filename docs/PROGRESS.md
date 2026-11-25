@@ -3258,6 +3258,14 @@ Numbers: ADR-043; migrations 0105 (S1), 0106 (S2), 0107 (S3, if needed); D-146 (
   - labels in en, ar and ur;
   - a DB test: the CI total is the reader's list total, and a link to a CI they may not see is
     not counted.
+- [~] **S6 — MonetX health, backend (lane B, migration 0207; REQ-INT-040..042, REQ-CMDB-031):**
+  the new `monitoring_integrations` module: connections (`monitoring.manage`), the GET-only
+  MonetX client through `shared/egress`, hourly topology import through cmdb's public
+  `monitored_*` functions (source `monetx`, stale then ended), and `GET /monitoring/health`
+  (visible-only, a 15 s single-flight cache, a breaker per connection, the state code only in
+  realtime). Built on the OpenAPI fixture plus FakeMonetX (D-172 d). Log:
+  progress-log/2026-11-25-wp-053-s6-monetx-health-lane-b.md. **Open:** the health chips (own
+  PR, lane C's design); the token's expiry once MonetX documents one.
 
 ### [~] WP-058a — Releases: record, stages, templates, roles, planning, approvals (lane C; ADR-041; sessions 1-6 of 6 built 2026-11-05; #214 merged, #219)
 

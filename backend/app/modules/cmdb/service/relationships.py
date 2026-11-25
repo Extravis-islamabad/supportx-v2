@@ -403,7 +403,7 @@ async def _locked(session: AsyncSession, ids: Sequence[uuid.UUID]) -> dict[uuid.
 
 async def _touch(  # noqa: PLR0913, PLR0917 - the CI, what happened and the source, explicit
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     record: Ci,
     kind: Literal["child_added", "child_removed"],
     links: Sequence[dict[str, str]],
@@ -412,7 +412,8 @@ async def _touch(  # noqa: PLR0913, PLR0917 - the CI, what happened and the sour
     """A new version of one end: history naming each link, and a snapshot with its links."""
     record.version += 1
     record.updated_at = _now()
-    record.updated_by = subject.user_id
+    saved_by = None if subject is None else subject.user_id  # None: the sync identity
+    record.updated_by = saved_by
     await session.flush()
     await record_changes(
         session,
@@ -428,7 +429,7 @@ async def _touch(  # noqa: PLR0913, PLR0917 - the CI, what happened and the sour
         ],
         source=source,
     )
-    await save_version(session, record, snapshot(record), subject.user_id)
+    await save_version(session, record, snapshot(record), saved_by)
 
 
 def _link(
