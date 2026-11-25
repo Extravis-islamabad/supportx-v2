@@ -142,6 +142,7 @@ export const en = {
   'notification_event.incident.sla_breached': 'SLA target overdue',
   'notification_event.incident.sla_escalated': 'SLA escalation',
   'notification_event.incident.sla_warning': 'SLA warning point reached',
+  'notification_event.incident.source_recovered': 'Monitoring source recovered, incident kept open',
   'notification_event.incident.status_changed': 'Status changed',
   'notification_event.incident.workflow_notice': 'A workflow’s message',
   'notification_event.kb_article.approved': 'Article approved',
@@ -640,6 +641,12 @@ export const en = {
     '{{ record.display_id }}: {{ sla.target }} is close to its due time',
   'notification_template.incident.sla_warning.subject':
     'Due soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.source_recovered.body':
+    'Hello {{ recipient.name }},\n\nThe monitoring problem behind {{ record.display_id }} "{{ record.title }}" has recovered. The incident stays open because it is being worked on: resolve it when you are done.\n\nStatus: {{ record.status }}',
+  'notification_template.incident.source_recovered.in_app':
+    'The source of {{ record.display_id }} recovered; it stays open',
+  'notification_template.incident.source_recovered.subject':
+    'Source recovered: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.status_changed.body':
     'Hello {{ recipient.name }},\n\nThe status of {{ record.display_id }} "{{ record.title }}" changed from {{ change.from_status }} to {{ record.status }}.',
   'notification_template.incident.status_changed.in_app':

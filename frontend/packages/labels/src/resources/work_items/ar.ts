@@ -1356,6 +1356,11 @@ export const ar: LabelResource = {
   'incidents.export.title': 'تصدير هذه القائمة',
   'incidents.export.view_not_exportable':
     'لا يمكن تصدير طريقة العرض هذه. احفظ طريقة عرض بعامل التصفية نفسه وصدّرها.',
+  'incidents.external_problem_on_ci': '{{ci}}: {{kind}}',
+  'incidents.external_problem_priority_reason': 'حُددت من شدة مشكلة المراقبة',
+  'incidents.external_problem_recovered_resolution':
+    'حُسم تلقائيًا: أبلغ مصدر المراقبة عن التعافي ولم يعمل أحد على الحادث.',
+  'incidents.external_problem_subject': 'مشكلة مراقبة {{external_id}}',
   'incidents.filter_notice_few': 'البحث والمرشحات تقلّصها إلى {{count}} حوادث.',
   'incidents.filter_notice_many': 'البحث والمرشحات تقلّصها إلى {{count}} حادثةً.',
   'incidents.filter_notice_one': 'البحث والمرشحات تقلّصها إلى حادثة واحدة.',
@@ -3187,6 +3192,7 @@ export const ar: LabelResource = {
   'work_item.field.estimate_period': 'فترة التقدير',
   'work_item.field.estimated_cost': 'التكلفة التقديرية',
   'work_item.field.expected_delivery_at': 'التسليم المتوقع',
+  'work_item.field.external_problem': 'مشكلة مراقبة',
   'work_item.field.first_contact_resolution': 'حُلّ من أول تواصل',
   'work_item.field.first_responded_at': 'أول استجابة',
   'work_item.field.first_response_breached': 'تأخر الاستجابة',
@@ -3311,6 +3317,11 @@ export const ar: LabelResource = {
   'work_item.history.changed': 'غيّر {{who}} {{field}} من {{old}} إلى {{new}}',
   'work_item.history.changed_only': 'غيّر {{who}} {{field}}',
   'work_item.history.cleared': 'أفرغ {{who}} {{field}}',
+  'work_item.history.external_problem.opened': 'أُنشئ من مشكلة مراقبة',
+  'work_item.history.external_problem.recovered': 'تعافى مصدر المراقبة: حُسم تلقائيًا',
+  'work_item.history.external_problem.recovered_kept_open':
+    'تعافى مصدر المراقبة: بقي مفتوحًا لأن العمل جارٍ عليه',
+  'work_item.history.external_problem.updated': 'تغيّرت مشكلة المراقبة',
   'work_item.history.linked': 'أضاف {{who}} رابطًا ({{kind}})',
   'work_item.history.logged': 'سجّل {{who}} {{duration}} ({{type}})',
   'work_item.history.logged_for': 'سجّل {{who}} {{duration}} ({{type}}) لـ {{person}}',

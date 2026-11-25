@@ -143,6 +143,7 @@ export const ar: LabelResource = {
   'notification_event.incident.sla_breached': 'تأخر هدف اتفاقية مستوى الخدمة',
   'notification_event.incident.sla_escalated': 'تصعيد اتفاقية مستوى الخدمة',
   'notification_event.incident.sla_warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
+  'notification_event.incident.source_recovered': 'تعافى مصدر المراقبة وبقي الحادث مفتوحًا',
   'notification_event.incident.status_changed': 'تغيّرت الحالة',
   'notification_event.incident.workflow_notice': 'رسالة من سير عمل',
   'notification_event.kb_article.approved': 'اعتُمدت المقالة',
@@ -640,6 +641,12 @@ export const ar: LabelResource = {
     '{{ record.display_id }}: اقترب موعد {{ sla.target }}',
   'notification_template.incident.sla_warning.subject':
     'يستحق قريبًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.source_recovered.body':
+    'مرحبًا {{ recipient.name }}،\n\nتعافت مشكلة المراقبة التي أنشأت {{ record.display_id }} «{{ record.title }}». يبقى الحادث مفتوحًا لأن العمل جارٍ عليه: احسمه عند الانتهاء.\n\nالحالة: {{ record.status }}',
+  'notification_template.incident.source_recovered.in_app':
+    'تعافى مصدر {{ record.display_id }} وبقي مفتوحًا',
+  'notification_template.incident.source_recovered.subject':
+    'تعافى المصدر: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.status_changed.body':
     'مرحبًا {{ recipient.name }}،\n\nتغيّرت حالة {{ record.display_id }} «{{ record.title }}» من {{ change.from_status }} إلى {{ record.status }}.',
   'notification_template.incident.status_changed.in_app':

@@ -145,6 +145,7 @@ export const ur: LabelResource = {
   'notification_event.incident.sla_breached': 'ایس ایل اے ہدف میں تاخیر',
   'notification_event.incident.sla_escalated': 'ایس ایل اے ایسکلیشن',
   'notification_event.incident.sla_warning': 'ایس ایل اے کی انتباہی حد آ گئی',
+  'notification_event.incident.source_recovered': 'مانیٹرنگ کا ذریعہ بحال، واقعہ کھلا رہا',
   'notification_event.incident.status_changed': 'حالت بدلی',
   'notification_event.incident.workflow_notice': 'ورک فلو کا پیغام',
   'notification_event.kb_article.approved': 'مضمون منظور ہوا',
@@ -645,6 +646,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }}: {{ sla.target }} کا وقت قریب ہے',
   'notification_template.incident.sla_warning.subject':
     'جلد واجب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.source_recovered.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کے پیچھے مانیٹرنگ کا مسئلہ بحال ہو گیا ہے۔ واقعہ کھلا رہے گا کیونکہ اس پر کام ہو رہا ہے: کام ختم ہونے پر اسے حل کریں۔\n\nحالت: {{ record.status }}',
+  'notification_template.incident.source_recovered.in_app':
+    '{{ record.display_id }} کا ذریعہ بحال ہو گیا، یہ کھلا رہے گا',
+  'notification_template.incident.source_recovered.subject':
+    'ذریعہ بحال: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.status_changed.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی حالت {{ change.from_status }} سے {{ record.status }} ہو گئی۔',
   'notification_template.incident.status_changed.in_app':

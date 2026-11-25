@@ -1216,6 +1216,11 @@ export const en = {
   'incidents.export.title': 'Export this list',
   'incidents.export.view_not_exportable':
     'This view cannot be exported. Save a view with the same filter and export that.',
+  'incidents.external_problem_on_ci': '{{ci}}: {{kind}}',
+  'incidents.external_problem_priority_reason': "Set from the monitoring problem's severity",
+  'incidents.external_problem_recovered_resolution':
+    'Resolved automatically: the monitoring source reported recovery and no one had worked on the incident.',
+  'incidents.external_problem_subject': 'Monitoring problem {{external_id}}',
   'incidents.filter_notice_one': 'Your search and filters narrow it to {{count}}.',
   'incidents.filter_notice_other': 'Your search and filters narrow it to {{count}}.',
   'incidents.handed_over': '{{id}} handed over to {{group}}.',
@@ -2875,6 +2880,7 @@ export const en = {
   'work_item.field.estimate_period': 'Estimate period',
   'work_item.field.estimated_cost': 'Estimated cost',
   'work_item.field.expected_delivery_at': 'Expected delivery',
+  'work_item.field.external_problem': 'Monitoring problem',
   'work_item.field.first_contact_resolution': 'Resolved at first contact',
   'work_item.field.first_responded_at': 'First response',
   'work_item.field.first_response_breached': 'Response overdue',
@@ -2999,6 +3005,12 @@ export const en = {
   'work_item.history.changed': '{{who}} changed {{field}} from {{old}} to {{new}}',
   'work_item.history.changed_only': '{{who}} changed {{field}}',
   'work_item.history.cleared': '{{who}} cleared {{field}}',
+  'work_item.history.external_problem.opened': 'Raised from a monitoring problem',
+  'work_item.history.external_problem.recovered':
+    'The monitoring source recovered: resolved automatically',
+  'work_item.history.external_problem.recovered_kept_open':
+    'The monitoring source recovered: kept open, as it is being worked on',
+  'work_item.history.external_problem.updated': 'The monitoring problem changed',
   'work_item.history.linked': '{{who}} added a link ({{kind}})',
   'work_item.history.logged': '{{who}} logged {{duration}} ({{type}})',
   'work_item.history.logged_for': '{{who}} logged {{duration}} ({{type}}) for {{person}}',

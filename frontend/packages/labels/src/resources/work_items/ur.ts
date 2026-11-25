@@ -1221,6 +1221,11 @@ export const ur: LabelResource = {
   'incidents.export.title': 'یہ فہرست ایکسپورٹ کریں',
   'incidents.export.view_not_exportable':
     'یہ ویو ایکسپورٹ نہیں ہو سکتا۔ اسی فلٹر کے ساتھ ویو محفوظ کریں اور اسے ایکسپورٹ کریں۔',
+  'incidents.external_problem_on_ci': '{{ci}}: {{kind}}',
+  'incidents.external_problem_priority_reason': 'مانیٹرنگ کے مسئلے کی شدت سے طے کی گئی',
+  'incidents.external_problem_recovered_resolution':
+    'خودبخود حل: مانیٹرنگ کے ذریعے نے بحالی بتائی اور کسی نے اس واقعے پر کام نہیں کیا تھا۔',
+  'incidents.external_problem_subject': 'مانیٹرنگ کا مسئلہ {{external_id}}',
   'incidents.filter_notice_one': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
   'incidents.filter_notice_other': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
   'incidents.handed_over': '{{id}} {{group}} کے حوالے کر دیا گیا۔',
@@ -2883,6 +2888,7 @@ export const ur: LabelResource = {
   'work_item.field.estimate_period': 'تخمینے کی مدت',
   'work_item.field.estimated_cost': 'تخمینی لاگت',
   'work_item.field.expected_delivery_at': 'متوقع ترسیل',
+  'work_item.field.external_problem': 'مانیٹرنگ کا مسئلہ',
   'work_item.field.first_contact_resolution': 'پہلے رابطے پر حل ہوا',
   'work_item.field.first_responded_at': 'پہلا جواب',
   'work_item.field.first_response_breached': 'جواب میں تاخیر',
@@ -3008,6 +3014,11 @@ export const ur: LabelResource = {
   'work_item.history.changed': '{{who}} نے {{field}} کو {{old}} سے {{new}} میں بدلا',
   'work_item.history.changed_only': '{{who}} نے {{field}} بدلا',
   'work_item.history.cleared': '{{who}} نے {{field}} خالی کیا',
+  'work_item.history.external_problem.opened': 'مانیٹرنگ کے مسئلے سے بنایا گیا',
+  'work_item.history.external_problem.recovered': 'مانیٹرنگ کا ذریعہ بحال: خودبخود حل',
+  'work_item.history.external_problem.recovered_kept_open':
+    'مانیٹرنگ کا ذریعہ بحال: کھلا رہا کیونکہ اس پر کام ہو رہا ہے',
+  'work_item.history.external_problem.updated': 'مانیٹرنگ کا مسئلہ بدل گیا',
   'work_item.history.linked': '{{who}} نے ایک ربط شامل کیا ({{kind}})',
   'work_item.history.logged': '{{who}} نے {{duration}} درج کیے ({{type}})',
   'work_item.history.logged_for': '{{who}} نے {{person}} کے لیے {{duration}} درج کیے ({{type}})',

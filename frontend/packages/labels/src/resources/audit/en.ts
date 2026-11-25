@@ -1298,6 +1298,7 @@ export const en = {
   'event_type.work_items.work_item.deleted': 'Record moved to trash',
   'event_type.work_items.work_item.restored': 'Record restored',
   'event_type.work_items.work_item.roles_changed': 'Record role holders changed',
+  'event_type.work_items.work_item.source_recovered': 'Monitoring source recovered (kept open)',
   'event_type.work_items.work_item.stage_changed': 'Record moved to another stage',
   'event_type.work_items.work_item.status_changed': 'Record status changed',
   'event_type.work_items.work_item.updated': 'Record edited',
