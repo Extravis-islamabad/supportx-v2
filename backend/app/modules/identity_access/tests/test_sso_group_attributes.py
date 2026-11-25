@@ -105,3 +105,29 @@ def test_an_alias_outside_lowercase_digits_and_hyphens_is_refused(alias: str) ->
 def test_every_alias_alias_for_makes_is_accepted() -> None:
     names = sso.group_attributes(sso.alias_for("acme-corp-2", "1a2b3c"))
     assert names.groups == "sx_groups_sx_acme_corp_2_1a2b3c"
+
+
+def test_a_long_slug_keeps_the_whole_token_so_aliases_never_collide() -> None:
+    """Lane C's #632 note: `[:60]` used to cut the token off a long slug's alias."""
+    slug = "a" * 61 + "-z"  # 63 characters, the longest a slug may be
+    first, second = sso.alias_for(slug, "1a2b3c"), sso.alias_for(slug, "4d5e6f")
+    assert first != second
+    assert first.endswith("-1a2b3c")
+    assert second.endswith("-4d5e6f")
+    assert len(first) <= sso.ALIAS_MAX
+    # The slug's room is 50 with a 6-character token: a cut just after a hyphen is trimmed.
+    edge = sso.alias_for("a" * 49 + "-" + "b" * 10, "1a2b3c")
+    assert edge == "sx-" + "a" * 49 + "-1a2b3c"
+    assert "--" not in edge
+    sso.group_attributes(first)  # still one-to-one with its attribute names
+
+
+def test_a_short_slug_alias_is_unchanged() -> None:
+    assert sso.alias_for("acme", "1a2b3c") == "sx-acme-1a2b3c"
+
+
+@pytest.mark.parametrize("token", ["", "abc", "A1B2C3", "1a2b3c" * 10, "1a2b3c-"])
+def test_a_token_outside_6_to_12_lowercase_hex_is_refused(token: str) -> None:
+    """Lane C's #634 note: a long token would leave no room for the slug (or go negative)."""
+    with pytest.raises(ValueError, match="6 to 12 lowercase hex"):
+        sso.alias_for("acme", token)
