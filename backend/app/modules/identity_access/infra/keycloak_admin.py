@@ -518,6 +518,13 @@ class KeycloakAdmin:
         Before the provider (and its links) is deleted, so a later set-up re-using the alias
         never reads a stale list. Each person is read in full and written back without them:
         a partial write would replace every other attribute too.
+
+        Paging by offset is stable: the page is "people linked to `alias`", and clearing
+        attributes never removes a link. The read-then-write is not atomic (Keycloak has no
+        partial update): an admin's edit to the same person in between, or a sign-in's
+        department/site import, can be overwritten. The group importers are already gone
+        (callers change the mappers first), so no group value comes back, and a lost
+        department or site is rewritten at that person's next sign-in (lane A's #632 notes).
         """
         names = set(sso.group_attributes(alias).all())
         cleared = first = 0
