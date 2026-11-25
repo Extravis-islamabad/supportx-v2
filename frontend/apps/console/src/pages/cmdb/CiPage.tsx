@@ -43,6 +43,8 @@ import {
   useLabel,
 } from '@supportx/ui';
 
+import { RaiseDialog } from '../assets/RaiseFromAsset';
+import type { RaiseKind } from '../assets/raise';
 import { CustomFieldValue } from '../customFields/fields';
 import { fieldName, filled as hasValue } from '../customFields/values';
 import { useCmdbRight } from './rights';
@@ -54,6 +56,7 @@ import { DowntimesTab } from './DowntimesTab';
 import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
 import { useSubscribersSection } from './useSubscribersSection';
+import { CI_RAISE_KINDS, ciRaisePath } from './raise';
 import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
 import { refText } from './refNames';
@@ -131,6 +134,7 @@ function CiRecord({ ci }: { ci: Ci }) {
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [raising, setRaising] = useState<RaiseKind>();
   const { can } = useAccess();
   // The CI as it read when the edit began: its version is the one the save sends (If-Match).
   const [opened, setOpened] = useState<Ci>(ci);
@@ -234,6 +238,16 @@ function CiRecord({ ci }: { ci: Ci }) {
             ) : undefined
           }
           more={[
+            // Raise a work item about this CI (WP-053 S5c; REQ-CMDB-019): only the kinds the
+            // person may create; the form opens with the CI linked (lane A's `?ci=`, #638).
+            ...CI_RAISE_KINDS.filter(([, permission]) => can(permission)).map(([kind]) => ({
+              key: `raise-${kind}`,
+              label: t(`cmdb.raise.${kind}`),
+              testId: `ci-raise-${kind}`,
+              onClick: () => {
+                setRaising(kind);
+              },
+            })),
             ...(may('add')
               ? [
                   {
@@ -446,6 +460,18 @@ function CiRecord({ ci }: { ci: Ci }) {
           void save(version);
         }}
       />
+      {raising !== undefined && (
+        <RaiseDialog
+          kind={raising}
+          testPrefix="ci"
+          title={t(`cmdb.raise.title_${raising}`)}
+          hint={t('cmdb.raise.hint')}
+          pathOf={(template) => ciRaisePath(raising, template, ci.id)}
+          onClose={() => {
+            setRaising(undefined);
+          }}
+        />
+      )}
       {merging && (
         <CiMergeDrawer
           ci={ci}

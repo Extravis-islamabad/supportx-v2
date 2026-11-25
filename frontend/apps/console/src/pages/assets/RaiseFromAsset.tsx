@@ -34,32 +34,66 @@ export function RaiseFromAssetDialog({
   onClose: () => void;
 }) {
   const t = useLabel();
+  return (
+    <RaiseDialog
+      kind={kind}
+      testPrefix="asset"
+      title={t(`assets.raise.title_${kind}`)}
+      hint={t('assets.raise.hint')}
+      pathOf={(template) => raisePath(kind, template, asset)}
+      onClose={onClose}
+    />
+  );
+}
+
+/**
+ * Pick the template (or, for a request, the catalogue item) and open the create form at
+ * `pathOf(id)`. Shared by the asset page and the CI page (WP-053 S5c): each list is the one its
+ * own create form offers, so nothing appears here that the form would not accept.
+ */
+export function RaiseDialog({
+  kind,
+  testPrefix,
+  title,
+  hint,
+  pathOf,
+  onClose,
+}: {
+  kind: RaiseKind;
+  testPrefix: string;
+  title: string;
+  hint: string;
+  pathOf: (id: string) => string;
+  onClose: () => void;
+}) {
+  const t = useLabel();
   const navigate = useNavigate();
   const [chosen, setChosen] = useState<string>();
+  const id = `${testPrefix}-raise-template`;
   return (
     <Modal
       open
-      title={t(`assets.raise.title_${kind}`)}
+      title={title}
       okText={t('assets.raise.open_form')}
-      okButtonProps={{ disabled: chosen === undefined, 'data-testid': 'asset-raise-ok' }}
+      okButtonProps={{ disabled: chosen === undefined, 'data-testid': `${testPrefix}-raise-ok` }}
       cancelText={t('actions.cancel')}
       onCancel={onClose}
       onOk={() => {
         if (chosen === undefined) return;
-        void navigate(raisePath(kind, chosen, asset));
+        void navigate(pathOf(chosen));
         onClose();
       }}
-      data-testid="asset-raise-dialog"
+      data-testid={`${testPrefix}-raise-dialog`}
     >
       <Form layout="vertical">
         <Form.Item
           label={t(kind === 'service_request' ? 'assets.raise.item' : 'assets.raise.template')}
-          htmlFor="asset-raise-template"
-          extra={t('assets.raise.hint')}
+          htmlFor={id}
+          extra={hint}
         >
-          {kind === 'incident' && <IncidentChoice value={chosen} onChange={setChosen} />}
-          {kind === 'service_request' && <ItemChoice value={chosen} onChange={setChosen} />}
-          {kind === 'change' && <ChangeChoice value={chosen} onChange={setChosen} />}
+          {kind === 'incident' && <IncidentChoice id={id} value={chosen} onChange={setChosen} />}
+          {kind === 'service_request' && <ItemChoice id={id} value={chosen} onChange={setChosen} />}
+          {kind === 'change' && <ChangeChoice id={id} value={chosen} onChange={setChosen} />}
         </Form.Item>
       </Form>
     </Modal>
@@ -67,11 +101,13 @@ export function RaiseFromAssetDialog({
 }
 
 interface ChoiceProps {
+  id: string;
   value: string | undefined;
   onChange: (id: string) => void;
 }
 
 function Choice({
+  id,
   options,
   loading,
   value,
@@ -80,7 +116,7 @@ function Choice({
   const t = useLabel();
   return (
     <Select
-      id="asset-raise-template"
+      id={id}
       showSearch
       optionFilterProp="label"
       value={value}
@@ -88,7 +124,7 @@ function Choice({
       options={options}
       loading={loading}
       notFoundContent={t('assets.raise.none')}
-      data-testid="asset-raise-template"
+      data-testid={id}
     />
   );
 }
