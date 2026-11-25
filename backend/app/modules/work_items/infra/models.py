@@ -681,7 +681,7 @@ class WorkItem(TenantEntity):
         # Service requests (WP-030, migration 0063): the item, its answers, the approval status.
         CheckConstraint(
             "approval_status IS NULL OR approval_status IN "
-            "('not_needed', 'pending', 'approved', 'rejected', 'withdrawn')",
+            "('not_needed', 'pending', 'approved', 'rejected', 'withdrawn', 'awaiting_answers')",
             name="approval_status_code",
         ),
         CheckConstraint("jsonb_typeof(answers) = 'object'", name="answers_object"),
@@ -2068,6 +2068,11 @@ class WorkItemApproval(TenantEntity):
     decided_at: Mapped[datetime | None]
     decided_by: Mapped[uuid.UUID | None]
     channel: Mapped[str | None] = mapped_column(String(20))
+    # WP-047a S4 (0203; REQ-SR-044): when a workflow or trigger level with a timeout expires.
+    expires_at: Mapped[datetime | None]
+    # WP-047a S4 (0203; REQ-SR-044): the automation trigger that asked (an ad hoc ask), so the
+    # same rule never asks again while its ask is pending. No key: the rule is automation's.
+    trigger_id: Mapped[uuid.UUID | None]
     comment: Mapped[str | None] = mapped_column(Text)
     comment_private: Mapped[bool] = mapped_column(Boolean, server_default="false")
     self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")

@@ -177,6 +177,10 @@ export const ur: LabelResource = {
   'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
   'notification_event.security.password_changed': 'آپ کا پاس ورڈ بدل دیا گیا',
   'notification_event.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
+  'notification_event.service_request.answers_needed': 'ای میل سے درخواست: جوابات درکار',
+  'notification_event.service_request.answers_needed_no_access':
+    'ای میل سے درخواست: جوابات درکار، پورٹل تک رسائی نہیں',
+  'notification_event.service_request.approval_decided_by_mail': 'ای میل جواب سے منظوری کا فیصلہ',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
   'notification_event.service_request.approval_restarted': 'درخواست کی منظوری دوبارہ شروع ہوئی',
@@ -816,6 +820,24 @@ export const ur: LabelResource = {
     '{{ record.title }} کو نئے مالک کی ضرورت ہے',
   'notification_template.service_account.needs_owner.subject':
     '{{ record.title }} کو نئے مالک کی ضرورت ہے',
+  'notification_template.service_request.answers_needed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست "{{ record.title }}" بطور {{ record.display_id }} موصول ہوئی۔ آگے بڑھنے سے پہلے براہِ کرم چند سوالات کے جواب دیں: {{ record.link }}',
+  'notification_template.service_request.answers_needed.in_app':
+    '{{ record.display_id }} کو آگے بڑھنے سے پہلے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed.subject':
+    'آپ کی درخواست {{ record.display_id }} کے لیے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed_no_access.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست "{{ record.title }}" بطور {{ record.display_id }} موصول ہوئی۔ آگے بڑھنے سے پہلے اسے کچھ مزید تفصیلات درکار ہیں۔ آپ کا سروس ڈیسک آپ کے ساتھ انہیں مکمل کر سکتا ہے، یا آپ کو سیلف سروس پورٹل تک رسائی دے سکتا ہے تاکہ آپ خود جواب دے سکیں۔',
+  'notification_template.service_request.answers_needed_no_access.in_app':
+    '{{ record.display_id }} کو آگے بڑھنے سے پہلے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed_no_access.subject':
+    'آپ کی درخواست {{ record.display_id }} کے لیے چند جوابات درکار ہیں',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کی منظوری کا فیصلہ اس کی ای میل کے جواب سے ہوا۔ اگر آپ نے یہ جواب نہیں بھیجا تو ابھی اپنے سروس ڈیسک کو بتائیں۔',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر آپ کی منظوری کا فیصلہ کیا',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر منظوری کا فیصلہ کیا',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':

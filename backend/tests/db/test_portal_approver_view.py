@@ -2,9 +2,10 @@
 
 Real PostgreSQL. A requester-only person named as the request's approver (their manager) sees
 it in the portal with its answers and requester, the requester's fields only, never technician
-fields; it cannot confirm, reject or read the conversation, and a decided approval keeps
-the read (open or decided). Anyone else without reach gets 404; the approver cannot confirm or
-reject its delivery.
+fields, and the public conversation but never a private note (WP-047a S4, REQ-SR-043, which
+supersedes this test's earlier no-conversation rule); it cannot confirm or reject, and a decided
+approval keeps the read (open or decided). Anyone else without reach gets 404; the approver
+cannot confirm or reject its delivery.
 """
 
 import uuid
@@ -54,13 +55,28 @@ async def test_qa10_p2_06_the_approver_opens_the_request_read_only(world: World)
         headers={"If-Match": f'"{body["version"]}"', **CONSOLE},
     )
     assert not_done.status_code == 403, not_done.text
-    # No conversation: what is asked, not the requester's talk with the desk.
+    # REQ-SR-043: the public conversation, never a private note.
+    for kind, visibility, words in (
+        ("reply", "public", "<p>Which colour would you like?</p>"),
+        ("note", "private", "<p>Budget is tight this quarter</p>"),
+    ):
+        made = await world.call(
+            "POST",
+            f"/service-requests/{record['id']}/conversation",
+            a,
+            a.admin,
+            json={"kind": kind, "visibility": visibility, "body": words},
+            headers=CONSOLE,
+        )
+        assert made.status_code == 201, made.text
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         approver = await subject_for(session, a.tenant, a.requester2)
         entries = await portal.conversation(
             session, approver, uuid.UUID(record["id"]), SERVICE_REQUEST
         )
-    assert entries == []
+    bodies = " ".join(str(e.body) for e in entries)
+    assert "Which colour" in bodies
+    assert "Budget is tight" not in bodies
     # Not named on it, no reach: 404. A request whose approver is someone else.
     await manager_of(world, a.requester, a.tech_a)
     theirs = await waiting(world, a)

@@ -15,7 +15,7 @@ Expand only, no data step. `work_item_tasks` gains:
 Reversible; RLS unchanged (an existing table).
 
 Revision ID: 0204
-Revises: 0197
+Revises: 0203
 Created: 2026-11-24
 """
 
@@ -26,8 +26,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0204"
-# Re-pointed at its queue turn onto main's head then (0203 when WP-047a S4 lands).
-down_revision: str | None = "0197"
+# On 0203 (WP-047a S4, merged); re-pointed at its queue turn if main moved on.
+down_revision: str | None = "0203"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

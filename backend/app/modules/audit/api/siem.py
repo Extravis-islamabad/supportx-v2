@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.database import TenantSession
+from app.core.entitlements import requires_feature
 from app.core.errors import ProblemDetail
 from app.core.recent_auth import RecentAuth
 from app.modules.audit.api.routes import MANAGE, _hidden
@@ -24,6 +25,7 @@ from app.modules.audit.domain import siem as domain
 from app.modules.audit.infra.models import SiemDestination
 from app.modules.audit.service import siem
 from app.modules.audit.service.recording import AuditNote, RequestFacts, audited, record
+from app.modules.licensing import Feature
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -207,7 +209,10 @@ async def list_destinations(session: TenantSession, subject: Manage) -> list[Sie
     summary="Stream to a security monitoring system",
     status_code=status.HTTP_201_CREATED,
     response_model=SiemDestinationMadeOut,
-    dependencies=[RecentAuth],
+    # Professional (REQ-AUD-011): adding and changing need the feature; a lapse keeps the list
+    # and stops sending (siem.py), so only these two routes are gated. Before RecentAuth: a plan
+    # without it is refused without asking the admin to confirm their identity first.
+    dependencies=[requires_feature(Feature.SIEM_STREAM), RecentAuth],
 )
 async def add_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: SiemDestinationIn,
@@ -246,7 +251,7 @@ _SKIP = frozenset({"content-length", "content-type"})
 @router.patch(
     "/destinations/{destination_id}",
     summary="Change a destination",
-    dependencies=[RecentAuth],
+    dependencies=[requires_feature(Feature.SIEM_STREAM), RecentAuth],
 )
 async def change_destination(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     destination_id: uuid.UUID,

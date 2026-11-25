@@ -43,6 +43,7 @@ export const ar: LabelResource = {
   'errors.approval_changed': 'تغيّرت هذه الموافقة في هذه الأثناء. افتحها مجددًا.',
   'errors.approval_closed': 'تم البت في هذه الموافقة أو لم تعد مطلوبة.',
   'errors.approval_delegation_not_found': 'لم يعد هذا التفويض موجودًا.',
+  'errors.approval_expired': 'انتهت صلاحية هذه الموافقة قبل البت فيها.',
   'errors.approval_not_found': 'لم يتم العثور على هذه الموافقة.',
   'errors.approval_not_running':
     'لا توجد موافقة قيد الانتظار على {{display_id}}، لذا لا يمكن تغيير الموافقين.',
@@ -54,6 +55,7 @@ export const ar: LabelResource = {
   'errors.asset_acknowledgement_answered': 'لقد أجبت عن هذا بالفعل.',
   'errors.asset_acknowledgement_not_found': 'هذا الإقرار ليس لك أو لم يعد موجودًا.',
   'errors.asset_already_disposed': 'لهذا الأصل سجل تخلّص بالفعل.',
+  'errors.asset_assigned_elsewhere': 'هذا الأصل مخصص لشخص آخر. حرره قبل تسليمه.',
   'errors.asset_audit_closed': 'هذا التدقيق مغلق ولا يمكن تغييره.',
   'errors.asset_audit_item_not_found': 'هذا العنصر ليس جزءًا من هذا التدقيق.',
   'errors.asset_audit_not_auditor': 'يمكن فقط للمدققين المحددين في هذا التدقيق تعليم عناصره.',
@@ -89,6 +91,7 @@ export const ar: LabelResource = {
     'أعضاء المجموعة الديناميكية يأتون من عامل التصفية؛ غيّره بدلًا من ذلك.',
   'errors.asset_group_name_taken': 'لمجموعة أخرى هذا الاسم بالفعل.',
   'errors.asset_group_not_found': 'هذه المجموعة لم تعد موجودة.',
+  'errors.asset_handover_end_of_life': 'هذا الأصل متقاعد أو مستبعد، لذا لا يمكن تسليمه.',
   'errors.asset_has_components': 'عليه مكوّنات مركّبة ({{count}}): افصلها أو تخلّص منها أيضًا.',
   'errors.asset_import_exists': 'يوجد سجل بهذا المفتاح، والاستيراد يضيف فقط.',
   'errors.asset_import_file_not_readable': 'استخدم ملف CSV أو مصنف Excel ({{xlsx}}).',
@@ -395,6 +398,7 @@ export const ar: LabelResource = {
   'errors.field.cannot_merge_itself': 'لا يمكن دمج مشكلة في نفسها.',
   'errors.field.cannot_see_record': 'لا يستطيع هذا الشخص رؤية هذا السجل، لذا لا يمكنه متابعته.',
   'errors.field.catalog_item_not_found': 'اختر عنصرًا من الكتالوج متاحًا لك.',
+  'errors.field.catalog_item_not_requestable': 'اختر عنصر خدمة منشورًا يمكن للأشخاص طلبه.',
   'errors.field.catalog_too_deep': 'لفئات الكتالوج أربعة مستويات كحد أقصى.',
   'errors.field.category_disabled': 'هذه الفئة لم تعد مستخدمة.',
   'errors.field.category_loop': 'لا يمكن وضع الفئة داخل نفسها أو داخل إحدى فئاتها الفرعية.',
@@ -524,6 +528,7 @@ export const ar: LabelResource = {
   'errors.field.group_not_yours': 'لست عضوًا في هذه المجموعة.',
   'errors.field.group_required': 'اختر أي من مجموعاتك سيتولاه.',
   'errors.field.half_day_single_date': 'الإجازة الصباحية أو بعد الظهر ليوم واحد فقط.',
+  'errors.field.handover_person_not_active': 'اختر شخصًا نشطًا لتسليم الأصل إليه.',
   'errors.field.hidden_cannot_be_required':
     'لا يمكن أن يكون الحقل المخفي إلزاميًا، إذ لا يستطيع أحد تعبئته.',
   'errors.field.hidden_required_needs_default':
@@ -661,6 +666,7 @@ export const ar: LabelResource = {
   'errors.field.person_not_in_group': 'هذا الشخص ليس عضوًا في المجموعة المختارة.',
   'errors.field.phone_not_valid': 'أدخل رقم هاتف: أرقام ومسافات و+ و- وأقواس.',
   'errors.field.plain_connection_refused': 'يُرفض الاتصال دون تشفير ما لم تسمح به.',
+  'errors.field.plan_waits_in_a_loop': 'تنتظر هذه الخطوات بعضها بعضًا، فلا يمكن لأي منها أن تبدأ.',
   'errors.field.port_not_allowed': 'استخدم منفذ بريد: 993 (TLS) أو 143.',
   'errors.field.private_key_unreadable': 'تعذّرت قراءة المفتاح الخاص: الصقه غير مشفر بصيغة PEM.',
   'errors.field.quantity_over_max': 'يمكنك طلب {{max}} كحد أقصى.',
@@ -762,6 +768,7 @@ export const ar: LabelResource = {
     'على مدار الساعة يحتسب دائمًا كل ساعة. يمكن تغيير اسمه فقط.',
   'errors.field.target_amount_invalid': 'أدخل عددًا صحيحًا من 1 إلى 100000.',
   'errors.field.target_duplicate': 'هذا الهدف محدد بالفعل لهذه الأولوية.',
+  'errors.field.task_field_required': 'املأ هذا الحقل قبل إكمال المهمة.',
   'errors.field.technician_audience_empty': 'اختر كل الفنيين أو مجموعة واحدة على الأقل.',
   'errors.field.technician_not_allowed': 'لا يمكن لهذا الشخص العمل على هذه السجلات.',
   'errors.field.technician_not_in_group': 'هذا الفني ليس عضوًا في المجموعة المختارة.',
@@ -1148,6 +1155,7 @@ export const ar: LabelResource = {
   'errors.report_schedule_not_found': 'هذه الجدولة غير موجودة أو ليست لك.',
   'errors.report_timeout':
     'استغرق التقرير أكثر من {{seconds}} ثانية فتم إيقافه. ضيّق نطاق التاريخ أو عوامل التصفية ثم حاول مرة أخرى.',
+  'errors.request_not_awaiting_answers': 'لم يعد هذا الطلب بانتظار الإجابات.',
   'errors.request_too_slow':
     'استغرق هذا وقتًا طويلًا فأُوقف. جرّب بحثًا أو تصفية أضيق، أو حاول لاحقًا.',
   'errors.requester_action_closed': 'لم يعد بإمكانك تغيير هذا: فقد حُلّ أو أُغلق أو أُلغي بالفعل.',

@@ -78,16 +78,25 @@ export function CiPage() {
   const { has, isAdmin } = useLicence();
   const found = useCi(id);
   const queryClient = useQueryClient();
-  useRecordChannel('ci', id, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });
+  const shown = [
+    queryKeys.cmdb.detail(id),
+    queryKeys.cmdb.history(id),
     // A relationship added or removed gives the CI a new version (WP-053 S2).
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.versions(id) });
+    queryKeys.cmdb.versions(id),
     // A business service's subscribers changed (0185): its own section refetches.
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.subscribers(id) });
+    queryKeys.cmdb.subscribers(id),
     // Its downtimes changed or moved state as time passed (S5b): the tab refetches.
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.downtimes(id) });
-  });
+    queryKeys.cmdb.downtimes(id),
+  ];
+  useRecordChannel(
+    'ci',
+    id,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched every one
+      for (const key of shown) void queryClient.invalidateQueries({ queryKey: key });
+    },
+    { covers: shown },
+  );
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
   if (found.isPending) return null;

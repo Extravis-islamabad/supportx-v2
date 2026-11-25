@@ -6,6 +6,7 @@ import {
   useCostRates,
   type CostRate,
   type CostRateState,
+  queryKeys,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import {
@@ -157,9 +158,14 @@ export function CostRatesCard({ userId }: { userId: string }) {
     new Intl.NumberFormat(intlLocale, { style: 'currency', currency: rate.currency }).format(
       Number(rate.rate),
     );
-  useListChannel(visible ? 'user_cost_rates' : null, (message) => {
-    if (message.ids.length === 0 || message.ids.includes(userId)) void rates.refetch();
-  });
+  useListChannel(
+    visible ? 'user_cost_rates' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.ids.length === 0 || message.ids.includes(userId)) void rates.refetch();
+    },
+    { covers: [queryKeys.users.costRates(userId)] },
+  );
   if (!visible) return null;
   const data = rates.data;
   const readOnly = writable ? undefined : t('licence.read_only_action');

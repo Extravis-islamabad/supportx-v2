@@ -46,6 +46,7 @@ const draft = {
     node('hold', 'wait', { events: [] }),
     node('move', 'set_status'),
     node('ok', 'approval'),
+    node('late', 'approval', { rule: 'all', timeout_hours: 24 }),
     node('fill', 'field_update'),
     node('call', 'webhook'),
     node('hook', 'webhook', {
@@ -197,6 +198,32 @@ describe('console: workflow node forms (QA F-05)', () => {
       approvers: { user_ids: [], group_ids: [GROUP_ID], roles: ['change_owner'] },
       rule: 'majority',
     });
+  });
+
+  it('approval: a timeout in hours is saved, and clearing it removes it (WP-047a S4)', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('ok');
+    const timeout = within(details).getByLabelText('Timeout (hours)');
+    expect(
+      within(details).getByText(
+        'Leave empty to wait until someone decides. With a timeout, connect its Timed out branch.',
+      ),
+    ).toBeTruthy();
+    fireEvent.change(timeout, { target: { value: '48' } });
+    expect(await saved(fake, 'ok')).toEqual({ timeout_hours: 48 });
+  });
+
+  it('approval: clearing the timeout removes it from the step (WP-047a S4)', async () => {
+    window.history.pushState({}, '', `/admin/workflows/${FLOW_ID}`);
+    const fake = api();
+    render(<App />);
+    const details = await open('late');
+    const timeout = within(details).getByLabelText('Timeout (hours)');
+    expect((timeout as HTMLInputElement).value).toBe('24');
+    fireEvent.change(timeout, { target: { value: '' } });
+    expect(await saved(fake, 'late')).toEqual({ rule: 'all' });
   });
 
   it('field update: a field and its value per row', async () => {

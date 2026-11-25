@@ -29,6 +29,7 @@ class ApprovalState(StrEnum):
     NOT_NEEDED = "not_needed"  # another approver decided the stage first
     SKIPPED = "skipped"  # WP-047a S2a (REQ-SR-032): the stage's condition did not hold
     REPLACED = "replaced"  # WP-047a S2b (REQ-SR-042 AC1): a technician named someone else
+    EXPIRED = "expired"  # WP-047a S4 (REQ-SR-044): a workflow or trigger level's timeout passed
 
 
 class SkipReason(StrEnum):
@@ -102,6 +103,7 @@ class DecisionChannel(StrEnum):
     PORTAL = "portal"
     EMAIL_LINK = "email_link"
     AUTOMATIC = "automatic"  # WP-047a S2b (REQ-SR-033): nobody decided; `auto_reason` says why
+    EMAIL_REPLY = "email_reply"  # WP-047a S4 (REQ-SR-038): a reply to the approval mail
 
 
 class Decision(StrEnum):

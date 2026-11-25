@@ -54,11 +54,15 @@ export function SyncRulesPage() {
     { label: t('nav.admin_cmdb'), path: '/admin/cmdb' },
     { label: t('cmdb.sync.title') },
   ]);
-  useTenantChannel((m) => {
-    if (m.type === 'cmdb.sync_changed' || m.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.sync.all });
-    }
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.covered === true) return; // a refresh: `covers` refetched it
+      if (m.type === 'cmdb.sync_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.sync.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.sync.all] },
+  );
   if (!allowed) return <NoAccess titleKey="cmdb.sync.title" />;
   const text = search.trim().toLocaleLowerCase();
   const rows = (rules.data?.items ?? []).filter(

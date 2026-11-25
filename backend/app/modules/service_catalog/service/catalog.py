@@ -759,6 +759,24 @@ async def requester_question_keys(
     an approver's, never reaches them). Read as system data: the caller already decided the
     record is the requester's to see.
     """
+    return await question_keys(session, item_ids, QuestionAudience.REQUESTER)
+
+
+async def approver_question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions its approvers see (WP-047a S4; REQ-SR-043 AC2).
+
+    The same default deny as the requester's: a question marked hidden from approvers, or one
+    the item no longer has, never reaches the approval page or mail.
+    """
+    return await question_keys(session, item_ids, QuestionAudience.APPROVER)
+
+
+async def question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID], audience: QuestionAudience
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions `audience` sees (a question names none: everyone)."""
     if not item_ids:
         return {}
     rows = await session.execute(
@@ -768,8 +786,7 @@ async def requester_question_keys(
         item_id: frozenset(
             q["key"]
             for q in questions or []
-            if QuestionAudience.REQUESTER.value
-            in (q.get("shown_to") or [a.value for a in QuestionAudience])
+            if audience.value in (q.get("shown_to") or [a.value for a in QuestionAudience])
         )
         for item_id, questions in rows.all()
     }
@@ -1222,6 +1239,21 @@ def _spec(stage: ApprovalStage) -> StageSpec:
     )
 
 
+async def item_requestable(session: AsyncSession, item_id: uuid.UUID) -> bool:
+    """Whether a request can be raised from this item now: published, a service, not deleted.
+
+    For a setting that names an item (a request mailbox, WP-047a S4): no viewer, as no person
+    saves it; whether the requester may raise it is checked when the mail arrives.
+    """
+    row = await session.get(CatalogItem, item_id)
+    return (
+        row is not None
+        and row.deleted_at is None
+        and row.status == ItemStatus.PUBLISHED.value
+        and row.kind == ItemKind.SERVICE.value
+    )
+
+
 async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem | None:
     """What an existing request's item says, for a step after submission (WP-030 s2).
 
@@ -1258,6 +1290,7 @@ __all__ = [
     "get_item",
     "item_decides",
     "item_decides_with",
+    "item_requestable",
     "list_items",
     "offered",
     "record_item_change",

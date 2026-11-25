@@ -16,1504 +16,1511 @@ Routes carry no machine-readable scope rule of their own: which records a caller
 reaches is filtered in the module's service by the scope the caller holds the
 permission at. The Scopes column lists the scopes each permission can be granted
 with, broadest first (`all`, `site`, `group`, `own`), from the permission catalogue.
+The Feature column is the licence feature a tenant's plan needs for the route
+(403 `entitlement_required` otherwise) and where it is declared: `module` (the
+module's or router's feature), `route` (`requires_feature` on that route) or
+`permission` (the feature of a permission the route accepts). A check made only
+inside a service is not shown here: declare it on the route too.
 
-| Method | Path | Access | Scopes |
-|---|---|---|---|
-| GET | `/api/v1/access-settings` | `roles.manage` | roles.manage: all |
-| PUT | `/api/v1/access-settings` | `roles.manage` | roles.manage: all |
-| GET | `/api/v1/account/security` | signed_in | - |
-| POST | `/api/v1/action-links/peek` | signed_in | - |
-| POST | `/api/v1/action-links/use` | signed_in | - |
-| POST | `/api/v1/ai/calls/{call_id}/outcome` | signed_in | - |
-| GET | `/api/v1/ai/settings` | signed_in | - |
-| PATCH | `/api/v1/ai/settings` | signed_in | - |
-| GET | `/api/v1/ai/summaries/{record_type}/{record_id}` | signed_in | - |
-| POST | `/api/v1/ai/summaries/{record_type}/{record_id}/refresh` | signed_in | - |
-| POST | `/api/v1/ai/writing/{record_type}/{record_id}` | signed_in | - |
-| GET | `/api/v1/announcements` | `announcements.view` | announcements.view: all/site/group/own |
-| POST | `/api/v1/announcements` | `announcements.manage` | announcements.manage: all/site/group/own |
-| GET | `/api/v1/announcements/feed` | signed_in | - |
-| GET | `/api/v1/announcements/owner-candidates` | `announcements.manage` | announcements.manage: all/site/group/own |
-| GET | `/api/v1/announcements/settings` | `announcements.view` | announcements.view: all/site/group/own |
-| PUT | `/api/v1/announcements/settings` | `config.announcements` or `settings.manage` | config.announcements: all; settings.manage: all |
-| GET | `/api/v1/announcements/trash` | `announcements.view` | announcements.view: all/site/group/own |
-| DELETE | `/api/v1/announcements/{announcement_id}` | `announcements.manage` | announcements.manage: all/site/group/own |
-| GET | `/api/v1/announcements/{announcement_id}` | signed_in | - |
-| PATCH | `/api/v1/announcements/{announcement_id}` | `announcements.manage` | announcements.manage: all/site/group/own |
-| POST | `/api/v1/announcements/{announcement_id}/archive` | `announcements.manage` | announcements.manage: all/site/group/own |
-| PUT | `/api/v1/announcements/{announcement_id}/dismissal` | signed_in | - |
-| DELETE | `/api/v1/announcements/{announcement_id}/follow` | signed_in | - |
-| PUT | `/api/v1/announcements/{announcement_id}/follow` | signed_in | - |
-| GET | `/api/v1/announcements/{announcement_id}/history` | `announcements.view` | announcements.view: all/site/group/own |
-| POST | `/api/v1/announcements/{announcement_id}/publish` | `announcements.publish` | announcements.publish: all |
-| POST | `/api/v1/announcements/{announcement_id}/reopen` | `announcements.manage` | announcements.manage: all/site/group/own |
-| POST | `/api/v1/announcements/{announcement_id}/restore` | `announcements.manage` | announcements.manage: all/site/group/own |
-| POST | `/api/v1/announcements/{announcement_id}/unpublish` | `announcements.manage` | announcements.manage: all/site/group/own |
-| GET | `/api/v1/api-keys` | signed_in | - |
-| POST | `/api/v1/api-keys` | signed_in | - |
-| GET | `/api/v1/api-keys/owners` | signed_in | - |
-| GET | `/api/v1/api-keys/policy-impact` | `api_keys.manage` | api_keys.manage: all |
-| GET | `/api/v1/api-keys/rules` | signed_in | - |
-| GET | `/api/v1/api-keys/scopes` | signed_in | - |
-| POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - |
-| GET | `/api/v1/approval-delegations` | signed_in | - |
-| POST | `/api/v1/approval-delegations` | signed_in | - |
-| PATCH | `/api/v1/approval-delegations/{delegation_id}` | signed_in | - |
-| POST | `/api/v1/approval-delegations/{delegation_id}/end` | signed_in | - |
-| GET | `/api/v1/approvals/settings` | signed_in | - |
-| PATCH | `/api/v1/approvals/settings` | signed_in | - |
-| GET | `/api/v1/assets` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/acknowledgements/{acknowledgement_id}/answer` | signed_in | - |
-| GET | `/api/v1/assets/audits` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/audits` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/audits/{audit_id}` | `assets.view` | assets.view: all/site/group/own |
-| PATCH | `/api/v1/assets/audits/{audit_id}` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/audits/{audit_id}/close` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/audits/{audit_id}/fixes` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/audits/{audit_id}/items` | `assets.view` | assets.view: all/site/group/own |
-| PATCH | `/api/v1/assets/audits/{audit_id}/items/{item_id}` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/audits/{audit_id}/scans` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/audits/{audit_id}/start` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/availability` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/bookable` | signed_in | - |
-| GET | `/api/v1/assets/bookings` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/bookings` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/bookings/{booking_id}/cancel` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/bookings/{booking_id}/handover` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/bulk-jobs` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/bulk-jobs` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/bulk-jobs/{job_id}` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/bulk-moves` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/consumable-allocations` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/consumables` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/consumables` | `assets.manage` | assets.manage: all/site/group |
-| DELETE | `/api/v1/assets/consumables/{consumable_id}` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/consumables/{consumable_id}` | `assets.view` | assets.view: all/site/group/own |
-| PATCH | `/api/v1/assets/consumables/{consumable_id}` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/consumables/{consumable_id}/adjustments` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/consumables/{consumable_id}/allocations` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/consumables/{consumable_id}/ledger` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/consumables/{consumable_id}/receipts` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/consumables/{consumable_id}/returns` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/groups` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/groups` | `assets.manage` | assets.manage: all/site/group |
-| DELETE | `/api/v1/assets/groups/{group_id}` | `assets.manage` | assets.manage: all/site/group |
-| PATCH | `/api/v1/assets/groups/{group_id}` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/groups/{group_id}/assets` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/groups/{group_id}/members` | `assets.manage` | assets.manage: all/site/group |
-| DELETE | `/api/v1/assets/groups/{group_id}/members/{asset_id}` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/held-by` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/imports` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/imports` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/imports/{import_id}` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/imports/{import_id}/run` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/labels` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/labels/jobs` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/labels/jobs/{job_id}/file` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/labels/prints` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/labels/prints/{print_id}/reprint` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/life-cycles` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| POST | `/api/v1/assets/life-cycles` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| DELETE | `/api/v1/assets/life-cycles/{life_cycle_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/life-cycles/{life_cycle_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/loanable` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/loanable` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/loans` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/loans` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/loans/{loan_id}/returns` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/merge-preview` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/merges` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/mine` | signed_in | - |
-| GET | `/api/v1/assets/my-bookings` | signed_in | - |
-| POST | `/api/v1/assets/my-bookings` | signed_in | - |
-| POST | `/api/v1/assets/my-bookings/{booking_id}/cancel` | signed_in | - |
-| GET | `/api/v1/assets/overdue-rule` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/overdue-rule` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| POST | `/api/v1/assets/overdue-rule/preview` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/overdue-rule/runs` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/overdue-rule/states` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/picker` | signed_in | - |
-| GET | `/api/v1/assets/picker/search` | signed_in | - |
-| GET | `/api/v1/assets/product-types` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| POST | `/api/v1/assets/product-types` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| DELETE | `/api/v1/assets/product-types/{product_type_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/product-types/{product_type_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/products` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| POST | `/api/v1/assets/products` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| DELETE | `/api/v1/assets/products/{product_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/products/{product_id}` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/products/{product_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/settings` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/settings` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/states` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all |
-| POST | `/api/v1/assets/states` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| DELETE | `/api/v1/assets/states/{state_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/states/{state_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/stock-rules` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/stock-rules` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| DELETE | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| PATCH | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all |
-| GET | `/api/v1/assets/trash` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/type-counts` | `assets.view` | assets.view: all/site/group/own |
-| DELETE | `/api/v1/assets/{asset_id}` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own |
-| PATCH | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/access` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/{asset_id}/copy` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/{asset_id}/costs` | `assets.view_financials` | assets.view_financials: all |
-| DELETE | `/api/v1/assets/{asset_id}/costs/{cost_id}` | `assets.view_financials` | assets.view_financials: all |
-| PATCH | `/api/v1/assets/{asset_id}/costs/{cost_id}` | `assets.view_financials` | assets.view_financials: all |
-| GET | `/api/v1/assets/{asset_id}/disposal` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/{asset_id}/dispose` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/{asset_id}/financials` | `assets.view_financials` | assets.view_financials: all |
-| GET | `/api/v1/assets/{asset_id}/history` | `assets.view` | assets.view: all/site/group/own |
-| DELETE | `/api/v1/assets/{asset_id}/holder` | `assets.view` | assets.view: all/site/group/own |
-| PUT | `/api/v1/assets/{asset_id}/holder` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/holdings` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/linked` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/linked/{kind}` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/links` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/{asset_id}/links` | `assets.manage` | assets.manage: all/site/group |
-| DELETE | `/api/v1/assets/{asset_id}/links/{link_id}` | `assets.manage` | assets.manage: all/site/group |
-| POST | `/api/v1/assets/{asset_id}/move` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/moves` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/notes` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/{asset_id}/notes` | `assets.view` | assets.view: all/site/group/own |
-| DELETE | `/api/v1/assets/{asset_id}/notes/{note_id}` | `assets.view` | assets.view: all/site/group/own |
-| PATCH | `/api/v1/assets/{asset_id}/notes/{note_id}` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/assets/{asset_id}/notes/{note_id}/history` | `assets.view` | assets.view: all/site/group/own |
-| POST | `/api/v1/assets/{asset_id}/restore` | `assets.manage` | assets.manage: all/site/group |
-| GET | `/api/v1/assets/{asset_id}/scans` | `assets.view` | assets.view: all/site/group/own |
-| GET | `/api/v1/audit/archives` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/archives/{archive_id}/entries` | `audit.view` | audit.view: all |
-| POST | `/api/v1/audit/archives/{archive_id}/restore` | `audit.export` | audit.export: all |
-| GET | `/api/v1/audit/entries` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/entries/{entry_id}` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
-| POST | `/api/v1/audit/exports` | `audit.export` | audit.export: all |
-| GET | `/api/v1/audit/exports/{export_id}/download` | `audit.export` | audit.export: all |
-| GET | `/api/v1/audit/personal-data-access` | `audit.view_personal_data_access` | audit.view_personal_data_access: all |
-| GET | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
-| POST | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all |
-| DELETE | `/api/v1/audit/saved-searches/{search_id}` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/settings` | `audit.view` | audit.view: all |
-| PUT | `/api/v1/audit/settings` | `audit.manage` | audit.manage: all |
-| GET | `/api/v1/audit/siem/destinations` | `audit.manage` | audit.manage: all |
-| POST | `/api/v1/audit/siem/destinations` | `audit.manage` | audit.manage: all |
-| DELETE | `/api/v1/audit/siem/destinations/{destination_id}` | `audit.manage` | audit.manage: all |
-| PATCH | `/api/v1/audit/siem/destinations/{destination_id}` | `audit.manage` | audit.manage: all |
-| POST | `/api/v1/audit/siem/destinations/{destination_id}/rotate-secret` | `audit.manage` | audit.manage: all |
-| POST | `/api/v1/audit/siem/destinations/{destination_id}/test` | `audit.manage` | audit.manage: all |
-| GET | `/api/v1/audit/status` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/system-log` | `audit.view` | audit.view: all |
-| GET | `/api/v1/audit/system-log/export` | `audit.export` | audit.export: all |
-| GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all |
-| POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all |
-| GET | `/api/v1/auth/account-action` | session (BFF) | - |
-| GET | `/api/v1/auth/callback` | public | - |
-| GET | `/api/v1/auth/confirm` | session (BFF) | - |
-| GET | `/api/v1/auth/dev/personas` | public | - |
-| POST | `/api/v1/auth/dev/sign-in` | public | - |
-| GET | `/api/v1/auth/login` | public | - |
-| POST | `/api/v1/auth/logout` | session (BFF) | - |
-| GET | `/api/v1/auth/me` | session (BFF) | - |
-| POST | `/api/v1/auth/mobile/exchange` | public | - |
-| POST | `/api/v1/auth/password-reset` | public | - |
-| GET | `/api/v1/auth/sessions` | session (BFF) | - |
-| POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - |
-| DELETE | `/api/v1/auth/sessions/{listed_id}` | session (BFF) | - |
-| POST | `/api/v1/auth/switch-tenant` | session (BFF) | - |
-| GET | `/api/v1/automation/availability` | signed_in | - |
-| PUT | `/api/v1/automation/availability/{user_id}` | signed_in | - |
-| GET | `/api/v1/automation/availability/{user_id}/history` | signed_in | - |
-| GET | `/api/v1/automation/fields` | `automation.view` | automation.view: all |
-| GET | `/api/v1/automation/groups/{group_id}/assignment` | `automation.view` | automation.view: all |
-| PUT | `/api/v1/automation/groups/{group_id}/assignment` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/loop-stops` | `automation.view` | automation.view: all |
-| GET | `/api/v1/automation/routing` | `automation.view` | automation.view: all |
-| POST | `/api/v1/automation/routing` | `automation.manage` | automation.manage: all |
-| PUT | `/api/v1/automation/routing-order` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/routing-settings` | `automation.view` | automation.view: all |
-| PUT | `/api/v1/automation/routing-settings` | `automation.manage` | automation.manage: all |
-| DELETE | `/api/v1/automation/routing/{rule_id}` | `automation.manage` | automation.manage: all |
-| PATCH | `/api/v1/automation/routing/{rule_id}` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/rules` | `automation.view` | automation.view: all |
-| POST | `/api/v1/automation/rules` | `automation.manage` | automation.manage: all |
-| PUT | `/api/v1/automation/rules-order` | `automation.manage` | automation.manage: all |
-| DELETE | `/api/v1/automation/rules/{rule_id}` | `automation.manage` | automation.manage: all |
-| PATCH | `/api/v1/automation/rules/{rule_id}` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/runs` | `automation.view` | automation.view: all |
-| GET | `/api/v1/automation/transitions` | `automation.view` | automation.view: all |
-| DELETE | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
-| PUT | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/trigger-events` | `automation.view` | automation.view: all |
-| GET | `/api/v1/automation/triggers` | `automation.view` | automation.view: all |
-| POST | `/api/v1/automation/triggers` | `automation.manage` | automation.manage: all |
-| PUT | `/api/v1/automation/triggers-order` | `automation.manage` | automation.manage: all |
-| DELETE | `/api/v1/automation/triggers/{trigger_id}` | `automation.manage` | automation.manage: all |
-| PATCH | `/api/v1/automation/triggers/{trigger_id}` | `automation.manage` | automation.manage: all |
-| GET | `/api/v1/automation/workflows` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/import` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/instances` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/instances/{instance_id}/restart` | `workflows.run` | workflows.run: all |
-| POST | `/api/v1/automation/workflows/instances/{instance_id}/retry` | `workflows.run` | workflows.run: all |
-| POST | `/api/v1/automation/workflows/instances/{instance_id}/skip` | `workflows.run` | workflows.run: all |
-| GET | `/api/v1/automation/workflows/instances/{instance_id}/steps` | `workflows.run` | workflows.run: all |
-| POST | `/api/v1/automation/workflows/instances/{instance_id}/stop` | `workflows.run` | workflows.run: all |
-| GET | `/api/v1/automation/workflows/jobs/{job_id}` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/node-ports` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/node-types` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/records/{record_type}/{record_id}` | `workflows.run` | workflows.run: all |
-| GET | `/api/v1/automation/workflows/test-runs/{run_id}` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/test-runs/{run_id}/answer` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/test-runs/{run_id}/live-call` | `workflows.manage` | workflows.manage: all |
-| DELETE | `/api/v1/automation/workflows/{workflow_id}` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/{workflow_id}/copy` | `workflows.manage` | workflows.manage: all |
-| PUT | `/api/v1/automation/workflows/{workflow_id}/draft` | `workflows.manage` | workflows.manage: all |
-| PUT | `/api/v1/automation/workflows/{workflow_id}/enabled` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/export` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/instances` | `workflows.run` | workflows.run: all |
-| POST | `/api/v1/automation/workflows/{workflow_id}/instances` | `workflows.run` | workflows.run: all |
-| POST | `/api/v1/automation/workflows/{workflow_id}/jobs` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/{workflow_id}/publish` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/run-as` | `workflows.manage` | workflows.manage: all |
-| DELETE | `/api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}` | `workflows.manage` | workflows.manage: all |
-| PUT | `/api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}` | `workflows.manage` | workflows.manage: all |
-| PUT | `/api/v1/automation/workflows/{workflow_id}/start-templates` | `workflows.manage` | workflows.manage: all |
-| POST | `/api/v1/automation/workflows/{workflow_id}/test-runs` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/versions` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/versions/{number}/occupancy` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/automation/workflows/{workflow_id}/versions/{number}/steps` | `workflows.manage` | workflows.manage: all |
-| GET | `/api/v1/catalog/categories` | signed_in | - |
-| POST | `/api/v1/catalog/categories` | signed_in | - |
-| DELETE | `/api/v1/catalog/categories/{category_id}` | signed_in | - |
-| PATCH | `/api/v1/catalog/categories/{category_id}` | signed_in | - |
-| GET | `/api/v1/catalog/items` | signed_in | - |
-| POST | `/api/v1/catalog/items` | signed_in | - |
-| GET | `/api/v1/catalog/items/popular` | signed_in | - |
-| GET | `/api/v1/catalog/items/search` | signed_in | - |
-| DELETE | `/api/v1/catalog/items/{item_id}` | signed_in | - |
-| GET | `/api/v1/catalog/items/{item_id}` | signed_in | - |
-| PATCH | `/api/v1/catalog/items/{item_id}` | signed_in | - |
-| POST | `/api/v1/catalog/items/{item_id}/copy` | signed_in | - |
-| GET | `/api/v1/catalog/settings` | signed_in | - |
-| PATCH | `/api/v1/catalog/settings` | signed_in | - |
-| GET | `/api/v1/catalog/starter` | signed_in | - |
-| POST | `/api/v1/catalog/starter/publish` | signed_in | - |
-| GET | `/api/v1/change-boards` | `changes.view` or `config.service_desk` or `settings.manage` | changes.view: all/site/group/own; config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/change-boards` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all |
-| DELETE | `/api/v1/change-boards/{board_id}` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all |
-| GET | `/api/v1/change-boards/{board_id}` | `changes.view` or `config.service_desk` or `settings.manage` | changes.view: all/site/group/own; config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/change-boards/{board_id}` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all |
-| GET | `/api/v1/change-calendar` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/change-windows` | `changes.view` or `changes.manage_windows` or `settings.manage` | changes.view: all/site/group/own; changes.manage_windows: all; settings.manage: all |
-| POST | `/api/v1/change-windows` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all |
-| DELETE | `/api/v1/change-windows/{window_id}` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all |
-| GET | `/api/v1/change-windows/{window_id}` | `changes.view` or `changes.manage_windows` or `settings.manage` | changes.view: all/site/group/own; changes.manage_windows: all; settings.manage: all |
-| PATCH | `/api/v1/change-windows/{window_id}` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all |
-| GET | `/api/v1/changes` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes` | `changes.create` | changes.create: all |
-| POST | `/api/v1/changes/approvals/decisions` | signed_in | - |
-| GET | `/api/v1/changes/assignees` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/board` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/bulk` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/bulk-jobs` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/bulk-jobs/{job_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/categories` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/checklist-library` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/changes/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/counters` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/list` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/list-fields` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/lookup/{value}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/my-approvals` | signed_in | - |
-| GET | `/api/v1/changes/my-approvals/decided` | signed_in | - |
-| GET | `/api/v1/changes/my-tasks` | signed_in | - |
-| GET | `/api/v1/changes/prefill` | `changes.create` | changes.create: all |
-| GET | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/reply-templates/manage` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/roles/{role}/candidates` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/search` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/settings` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/settings/list-display` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/changes/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/changes/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/roles/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/settings/stages` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/settings/stages/{stage}/access` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/changes/settings/stages/{stage}/approvals` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/task-templates` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/templates` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/changes/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/changes/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/changes/trash` | `changes.delete` | changes.delete: all |
-| GET | `/api/v1/changes/view-filters` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/views` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}` | `changes.delete` | changes.delete: all |
-| GET | `/api/v1/changes/{record_id}` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}` | `changes.edit` | changes.edit: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/actions/{action}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/approvals` | signed_in | - |
-| GET | `/api/v1/changes/{record_id}/approvals/changes-since` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/approvals/preview` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/approvals/reapproval-preview` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
-| POST | `/api/v1/changes/{record_id}/assign` | `changes.assign` | changes.assign: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/automation` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/cancellation-request` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/cancellation-request/decide` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/checklist-items/{item_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/checklists/{checklist_id}` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/checklists/{checklist_id}/items` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/children` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/children` | `changes.edit` | changes.edit: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/children/{link_id}` | `changes.edit` | changes.edit: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/cis/{link_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/conflicts` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/conversation/{entry_id}` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/copy` | `changes.create` | changes.create: all |
-| GET | `/api/v1/changes/{record_id}/details` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/details` | `changes.edit` | changes.edit: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/downtimes` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/downtimes` | `changes.edit` | changes.edit: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/downtimes/{downtime_id}` | `changes.edit` | changes.edit: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/downtimes/{downtime_id}` | `changes.edit` | changes.edit: all/site/group/own |
-| PUT | `/api/v1/changes/{record_id}/due-dates/{kind}` | `changes.edit_due_dates` | changes.edit_due_dates: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/emergency-override` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/followers` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/followers/{user_id}` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/{record_id}/followers/{user_id}` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/freeze-override` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/history` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/links` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/links` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/links/{link_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/mentionable` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/moves` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/plan` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/{record_id}/plan/{section}` | `changes.edit` | changes.edit: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/read` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/reply-templates/{template_id}/fill` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/changes/{record_id}/resolution/reject` | signed_in | - |
-| POST | `/api/v1/changes/{record_id}/restore` | `changes.delete` | changes.delete: all |
-| PUT | `/api/v1/changes/{record_id}/risk/assessment` | `changes.edit` | changes.edit: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/risk/questionnaire` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/roles` | `changes.view` | changes.view: all/site/group/own |
-| PUT | `/api/v1/changes/{record_id}/roles/{role}` | `changes.edit` | changes.edit: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/schedule` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/schedule/{stage}` | `changes.edit` | changes.edit: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/sla` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/stages` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/take` | `changes.take` | changes.take: all/site/group |
-| GET | `/api/v1/changes/{record_id}/tasks` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/tasks` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/tasks/from-template` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/tasks/{task_id}` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/tasks/{task_id}` | signed_in | - |
-| PUT | `/api/v1/changes/{record_id}/tasks/{task_id}/dependencies` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/tasks/{task_id}/move` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/time-analysis` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/timer/auto` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/timer/stop` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/typing` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/changes/{record_id}/worklogs` | `changes.view` | changes.view: all/site/group/own |
-| POST | `/api/v1/changes/{record_id}/worklogs` | `changes.view` | changes.view: all/site/group/own |
-| DELETE | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own |
-| PATCH | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own |
-| GET | `/api/v1/cmdb/business-views` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/business-views` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| DELETE | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
-| PATCH | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/business-views/{view_id}/save-as-new` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/ci-states` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/ci-states` | `cmdb.configure` | cmdb.configure: all |
-| DELETE | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all |
-| PATCH | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/ci-types` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/ci-types` | `cmdb.configure` | cmdb.configure: all |
-| DELETE | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
-| PATCH | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/cis` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/cis` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
-| POST | `/api/v1/cmdb/cis/from-assets` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/picker` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/trash` | `cmdb.view` | cmdb.view: all/site/group/own |
-| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` | cmdb.delete: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
-| PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/cis/{ci_id}/change-type` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
-| DELETE | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
-| PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` | cmdb.delete: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.view` | cmdb.view: all/site/group/own |
-| PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/cis/{ci_id}/versions` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/imports/{import_id}` | `cmdb.view` | cmdb.view: all/site/group/own |
-| GET | `/api/v1/cmdb/imports/{import_id}/problems` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/imports/{import_id}/run` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/merges` | `cmdb.manage` | cmdb.manage: all |
-| GET | `/api/v1/cmdb/merges/preview` | `cmdb.manage` | cmdb.manage: all |
-| GET | `/api/v1/cmdb/relationship-types` | `cmdb.view` | cmdb.view: all/site/group/own |
-| POST | `/api/v1/cmdb/relationship-types` | `cmdb.configure` | cmdb.configure: all |
-| DELETE | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
-| PATCH | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all |
-| DELETE | `/api/v1/cmdb/relationships/{relationship_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all |
-| GET | `/api/v1/cmdb/settings` | `cmdb.view` | cmdb.view: all/site/group/own |
-| PUT | `/api/v1/cmdb/settings` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all |
-| PUT | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all |
-| POST | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/sync-rules/fields` | `cmdb.configure` | cmdb.configure: all |
-| POST | `/api/v1/cmdb/sync-rules/preview` | `cmdb.configure` | cmdb.configure: all |
-| DELETE | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
-| PUT | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all |
-| POST | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/cmdb/sync-runs/{run_id}` | `cmdb.configure` | cmdb.configure: all |
-| GET | `/api/v1/custom-fields` | signed_in | - |
-| POST | `/api/v1/custom-fields` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/custom-fields/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/custom-fields/{field_id}/index` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group |
-| PUT | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/dashboards/home` | `reports.view` | reports.view: all/site/group |
-| PUT | `/api/v1/dashboards/home` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/dashboards/role-homes` | `reports.view` | reports.view: all/site/group |
-| PUT | `/api/v1/dashboards/role-homes/{role_key}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/dashboards/widgets` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
-| PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/drafts/{form_key}` | signed_in | - |
-| GET | `/api/v1/drafts/{form_key}` | signed_in | - |
-| PUT | `/api/v1/drafts/{form_key}` | signed_in | - |
-| GET | `/api/v1/entitlements` | signed_in | - |
-| GET | `/api/v1/erasures` | `people.erase` | people.erase: all |
-| GET | `/api/v1/erasures/{erasure_id}` | `people.erase` | people.erase: all |
-| POST | `/api/v1/erasures/{erasure_id}/approve` | `people.erase` | people.erase: all |
-| GET | `/api/v1/erasures/{erasure_id}/mentions` | `people.erase` | people.erase: all |
-| POST | `/api/v1/erasures/{erasure_id}/mentions/redact` | `people.erase` | people.erase: all |
-| GET | `/api/v1/erasures/{erasure_id}/mentions/{mention_id}/passage` | `people.erase` | people.erase: all |
-| POST | `/api/v1/erasures/{erasure_id}/reject` | `people.erase` | people.erase: all |
-| POST | `/api/v1/erasures/{erasure_id}/report/reviewed` | `people.erase` | people.erase: all |
-| GET | `/api/v1/field-access/catalogue` | `roles.view` | roles.view: all |
-| GET | `/api/v1/field-access/effective` | `roles.view` | roles.view: all |
-| GET | `/api/v1/field-access/rules` | `roles.view` | roles.view: all |
-| POST | `/api/v1/field-access/rules` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
-| PATCH | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/files` | signed_in | - |
-| POST | `/api/v1/files/attach` | signed_in | - |
-| GET | `/api/v1/files/content/{token}` | signed_in | - |
-| GET | `/api/v1/files/records/{record_type}/{record_id}` | signed_in | - |
-| POST | `/api/v1/files/records/{record_type}/{record_id}/archive` | signed_in | - |
-| GET | `/api/v1/files/settings/rules` | signed_in | - |
-| PUT | `/api/v1/files/settings/rules` | `files.manage` | files.manage: all |
-| GET | `/api/v1/files/settings/status` | `files.manage` | files.manage: all |
-| GET | `/api/v1/files/settings/usage` | `files.manage` | files.manage: all |
-| DELETE | `/api/v1/files/{file_id}` | signed_in | - |
-| GET | `/api/v1/files/{file_id}` | signed_in | - |
-| GET | `/api/v1/files/{file_id}/inline` | signed_in | - |
-| POST | `/api/v1/files/{file_id}/link` | signed_in | - |
-| POST | `/api/v1/files/{file_id}/rescan` | `files.manage` | files.manage: all |
-| GET | `/api/v1/files/{file_id}/thumbnail` | signed_in | - |
-| GET | `/api/v1/health` | public | - |
-| PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all |
-| DELETE | `/api/v1/identity/domains/{domain_id}` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/domains/{domain_id}/check` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/domains/{domain_id}/verify` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
-| POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all |
-| POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all |
-| POST | `/api/v1/identity/invitations/{invitation_id}/resend` | `users.manage` | users.manage: all |
-| POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all |
-| GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/mfa/roles/{role_id}` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/people/{user_id}/require-new-password` | `users.manage` | users.manage: all |
-| POST | `/api/v1/identity/people/{user_id}/reset-mfa` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/people/{user_id}/sessions` | `users.manage` | users.manage: all |
-| DELETE | `/api/v1/identity/people/{user_id}/sessions/{listed_id}` | `users.manage` | users.manage: all |
-| GET | `/api/v1/identity/security-overview` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all |
-| GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all |
-| DELETE | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/sso/{provider_id}/switch-off` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/sso/{provider_id}/switch-on` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/sso/{provider_id}/tests` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/vendor-support/grants/{grant_id}` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/vendor-support/grants/{grant_id}/activity` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/extend` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/resend-link` | `identity.manage` | identity.manage: all |
-| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/revoke` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
-| PUT | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all |
-| GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all |
-| GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/approvals/decisions` | signed_in | - |
-| GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/board` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/bulk-jobs` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/bulk-jobs/{job_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/categories` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/checklist-library` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/counters` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/list` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/list-fields` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
-| PUT | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/lookup/{value}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/majors` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/my-approvals` | signed_in | - |
-| GET | `/api/v1/incidents/my-approvals/decided` | signed_in | - |
-| GET | `/api/v1/incidents/my-tasks` | signed_in | - |
-| POST | `/api/v1/incidents/possible-duplicates` | `incidents.create` | incidents.create: all |
-| GET | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/reply-templates/manage` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PUT | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own |
-| PUT | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/search` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/settings` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/closed-edit-lock` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/settings/list-display` | `incidents.view` | incidents.view: all/site/group/own |
-| PUT | `/api/v1/incidents/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/settings/major` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/major` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/incidents/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/task-templates` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/templates` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/incidents/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/incidents/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/incidents/trash` | `incidents.delete` | incidents.delete: all |
-| GET | `/api/v1/incidents/view-filters` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/views` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}` | `incidents.delete` | incidents.delete: all |
-| GET | `/api/v1/incidents/{record_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/actions/{action}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/announcements` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/announcements` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/announcements/{announcement_id}/end` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/approvals` | signed_in | - |
-| POST | `/api/v1/incidents/{record_id}/approvals` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
-| GET | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/assets/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/assign` | `incidents.assign` | incidents.assign: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/automation` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/cancellation-request` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/cancellation-request/decide` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/causing-problem` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}/checklist-items/{item_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/checklists/{checklist_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/checklists/{checklist_id}/items` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/children` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/children/attach` | `incidents.edit` | incidents.edit: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/children/resolvable` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/cis/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/convert` | `incidents.edit` | incidents.edit: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/convert-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all |
-| GET | `/api/v1/incidents/{record_id}/downtimes` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/downtimes` | `incidents.edit` | incidents.edit: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own |
-| PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PUT | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/history` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/links/{link_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/major` | `incidents.declare_major` | incidents.declare_major: all/site/group |
-| POST | `/api/v1/incidents/{record_id}/major/end` | `incidents.declare_major` | incidents.declare_major: all/site/group |
-| GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/merge` | `incidents.edit` | incidents.edit: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/merge-preview` | `incidents.edit` | incidents.edit: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/read` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/incidents/{record_id}/resolution/reject` | signed_in | - |
-| POST | `/api/v1/incidents/{record_id}/restore` | `incidents.delete` | incidents.delete: all |
-| GET | `/api/v1/incidents/{record_id}/sla` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/take` | `incidents.take` | incidents.take: all/site/group |
-| GET | `/api/v1/incidents/{record_id}/tasks` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/tasks` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/tasks/from-template` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/tasks/{task_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}/tasks/{task_id}` | signed_in | - |
-| PUT | `/api/v1/incidents/{record_id}/tasks/{task_id}/dependencies` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/tasks/{task_id}/move` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/time-analysis` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/timer/auto` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/timer/stop` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/typing` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/undo-merge` | `incidents.edit` | incidents.edit: all/site/group/own |
-| GET | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
-| POST | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own |
-| DELETE | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| PATCH | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own |
-| GET | `/api/v1/integrations/catalogue` | `integrations.view` | integrations.view: all |
-| GET | `/api/v1/integrations/connector-settings` | `integrations.manage_email` | integrations.manage_email: all |
-| PUT | `/api/v1/integrations/connector-settings` | `integrations.manage_email` | integrations.manage_email: all |
-| GET | `/api/v1/integrations/directories` | `integrations.manage_identity` | integrations.manage_identity: all |
-| POST | `/api/v1/integrations/directories` | `integrations.manage_identity` | integrations.manage_identity: all |
-| DELETE | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| GET | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| PUT | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| GET | `/api/v1/integrations/directories/{directory_id}/groups` | `integrations.manage_identity` | integrations.manage_identity: all |
-| POST | `/api/v1/integrations/directories/{directory_id}/sync` | `integrations.manage_identity` | integrations.manage_identity: all |
-| GET | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all |
-| POST | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all |
-| DELETE | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| GET | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all |
-| GET | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| DELETE | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| PATCH | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| GET | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| DELETE | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| PATCH | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/sign-in` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/test` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| GET | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| GET | `/api/v1/integrations/oauth/callback` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all |
-| GET | `/api/v1/knowledge/approvals/count` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/from-record` | `knowledge.view` | knowledge.view: all/group/own |
-| DELETE | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| PATCH | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/apply` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}/apply-check` | `knowledge.view` | knowledge.view: all/group/own |
-| PATCH | `/api/v1/knowledge/articles/{article_id}/drafts/{language}` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/approve` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/reject` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/submit` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}/history` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}/links` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/links` | `knowledge.view` | knowledge.view: all/group/own |
-| DELETE | `/api/v1/knowledge/articles/{article_id}/links/{link_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/restore` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/still-correct` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}/versions` | `knowledge.view` | knowledge.view: all/group/own |
-| PUT | `/api/v1/knowledge/articles/{article_id}/vote` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/articles/{article_id}/votes` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/articles/{article_id}/withdraw` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/portal/home` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/portal/topics` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/records/{record_type}/{record_id}/articles` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/settings` | `knowledge.view` | knowledge.view: all/group/own |
-| PATCH | `/api/v1/knowledge/settings` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/suggestions` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/topics` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/topics` | `knowledge.view` | knowledge.view: all/group/own |
-| DELETE | `/api/v1/knowledge/topics/{topic_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| PATCH | `/api/v1/knowledge/topics/{topic_id}` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/knowledge/types` | `knowledge.view` | knowledge.view: all/group/own |
-| POST | `/api/v1/knowledge/types` | `knowledge.view` | knowledge.view: all/group/own |
-| PATCH | `/api/v1/knowledge/types/{code}` | `knowledge.view` | knowledge.view: all/group/own |
-| GET | `/api/v1/list-settings/{list_key}` | signed_in | - |
-| POST | `/api/v1/list-settings/{list_key}/saved-views` | signed_in | - |
-| DELETE | `/api/v1/list-settings/{list_key}/saved-views/{view_id}` | signed_in | - |
-| PATCH | `/api/v1/list-settings/{list_key}/saved-views/{view_id}` | signed_in | - |
-| GET | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - |
-| PUT | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - |
-| GET | `/api/v1/my-reminders` | signed_in | - |
-| DELETE | `/api/v1/my-reminders/{reminder_id}` | signed_in | - |
-| PATCH | `/api/v1/my-reminders/{reminder_id}` | signed_in | - |
-| GET | `/api/v1/my-tasks` | signed_in | - |
-| GET | `/api/v1/my-timers` | signed_in | - |
-| GET | `/api/v1/notifications` | signed_in | - |
-| GET | `/api/v1/notifications/deliveries` | signed_in | - |
-| GET | `/api/v1/notifications/mail-status` | signed_in | - |
-| GET | `/api/v1/notifications/preferences` | signed_in | - |
-| PUT | `/api/v1/notifications/preferences` | signed_in | - |
-| POST | `/api/v1/notifications/read` | signed_in | - |
-| GET | `/api/v1/notifications/rules` | `notifications.manage` | notifications.manage: all |
-| DELETE | `/api/v1/notifications/rules/{event_code}` | `notifications.manage` | notifications.manage: all |
-| PUT | `/api/v1/notifications/rules/{event_code}` | `notifications.manage` | notifications.manage: all |
-| GET | `/api/v1/notifications/status` | `notifications.manage` | notifications.manage: all |
-| GET | `/api/v1/organization/branding` | signed_in | - |
-| POST | `/api/v1/organization/branding/check` | `branding.manage` | branding.manage: all |
-| GET | `/api/v1/organization/branding/settings` | `branding.manage` | branding.manage: all |
-| PUT | `/api/v1/organization/branding/settings` | `branding.manage` | branding.manage: all |
-| GET | `/api/v1/organization/departments` | `departments.view` | departments.view: all |
-| POST | `/api/v1/organization/departments` | `departments.manage` | departments.manage: all |
-| DELETE | `/api/v1/organization/departments/{department_id}` | `departments.manage` | departments.manage: all |
-| PATCH | `/api/v1/organization/departments/{department_id}` | `departments.manage` | departments.manage: all |
-| GET | `/api/v1/organization/desks` | signed_in | - |
-| POST | `/api/v1/organization/desks` | `config.organisation` or `settings.manage` | config.organisation: all; settings.manage: all |
-| PATCH | `/api/v1/organization/desks/{desk_id}` | `config.organisation` or `settings.manage` | config.organisation: all; settings.manage: all |
-| GET | `/api/v1/organization/domains` | `branding.manage` | branding.manage: all |
-| POST | `/api/v1/organization/domains` | `branding.manage` | branding.manage: all |
-| DELETE | `/api/v1/organization/domains/{domain_id}` | `branding.manage` | branding.manage: all |
-| PUT | `/api/v1/organization/domains/{domain_id}/certificate` | `branding.manage` | branding.manage: all |
-| POST | `/api/v1/organization/domains/{domain_id}/verify` | `branding.manage` | branding.manage: all |
-| GET | `/api/v1/organization/groups` | `groups.view` | groups.view: all |
-| POST | `/api/v1/organization/groups` | `groups.manage` | groups.manage: all |
-| DELETE | `/api/v1/organization/groups/{unit_id}` | `groups.manage` | groups.manage: all |
-| PATCH | `/api/v1/organization/groups/{unit_id}` | `groups.manage` | groups.manage: all |
-| DELETE | `/api/v1/organization/groups/{unit_id}/members/{user_id}` | `groups.manage` | groups.manage: all |
-| PUT | `/api/v1/organization/groups/{unit_id}/members/{user_id}` | `groups.manage` | groups.manage: all |
-| GET | `/api/v1/organization/settings` | signed_in | - |
-| PATCH | `/api/v1/organization/settings` | signed_in | - |
-| GET | `/api/v1/organization/sites` | `sites.view` | sites.view: all |
-| POST | `/api/v1/organization/sites` | `sites.manage` | sites.manage: all |
-| DELETE | `/api/v1/organization/sites/{unit_id}` | `sites.manage` | sites.manage: all |
-| PATCH | `/api/v1/organization/sites/{unit_id}` | `sites.manage` | sites.manage: all |
-| DELETE | `/api/v1/organization/sites/{unit_id}/members/{user_id}` | `sites.manage` | sites.manage: all |
-| PUT | `/api/v1/organization/sites/{unit_id}/members/{user_id}` | `sites.manage` | sites.manage: all |
-| GET | `/api/v1/organization/tenant` | signed_in | - |
-| GET | `/api/v1/people-imports` | `users.manage` | users.manage: all |
-| POST | `/api/v1/people-imports` | `users.manage` | users.manage: all |
-| GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all |
-| GET | `/api/v1/people/{user_id}/access-rules` | signed_in | - |
-| POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all |
-| GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all |
-| PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all |
-| POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all |
-| GET | `/api/v1/people/{user_id}/uploads` | `people.erase` | people.erase: all |
-| GET | `/api/v1/permissions` | `roles.view` | roles.view: all |
-| GET | `/api/v1/portal/changes` | signed_in | - |
-| POST | `/api/v1/portal/changes` | signed_in | - |
-| GET | `/api/v1/portal/changes/templates` | signed_in | - |
-| GET | `/api/v1/portal/changes/{record_id}` | signed_in | - |
-| GET | `/api/v1/portal/changes/{record_id}/conversation` | signed_in | - |
-| POST | `/api/v1/portal/changes/{record_id}/replies` | signed_in | - |
-| GET | `/api/v1/portal/incidents` | signed_in | - |
-| POST | `/api/v1/portal/incidents` | signed_in | - |
-| GET | `/api/v1/portal/incidents/on-behalf-people` | signed_in | - |
-| GET | `/api/v1/portal/incidents/templates` | signed_in | - |
-| GET | `/api/v1/portal/incidents/{record_id}` | signed_in | - |
-| PATCH | `/api/v1/portal/incidents/{record_id}` | signed_in | - |
-| POST | `/api/v1/portal/incidents/{record_id}/cancel` | signed_in | - |
-| DELETE | `/api/v1/portal/incidents/{record_id}/cancel-request` | signed_in | - |
-| GET | `/api/v1/portal/incidents/{record_id}/conversation` | signed_in | - |
-| POST | `/api/v1/portal/incidents/{record_id}/replies` | signed_in | - |
-| POST | `/api/v1/portal/incidents/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/portal/incidents/{record_id}/resolution/reject` | signed_in | - |
-| GET | `/api/v1/portal/service-requests` | signed_in | - |
-| GET | `/api/v1/portal/service-requests/{record_id}` | signed_in | - |
-| GET | `/api/v1/portal/service-requests/{record_id}/conversation` | signed_in | - |
-| POST | `/api/v1/portal/service-requests/{record_id}/replies` | signed_in | - |
-| GET | `/api/v1/portal/service-requests/{record_id}/request-again` | signed_in | - |
-| POST | `/api/v1/portal/service-requests/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/portal/service-requests/{record_id}/resolution/reject` | signed_in | - |
-| GET | `/api/v1/portal/service-requests/{record_id}/steps` | signed_in | - |
-| GET | `/api/v1/portal/settings` | signed_in | - |
-| PATCH | `/api/v1/portal/settings` | signed_in | - |
-| GET | `/api/v1/portal/summary` | signed_in | - |
-| GET | `/api/v1/portal/tasks` | signed_in | - |
-| GET | `/api/v1/portal/tasks/{task_id}` | signed_in | - |
-| PATCH | `/api/v1/portal/tasks/{task_id}` | signed_in | - |
-| GET | `/api/v1/problem-repeats/hits` | `problems.create` | problems.create: all |
-| POST | `/api/v1/problem-repeats/hits/{hit_id}/handle` | `problems.create` | problems.create: all |
-| GET | `/api/v1/problem-repeats/hits/{hit_id}/incidents` | `problems.create` | problems.create: all |
-| GET | `/api/v1/problem-repeats/rules` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problem-repeats/rules` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/problem-repeats/rules/{rule_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problem-repeats/rules/{rule_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems` | `problems.create` | problems.create: all |
-| POST | `/api/v1/problems/approvals/decisions` | signed_in | - |
-| GET | `/api/v1/problems/assignees` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/board` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/bulk` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/bulk-jobs` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/bulk-jobs/{job_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/categories` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/checklist-library` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/counters` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/from-incidents` | `problems.create` | problems.create: all |
-| POST | `/api/v1/problems/from-incidents/preview` | `problems.create` | problems.create: all |
-| GET | `/api/v1/problems/known-errors` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/known-errors/suggestions` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/list` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/list-fields` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/lookup/{value}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/my-approvals` | signed_in | - |
-| GET | `/api/v1/problems/my-approvals/decided` | signed_in | - |
-| GET | `/api/v1/problems/my-tasks` | signed_in | - |
-| GET | `/api/v1/problems/prefill` | `problems.create` | problems.create: all |
-| GET | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/reply-templates/manage` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/search` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/settings` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/settings/list-display` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/problems/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/problems/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/problems/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/similar` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/task-templates` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/templates` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/problems/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/problems/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/problems/trash` | `problems.delete` | problems.delete: all |
-| GET | `/api/v1/problems/view-filters` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/views` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}` | `problems.delete` | problems.delete: all |
-| GET | `/api/v1/problems/{record_id}` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/{record_id}` | `problems.edit` | problems.edit: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/actions/{action}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/approvals` | signed_in | - |
-| POST | `/api/v1/problems/{record_id}/approvals` | `problems.edit` | problems.edit: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
-| POST | `/api/v1/problems/{record_id}/assign` | `problems.assign` | problems.assign: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/automation` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/cancellation-request` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/cancellation-request/decide` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/{record_id}/checklist-items/{item_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/checklists/{checklist_id}` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/checklists/{checklist_id}/items` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/cis/{link_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/{record_id}/conversation/{entry_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/copy` | `problems.create` | problems.create: all |
-| POST | `/api/v1/problems/{record_id}/copy` | `problems.create` | problems.create: all |
-| PUT | `/api/v1/problems/{record_id}/due-dates/{kind}` | `problems.edit_due_dates` | problems.edit_due_dates: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/evidence` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/follow-up` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/follow-up` | `problems.edit` | problems.edit: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/followers` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/followers/{user_id}` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/{record_id}/followers/{user_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/history` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/impact` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/incidents` | `problems.edit` | problems.edit: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/incidents/{incident_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/investigators` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/investigators/{user_id}` | `problems.view` | problems.view: all/site/group/own |
-| PUT | `/api/v1/problems/{record_id}/investigators/{user_id}` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/known-error` | `problems.mark_known_error` | problems.mark_known_error: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/known-error/remove` | `problems.mark_known_error` | problems.mark_known_error: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/links` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/links` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/links/{link_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/mentionable` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/merge` | `problems.edit` | problems.edit: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/message-recipients` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/messages/incident-requesters` | `problems.edit` | problems.edit: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/read` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/reply-templates/{template_id}/fill` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/problems/{record_id}/resolution/reject` | signed_in | - |
-| POST | `/api/v1/problems/{record_id}/restore` | `problems.delete` | problems.delete: all |
-| GET | `/api/v1/problems/{record_id}/sla` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/take` | `problems.take` | problems.take: all/site/group |
-| GET | `/api/v1/problems/{record_id}/tasks` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/tasks` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/tasks/from-template` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/tasks/{task_id}` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/{record_id}/tasks/{task_id}` | signed_in | - |
-| PUT | `/api/v1/problems/{record_id}/tasks/{task_id}/dependencies` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/tasks/{task_id}/move` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/time-analysis` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/timer/auto` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/timer/stop` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/typing` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/undo-merge` | `problems.edit` | problems.edit: all/site/group/own |
-| GET | `/api/v1/problems/{record_id}/worklogs` | `problems.view` | problems.view: all/site/group/own |
-| POST | `/api/v1/problems/{record_id}/worklogs` | `problems.view` | problems.view: all/site/group/own |
-| DELETE | `/api/v1/problems/{record_id}/worklogs/{worklog_id}` | `problems.view` | problems.view: all/site/group/own |
-| PATCH | `/api/v1/problems/{record_id}/worklogs/{worklog_id}` | `problems.view` | problems.view: all/site/group/own |
-| GET | `/api/v1/procurement/vendors` | `vendors.view` | vendors.view: all |
-| POST | `/api/v1/procurement/vendors` | `vendors.create` | vendors.create: all |
-| DELETE | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.manage` | vendors.manage: all |
-| GET | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.view` | vendors.view: all |
-| PATCH | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.manage` | vendors.manage: all |
-| POST | `/api/v1/public/action-links/peek` | public | - |
-| POST | `/api/v1/public/action-links/use` | public | - |
-| GET | `/api/v1/public/branding` | public | - |
-| GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - |
-| GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - |
-| GET | `/api/v1/public/domain-check/{token}` | public | - |
-| POST | `/api/v1/public/invite-links/accept` | public | - |
-| POST | `/api/v1/public/invite-links/peek` | public | - |
-| POST | `/api/v1/public/notify-links/peek` | public | - |
-| POST | `/api/v1/public/notify-links/stop` | public | - |
-| POST | `/api/v1/public/vendor-support/open` | public | - |
-| GET | `/api/v1/ready` | public | - |
-| POST | `/api/v1/realtime/connection-token` | signed_in | - |
-| GET | `/api/v1/realtime/lists/{name}` | signed_in | - |
-| POST | `/api/v1/realtime/subscription-token` | signed_in | - |
-| GET | `/api/v1/release-calendar` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases` | `releases.create` | releases.create: all |
-| POST | `/api/v1/releases/approvals/decisions` | signed_in | - |
-| GET | `/api/v1/releases/assignees` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/board` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/bulk` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/bulk-jobs` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/bulk-jobs/{job_id}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/categories` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/checklist-library` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/releases/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/counters` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/list` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/list-fields` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/lookup/{value}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/my-approvals` | signed_in | - |
-| GET | `/api/v1/releases/my-approvals/decided` | signed_in | - |
-| GET | `/api/v1/releases/my-tasks` | signed_in | - |
-| GET | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/reply-templates/manage` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/roles/{role}/candidates` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/search` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/settings` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/settings/list-display` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/releases/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/releases/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/roles/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/settings/stages` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/settings/stages/{stage}/access` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/releases/settings/stages/{stage}/approvals` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/task-templates` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/templates` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/releases/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/releases/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/releases/trash` | `releases.delete` | releases.delete: all |
-| GET | `/api/v1/releases/view-filters` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/views` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}` | `releases.delete` | releases.delete: all |
-| GET | `/api/v1/releases/{record_id}` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}` | `releases.edit` | releases.edit: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/actions/{action}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/approvals` | signed_in | - |
-| POST | `/api/v1/releases/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
-| POST | `/api/v1/releases/{record_id}/assign` | `releases.assign` | releases.assign: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/automation` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/cancellation-request` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/cancellation-request/decide` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/changes` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/changes` | `releases.edit` | releases.edit: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/changes/close` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/changes/{change_id}` | `releases.edit` | releases.edit: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/checklist-items/{item_id}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/checklists` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/checklists` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/checklists/{checklist_id}` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/checklists/{checklist_id}/items` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/cis/{link_id}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/conflicts` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/conflicts/acks` | `releases.edit` | releases.edit: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/conversation` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/conversation` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/conversation/{entry_id}` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/copy` | `releases.create` | releases.create: all |
-| GET | `/api/v1/releases/{record_id}/details` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/details` | `releases.edit` | releases.edit: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/downtimes` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/downtimes` | `releases.edit` | releases.edit: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/downtimes/{downtime_id}` | `releases.edit` | releases.edit: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/downtimes/{downtime_id}` | `releases.edit` | releases.edit: all/site/group/own |
-| PUT | `/api/v1/releases/{record_id}/due-dates/{kind}` | `releases.edit_due_dates` | releases.edit_due_dates: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/follow-ups` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/follow-ups` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/followers` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/followers/{user_id}` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/{record_id}/followers/{user_id}` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/freeze-override` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/history` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/links` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/links` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/links/{link_id}` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/mentionable` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/moves` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/{record_id}/parent` | `releases.edit` | releases.edit: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/plan` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/{record_id}/plan/{section}` | `releases.edit` | releases.edit: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/read` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/reply-templates/{template_id}/fill` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/releases/{record_id}/resolution/reject` | signed_in | - |
-| POST | `/api/v1/releases/{record_id}/restore` | `releases.delete` | releases.delete: all |
-| GET | `/api/v1/releases/{record_id}/roles` | `releases.view` | releases.view: all/site/group/own |
-| PUT | `/api/v1/releases/{record_id}/roles/{role}` | `releases.edit` | releases.edit: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/schedule` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/schedule/{stage}` | `releases.edit` | releases.edit: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/sla` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/stages` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/sub-releases` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/take` | `releases.take` | releases.take: all/site/group |
-| GET | `/api/v1/releases/{record_id}/tasks` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/tasks` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/tasks/from-template` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/tasks/{task_id}` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/tasks/{task_id}` | signed_in | - |
-| PUT | `/api/v1/releases/{record_id}/tasks/{task_id}/dependencies` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/tasks/{task_id}/move` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/time-analysis` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/timer/auto` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/timer/stop` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/typing` | `releases.view` | releases.view: all/site/group/own |
-| GET | `/api/v1/releases/{record_id}/worklogs` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/releases/{record_id}/worklogs` | `releases.view` | releases.view: all/site/group/own |
-| DELETE | `/api/v1/releases/{record_id}/worklogs/{worklog_id}` | `releases.view` | releases.view: all/site/group/own |
-| PATCH | `/api/v1/releases/{record_id}/worklogs/{worklog_id}` | `releases.view` | releases.view: all/site/group/own |
-| POST | `/api/v1/reports` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/entities/{entity}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/export-formats` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/exports` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/reports/exports` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/exports/{export_id}/file` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/reports/favourites/{report_ref}` | `reports.view` | reports.view: all/site/group |
-| PUT | `/api/v1/reports/favourites/{report_ref}` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/reports/folders` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/reports/folders/{folder_id}` | `reports.view` | reports.view: all/site/group |
-| PATCH | `/api/v1/reports/folders/{folder_id}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/library` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/reports/run` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/schedules` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/reports/schedules` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/reports/schedules/{schedule_id}` | `reports.view` | reports.view: all/site/group |
-| PUT | `/api/v1/reports/schedules/{schedule_id}` | `reports.view` | reports.view: all/site/group |
-| POST | `/api/v1/reports/schedules/{schedule_id}/{action}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/settings` | `reports.view` | reports.view: all/site/group |
-| PATCH | `/api/v1/reports/settings` | `reports.view` | reports.view: all/site/group |
-| DELETE | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
-| PATCH | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group |
-| GET | `/api/v1/resource-access/criteria` | `roles.view` | roles.view: all |
-| GET | `/api/v1/resource-access/rules` | `roles.view` | roles.view: all |
-| POST | `/api/v1/resource-access/rules` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
-| PATCH | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all |
-| GET | `/api/v1/roles` | `roles.view` | roles.view: all |
-| POST | `/api/v1/roles` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/roles/{role_id}` | `roles.manage` | roles.manage: all |
-| GET | `/api/v1/roles/{role_id}` | `roles.view` | roles.view: all |
-| PATCH | `/api/v1/roles/{role_id}` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/roles/{role_id}/change-preview` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
-| PUT | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all |
-| GET | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
-| POST | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all |
-| GET | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
-| PATCH | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all |
-| GET | `/api/v1/service-accounts/{account_id}/roles` | `api_keys.manage` | api_keys.manage: all |
-| DELETE | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
-| PUT | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all |
-| GET | `/api/v1/service-requests` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests` | `requests.create` | requests.create: all |
-| GET | `/api/v1/service-requests/alias/{value}` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - |
-| GET | `/api/v1/service-requests/assignees` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/board` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/bulk` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/bulk-jobs` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/bulk-jobs/{job_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/categories` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/checklist-library` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/counters` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/list` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/list-fields` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own |
-| PUT | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/lookup/{value}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/my-approvals` | signed_in | - |
-| GET | `/api/v1/service-requests/my-approvals/decided` | signed_in | - |
-| GET | `/api/v1/service-requests/my-tasks` | signed_in | - |
-| GET | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/reply-templates/manage` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own |
-| PUT | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all |
-| POST | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all |
-| DELETE | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own |
-| PUT | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/search` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/settings` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| DELETE | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/settings/list-display` | `requests.view` | requests.view: all/site/group/own |
-| PUT | `/api/v1/service-requests/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/service-requests/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/service-requests/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PUT | `/api/v1/service-requests/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/task-templates` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/templates` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| PATCH | `/api/v1/service-requests/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| POST | `/api/v1/service-requests/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all |
-| GET | `/api/v1/service-requests/trash` | `requests.delete` | requests.delete: all |
-| GET | `/api/v1/service-requests/view-filters` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/views` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}` | `requests.delete` | requests.delete: all |
-| GET | `/api/v1/service-requests/{record_id}` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}` | `requests.edit` | requests.edit: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/actions/{action}` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}/answers` | `requests.edit` | requests.edit: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/approvals` | signed_in | - |
-| POST | `/api/v1/service-requests/{record_id}/approvals` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/approvals/reminders` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/approvals/stages` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/clarification` | signed_in | - |
-| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision` | signed_in | - |
-| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/assets/{link_id}` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/assign` | `requests.assign` | requests.assign: all/site/group |
-| GET | `/api/v1/service-requests/{record_id}/automation` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/cancellation-request` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/cancellation-request/decide` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}/checklist-items/{item_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}/items` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/cis/{link_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}/conversation/{entry_id}` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/convert` | `requests.edit` | requests.edit: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/convert-preview` | `requests.edit` | requests.edit: all/site/group/own |
-| PUT | `/api/v1/service-requests/{record_id}/due-dates/{kind}` | `requests.edit_due_dates` | requests.edit_due_dates: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/followers` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own |
-| PUT | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/history` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/links` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/links` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/links/{link_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/mentionable` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/read` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/reply-templates/{template_id}/fill` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/resolution/confirm` | signed_in | - |
-| POST | `/api/v1/service-requests/{record_id}/resolution/reject` | signed_in | - |
-| POST | `/api/v1/service-requests/{record_id}/restore` | `requests.delete` | requests.delete: all |
-| GET | `/api/v1/service-requests/{record_id}/sla` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/take` | `requests.take` | requests.take: all/site/group |
-| GET | `/api/v1/service-requests/{record_id}/tasks` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/tasks` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/tasks/from-template` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | signed_in | - |
-| PUT | `/api/v1/service-requests/{record_id}/tasks/{task_id}/dependencies` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/tasks/{task_id}/move` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/time-analysis` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/timer/auto` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/timer/stop` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/typing` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/withdraw` | signed_in | - |
-| GET | `/api/v1/service-requests/{record_id}/worklogs` | `requests.view` | requests.view: all/site/group/own |
-| POST | `/api/v1/service-requests/{record_id}/worklogs` | `requests.view` | requests.view: all/site/group/own |
-| DELETE | `/api/v1/service-requests/{record_id}/worklogs/{worklog_id}` | `requests.view` | requests.view: all/site/group/own |
-| PATCH | `/api/v1/service-requests/{record_id}/worklogs/{worklog_id}` | `requests.view` | requests.view: all/site/group/own |
-| GET | `/api/v1/sla/calendars` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/calendars` | `sla.view` | sla.view: all |
-| DELETE | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/calendars/{calendar_id}/open-records` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/calendars/{calendar_id}/special-hours` | `sla.view` | sla.view: all |
-| DELETE | `/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/holiday-lists` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/holiday-lists` | `sla.view` | sla.view: all |
-| DELETE | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/holiday-lists/{list_id}/copy-year` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/holiday-lists/{list_id}/holidays` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/holiday-lists/{list_id}/holidays` | `sla.view` | sla.view: all |
-| DELETE | `/api/v1/sla/holiday-lists/{list_id}/holidays/{holiday_id}` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/holiday-lists/{list_id}/holidays/{holiday_id}` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/holiday-lists/{list_id}/import` | `sla.view` | sla.view: all |
-| DELETE | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/record-types/{record_type}/policies` | `sla.view` | sla.view: all |
-| POST | `/api/v1/sla/record-types/{record_type}/policies` | `sla.view` | sla.view: all |
-| PUT | `/api/v1/sla/record-types/{record_type}/policies/order` | `sla.view` | sla.view: all |
-| GET | `/api/v1/sla/record-types/{record_type}/settings` | `sla.view` | sla.view: all |
-| PATCH | `/api/v1/sla/record-types/{record_type}/settings` | `sla.view` | sla.view: all |
-| GET | `/api/v1/users` | `users.view` | users.view: all/site/group/own |
-| POST | `/api/v1/users` | `users.manage` | users.manage: all |
-| GET | `/api/v1/users/{user_id}` | signed_in | - |
-| PATCH | `/api/v1/users/{user_id}` | `profile.edit` | profile.edit: own |
-| GET | `/api/v1/users/{user_id}/access` | `users.view` | users.view: all/site/group/own |
-| GET | `/api/v1/users/{user_id}/cost-rates` | `users.view_cost_rates` | users.view_cost_rates: all |
-| POST | `/api/v1/users/{user_id}/cost-rates` | `users.manage_cost_rates` | users.manage_cost_rates: all |
-| DELETE | `/api/v1/users/{user_id}/cost-rates/{rate_id}` | `users.manage_cost_rates` | users.manage_cost_rates: all |
-| PATCH | `/api/v1/users/{user_id}/cost-rates/{rate_id}` | `users.manage_cost_rates` | users.manage_cost_rates: all |
-| POST | `/api/v1/users/{user_id}/deactivate` | `users.manage` | users.manage: all |
-| PATCH | `/api/v1/users/{user_id}/person` | `users.manage` | users.manage: all |
-| POST | `/api/v1/users/{user_id}/reactivate` | `users.manage` | users.manage: all |
-| GET | `/api/v1/users/{user_id}/reactivation` | `users.manage` | users.manage: all |
-| POST | `/api/v1/users/{user_id}/role-preview` | `users.manage` | users.manage: all |
-| DELETE | `/api/v1/users/{user_id}/roles/{role_id}` | `users.manage` | users.manage: all |
-| PUT | `/api/v1/users/{user_id}/roles/{role_id}` | `users.manage` | users.manage: all |
-| PUT | `/api/v1/users/{user_id}/sign-in` | `users.manage` | users.manage: all |
-| PUT | `/api/v1/users/{user_id}/type` | `users.manage` | users.manage: all |
+| Method | Path | Access | Scopes | Feature |
+|---|---|---|---|---|
+| GET | `/api/v1/access-settings` | `roles.manage` | roles.manage: all | - |
+| PUT | `/api/v1/access-settings` | `roles.manage` | roles.manage: all | - |
+| GET | `/api/v1/account/security` | signed_in | - | - |
+| POST | `/api/v1/action-links/peek` | signed_in | - | - |
+| POST | `/api/v1/action-links/use` | signed_in | - | - |
+| POST | `/api/v1/ai/calls/{call_id}/outcome` | signed_in | - | - |
+| GET | `/api/v1/ai/settings` | signed_in | - | - |
+| PATCH | `/api/v1/ai/settings` | signed_in | - | - |
+| GET | `/api/v1/ai/summaries/{record_type}/{record_id}` | signed_in | - | - |
+| POST | `/api/v1/ai/summaries/{record_type}/{record_id}/refresh` | signed_in | - | - |
+| POST | `/api/v1/ai/writing/{record_type}/{record_id}` | signed_in | - | - |
+| GET | `/api/v1/announcements` | `announcements.view` | announcements.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/announcements` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/announcements/feed` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/announcements/owner-candidates` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/announcements/settings` | `announcements.view` | announcements.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/announcements/settings` | `config.announcements` or `settings.manage` | config.announcements: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/announcements/trash` | `announcements.view` | announcements.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/announcements/{announcement_id}` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/announcements/{announcement_id}` | signed_in | - | `incident` (module) |
+| PATCH | `/api/v1/announcements/{announcement_id}` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/announcements/{announcement_id}/archive` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/announcements/{announcement_id}/dismissal` | signed_in | - | `incident` (module) |
+| DELETE | `/api/v1/announcements/{announcement_id}/follow` | signed_in | - | `incident` (module) |
+| PUT | `/api/v1/announcements/{announcement_id}/follow` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/announcements/{announcement_id}/history` | `announcements.view` | announcements.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/announcements/{announcement_id}/publish` | `announcements.publish` | announcements.publish: all | `incident` (module, permission) |
+| POST | `/api/v1/announcements/{announcement_id}/reopen` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/announcements/{announcement_id}/restore` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/announcements/{announcement_id}/unpublish` | `announcements.manage` | announcements.manage: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/api-keys` | signed_in | - | - |
+| POST | `/api/v1/api-keys` | signed_in | - | - |
+| GET | `/api/v1/api-keys/owners` | signed_in | - | - |
+| GET | `/api/v1/api-keys/policy-impact` | `api_keys.manage` | api_keys.manage: all | - |
+| GET | `/api/v1/api-keys/rules` | signed_in | - | - |
+| GET | `/api/v1/api-keys/scopes` | signed_in | - | - |
+| POST | `/api/v1/api-keys/{key_id}/revoke` | signed_in | - | - |
+| GET | `/api/v1/approval-delegations` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/approval-delegations` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/approval-delegations/{delegation_id}` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/approval-delegations/{delegation_id}/end` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/approvals/settings` | signed_in | - | - |
+| PATCH | `/api/v1/approvals/settings` | signed_in | - | - |
+| GET | `/api/v1/assets` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/acknowledgements/{acknowledgement_id}/answer` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/audits` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/audits` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/audits/{audit_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/audits/{audit_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/audits/{audit_id}/close` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/audits/{audit_id}/fixes` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/audits/{audit_id}/items` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/audits/{audit_id}/items/{item_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/audits/{audit_id}/scans` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/audits/{audit_id}/start` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/availability` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/bookable` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/bookings` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/bookings` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/bookings/{booking_id}/cancel` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/bookings/{booking_id}/handover` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/bulk-jobs` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/bulk-jobs` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/bulk-jobs/{job_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/bulk-moves` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/consumable-allocations` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/consumables` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/consumables` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/consumables/{consumable_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/consumables/{consumable_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/consumables/{consumable_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/consumables/{consumable_id}/adjustments` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/consumables/{consumable_id}/allocations` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/consumables/{consumable_id}/ledger` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/consumables/{consumable_id}/receipts` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/consumables/{consumable_id}/returns` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/groups` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/groups` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/groups/{group_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/groups/{group_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/groups/{group_id}/assets` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/groups/{group_id}/members` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/groups/{group_id}/members/{asset_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/held-by` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/imports` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/imports` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/imports/{import_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/imports/{import_id}/run` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/labels` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/labels/jobs` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/labels/jobs/{job_id}/file` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/labels/prints` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/labels/prints/{print_id}/reprint` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/life-cycles` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| POST | `/api/v1/assets/life-cycles` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/life-cycles/{life_cycle_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/life-cycles/{life_cycle_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/loanable` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/loanable` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/loans` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/loans` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/loans/{loan_id}/returns` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/merge-preview` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/merges` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/mine` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/my-bookings` | signed_in | - | `assets` (module) |
+| POST | `/api/v1/assets/my-bookings` | signed_in | - | `assets` (module) |
+| POST | `/api/v1/assets/my-bookings/{booking_id}/cancel` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/overdue-rule` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/overdue-rule` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| POST | `/api/v1/assets/overdue-rule/preview` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/overdue-rule/runs` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/overdue-rule/states` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/picker` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/picker/search` | signed_in | - | `assets` (module) |
+| GET | `/api/v1/assets/product-types` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| POST | `/api/v1/assets/product-types` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/product-types/{product_type_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/product-types/{product_type_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/products` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| POST | `/api/v1/assets/products` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/products/{product_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/products/{product_id}` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/products/{product_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/settings` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/settings` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/states` | `assets.view` or `config.assets` or `settings.manage` | assets.view: all/site/group/own; config.assets: all; settings.manage: all | `assets` (module, permission) |
+| POST | `/api/v1/assets/states` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/states/{state_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/states/{state_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/stock-rules` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/stock-rules` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/trash` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/type-counts` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/access` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/copy` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/costs` | `assets.view_financials` | assets.view_financials: all | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}/costs/{cost_id}` | `assets.view_financials` | assets.view_financials: all | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/{asset_id}/costs/{cost_id}` | `assets.view_financials` | assets.view_financials: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/disposal` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/dispose` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/financials` | `assets.view_financials` | assets.view_financials: all | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/history` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}/holder` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PUT | `/api/v1/assets/{asset_id}/holder` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/holdings` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/linked` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/linked/{kind}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/links` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/links` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}/links/{link_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/move` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/moves` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/notes` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/notes` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}/notes/{note_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| PATCH | `/api/v1/assets/{asset_id}/notes/{note_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/notes/{note_id}/history` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| POST | `/api/v1/assets/{asset_id}/restore` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| GET | `/api/v1/assets/{asset_id}/scans` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
+| GET | `/api/v1/audit/archives` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/archives/{archive_id}/entries` | `audit.view` | audit.view: all | - |
+| POST | `/api/v1/audit/archives/{archive_id}/restore` | `audit.export` | audit.export: all | - |
+| GET | `/api/v1/audit/entries` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/entries/{entry_id}` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/exports` | `audit.export` | audit.export: all | - |
+| POST | `/api/v1/audit/exports` | `audit.export` | audit.export: all | - |
+| GET | `/api/v1/audit/exports/{export_id}/download` | `audit.export` | audit.export: all | - |
+| GET | `/api/v1/audit/personal-data-access` | `audit.view_personal_data_access` | audit.view_personal_data_access: all | - |
+| GET | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all | - |
+| POST | `/api/v1/audit/saved-searches` | `audit.view` | audit.view: all | - |
+| DELETE | `/api/v1/audit/saved-searches/{search_id}` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/settings` | `audit.view` | audit.view: all | - |
+| PUT | `/api/v1/audit/settings` | `audit.manage` | audit.manage: all | - |
+| GET | `/api/v1/audit/siem/destinations` | `audit.manage` | audit.manage: all | - |
+| POST | `/api/v1/audit/siem/destinations` | `audit.manage` | audit.manage: all | `siem_stream` (route) |
+| DELETE | `/api/v1/audit/siem/destinations/{destination_id}` | `audit.manage` | audit.manage: all | - |
+| PATCH | `/api/v1/audit/siem/destinations/{destination_id}` | `audit.manage` | audit.manage: all | `siem_stream` (route) |
+| POST | `/api/v1/audit/siem/destinations/{destination_id}/rotate-secret` | `audit.manage` | audit.manage: all | - |
+| POST | `/api/v1/audit/siem/destinations/{destination_id}/test` | `audit.manage` | audit.manage: all | - |
+| GET | `/api/v1/audit/status` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/system-log` | `audit.view` | audit.view: all | - |
+| GET | `/api/v1/audit/system-log/export` | `audit.export` | audit.export: all | - |
+| GET | `/api/v1/audit/verification-runs` | `audit.view` | audit.view: all | - |
+| POST | `/api/v1/audit/verification-runs` | `audit.verify` | audit.verify: all | - |
+| GET | `/api/v1/auth/account-action` | session (BFF) | - | - |
+| GET | `/api/v1/auth/callback` | public | - | - |
+| GET | `/api/v1/auth/confirm` | session (BFF) | - | - |
+| GET | `/api/v1/auth/dev/personas` | public | - | - |
+| POST | `/api/v1/auth/dev/sign-in` | public | - | - |
+| GET | `/api/v1/auth/login` | public | - | - |
+| POST | `/api/v1/auth/logout` | session (BFF) | - | - |
+| GET | `/api/v1/auth/me` | session (BFF) | - | - |
+| POST | `/api/v1/auth/mobile/exchange` | public | - | - |
+| POST | `/api/v1/auth/password-reset` | public | - | - |
+| GET | `/api/v1/auth/sessions` | session (BFF) | - | - |
+| POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - | - |
+| DELETE | `/api/v1/auth/sessions/{listed_id}` | session (BFF) | - | - |
+| POST | `/api/v1/auth/switch-tenant` | session (BFF) | - | - |
+| GET | `/api/v1/automation/availability` | signed_in | - | - |
+| PUT | `/api/v1/automation/availability/{user_id}` | signed_in | - | - |
+| GET | `/api/v1/automation/availability/{user_id}/history` | signed_in | - | - |
+| GET | `/api/v1/automation/fields` | `automation.view` | automation.view: all | `incident` (permission) |
+| GET | `/api/v1/automation/groups/{group_id}/assignment` | `automation.view` | automation.view: all | `incident` (permission) |
+| PUT | `/api/v1/automation/groups/{group_id}/assignment` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/loop-stops` | `automation.view` | automation.view: all | `incident` (permission) |
+| GET | `/api/v1/automation/routing` | `automation.view` | automation.view: all | `incident` (permission) |
+| POST | `/api/v1/automation/routing` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PUT | `/api/v1/automation/routing-order` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/routing-settings` | `automation.view` | automation.view: all | `incident` (permission) |
+| PUT | `/api/v1/automation/routing-settings` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| DELETE | `/api/v1/automation/routing/{rule_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PATCH | `/api/v1/automation/routing/{rule_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/rules` | `automation.view` | automation.view: all | `incident` (permission) |
+| POST | `/api/v1/automation/rules` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PUT | `/api/v1/automation/rules-order` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| DELETE | `/api/v1/automation/rules/{rule_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PATCH | `/api/v1/automation/rules/{rule_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/runs` | `automation.view` | automation.view: all | `incident` (permission) |
+| GET | `/api/v1/automation/transitions` | `automation.view` | automation.view: all | `incident` (permission) |
+| DELETE | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PUT | `/api/v1/automation/transitions/{action}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/trigger-events` | `automation.view` | automation.view: all | `incident` (permission) |
+| GET | `/api/v1/automation/triggers` | `automation.view` | automation.view: all | `incident` (permission) |
+| POST | `/api/v1/automation/triggers` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PUT | `/api/v1/automation/triggers-order` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| DELETE | `/api/v1/automation/triggers/{trigger_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| PATCH | `/api/v1/automation/triggers/{trigger_id}` | `automation.manage` | automation.manage: all | `incident` (permission) |
+| GET | `/api/v1/automation/workflows` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/import` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/instances` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/instances/{instance_id}/restart` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/instances/{instance_id}/retry` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/instances/{instance_id}/skip` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/instances/{instance_id}/steps` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/instances/{instance_id}/stop` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/jobs/{job_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/node-ports` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/node-types` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/records/{record_type}/{record_id}` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/test-runs/{run_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/test-runs/{run_id}/answer` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/test-runs/{run_id}/live-call` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| DELETE | `/api/v1/automation/workflows/{workflow_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/{workflow_id}/copy` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| PUT | `/api/v1/automation/workflows/{workflow_id}/draft` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| PUT | `/api/v1/automation/workflows/{workflow_id}/enabled` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/export` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/instances` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/{workflow_id}/instances` | `workflows.run` | workflows.run: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/{workflow_id}/jobs` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/{workflow_id}/publish` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/run-as` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| DELETE | `/api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| PUT | `/api/v1/automation/workflows/{workflow_id}/run-as/roles/{role_id}` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| PUT | `/api/v1/automation/workflows/{workflow_id}/start-templates` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| POST | `/api/v1/automation/workflows/{workflow_id}/test-runs` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/versions` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/versions/{number}/occupancy` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/automation/workflows/{workflow_id}/versions/{number}/steps` | `workflows.manage` | workflows.manage: all | `workflows` (module, permission) |
+| GET | `/api/v1/catalog/categories` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/catalog/categories` | signed_in | - | `service_request` (module) |
+| DELETE | `/api/v1/catalog/categories/{category_id}` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/catalog/categories/{category_id}` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items/popular` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items/search` | signed_in | - | `service_request` (module) |
+| DELETE | `/api/v1/catalog/items/{item_id}` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items/{item_id}` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/catalog/items/{item_id}` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/catalog/items/{item_id}/copy` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/settings` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/catalog/settings` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/starter` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/catalog/starter/publish` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/change-boards` | `changes.view` or `config.service_desk` or `settings.manage` | changes.view: all/site/group/own; config.service_desk: all; settings.manage: all | `change` (module, permission); `incident` (permission) |
+| POST | `/api/v1/change-boards` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all | `change` (module, permission) |
+| DELETE | `/api/v1/change-boards/{board_id}` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all | `change` (module, permission) |
+| GET | `/api/v1/change-boards/{board_id}` | `changes.view` or `config.service_desk` or `settings.manage` | changes.view: all/site/group/own; config.service_desk: all; settings.manage: all | `change` (module, permission); `incident` (permission) |
+| PATCH | `/api/v1/change-boards/{board_id}` | `changes.manage_boards` or `settings.manage` | changes.manage_boards: all; settings.manage: all | `change` (module, permission) |
+| GET | `/api/v1/change-calendar` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/change-windows` | `changes.view` or `changes.manage_windows` or `settings.manage` | changes.view: all/site/group/own; changes.manage_windows: all; settings.manage: all | `change` (module, permission) |
+| POST | `/api/v1/change-windows` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all | `change` (module, permission) |
+| DELETE | `/api/v1/change-windows/{window_id}` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all | `change` (module, permission) |
+| GET | `/api/v1/change-windows/{window_id}` | `changes.view` or `changes.manage_windows` or `settings.manage` | changes.view: all/site/group/own; changes.manage_windows: all; settings.manage: all | `change` (module, permission) |
+| PATCH | `/api/v1/change-windows/{window_id}` | `changes.manage_windows` or `settings.manage` | changes.manage_windows: all; settings.manage: all | `change` (module, permission) |
+| GET | `/api/v1/changes` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes` | `changes.create` | changes.create: all | `change` (module, permission) |
+| POST | `/api/v1/changes/approvals/decisions` | signed_in | - | `change` (module) |
+| GET | `/api/v1/changes/assignees` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/board` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/bulk` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/bulk-jobs` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/bulk-jobs/{job_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/categories` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/checklist-library` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| POST | `/api/v1/changes/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/counters` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/list` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/list-fields` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/list-settings/{view_key}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/lookup/{value}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/my-approvals` | signed_in | - | `change` (module) |
+| GET | `/api/v1/changes/my-approvals/decided` | signed_in | - | `change` (module) |
+| GET | `/api/v1/changes/my-tasks` | signed_in | - | `change` (module) |
+| GET | `/api/v1/changes/prefill` | `changes.create` | changes.create: all | `change` (module, permission) |
+| GET | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/reply-templates` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/reply-templates/manage` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/reply-templates/{template_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/roles/{role}/candidates` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/saved-views` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all | `change` (module) |
+| POST | `/api/v1/changes/saved-views/audit` | `roles.manage` | roles.manage: all | `change` (module) |
+| DELETE | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/saved-views/{view_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/saved-views/{view_id}/favourite` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/search` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/settings` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/settings/list-display` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PUT | `/api/v1/changes/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| POST | `/api/v1/changes/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PUT | `/api/v1/changes/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PUT | `/api/v1/changes/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| POST | `/api/v1/changes/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/roles/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/settings/stages` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PUT | `/api/v1/changes/settings/stages/{stage}/access` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PUT | `/api/v1/changes/settings/stages/{stage}/approvals` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/task-templates` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/templates` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| PATCH | `/api/v1/changes/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| POST | `/api/v1/changes/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `change` (module); `incident` (permission) |
+| GET | `/api/v1/changes/trash` | `changes.delete` | changes.delete: all | `change` (module, permission) |
+| GET | `/api/v1/changes/view-filters` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/views` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}` | `changes.delete` | changes.delete: all | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/actions/{action}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/approvals` | signed_in | - | `change` (module) |
+| GET | `/api/v1/changes/{record_id}/approvals/changes-since` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/approvals/preview` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/approvals/reapproval-preview` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `change` (module) |
+| POST | `/api/v1/changes/{record_id}/assign` | `changes.assign` | changes.assign: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/automation` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/cancellation-request` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/cancellation-request/decide` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/checklist-items/{item_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/checklists` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/checklists/{checklist_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/checklists/{checklist_id}/items` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/children` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/children` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/children/{link_id}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/cis/{link_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/conflicts` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/conversation/{entry_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/copy` | `changes.create` | changes.create: all | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/details` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/details` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/downtimes` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/downtimes` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/downtimes/{downtime_id}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/downtimes/{downtime_id}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/{record_id}/due-dates/{kind}` | `changes.edit_due_dates` | changes.edit_due_dates: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/emergency-override` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/followers` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/followers/{user_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/{record_id}/followers/{user_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/freeze-override` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/history` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/links` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/links` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/links/{link_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/mentionable` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/moves` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/plan` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/{record_id}/plan/{section}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/read` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/reminders` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/reply-templates/{template_id}/fill` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/resolution/confirm` | signed_in | - | `change` (module) |
+| POST | `/api/v1/changes/{record_id}/resolution/reject` | signed_in | - | `change` (module) |
+| POST | `/api/v1/changes/{record_id}/restore` | `changes.delete` | changes.delete: all | `change` (module, permission) |
+| PUT | `/api/v1/changes/{record_id}/risk/assessment` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/risk/questionnaire` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/roles` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PUT | `/api/v1/changes/{record_id}/roles/{role}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/schedule` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/schedule/{stage}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/sla` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/stages` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/take` | `changes.take` | changes.take: all/site/group | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/tasks` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/tasks` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/tasks/from-template` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/tasks/{task_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/tasks/{task_id}` | signed_in | - | `change` (module) |
+| PUT | `/api/v1/changes/{record_id}/tasks/{task_id}/dependencies` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/tasks/{task_id}/move` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/time-analysis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/timer` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/timer/auto` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/timer/stop` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/typing` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/changes/{record_id}/worklogs` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/worklogs` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| DELETE | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| PATCH | `/api/v1/changes/{record_id}/worklogs/{worklog_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| GET | `/api/v1/cmdb/business-views` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/business-views` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/business-views/{view_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/business-views/{view_id}/save-as-new` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/ci-states` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/ci-states` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/ci-states/{state_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/ci-types` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/ci-types` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/ci-types/{type_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/from-assets` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/picker` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/trash` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.delete` | cmdb.delete: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/change-type` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/copy` | `cmdb.add` or `cmdb.manage` | cmdb.add: all; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/downtimes` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` | cmdb.delete: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| PUT | `/api/v1/cmdb/cis/{ci_id}/subscribers` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/subscribers/people` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/versions` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/imports` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/imports/{import_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/imports/{import_id}/problems` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/imports/{import_id}/run` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/merges` | `cmdb.manage` | cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/merges/preview` | `cmdb.manage` | cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/relationship-types` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/relationship-types` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| PATCH | `/api/v1/cmdb/relationship-types/{type_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/relationships/{relationship_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/settings` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| PUT | `/api/v1/cmdb/settings` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| PUT | `/api/v1/cmdb/settings/source-precedence` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/sync-rules` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/sync-rules/fields` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/sync-rules/preview` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| PUT | `/api/v1/cmdb/sync-rules/{rule_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/sync-rules/{rule_id}/runs` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/sync-runs/{run_id}` | `cmdb.configure` | cmdb.configure: all | `cmdb` (module, permission) |
+| GET | `/api/v1/custom-fields` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/custom-fields` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/custom-fields/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| DELETE | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/custom-fields/{field_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/custom-fields/{field_id}/index` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/custom-fields/{field_id}/sensitivity` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/dashboards` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group | - |
+| PUT | `/api/v1/dashboards/favourites/{ref}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/dashboards/home` | `reports.view` | reports.view: all/site/group | - |
+| PUT | `/api/v1/dashboards/home` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/dashboards/role-homes` | `reports.view` | reports.view: all/site/group | - |
+| PUT | `/api/v1/dashboards/role-homes/{role_key}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/dashboards/widgets` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group | - |
+| PATCH | `/api/v1/dashboards/{ref}` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/drafts/{form_key}` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/drafts/{form_key}` | signed_in | - | `incident` (module) |
+| PUT | `/api/v1/drafts/{form_key}` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/entitlements` | signed_in | - | - |
+| GET | `/api/v1/erasures` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/erasures/{erasure_id}` | `people.erase` | people.erase: all | - |
+| POST | `/api/v1/erasures/{erasure_id}/approve` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/erasures/{erasure_id}/mentions` | `people.erase` | people.erase: all | - |
+| POST | `/api/v1/erasures/{erasure_id}/mentions/redact` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/erasures/{erasure_id}/mentions/{mention_id}/passage` | `people.erase` | people.erase: all | - |
+| POST | `/api/v1/erasures/{erasure_id}/reject` | `people.erase` | people.erase: all | - |
+| POST | `/api/v1/erasures/{erasure_id}/report/reviewed` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/field-access/catalogue` | `roles.view` | roles.view: all | - |
+| GET | `/api/v1/field-access/effective` | `roles.view` | roles.view: all | - |
+| GET | `/api/v1/field-access/rules` | `roles.view` | roles.view: all | - |
+| POST | `/api/v1/field-access/rules` | `roles.manage` | roles.manage: all | - |
+| DELETE | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all | - |
+| PATCH | `/api/v1/field-access/rules/{rule_id}` | `roles.manage` | roles.manage: all | - |
+| POST | `/api/v1/files` | signed_in | - | - |
+| POST | `/api/v1/files/attach` | signed_in | - | - |
+| GET | `/api/v1/files/content/{token}` | signed_in | - | - |
+| GET | `/api/v1/files/records/{record_type}/{record_id}` | signed_in | - | - |
+| POST | `/api/v1/files/records/{record_type}/{record_id}/archive` | signed_in | - | - |
+| GET | `/api/v1/files/settings/rules` | signed_in | - | - |
+| PUT | `/api/v1/files/settings/rules` | `files.manage` | files.manage: all | - |
+| GET | `/api/v1/files/settings/status` | `files.manage` | files.manage: all | - |
+| GET | `/api/v1/files/settings/usage` | `files.manage` | files.manage: all | - |
+| DELETE | `/api/v1/files/{file_id}` | signed_in | - | - |
+| GET | `/api/v1/files/{file_id}` | signed_in | - | - |
+| GET | `/api/v1/files/{file_id}/inline` | signed_in | - | - |
+| POST | `/api/v1/files/{file_id}/link` | signed_in | - | - |
+| POST | `/api/v1/files/{file_id}/rescan` | `files.manage` | files.manage: all | - |
+| GET | `/api/v1/files/{file_id}/thumbnail` | signed_in | - | - |
+| GET | `/api/v1/health` | public | - | - |
+| PUT | `/api/v1/identity/break-glass/{user_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/domains` | `identity.manage` | identity.manage: all | - |
+| DELETE | `/api/v1/identity/domains/{domain_id}` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/domains/{domain_id}/check` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/domains/{domain_id}/verify` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/invitations` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/identity/invitations` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/identity/invitations/{invitation_id}/link` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/identity/invitations/{invitation_id}/resend` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/mfa/roles/{role_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/people/{user_id}/require-new-password` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/identity/people/{user_id}/reset-mfa` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/people/{user_id}/sessions` | `users.manage` | users.manage: all | - |
+| DELETE | `/api/v1/identity/people/{user_id}/sessions/{listed_id}` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/identity/security-overview` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all | - |
+| GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/sso` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/sso-policy` | `identity.manage` | identity.manage: all | - |
+| DELETE | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/sso/{provider_id}` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/sso/{provider_id}/switch-off` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/sso/{provider_id}/switch-on` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/sso/{provider_id}/tests` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/sso/{provider_id}/tests/{test_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/vendor-support/grants` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/vendor-support/grants/{grant_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/vendor-support/grants/{grant_id}/activity` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/extend` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/resend-link` | `identity.manage` | identity.manage: all | - |
+| POST | `/api/v1/identity/vendor-support/grants/{grant_id}/revoke` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/vendor-support/setting` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/incidents` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents` | `incidents.create` | incidents.create: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/alias/{value}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/approvals/decisions` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/incidents/assignees` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/board` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/bulk` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/bulk-jobs` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/bulk-jobs/{job_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/categories` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/checklist-library` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/counters` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/list` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/list-fields` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/list-settings/{view_key}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/lookup/{value}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/majors` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/my-approvals` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/incidents/my-approvals/decided` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/incidents/my-tasks` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/incidents/possible-duplicates` | `incidents.create` | incidents.create: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/reply-templates` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/reply-templates/manage` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/reply-templates/{template_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/saved-views` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all | `incident` (module) |
+| POST | `/api/v1/incidents/saved-views/audit` | `roles.manage` | roles.manage: all | `incident` (module) |
+| DELETE | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/saved-views/{view_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/saved-views/{view_id}/favourite` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/search` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/settings` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/closed-edit-lock` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/settings/list-display` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/settings/major` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/major` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/task-templates` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/templates` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| POST | `/api/v1/incidents/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/trash` | `incidents.delete` | incidents.delete: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/view-filters` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/views` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}` | `incidents.delete` | incidents.delete: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/actions/{action}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/announcements` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/announcements` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/announcements/{announcement_id}/end` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/approvals` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/incidents/{record_id}/approvals` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/assets/{link_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/assign` | `incidents.assign` | incidents.assign: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/automation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/cancellation-request` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/cancellation-request/decide` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/causing-problem` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}/checklist-items/{item_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/checklists` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/checklists/{checklist_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/checklists/{checklist_id}/items` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/children` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/children/attach` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/children/resolvable` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/cis/{link_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}/conversation/{entry_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/convert` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/convert-preview` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/copies` | `incidents.create` | incidents.create: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/downtimes` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/downtimes` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}/downtimes/{downtime_id}` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/{record_id}/due-dates/{kind}` | `incidents.edit_due_dates` | incidents.edit_due_dates: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/followers` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PUT | `/api/v1/incidents/{record_id}/followers/{user_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/history` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/links` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/links/{link_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/major` | `incidents.declare_major` | incidents.declare_major: all/site/group | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/major/end` | `incidents.declare_major` | incidents.declare_major: all/site/group | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/mentionable` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/merge` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/merge-preview` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/read` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/reminders` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/reply-templates/{template_id}/fill` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/resolution/confirm` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/incidents/{record_id}/resolution/reject` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/incidents/{record_id}/restore` | `incidents.delete` | incidents.delete: all | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/sla` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/take` | `incidents.take` | incidents.take: all/site/group | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/tasks` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/tasks` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/tasks/from-template` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/tasks/{task_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}/tasks/{task_id}` | signed_in | - | `incident` (module) |
+| PUT | `/api/v1/incidents/{record_id}/tasks/{task_id}/dependencies` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/tasks/{task_id}/move` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/time-analysis` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/timer` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/timer/auto` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/timer/stop` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/typing` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/undo-merge` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/worklogs` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| DELETE | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| PATCH | `/api/v1/incidents/{record_id}/worklogs/{worklog_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| GET | `/api/v1/integrations/catalogue` | `integrations.view` | integrations.view: all | - |
+| GET | `/api/v1/integrations/connector-settings` | `integrations.manage_email` | integrations.manage_email: all | - |
+| PUT | `/api/v1/integrations/connector-settings` | `integrations.manage_email` | integrations.manage_email: all | - |
+| GET | `/api/v1/integrations/directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| POST | `/api/v1/integrations/directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| DELETE | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| GET | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| PUT | `/api/v1/integrations/directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| GET | `/api/v1/integrations/directories/{directory_id}/groups` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| POST | `/api/v1/integrations/directories/{directory_id}/sync` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| GET | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| POST | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| DELETE | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| GET | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| GET | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| DELETE | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| PATCH | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| GET | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mailboxes` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| DELETE | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| PATCH | `/api/v1/integrations/mailboxes/{mailbox_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/sign-in` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/test` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| GET | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| POST | `/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| GET | `/api/v1/integrations/oauth/callback` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
+| GET | `/api/v1/knowledge/approvals/count` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/from-record` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| DELETE | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PATCH | `/api/v1/knowledge/articles/{article_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/apply` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}/apply-check` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PATCH | `/api/v1/knowledge/articles/{article_id}/drafts/{language}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/approve` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/reject` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/drafts/{language}/submit` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}/history` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}/links` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/links` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| DELETE | `/api/v1/knowledge/articles/{article_id}/links/{link_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/restore` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/still-correct` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}/versions` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PUT | `/api/v1/knowledge/articles/{article_id}/vote` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/articles/{article_id}/votes` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/articles/{article_id}/withdraw` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/portal/home` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/portal/topics` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/records/{record_type}/{record_id}/articles` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/settings` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PATCH | `/api/v1/knowledge/settings` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/suggestions` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/topics` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/topics` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| DELETE | `/api/v1/knowledge/topics/{topic_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PATCH | `/api/v1/knowledge/topics/{topic_id}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/knowledge/types` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| POST | `/api/v1/knowledge/types` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| PATCH | `/api/v1/knowledge/types/{code}` | `knowledge.view` | knowledge.view: all/group/own | `knowledge` (module, permission) |
+| GET | `/api/v1/list-settings/{list_key}` | signed_in | - | - |
+| POST | `/api/v1/list-settings/{list_key}/saved-views` | signed_in | - | - |
+| DELETE | `/api/v1/list-settings/{list_key}/saved-views/{view_id}` | signed_in | - | - |
+| PATCH | `/api/v1/list-settings/{list_key}/saved-views/{view_id}` | signed_in | - | - |
+| GET | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - | - |
+| PUT | `/api/v1/list-settings/{list_key}/views/{view_key}` | signed_in | - | - |
+| GET | `/api/v1/my-reminders` | signed_in | - | - |
+| DELETE | `/api/v1/my-reminders/{reminder_id}` | signed_in | - | - |
+| PATCH | `/api/v1/my-reminders/{reminder_id}` | signed_in | - | - |
+| GET | `/api/v1/my-tasks` | signed_in | - | - |
+| GET | `/api/v1/my-timers` | signed_in | - | - |
+| GET | `/api/v1/notifications` | signed_in | - | - |
+| GET | `/api/v1/notifications/deliveries` | signed_in | - | - |
+| GET | `/api/v1/notifications/mail-status` | signed_in | - | - |
+| GET | `/api/v1/notifications/preferences` | signed_in | - | - |
+| PUT | `/api/v1/notifications/preferences` | signed_in | - | - |
+| POST | `/api/v1/notifications/read` | signed_in | - | - |
+| GET | `/api/v1/notifications/rules` | `notifications.manage` | notifications.manage: all | - |
+| DELETE | `/api/v1/notifications/rules/{event_code}` | `notifications.manage` | notifications.manage: all | - |
+| PUT | `/api/v1/notifications/rules/{event_code}` | `notifications.manage` | notifications.manage: all | - |
+| GET | `/api/v1/notifications/status` | `notifications.manage` | notifications.manage: all | - |
+| GET | `/api/v1/organization/branding` | signed_in | - | - |
+| POST | `/api/v1/organization/branding/check` | `branding.manage` | branding.manage: all | - |
+| GET | `/api/v1/organization/branding/settings` | `branding.manage` | branding.manage: all | - |
+| PUT | `/api/v1/organization/branding/settings` | `branding.manage` | branding.manage: all | - |
+| GET | `/api/v1/organization/departments` | `departments.view` | departments.view: all | - |
+| POST | `/api/v1/organization/departments` | `departments.manage` | departments.manage: all | - |
+| DELETE | `/api/v1/organization/departments/{department_id}` | `departments.manage` | departments.manage: all | - |
+| PATCH | `/api/v1/organization/departments/{department_id}` | `departments.manage` | departments.manage: all | - |
+| GET | `/api/v1/organization/desks` | signed_in | - | - |
+| POST | `/api/v1/organization/desks` | `config.organisation` or `settings.manage` | config.organisation: all; settings.manage: all | `esm` (module) |
+| PATCH | `/api/v1/organization/desks/{desk_id}` | `config.organisation` or `settings.manage` | config.organisation: all; settings.manage: all | `esm` (module) |
+| GET | `/api/v1/organization/domains` | `branding.manage` | branding.manage: all | - |
+| POST | `/api/v1/organization/domains` | `branding.manage` | branding.manage: all | - |
+| DELETE | `/api/v1/organization/domains/{domain_id}` | `branding.manage` | branding.manage: all | - |
+| PUT | `/api/v1/organization/domains/{domain_id}/certificate` | `branding.manage` | branding.manage: all | - |
+| POST | `/api/v1/organization/domains/{domain_id}/verify` | `branding.manage` | branding.manage: all | - |
+| GET | `/api/v1/organization/groups` | `groups.view` | groups.view: all | - |
+| POST | `/api/v1/organization/groups` | `groups.manage` | groups.manage: all | - |
+| DELETE | `/api/v1/organization/groups/{unit_id}` | `groups.manage` | groups.manage: all | - |
+| PATCH | `/api/v1/organization/groups/{unit_id}` | `groups.manage` | groups.manage: all | - |
+| DELETE | `/api/v1/organization/groups/{unit_id}/members/{user_id}` | `groups.manage` | groups.manage: all | - |
+| PUT | `/api/v1/organization/groups/{unit_id}/members/{user_id}` | `groups.manage` | groups.manage: all | - |
+| GET | `/api/v1/organization/settings` | signed_in | - | - |
+| PATCH | `/api/v1/organization/settings` | signed_in | - | - |
+| GET | `/api/v1/organization/sites` | `sites.view` | sites.view: all | - |
+| POST | `/api/v1/organization/sites` | `sites.manage` | sites.manage: all | - |
+| DELETE | `/api/v1/organization/sites/{unit_id}` | `sites.manage` | sites.manage: all | - |
+| PATCH | `/api/v1/organization/sites/{unit_id}` | `sites.manage` | sites.manage: all | - |
+| DELETE | `/api/v1/organization/sites/{unit_id}/members/{user_id}` | `sites.manage` | sites.manage: all | - |
+| PUT | `/api/v1/organization/sites/{unit_id}/members/{user_id}` | `sites.manage` | sites.manage: all | - |
+| GET | `/api/v1/organization/tenant` | signed_in | - | - |
+| GET | `/api/v1/people-imports` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/people-imports` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/people-imports/{import_id}` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/people/{user_id}/access-rules` | signed_in | - | - |
+| POST | `/api/v1/people/{user_id}/erasure` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` or `people.erase` | audit.manage_holds: all; people.erase: all | - |
+| PUT | `/api/v1/people/{user_id}/legal-hold` | `audit.manage_holds` | audit.manage_holds: all | - |
+| POST | `/api/v1/people/{user_id}/legal-hold/lift` | `audit.manage_holds` | audit.manage_holds: all | - |
+| GET | `/api/v1/people/{user_id}/uploads` | `people.erase` | people.erase: all | - |
+| GET | `/api/v1/permissions` | `roles.view` | roles.view: all | - |
+| GET | `/api/v1/portal/changes` | signed_in | - | `change` (module) |
+| POST | `/api/v1/portal/changes` | signed_in | - | `change` (module) |
+| GET | `/api/v1/portal/changes/templates` | signed_in | - | `change` (module) |
+| GET | `/api/v1/portal/changes/{record_id}` | signed_in | - | `change` (module) |
+| GET | `/api/v1/portal/changes/{record_id}/conversation` | signed_in | - | `change` (module) |
+| POST | `/api/v1/portal/changes/{record_id}/replies` | signed_in | - | `change` (module) |
+| GET | `/api/v1/portal/incidents` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/portal/incidents` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/incidents/on-behalf-people` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/incidents/templates` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/incidents/{record_id}` | signed_in | - | `incident` (module) |
+| PATCH | `/api/v1/portal/incidents/{record_id}` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/portal/incidents/{record_id}/cancel` | signed_in | - | `incident` (module) |
+| DELETE | `/api/v1/portal/incidents/{record_id}/cancel-request` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/incidents/{record_id}/conversation` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/portal/incidents/{record_id}/replies` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/portal/incidents/{record_id}/resolution/confirm` | signed_in | - | `incident` (module) |
+| POST | `/api/v1/portal/incidents/{record_id}/resolution/reject` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/service-requests` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}/conversation` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - | `service_request` (module) |
+| PUT | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/portal/service-requests/{record_id}/replies` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}/request-again` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/portal/service-requests/{record_id}/resolution/confirm` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/portal/service-requests/{record_id}/resolution/reject` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}/steps` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
+| PATCH | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/summary` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/tasks` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/problem-repeats/hits` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| POST | `/api/v1/problem-repeats/hits/{hit_id}/handle` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| GET | `/api/v1/problem-repeats/hits/{hit_id}/incidents` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| GET | `/api/v1/problem-repeats/rules` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problem-repeats/rules` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| DELETE | `/api/v1/problem-repeats/rules/{rule_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problem-repeats/rules/{rule_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| POST | `/api/v1/problems/approvals/decisions` | signed_in | - | `problem` (module) |
+| GET | `/api/v1/problems/assignees` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/board` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/bulk` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/bulk-jobs` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/bulk-jobs/{job_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/categories` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/checklist-library` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/counters` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/from-incidents` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| POST | `/api/v1/problems/from-incidents/preview` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| GET | `/api/v1/problems/known-errors` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/known-errors/suggestions` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/list` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/list-fields` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/list-settings/{view_key}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/lookup/{value}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/my-approvals` | signed_in | - | `problem` (module) |
+| GET | `/api/v1/problems/my-approvals/decided` | signed_in | - | `problem` (module) |
+| GET | `/api/v1/problems/my-tasks` | signed_in | - | `problem` (module) |
+| GET | `/api/v1/problems/prefill` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| GET | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/reply-templates` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/reply-templates/manage` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/reply-templates/{template_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/saved-views` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all | `problem` (module) |
+| POST | `/api/v1/problems/saved-views/audit` | `roles.manage` | roles.manage: all | `problem` (module) |
+| DELETE | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/saved-views/{view_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/saved-views/{view_id}/favourite` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/search` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/settings` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| DELETE | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PUT | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/settings/list-display` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PUT | `/api/v1/problems/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PUT | `/api/v1/problems/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PUT | `/api/v1/problems/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/similar` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/task-templates` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/templates` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| PATCH | `/api/v1/problems/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| POST | `/api/v1/problems/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `problem` (module) |
+| GET | `/api/v1/problems/trash` | `problems.delete` | problems.delete: all | `problem` (module, permission) |
+| GET | `/api/v1/problems/view-filters` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/views` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}` | `problems.delete` | problems.delete: all | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/{record_id}` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/actions/{action}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/approvals` | signed_in | - | `problem` (module) |
+| POST | `/api/v1/problems/{record_id}/approvals` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `problem` (module) |
+| POST | `/api/v1/problems/{record_id}/assign` | `problems.assign` | problems.assign: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/automation` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/cancellation-request` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/cancellation-request/decide` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/{record_id}/checklist-items/{item_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/checklists` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/checklists/{checklist_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/checklists/{checklist_id}/items` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/cis/{link_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/{record_id}/conversation/{entry_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/copy` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/copy` | `problems.create` | problems.create: all | `problem` (module, permission) |
+| PUT | `/api/v1/problems/{record_id}/due-dates/{kind}` | `problems.edit_due_dates` | problems.edit_due_dates: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/evidence` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/follow-up` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/follow-up` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/followers` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/followers/{user_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/{record_id}/followers/{user_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/history` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/impact` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/incidents` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/incidents/{incident_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/investigators` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/investigators/{user_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PUT | `/api/v1/problems/{record_id}/investigators/{user_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/known-error` | `problems.mark_known_error` | problems.mark_known_error: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/known-error/remove` | `problems.mark_known_error` | problems.mark_known_error: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/links` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/links` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/links/{link_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/mentionable` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/merge` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/message-recipients` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/messages/incident-requesters` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/read` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/reminders` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/reply-templates/{template_id}/fill` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/resolution/confirm` | signed_in | - | `problem` (module) |
+| POST | `/api/v1/problems/{record_id}/resolution/reject` | signed_in | - | `problem` (module) |
+| POST | `/api/v1/problems/{record_id}/restore` | `problems.delete` | problems.delete: all | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/sla` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/take` | `problems.take` | problems.take: all/site/group | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/tasks` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/tasks` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/tasks/from-template` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/tasks/{task_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/{record_id}/tasks/{task_id}` | signed_in | - | `problem` (module) |
+| PUT | `/api/v1/problems/{record_id}/tasks/{task_id}/dependencies` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/tasks/{task_id}/move` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/time-analysis` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/timer` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/timer/auto` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/timer/stop` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/typing` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/undo-merge` | `problems.edit` | problems.edit: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/problems/{record_id}/worklogs` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/worklogs` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| DELETE | `/api/v1/problems/{record_id}/worklogs/{worklog_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| PATCH | `/api/v1/problems/{record_id}/worklogs/{worklog_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| GET | `/api/v1/procurement/vendors` | `vendors.view` | vendors.view: all | `procurement` (module, permission) |
+| POST | `/api/v1/procurement/vendors` | `vendors.create` | vendors.create: all | `procurement` (module, permission) |
+| DELETE | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.manage` | vendors.manage: all | `procurement` (module, permission) |
+| GET | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.view` | vendors.view: all | `procurement` (module, permission) |
+| PATCH | `/api/v1/procurement/vendors/{vendor_id}` | `vendors.manage` | vendors.manage: all | `procurement` (module, permission) |
+| POST | `/api/v1/public/action-links/peek` | public | - | - |
+| POST | `/api/v1/public/action-links/use` | public | - | - |
+| GET | `/api/v1/public/branding` | public | - | - |
+| GET | `/api/v1/public/branding/{tenant_ref}/login.css` | public | - | - |
+| GET | `/api/v1/public/branding/{tenant_ref}/{name}` | public | - | - |
+| GET | `/api/v1/public/domain-check/{token}` | public | - | - |
+| POST | `/api/v1/public/invite-links/accept` | public | - | - |
+| POST | `/api/v1/public/invite-links/peek` | public | - | - |
+| POST | `/api/v1/public/notify-links/peek` | public | - | `incident` (module) |
+| POST | `/api/v1/public/notify-links/stop` | public | - | `incident` (module) |
+| POST | `/api/v1/public/vendor-support/open` | public | - | - |
+| GET | `/api/v1/ready` | public | - | - |
+| POST | `/api/v1/realtime/connection-token` | signed_in | - | - |
+| GET | `/api/v1/realtime/lists/{name}` | signed_in | - | - |
+| POST | `/api/v1/realtime/subscription-token` | signed_in | - | - |
+| GET | `/api/v1/release-calendar` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases` | `releases.create` | releases.create: all | `release` (module, permission) |
+| POST | `/api/v1/releases/approvals/decisions` | signed_in | - | `release` (module) |
+| GET | `/api/v1/releases/assignees` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/board` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/bulk` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/bulk-jobs` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/bulk-jobs/{job_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/categories` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/checklist-library` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| POST | `/api/v1/releases/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/counters` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/list` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/list-fields` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/list-settings/{view_key}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/lookup/{value}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/my-approvals` | signed_in | - | `release` (module) |
+| GET | `/api/v1/releases/my-approvals/decided` | signed_in | - | `release` (module) |
+| GET | `/api/v1/releases/my-tasks` | signed_in | - | `release` (module) |
+| GET | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/reply-templates` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/reply-templates/manage` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/reply-templates/{template_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/roles/{role}/candidates` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/saved-views` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all | `release` (module) |
+| POST | `/api/v1/releases/saved-views/audit` | `roles.manage` | roles.manage: all | `release` (module) |
+| DELETE | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/saved-views/{view_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/saved-views/{view_id}/favourite` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/search` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/settings` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/settings/list-display` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PUT | `/api/v1/releases/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| POST | `/api/v1/releases/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PUT | `/api/v1/releases/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PUT | `/api/v1/releases/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| POST | `/api/v1/releases/settings/roles` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/roles/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/settings/stages` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PUT | `/api/v1/releases/settings/stages/{stage}/access` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PUT | `/api/v1/releases/settings/stages/{stage}/approvals` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/task-templates` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/templates` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| PATCH | `/api/v1/releases/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| POST | `/api/v1/releases/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `release` (module) |
+| GET | `/api/v1/releases/trash` | `releases.delete` | releases.delete: all | `release` (module, permission) |
+| GET | `/api/v1/releases/view-filters` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/views` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}` | `releases.delete` | releases.delete: all | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/actions/{action}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/approvals` | signed_in | - | `release` (module) |
+| POST | `/api/v1/releases/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `release` (module) |
+| POST | `/api/v1/releases/{record_id}/assign` | `releases.assign` | releases.assign: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/automation` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/cancellation-request` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/cancellation-request/decide` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/changes` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/changes` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/changes/close` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/changes/{change_id}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/checklist-items/{item_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/checklists` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/checklists` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/checklists/{checklist_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/checklists/{checklist_id}/items` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/cis/{link_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/conflicts` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/conflicts/acks` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/conversation` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/conversation` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/conversation/{entry_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/copy` | `releases.create` | releases.create: all | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/details` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/details` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/downtimes` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/downtimes` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/downtimes/{downtime_id}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/downtimes/{downtime_id}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/{record_id}/due-dates/{kind}` | `releases.edit_due_dates` | releases.edit_due_dates: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/follow-ups` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/follow-ups` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/followers` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/followers/{user_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/{record_id}/followers/{user_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/freeze-override` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/history` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/links` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/links` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/links/{link_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/mentionable` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/moves` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/{record_id}/parent` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/plan` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/{record_id}/plan/{section}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/read` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/reminders` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/reply-templates/{template_id}/fill` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/resolution/confirm` | signed_in | - | `release` (module) |
+| POST | `/api/v1/releases/{record_id}/resolution/reject` | signed_in | - | `release` (module) |
+| POST | `/api/v1/releases/{record_id}/restore` | `releases.delete` | releases.delete: all | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/roles` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PUT | `/api/v1/releases/{record_id}/roles/{role}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/schedule` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/schedule/{stage}` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/sla` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/stages` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/sub-releases` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/take` | `releases.take` | releases.take: all/site/group | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/tasks` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/tasks` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/tasks/from-template` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/tasks/{task_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/tasks/{task_id}` | signed_in | - | `release` (module) |
+| PUT | `/api/v1/releases/{record_id}/tasks/{task_id}/dependencies` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/tasks/{task_id}/move` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/time-analysis` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/timer` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/timer/auto` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/timer/stop` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/typing` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| GET | `/api/v1/releases/{record_id}/worklogs` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/worklogs` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| DELETE | `/api/v1/releases/{record_id}/worklogs/{worklog_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| PATCH | `/api/v1/releases/{record_id}/worklogs/{worklog_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/reports` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/entities/{entity}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/export-formats` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/exports` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/reports/exports` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/exports/{export_id}/file` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/reports/favourites/{report_ref}` | `reports.view` | reports.view: all/site/group | - |
+| PUT | `/api/v1/reports/favourites/{report_ref}` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/reports/folders` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/reports/folders/{folder_id}` | `reports.view` | reports.view: all/site/group | - |
+| PATCH | `/api/v1/reports/folders/{folder_id}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/library` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/reports/run` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/schedules` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/reports/schedules` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/reports/schedules/{schedule_id}` | `reports.view` | reports.view: all/site/group | - |
+| PUT | `/api/v1/reports/schedules/{schedule_id}` | `reports.view` | reports.view: all/site/group | - |
+| POST | `/api/v1/reports/schedules/{schedule_id}/{action}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/settings` | `reports.view` | reports.view: all/site/group | - |
+| PATCH | `/api/v1/reports/settings` | `reports.view` | reports.view: all/site/group | - |
+| DELETE | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group | - |
+| PATCH | `/api/v1/reports/{report_id}` | `reports.view` | reports.view: all/site/group | - |
+| GET | `/api/v1/resource-access/criteria` | `roles.view` | roles.view: all | - |
+| GET | `/api/v1/resource-access/rules` | `roles.view` | roles.view: all | - |
+| POST | `/api/v1/resource-access/rules` | `roles.manage` | roles.manage: all | - |
+| DELETE | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all | - |
+| PATCH | `/api/v1/resource-access/rules/{rule_id}` | `roles.manage` | roles.manage: all | - |
+| GET | `/api/v1/roles` | `roles.view` | roles.view: all | - |
+| POST | `/api/v1/roles` | `roles.manage` | roles.manage: all | - |
+| DELETE | `/api/v1/roles/{role_id}` | `roles.manage` | roles.manage: all | - |
+| GET | `/api/v1/roles/{role_id}` | `roles.view` | roles.view: all | - |
+| PATCH | `/api/v1/roles/{role_id}` | `roles.manage` | roles.manage: all | - |
+| POST | `/api/v1/roles/{role_id}/change-preview` | `roles.manage` | roles.manage: all | - |
+| DELETE | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all | - |
+| PUT | `/api/v1/roles/{role_id}/groups/{group_id}` | `roles.manage` | roles.manage: all | - |
+| GET | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all | - |
+| POST | `/api/v1/service-accounts` | `api_keys.manage` | api_keys.manage: all | - |
+| GET | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all | - |
+| PATCH | `/api/v1/service-accounts/{account_id}` | `api_keys.manage` | api_keys.manage: all | - |
+| GET | `/api/v1/service-accounts/{account_id}/roles` | `api_keys.manage` | api_keys.manage: all | - |
+| DELETE | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all | - |
+| PUT | `/api/v1/service-accounts/{account_id}/roles/{role_id}` | `api_keys.manage` | api_keys.manage: all | - |
+| GET | `/api/v1/service-requests` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests` | `requests.create` | requests.create: all | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/alias/{value}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/approvals/decisions` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/service-requests/assignees` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/board` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/bulk` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/bulk-jobs` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/bulk-jobs/{job_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/categories` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/categories` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/categories/{category_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/checklist-library` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/checklist-library` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/checklist-library/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/checklist-library/import` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/checklist-library/{library_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/counters` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/list` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/list-fields` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/list-settings/{view_key}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/lookup/{value}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/my-approvals` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/service-requests/my-approvals/decided` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/service-requests/my-tasks` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/reply-templates` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/reply-templates/manage` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/reply-templates/{template_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/saved-views` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all | `service_request` (module) |
+| POST | `/api/v1/service-requests/saved-views/audit` | `roles.manage` | roles.manage: all | `service_request` (module) |
+| DELETE | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/saved-views/{view_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/saved-views/{view_id}/favourite` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/search` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/settings` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/settings` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/settings/closure` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| DELETE | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PUT | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/draft/publish` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/moves` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/settings/lifecycles/{lifecycle}/versions/{number}/retire` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/settings/list-display` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/settings/list-display` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PUT | `/api/v1/service-requests/settings/lists/{list_name}/order` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/settings/lists/{list_name}/values` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/settings/lists/{list_name}/values/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PUT | `/api/v1/service-requests/settings/matrix` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PUT | `/api/v1/service-requests/settings/numbering` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/settings/scales/{scale}/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/settings/statuses/{code}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/settings/transitions/{from_status}/{action}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/task-templates` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/task-templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/task-templates/all` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/task-templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/templates` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/templates` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| PATCH | `/api/v1/service-requests/templates/{template_id}` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| POST | `/api/v1/service-requests/templates/{template_id}/copy` | `config.service_desk` or `settings.manage` | config.service_desk: all; settings.manage: all | `incident` (permission); `service_request` (module) |
+| GET | `/api/v1/service-requests/trash` | `requests.delete` | requests.delete: all | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/view-filters` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/views` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}` | `requests.delete` | requests.delete: all | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}` | `requests.edit` | requests.edit: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/actions/{action}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}/answers` | `requests.edit` | requests.edit: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/approvals` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/service-requests/{record_id}/approvals` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/approvers` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/reminders` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/stages` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/clarification` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/assets/{link_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/assign` | `requests.assign` | requests.assign: all/site/group | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/automation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/cancellation-request` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/cancellation-request/decide` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}/checklist-items/{item_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/checklists` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}/items` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/cis/{link_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}/conversation/{entry_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/convert` | `requests.edit` | requests.edit: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/convert-preview` | `requests.edit` | requests.edit: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/{record_id}/due-dates/{kind}` | `requests.edit_due_dates` | requests.edit_due_dates: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/followers` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PUT | `/api/v1/service-requests/{record_id}/followers/{user_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/history` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/links` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/links` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/links/{link_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/mentionable` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/read` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/reminders` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/reply-templates/{template_id}/fill` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/resolution/confirm` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/service-requests/{record_id}/resolution/reject` | signed_in | - | `service_request` (module) |
+| POST | `/api/v1/service-requests/{record_id}/restore` | `requests.delete` | requests.delete: all | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/sla` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/take` | `requests.take` | requests.take: all/site/group | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/tasks` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/tasks` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/tasks/from-template` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}/tasks/{task_id}` | signed_in | - | `service_request` (module) |
+| PUT | `/api/v1/service-requests/{record_id}/tasks/{task_id}/dependencies` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/tasks/{task_id}/move` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/time-analysis` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/timer` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/timer/auto` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/timer/stop` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/typing` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/withdraw` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/service-requests/{record_id}/worklogs` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/worklogs` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| DELETE | `/api/v1/service-requests/{record_id}/worklogs/{worklog_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| PATCH | `/api/v1/service-requests/{record_id}/worklogs/{worklog_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| GET | `/api/v1/sla/calendars` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/calendars` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| DELETE | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/calendars/{calendar_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/calendars/{calendar_id}/open-records` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/calendars/{calendar_id}/special-hours` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| DELETE | `/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/holiday-lists` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/holiday-lists` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| DELETE | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/holiday-lists/{list_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/holiday-lists/{list_id}/copy-year` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/holiday-lists/{list_id}/holidays` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/holiday-lists/{list_id}/holidays` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| DELETE | `/api/v1/sla/holiday-lists/{list_id}/holidays/{holiday_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/holiday-lists/{list_id}/holidays/{holiday_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/holiday-lists/{list_id}/import` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| DELETE | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/policies/{policy_id}` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/record-types/{record_type}/policies` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| POST | `/api/v1/sla/record-types/{record_type}/policies` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PUT | `/api/v1/sla/record-types/{record_type}/policies/order` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/sla/record-types/{record_type}/settings` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| PATCH | `/api/v1/sla/record-types/{record_type}/settings` | `sla.view` | sla.view: all | `sla` (module, permission) |
+| GET | `/api/v1/users` | `users.view` | users.view: all/site/group/own | - |
+| POST | `/api/v1/users` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/users/{user_id}` | signed_in | - | - |
+| PATCH | `/api/v1/users/{user_id}` | `profile.edit` | profile.edit: own | - |
+| GET | `/api/v1/users/{user_id}/access` | `users.view` | users.view: all/site/group/own | - |
+| GET | `/api/v1/users/{user_id}/cost-rates` | `users.view_cost_rates` | users.view_cost_rates: all | - |
+| POST | `/api/v1/users/{user_id}/cost-rates` | `users.manage_cost_rates` | users.manage_cost_rates: all | - |
+| DELETE | `/api/v1/users/{user_id}/cost-rates/{rate_id}` | `users.manage_cost_rates` | users.manage_cost_rates: all | - |
+| PATCH | `/api/v1/users/{user_id}/cost-rates/{rate_id}` | `users.manage_cost_rates` | users.manage_cost_rates: all | - |
+| POST | `/api/v1/users/{user_id}/deactivate` | `users.manage` | users.manage: all | - |
+| PATCH | `/api/v1/users/{user_id}/person` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/users/{user_id}/reactivate` | `users.manage` | users.manage: all | - |
+| GET | `/api/v1/users/{user_id}/reactivation` | `users.manage` | users.manage: all | - |
+| POST | `/api/v1/users/{user_id}/role-preview` | `users.manage` | users.manage: all | - |
+| DELETE | `/api/v1/users/{user_id}/roles/{role_id}` | `users.manage` | users.manage: all | - |
+| PUT | `/api/v1/users/{user_id}/roles/{role_id}` | `users.manage` | users.manage: all | - |
+| PUT | `/api/v1/users/{user_id}/sign-in` | `users.manage` | users.manage: all | - |
+| PUT | `/api/v1/users/{user_id}/type` | `users.manage` | users.manage: all | - |
 
 ## Built-in roles
 

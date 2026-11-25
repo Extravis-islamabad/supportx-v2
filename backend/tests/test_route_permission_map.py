@@ -45,3 +45,37 @@ def test_the_map_lists_routes_and_roles(page: str) -> None:
     assert "| POST | `/api/v1/auth/logout` | session (BFF) | - |" in page
     assert "| GET | `/api/v1/auth/login` | public | - |" in page
     assert "| technician | `incidents.view` | group, own | all, own |" in page
+
+
+# The Feature column (#578's follow-up, lane C): where each route's licence gate is declared.
+
+
+@pytest.fixture(scope="module")
+def features() -> dict[str, str]:
+    """Generated once per module: building the app takes a few seconds."""
+    return route_permissions.feature_table(
+        route_permissions.build_app(), route_permissions.build_catalogue()
+    )
+
+
+def test_the_feature_column_names_the_level_that_gates(features: dict[str, str]) -> None:
+    # A module's feature, which its permissions also name.
+    assert features["GET /api/v1/changes"] == "`change` (module, permission)"
+    # A single route narrower than its router (`requires_feature`); its list is not gated.
+    assert features["POST /api/v1/audit/siem/destinations"] == "`siem_stream` (route)"
+    assert features["PATCH /api/v1/audit/siem/destinations/{destination_id}"] == (
+        "`siem_stream` (route)"
+    )
+    assert features["GET /api/v1/audit/siem/destinations"] == "-"
+    # Every route has a cell, and the health probe needs no plan.
+    assert features["GET /api/v1/health"] == "-"
+
+
+def test_every_named_feature_is_a_licence_feature(features: dict[str, str]) -> None:
+    from app.modules.licensing import Feature  # noqa: PLC0415 - this test only
+
+    known = {f.value for f in Feature}
+    named = {
+        part.split("`")[1] for cell in features.values() if cell != "-" for part in cell.split("; ")
+    }
+    assert named <= known, named - known

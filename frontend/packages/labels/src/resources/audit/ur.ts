@@ -483,6 +483,8 @@ export const ur: LabelResource = {
   'audit.action.service_request.access_changed': 'سروس کی درخواست تک رسائی رکھنے والے بدلے',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
   'audit.action.service_request.approval_escalated': 'سروس درخواست کی منظوری آگے بڑھائی گئی',
+  'audit.action.service_request.approval_mail_decided': 'ای میل کے جواب سے منظوری کا فیصلہ کیا',
+  'audit.action.service_request.approval_mail_ignored': 'منظوری پر ای میل جواب پر عمل نہیں کیا',
   'audit.action.service_request.approval_requested':
     'سروس درخواست کی منظوری کے لیے مخصوص لوگوں سے کہا',
   'audit.action.service_request.approval_restarted':

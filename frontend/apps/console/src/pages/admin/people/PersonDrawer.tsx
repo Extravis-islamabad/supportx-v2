@@ -145,9 +145,15 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
   // Versions this drawer saved itself (type, sign-in, status, the form): not someone else's
   // change, so they never make the open form stale (QA WP-021 BUG-03).
   const [own] = useState(() => new Set<number>());
-  useRecordChannel('users', creating ? undefined : userId, (message) => {
-    if (userId !== undefined) refreshRecord(queryClient, queryKeys.users.detail(userId), message);
-  });
+  useRecordChannel(
+    'users',
+    creating ? undefined : userId,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (userId !== undefined) refreshRecord(queryClient, queryKeys.users.detail(userId), message);
+    },
+    { covers: userId === undefined ? [] : [queryKeys.users.detail(userId)] }, // [] while creating
+  );
   const title = creating
     ? t('people.add')
     : user === undefined

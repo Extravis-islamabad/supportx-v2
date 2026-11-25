@@ -352,10 +352,13 @@ export function LoansPage() {
   );
   const [adding, setAdding] = useState(false);
   const [returning, setReturning] = useState<string>();
-  useTenantChannel((event) => {
-    if (event.type === 'assets.loans_changed')
-      void queryClient.invalidateQueries({ queryKey: queryKeys.assets.loans });
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'assets.loans_changed')
+        void queryClient.invalidateQueries({ queryKey: queryKeys.assets.loans });
+    },
+    { covers: [queryKeys.assets.loans] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   const rows = loans.data ?? [];
   return (
