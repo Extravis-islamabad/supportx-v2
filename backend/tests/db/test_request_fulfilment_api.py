@@ -13,6 +13,7 @@ from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import fresh, manager_of
 from tests.db.test_assets_api import _add as add_asset
 from tests.db.test_assets_api import _product
+from tests.db.test_conversation_api import events_of
 from tests.db.test_fulfilment_api import tasks
 from tests.db.test_incidents_api import CONSOLE, Org, World
 from tests.db.test_service_requests_api import SR, an_item, raise_request
@@ -279,6 +280,18 @@ async def test_handover_assigns_links_and_audits(world: World) -> None:
         uuid.UUID(asset["id"]),
     )
     assert [r["source"] for r in history] == ["workflow"]
+    holdings = await world.sql(  # lane B: the hand-over starts a holding (none was current)
+        "SELECT holder_id, ended_at FROM asset_assignments WHERE tenant_id = $1 AND asset_id = $2",
+        a.tenant,
+        uuid.UUID(asset["id"]),
+    )
+    assert [(r["holder_id"], r["ended_at"]) for r in holdings] == [(a.requester, None)]
+    changed = [
+        e
+        for e in await events_of(world, "asset")
+        if e.event_type == "assets.holder.changed" and e.payload.get("asset_id") == asset["id"]
+    ]
+    assert [e.payload["people"] for e in changed] == [[str(a.requester)]]
 
 
 async def test_handover_refused_out_of_scope_end_of_life_elsewhere_inactive(world: World) -> None:

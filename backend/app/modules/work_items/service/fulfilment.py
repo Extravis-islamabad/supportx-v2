@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied, ValidationFailed
 from app.modules import service_catalog
-from app.modules.identity_access import person_placement
+from app.modules.identity_access import UserType, person_placement
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.parts import TaskPriority, TaskStatus
@@ -29,7 +29,7 @@ from app.shared.conditions import matches
 from app.shared.events import record_event
 from app.shared.history import Change, Source
 
-TECHNICIAN = "technician"  # a person of the desk: an owner who is not one gets task-only access
+TECHNICIAN = UserType.TECHNICIAN.value  # of the desk: an owner who is not gets task-only access
 # A plan step's owner kinds (service_catalog's TaskOwnerKind codes, plain values across modules).
 OWNER_PERSON, OWNER_MANAGER = "person", "requested_for_manager"
 FULFILMENT_RULE = "fulfilment"  # history's automatic move: the last required task was done
