@@ -1677,7 +1677,7 @@ export {
   type RiskLevel,
   type StageChanges,
 } from './changes';
-export { useKnownAsset, useKnownUser } from './prefill';
+export { useKnownAsset, useKnownCi, useKnownUser } from './prefill';
 export {
   sharedListKeys,
   useFavouriteView,
