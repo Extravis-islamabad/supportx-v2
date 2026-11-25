@@ -284,6 +284,7 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
 # brokered sign-in, and the BFF reads then clears them all, so what it finds is this sign-in's
 # (the importer skips standard claims such as `iat`, so no upstream timestamp can be used).
 GROUPS_PREFIX = "sx_groups"
+_ALIAS = re.compile(r"[a-z0-9-]+")  # what alias_for makes; one-to-one with the names
 OVERAGE_CLAIM = "_claim_names"  # Entra: the groups were too many to send (a JSON object)
 HASGROUPS_CLAIM = "hasgroups"  # Entra's other overage signal
 
@@ -308,6 +309,11 @@ def group_attributes(alias: str) -> GroupAttributes:
     Separate attributes for the two overage claims: two FORCE importers on one attribute would
     clear each other (an absent claim clears its attribute).
     """
+    # `-` becomes `_`, so a name maps back to one alias only while aliases hold no `_` (lane C's
+    # #632 review): any other alias is refused, never folded onto another's attributes.
+    if not _ALIAS.fullmatch(alias):
+        msg = "an SSO alias is lowercase letters, digits and hyphens only"
+        raise ValueError(msg)
     a = alias.replace("-", "_")
     return GroupAttributes(
         groups=f"{GROUPS_PREFIX}_{a}",

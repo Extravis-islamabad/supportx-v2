@@ -63,6 +63,8 @@ class FakeAdmin:
     mapper_sets: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     # S5c: the providers whose group attributes were cleared.
     cleared_groups: list[str] = field(default_factory=list)
+    # S5c: the order of mapper changes, group clears and deletes (lane C's #632 review).
+    steps: list[tuple[str, str, bool]] = field(default_factory=list)
     attributes: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     events: list[LoginEvent] = field(default_factory=list)
     logged_out: list[str] = field(default_factory=list)
@@ -209,6 +211,7 @@ class FakeAdmin:
         self.providers[alias] = {**representation, "config": config}
 
     async def delete_provider(self, alias: str) -> None:
+        self.steps.append(("delete", alias, False))
         self.providers.pop(alias, None)
         for links in self.links.values():
             links.discard(alias)
@@ -221,8 +224,14 @@ class FakeAdmin:
 
     async def replace_mappers(self, alias: str, mappers: list[dict[str, Any]]) -> None:
         self.mapper_sets[alias] = mappers
+        importing = any(
+            str(m.get("config", {}).get("user.attribute", "")).startswith("sx_groups")
+            for m in mappers
+        )
+        self.steps.append(("mappers", alias, importing))
 
     async def clear_group_attributes(self, alias: str) -> int:
+        self.steps.append(("clear", alias, False))
         self.cleared_groups.append(alias)
         return 0
 
@@ -1480,3 +1489,58 @@ async def test_mfa_policies_are_tenant_isolated(world: World) -> None:
                 )
     finally:
         await conn.close()
+
+
+# --- S5c: group importers go before their attributes are cleared (lane C's #632 review) -------
+
+
+async def _follow_groups(world: World, provider: str, *, follow: bool) -> None:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE sso_providers SET settings = jsonb_set(coalesce(settings, '{}'), '{groups}',"
+            " $2::jsonb) WHERE id = $1",
+            uuid.UUID(provider),
+            json.dumps({"follow": follow, "claim": "groups"}),
+        )
+    finally:
+        await conn.close()
+
+
+async def test_turning_groups_off_or_removing_drops_the_importers_before_clearing(
+    world: World,
+) -> None:
+    """A sign-in between a clear and a mapper change would write the groups back."""
+    added = (await world.add_oidc(world.a)).json()
+    path = f"/identity/sso/{added['id']}"
+    body = {
+        "preset": "entra",
+        "display_name": "Acme Entra ID",
+        "domains": ["acme.test"],
+        "issuer": ISSUER,
+        "client_id": "supportx",
+    }
+    await _follow_groups(world, added["id"], follow=True)
+    on = await world.call(
+        "PUT", path, world.a, json=body, headers={"If-Match": f'"{added["version"]}"'}
+    )
+    assert on.status_code == 200, on.text
+    alias = next(iter(world.admin.providers))
+    assert world.admin.steps[-1] == ("mappers", alias, True)  # following: importers on
+    world.admin.steps.clear()
+    await _follow_groups(world, added["id"], follow=False)
+    off = await world.call(
+        "PUT", path, world.a, json=body, headers={"If-Match": f'"{on.json()["version"]}"'}
+    )
+    assert off.status_code == 200, off.text
+    assert world.admin.steps == [("mappers", alias, False), ("clear", alias, False)]
+    world.admin.steps.clear()
+    gone = await world.call(
+        "DELETE", path, world.a, headers={"If-Match": f'"{off.json()["version"]}"'}
+    )
+    assert gone.status_code == 204, gone.text
+    assert world.admin.steps == [
+        ("mappers", alias, False),
+        ("clear", alias, False),
+        ("delete", alias, False),
+    ]

@@ -561,11 +561,13 @@ async def update_provider(  # noqa: PLR0913, PLR0915 - the record and its input;
         sso.SAML_MAPPING if values.protocol == "saml" else sso.OIDC_MAPPING
     )
     groups_claim = _groups_claim(row.settings)
-    await _sync_group_attributes(keycloak, row.alias, groups_claim)
+    # Mappers first, then the clear (lane C's #632 review): cleared first, a sign-in in between
+    # would write the groups and `seen` back through the old importers.
     await keycloak.replace_mappers(
         row.alias,
         sso.mappers(values.protocol, mapping, alias=row.alias, groups_claim=groups_claim),
     )
+    await _sync_group_attributes(keycloak, row.alias, groups_claim)
     ours = set(row.settings.get("added_domains") or [])
     gone = {d for d in ours if d not in domains}
     added = await _set_domains(
@@ -664,7 +666,8 @@ async def _sync_group_attributes(
 
     Never a user-profile change: that needs manage-realm, which the identity account never holds
     (tooling/keycloak_identity.py). The attributes are kept, admin-only, by the realm's own
-    unmanaged-attribute policy (set by the deploy step; the product owner's decision pending).
+    unmanaged-attribute policy (ADMIN_EDIT, set by the deploy step: D-187). Called after the
+    mappers changed, never before.
     """
     if groups_claim is None:
         await keycloak.clear_group_attributes(alias)
@@ -683,7 +686,9 @@ async def remove_provider(
     await _check_version(session, row, expected_version)
     organization = await organization_of(session, keycloak)
     ours = set(row.settings.get("added_domains") or [])
-    # Its group attributes go first, while the people are still linked to it (S5c, lane C (b)).
+    # Its group importers go first, so no sign-in writes groups back, then its group attributes,
+    # while the people are still linked to it (S5c, lane C (b) and their #632 review).
+    await keycloak.replace_mappers(row.alias, [])
     await _sync_group_attributes(keycloak, row.alias, None)
     await keycloak.delete_provider(row.alias)
     await _set_domains(keycloak, organization, alias=row.alias, mine=[], drop=ours, redirect=False)

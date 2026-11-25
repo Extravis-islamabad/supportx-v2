@@ -93,3 +93,15 @@ def test_following_off_clears_what_sign_ins_left_and_on_touches_nothing() -> Non
     on = _Recorder()
     asyncio.run(service._sync_group_attributes(on, "sx-c", "groups"))  # type: ignore[arg-type]  # noqa: SLF001 - as above
     assert on.calls == []  # never a user-profile change (manage-realm): nothing to declare
+
+
+@pytest.mark.parametrize("alias", ["sx-a_b", "sx_a-b", "SX-acme-1a2b3c", "sx acme", ""])
+def test_an_alias_outside_lowercase_digits_and_hyphens_is_refused(alias: str) -> None:
+    """`-` becomes `_` in the names: `sx-a_b` and `sx_a-b` would share one (lane C, #632)."""
+    with pytest.raises(ValueError, match="lowercase letters, digits and hyphens"):
+        sso.group_attributes(alias)
+
+
+def test_every_alias_alias_for_makes_is_accepted() -> None:
+    names = sso.group_attributes(sso.alias_for("acme-corp-2", "1a2b3c"))
+    assert names.groups == "sx_groups_sx_acme_corp_2_1a2b3c"
