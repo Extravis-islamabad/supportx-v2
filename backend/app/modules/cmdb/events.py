@@ -100,6 +100,18 @@ class BusinessViewChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class BaselineChanged(DomainEvent):
+    """A CI baseline was saved or deleted (WP-053 S7b; IDs and the action only, never its name)."""
+
+    event_type: ClassVar[str] = "cmdb.baseline.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "ci_baseline"
+
+    baseline_id: uuid.UUID
+    ci_id: uuid.UUID
+    action: str  # created, deleted or redacted
+
+
 class SyncRuleChanged(DomainEvent):
     """A sync rule was created, changed or removed (WP-053 S4a; field names only)."""
 
@@ -172,6 +184,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     CmdbConfigChanged,
     RelationshipsChanged,
     BusinessViewChanged,
+    BaselineChanged,
     SyncRuleChanged,
     SyncRunChanged,
     CiImportProgressed,

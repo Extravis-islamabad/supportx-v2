@@ -46,6 +46,7 @@ CHANGED = "cmdb.ci.changed"
 CONFIG_CHANGED = "cmdb.config_changed"
 RELATIONSHIPS = "relationships"  # the field a relationship change names on both CIs
 DOWNTIMES = "downtimes"  # the field a downtime change names on its CI (S5b)
+BASELINES = "baselines"  # the field a baseline save or delete names on its CI (S7b)
 VIEW_KIND = "cmdb_view"
 VIEW_CHANGED = "cmdb.view.changed"
 VIEWS_CHANGED = "cmdb.views_changed"
@@ -143,6 +144,25 @@ async def _downtimes_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     )
 
 
+async def _baselines_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A CI's baselines changed: its record channel refetches them (§8.3). Lists show none."""
+    row = await session.scalar(select(Ci).where(Ci.id == uuid.UUID(str(envelope.payload["ci_id"]))))
+    if row is None:  # pragma: no cover - CIs are never hard-deleted by the API
+        return RealtimeEffects(publications=[])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, row.id),
+                CHANGED,
+                ids=(str(row.id),),
+                fields=(BASELINES,),
+                version=row.version,
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 async def _view_channel(request: ChannelRequest) -> ChannelAccess | None:
     try:
         view_id = uuid.UUID(request.channel.key or "")
@@ -222,4 +242,5 @@ ROUTES = [
     RealtimeRoute(("cmdb.sync_rule.changed", "cmdb.sync_run.changed"), _sync_changed),
     RealtimeRoute(("cmdb.import.progressed",), _import_progressed),
     RealtimeRoute(("cmdb.downtime.changed",), _downtimes_changed),
+    RealtimeRoute(("cmdb.baseline.changed",), _baselines_changed),
 ]

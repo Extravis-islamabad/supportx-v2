@@ -319,6 +319,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.downtime_recorded", AuditCategory.RECORDS, "cmdb"),  # by hand on a CI (S5b, 0198)
     ("cmdb.downtime_changed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
     ("cmdb.downtime_removed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
+    ("cmdb.baseline_saved", AuditCategory.RECORDS, "cmdb"),  # S7b
+    ("cmdb.baseline_deleted", AuditCategory.RECORDS, "cmdb"),  # S7b
     ("cmdb.import_started", AuditCategory.DATA, "cmdb"),  # a CMDB import uploaded (S4b)
     ("cmdb.import_run", AuditCategory.DATA, "cmdb"),  # a checked dry run run for real (S4b)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),

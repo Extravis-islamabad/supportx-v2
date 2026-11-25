@@ -21,11 +21,19 @@ on the CI now, an ordinary save of that one key; in a saved snapshot, through 01
 migrator-owned `cmdb_redact_version_custom(mention, value)`, which takes the key from the bound
 mention and accepts only the old text with stretches replaced by the marker (as 0176).
 
+- `ci_baseline` (S7b, 0209): a baseline's own name; `ci_baseline_snapshot`: the name,
+  description and typed custom text of the CI copy it holds. Deleted baselines too.
+
 Redacting a `ci_business_view` mention is an ordinary save of the view (version, history naming
 the field only with reason `erasure_redaction`, `cmdb.business_view.changed`): views are editable
 rows, so no definer is needed.
 
-The cursor is `<phase>|<last id>`: the CIs first, then the snapshots, then the business views.
+Redacting a baseline mention is an update of that one baseline (its version, history naming the
+field only with reason `erasure_redaction`, `cmdb.baseline.changed` with action `redacted`):
+baselines are app-updatable rows, so no definer is needed.
+
+The cursor is `<phase>|<last id>`: the CIs first, then the snapshots, then the business views,
+then the baselines.
 """
 
 import uuid
@@ -38,8 +46,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules import metadata
 from app.modules.cmdb.domain import field_access as field_rules
-from app.modules.cmdb.events import BusinessViewChanged, CiUpdated
-from app.modules.cmdb.infra.models import BusinessView, Ci, CiVersion
+from app.modules.cmdb.events import BaselineChanged, BusinessViewChanged, CiUpdated
+from app.modules.cmdb.infra.models import BusinessView, Ci, CiBaseline, CiVersion
 from app.modules.cmdb.service.business_views import RECORD_TYPE as VIEW_RECORD_TYPE
 from app.modules.cmdb.service.business_views import visible_views
 from app.modules.cmdb.service.cis import RECORD_TYPE, snapshot, visible_rows
@@ -70,7 +78,9 @@ TEXT_TYPES = frozenset(
         metadata.FieldType.URL,
     }
 )
-CIS, VERSIONS, VIEWS = "ci", "ver", "view"  # the cursor's phases
+BASELINE_RECORD_TYPE = "ci_baseline"  # a baseline's own name (S7b)
+BASELINE_COPY_RECORD_TYPE = "ci_baseline_snapshot"  # the CI copy a baseline holds (S7b)
+CIS, VERSIONS, VIEWS, BASES = "ci", "ver", "view", "base"  # the cursor's phases
 ERASE = "people.erase"  # identity_access's right to erase people (ADR-052)
 _REDACT_VERSION = text("SELECT cmdb_redact_version(:mention, :value)")
 _REDACT_VERSION_CUSTOM = text("SELECT cmdb_redact_version_custom(:mention, :value)")
@@ -150,7 +160,7 @@ class CiMentions:
 
     module: ClassVar[str] = "cmdb"
 
-    async def find_mentions(
+    async def find_mentions(  # noqa: PLR0911 - one early answer per phase, flat
         self,
         session: AsyncSession,
         person_id: uuid.UUID,
@@ -161,7 +171,7 @@ class CiMentions:
         """One batch of CIs, then of snapshots, by ID (a CI is never the person's own)."""
         del person_id
         phase, last = _place(cursor)
-        texts = await _custom_text(session) if phase in {CIS, VERSIONS} else None
+        texts = await _custom_text(session) if phase in {CIS, VERSIONS, BASES} else None
         if phase == CIS:
             query = select(Ci.id, Ci.name, Ci.description, Ci.custom)
             if last is not None:
@@ -196,6 +206,8 @@ class CiMentions:
             if len(versions) >= MENTION_BATCH:
                 return MentionBatch(tuple(found), _cursor(VERSIONS, versions[-1][0]))
             return MentionBatch(tuple(found), _cursor(VIEWS, uuid.UUID(int=0)))
+        if phase == BASES:
+            return await _baseline_mentions(session, last, terms, texts)
         query_w = select(BusinessView.id, BusinessView.name, BusinessView.description)
         if last is not None:
             query_w = query_w.where(BusinessView.id > last)
@@ -209,10 +221,11 @@ class CiMentions:
                 VIEW_RECORD_TYPE, vid, {"name": name, "description": description}, terms
             )
         ]
-        more = len(views) >= MENTION_BATCH
-        return MentionBatch(tuple(found), _cursor(VIEWS, views[-1][0]) if more else None)
+        if len(views) >= MENTION_BATCH:
+            return MentionBatch(tuple(found), _cursor(VIEWS, views[-1][0]))
+        return MentionBatch(tuple(found), _cursor(BASES, uuid.UUID(int=0)))
 
-    async def redact_mention(
+    async def redact_mention(  # noqa: PLR0911 - one early answer per place, flat
         self,
         session: AsyncSession,
         mention: Mention,
@@ -232,6 +245,8 @@ class CiMentions:
             )
         if mention.record_type == VIEW_RECORD_TYPE:
             return await _redact_view(session, mention, terms, marker, now)
+        if mention.record_type in {BASELINE_RECORD_TYPE, BASELINE_COPY_RECORD_TYPE}:
+            return await _redact_baseline(session, mention, terms, marker, now)
         if mention.record_type == RECORD_TYPE:
             return await _redact_ci(session, mention, terms, marker, now)
         return False
@@ -267,6 +282,11 @@ class CiMentions:
             held = version.snapshot.get("custom") if key else None
             value = held.get(key) if isinstance(held, dict) else version.snapshot.get(mention.field)
             return _text(value) or None
+        if mention.record_type in {BASELINE_RECORD_TYPE, BASELINE_COPY_RECORD_TYPE}:
+            baseline = await _seen_baseline(session, subject, mention.record_id)
+            if baseline is None:
+                return None
+            return _text(_baseline_value(baseline, mention)) or None
         if mention.record_type == VIEW_RECORD_TYPE:
             view = await _seen_view(session, subject, mention.record_id)
             return (_text(getattr(view, mention.field)) or None) if view is not None else None
@@ -429,6 +449,100 @@ async def _saved(session: AsyncSession, row: Ci, field: str) -> None:
         aggregate_id=row.id,
         aggregate_version=row.version,
     )
+
+
+async def _baseline_mentions(
+    session: AsyncSession,
+    last: uuid.UUID | None,
+    terms: MentionTerms,
+    texts: "_CustomText | None",
+) -> MentionBatch:
+    """One batch of baselines (deleted ones too): their own name, then the copy they hold."""
+    query = select(CiBaseline.id, CiBaseline.name, CiBaseline.snapshot)
+    if last is not None:
+        query = query.where(CiBaseline.id > last)
+    rows = (await session.execute(query.order_by(CiBaseline.id).limit(MENTION_BATCH))).all()
+    found = [
+        m
+        for bid, name, snap in rows
+        for m in (
+            *[
+                Mention(BASELINE_RECORD_TYPE, bid, "name", kind, count)
+                for kind, count in sorted(count_matches(_text(name), terms).items())
+            ],
+            *_found(BASELINE_COPY_RECORD_TYPE, bid, snap, terms, texts),
+        )
+    ]
+    more = len(rows) >= MENTION_BATCH
+    return MentionBatch(tuple(found), _cursor(BASES, rows[-1][0]) if more else None)
+
+
+def _baseline_value(row: CiBaseline, mention: Mention) -> object:
+    """The mentioned text: the baseline's name, or a field of its copy."""
+    if mention.record_type == BASELINE_RECORD_TYPE:
+        return row.name if mention.field == "name" else None
+    if key := _custom_key(mention.field):
+        held = row.snapshot.get("custom")
+        return held.get(key) if isinstance(held, dict) else None
+    return row.snapshot.get(mention.field)
+
+
+async def _seen_baseline(
+    session: AsyncSession, subject: Subject, baseline_id: uuid.UUID
+) -> CiBaseline | None:
+    """The baseline if the subject may see its CI; a deleted one only with `people.erase`."""
+    row: CiBaseline | None = await session.scalar(
+        select(CiBaseline).where(CiBaseline.id == baseline_id)
+    )
+    if row is None or (row.deleted_at is not None and not subject.holds(ERASE)):
+        return None
+    return row if await _seen(session, subject, row.ci_id) is not None else None
+
+
+async def _redact_baseline(
+    session: AsyncSession, mention: Mention, terms: MentionTerms, marker: str, now: datetime
+) -> bool:
+    """One baseline field (its name, or a field of its copy): an update of that baseline."""
+    row = await session.scalar(
+        select(CiBaseline).where(CiBaseline.id == mention.record_id).with_for_update()
+    )
+    current = _text(_baseline_value(row, mention)) if row is not None else None
+    if row is None or not current:
+        return False
+    redacted, count = redact_matches(current, terms, mention.match_kind, marker)
+    if not count:
+        return False
+    if mention.record_type == BASELINE_RECORD_TYPE:
+        row.name = redacted
+    elif key := _custom_key(mention.field):
+        held = row.snapshot.get("custom")
+        row.snapshot = {**row.snapshot, "custom": {**(held or {}), key: redacted}}
+    else:
+        row.snapshot = {**row.snapshot, mention.field: redacted}
+    row.version, row.updated_at = row.version + 1, now
+    await session.flush()
+    field = (
+        mention.field
+        if mention.record_type == BASELINE_RECORD_TYPE
+        else f"snapshot.{mention.field}"
+    )
+    await record_changes(
+        session,
+        record_type=BASELINE_RECORD_TYPE,
+        record_id=row.id,
+        version=row.version,
+        kind="updated",
+        changes=[Change(field, None, None)],
+        source="system",
+        reason=REDACTION_REASON,
+    )
+    await record_event(
+        session,
+        BaselineChanged(baseline_id=row.id, ci_id=row.ci_id, action="redacted"),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+    return True
 
 
 PORT = CiMentions()

@@ -744,6 +744,11 @@ async def editable(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) ->
     return await _writable(session, subject, EDIT, ci_id)
 
 
+async def manageable(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
+    """The CI, if the person may manage it (`cmdb.manage` in scope): 404 unseen, 403 otherwise."""
+    return await _writable(session, subject, MANAGE, ci_id)
+
+
 async def _save(  # noqa: PLR0913 - the record, the version and the change, explicit
     session: AsyncSession,
     subject: Subject | None,

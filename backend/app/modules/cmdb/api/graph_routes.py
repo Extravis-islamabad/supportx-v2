@@ -588,6 +588,11 @@ def _view_values(body: BaseModel) -> dict[str, Any]:
     return values
 
 
+# The compare shapes, shared with the baselines' routes (S7b).
+link_out = _link
+version_out = _version
+
+
 # --- routes: relationship types -------------------------------------------------------------------
 
 

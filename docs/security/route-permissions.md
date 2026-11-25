@@ -496,6 +496,10 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
 | PATCH | `/api/v1/cmdb/cis/{ci_id}` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/as-of` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/baselines` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| POST | `/api/v1/cmdb/cis/{ci_id}/baselines` | `cmdb.manage` | cmdb.manage: all | `cmdb` (module, permission) |
+| DELETE | `/api/v1/cmdb/cis/{ci_id}/baselines/{baseline_id}` | `cmdb.manage` | cmdb.manage: all | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/baselines/{baseline_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
 | POST | `/api/v1/cmdb/cis/{ci_id}/change-type` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/change-type-preview` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/compare` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |

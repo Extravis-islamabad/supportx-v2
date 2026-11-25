@@ -30,6 +30,7 @@ links on a merge (IDs only).
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
+from app.modules.cmdb.api.baseline_routes import router as baseline_router
 from app.modules.cmdb.api.downtime_routes import router as downtime_router
 from app.modules.cmdb.api.graph_routes import router as graph_router
 from app.modules.cmdb.api.merge_routes import router as merge_router
@@ -109,7 +110,7 @@ module = ModuleSpec(
     name="cmdb",
     # The sync routes first: /cmdb/sync-rules is not under /cmdb/cis/{id}, but keep fixed paths
     # ahead of the parameterised ones as the other modules do.
-    routers=[sync_router, router, graph_router, merge_router, downtime_router],
+    routers=[sync_router, router, graph_router, merge_router, downtime_router, baseline_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,

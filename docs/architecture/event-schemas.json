@@ -2728,6 +2728,34 @@
         "type": "object"
       }
     },
+    "cmdb.baseline.changed": {
+      "1": {
+        "description": "A CI baseline was saved or deleted (WP-053 S7b; IDs and the action only, never its name).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "baseline_id": {
+            "format": "uuid",
+            "title": "Baseline Id",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseline_id",
+          "ci_id",
+          "action"
+        ],
+        "title": "BaselineChanged",
+        "type": "object"
+      }
+    },
     "cmdb.business_view.changed": {
       "1": {
         "description": "A business view was created, changed or removed (WP-053 S2; field names only).",
