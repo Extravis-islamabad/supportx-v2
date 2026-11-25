@@ -127,6 +127,12 @@ function draftOf(item: CatalogItem | undefined): Draft {
     auto_fulfil: item.auto_fulfil,
     max_quantity: item.max_quantity ?? null,
     asks_needed_by: item.asks_needed_by,
+    // WP-047b S1 (REQ-CAT-020, -021)
+    price: item.price ?? null,
+    price_period: item.price_period,
+    internal_cost: item.internal_cost ?? null,
+    charge_to: item.charge_to,
+    charge_question_key: item.charge_question_key ?? null,
     publish_at: item.publish_at,
     retire_at: item.retire_at,
   };
@@ -356,6 +362,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
                       set({ questions });
                     }}
                     disabled={draft.kind === 'incident_template'}
+                    priced={licence.has('catalog')}
                   />
                   <Form layout="vertical" component="div">
                     <Form.Item
@@ -399,6 +406,7 @@ function ItemEditor({ id }: { id: string | undefined }) {
                     <Typography.Text>{t('catalog_admin.auto_fulfil')}</Typography.Text>
                   </Flex>
                   <RequestOptions draft={draft} set={set} />
+                  <PriceOptions draft={draft} set={set} />
                 </Flex>
               )}
               {key === 'life' && (
@@ -462,6 +470,101 @@ interface TabProps {
  * (REQ-SR-014, Professional: shown only with the catalogue feature, and refused by the server
  * without it) and when it is needed (REQ-SR-015).
  */
+const PERIODS = ['once', 'month', 'year'] as const;
+const CHARGE_TO = ['requested_for_department', 'question'] as const;
+
+/**
+ * The item's price and charge-back (WP-047b S1; REQ-CAT-020, -021; Professional): a price once or
+ * per month or year, an internal cost when it differs, and who a fulfilled request charges (the
+ * requested-for person's department, or a form answer naming a cost centre). Base currency only
+ * (D-164); requesters see prices only when the tenant shows them (D-184).
+ */
+function PriceOptions({ draft, set }: TabProps) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const licensed = useLicence().has('catalog');
+  const asked = (draft.questions ?? []).filter((q) => q.kind === 'text' || q.kind === 'choice');
+  const priced = draft.price != null || draft.internal_cost != null;
+  if (!licensed && !priced && (draft.charge_to ?? 'requested_for_department') === CHARGE_TO[0]) {
+    return null;
+  }
+  return (
+    <Flex vertical gap={12} data-testid="catalog-price">
+      <Typography.Text strong>{t('catalog_admin.price.title')}</Typography.Text>
+      <Flex gap={12} wrap align="center">
+        <InputNumber<string>
+          stringMode
+          min="0"
+          step="0.01"
+          precision={2}
+          style={{ width: 180 }}
+          placeholder={t('catalog_admin.price.price')}
+          aria-label={t('catalog_admin.price.price')}
+          disabled={!licensed}
+          value={draft.price == null ? null : String(draft.price)}
+          onChange={(value) => {
+            set({ price: value === null || value === '' ? null : value });
+          }}
+          data-testid="catalog-price-amount"
+        />
+        <Select
+          style={{ width: 160 }}
+          aria-label={t('catalog_admin.price.period')}
+          disabled={!licensed}
+          value={draft.price_period ?? 'once'}
+          options={PERIODS.map((p) => ({ value: p, label: t(`price_period.${p}`) }))}
+          onChange={(price_period: (typeof PERIODS)[number]) => {
+            set({ price_period });
+          }}
+          data-testid="catalog-price-period"
+        />
+        <InputNumber<string>
+          stringMode
+          min="0"
+          step="0.01"
+          precision={2}
+          style={{ width: 180 }}
+          placeholder={t('catalog_admin.price.internal_cost')}
+          aria-label={t('catalog_admin.price.internal_cost')}
+          disabled={!licensed}
+          value={draft.internal_cost == null ? null : String(draft.internal_cost)}
+          onChange={(value) => {
+            set({ internal_cost: value === null || value === '' ? null : value });
+          }}
+          data-testid="catalog-internal-cost"
+        />
+      </Flex>
+      <Flex gap={12} wrap align="center">
+        <Select
+          style={{ minWidth: 280 }}
+          aria-label={t('catalog_admin.price.charge_to')}
+          disabled={!licensed}
+          value={draft.charge_to ?? 'requested_for_department'}
+          options={CHARGE_TO.map((c) => ({ value: c, label: t(`catalog_charge_to.${c}`) }))}
+          onChange={(charge_to: (typeof CHARGE_TO)[number]) => {
+            set({ charge_to, charge_question_key: null });
+          }}
+          data-testid="catalog-charge-to"
+        />
+        {draft.charge_to === 'question' && (
+          <Select
+            style={{ minWidth: 220 }}
+            aria-label={t('catalog_admin.price.charge_question')}
+            placeholder={t('catalog_admin.price.charge_question')}
+            value={draft.charge_question_key ?? undefined}
+            options={asked.map((q) => ({ value: q.key, label: textIn(q.label, locale) || q.key }))}
+            onChange={(charge_question_key: string) => {
+              set({ charge_question_key });
+            }}
+            data-testid="catalog-charge-question"
+          />
+        )}
+      </Flex>
+      <Typography.Text type="secondary">{t('catalog_admin.price.help')}</Typography.Text>
+    </Flex>
+  );
+}
+
 /**
  * The item's own fulfilment workflow (WP-047a S5; REQ-SR-053, Professional): a service request
  * workflow, started when the plan would. Listed for those who may manage workflows; the server

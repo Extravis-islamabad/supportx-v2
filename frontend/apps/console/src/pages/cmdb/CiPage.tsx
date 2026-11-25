@@ -7,6 +7,7 @@ import {
   queryKeys,
   useChangeCiType,
   useCi,
+  useCiLinked,
   useCiHistory,
   useCiStates,
   useCiTypes,
@@ -48,6 +49,7 @@ import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
 import { CiMergeDrawer } from './CiMergeDrawer';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
+import { AssociationsTab } from './AssociationsTab';
 import { DowntimesTab } from './DowntimesTab';
 import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
@@ -58,7 +60,7 @@ import { refText } from './refNames';
 import { SourceLabel } from './SourceLabel';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
-const TABS = ['details', 'map', 'impact', 'downtimes', 'versions'] as const;
+const TABS = ['details', 'map', 'impact', 'downtimes', 'associations', 'versions'] as const;
 type TabKey = (typeof TABS)[number];
 
 /** The CI's references, named in the properties panel (CMDB polish). */
@@ -87,6 +89,8 @@ export function CiPage() {
     queryKeys.cmdb.subscribers(id),
     // Its downtimes changed or moved state as time passed (S5b): the tab refetches.
     queryKeys.cmdb.downtimes(id),
+    // A work item linked or unlinked, or a linked one changed status (S5c): counts and lists.
+    queryKeys.cmdb.linked(id),
   ];
   useRecordChannel(
     'ci',
@@ -119,6 +123,9 @@ function CiRecord({ ci }: { ci: Ci }) {
   const { locale } = useAppearance();
   const may = useCmdbRight();
   const subscribers = useSubscribersSection(ci);
+  // S5c: the Associations tab, only once work items offer the links (else "not available").
+  // CiRecord renders only after CiPage's licence and view checks, so it asks unconditionally.
+  const linked = useCiLinked(ci.id);
   const types = useCiTypes();
   const states = useCiStates();
   const [editing, setEditing] = useState(false);
@@ -400,6 +407,18 @@ function CiRecord({ ci }: { ci: Ci }) {
             label: t('cmdb.tab.downtimes'),
             children: tab === 'downtimes' ? <DowntimesTab ciId={ci.id} /> : null,
           },
+          ...(linked.data === undefined
+            ? []
+            : [
+                {
+                  key: 'associations',
+                  label: t('cmdb.tab.associations'),
+                  children:
+                    tab === 'associations' ? (
+                      <AssociationsTab ciId={ci.id} summary={linked.data} />
+                    ) : null,
+                },
+              ]),
           {
             key: 'versions',
             label: t('cmdb.tab.versions'),

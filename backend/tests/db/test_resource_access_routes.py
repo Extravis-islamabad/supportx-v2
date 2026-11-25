@@ -46,6 +46,8 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/change-type-preview": CIS,
     "/cmdb/cis/{ci_id}/compare": CIS,
     "/cmdb/cis/{ci_id}/downtimes": CIS,  # S5b: the CI is read through cis._visible first
+    "/cmdb/cis/{ci_id}/linked": CIS,  # S5c: the CI is read through cis.get_ci first
+    "/cmdb/cis/{ci_id}/linked/{kind}": CIS,  # S5c: ... and only then the work items' port
     "/cmdb/cis/{ci_id}/history": CIS,
     "/cmdb/cis/{ci_id}/impact": CIS,  # S3b: redacts through the same filter
     "/cmdb/cis/{ci_id}/neighbours": CIS,

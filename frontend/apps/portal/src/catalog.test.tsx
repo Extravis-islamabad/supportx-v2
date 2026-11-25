@@ -35,6 +35,8 @@ const base: Omit<CatalogItem, 'id' | 'names' | 'kind'> = {
   sort_order: 0,
   subject_template: null,
   requesters_see_approval: true,
+  price_period: 'once',
+  charge_to: 'requested_for_department',
   starter: false,
   questions: [],
   approval: null,
@@ -131,6 +133,52 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('portal catalog', () => {
+  it('WP-047b S1: a shown price per month, and the estimate follows the chosen option', async () => {
+    window.history.pushState({}, '', `/catalog/items/${ITEM}`);
+    const priced: CatalogItem = {
+      ...reset,
+      price: '40.00',
+      price_period: 'month',
+      currency: 'USD',
+      questions: [
+        {
+          key: 'tier',
+          label: { en: 'Tier' },
+          kind: 'choice',
+          required: true,
+          options: ['basic', 'plus'],
+          option_labels: { basic: { en: 'Basic' }, plus: { en: 'Plus' } },
+          option_prices: { plus: '10.00' },
+          help: {},
+          default: null,
+          shown_to: ['requester'],
+          restarts_approval: false,
+        },
+      ],
+    };
+    api({ [`GET /api/v1/catalog/items/${ITEM}`]: { body: priced } });
+    render(<App />);
+    expect((await screen.findByTestId('portal-cat-price')).textContent).toBe('$40.00 per month');
+    expect(screen.getByTestId('portal-cat-estimate').textContent).toBe(
+      'Estimated cost: $40.00 per month',
+    );
+    fireEvent.click(screen.getByLabelText('Plus'));
+    await waitFor(() => {
+      expect(screen.getByTestId('portal-cat-estimate').textContent).toBe(
+        'Estimated cost: $50.00 per month',
+      );
+    });
+  });
+
+  it('WP-047b S1: no price is shown when the server sends none (D-184: off by default)', async () => {
+    window.history.pushState({}, '', `/catalog/items/${ITEM}`);
+    api();
+    render(<App />);
+    await screen.findByTestId('portal-cat-description');
+    expect(screen.queryByTestId('portal-cat-price')).toBeNull();
+    expect(screen.queryByTestId('portal-cat-estimate')).toBeNull();
+  });
+
   it('shows the featured items and the categories, and a problem entry opens the incident form', async () => {
     window.history.pushState({}, '', '/catalog');
     api();

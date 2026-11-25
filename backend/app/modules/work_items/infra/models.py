@@ -689,6 +689,22 @@ class WorkItem(TenantEntity):
         CheckConstraint(
             "quantity IS NULL OR (quantity >= 1 AND quantity <= 10000)", name="quantity_range"
         ),
+        # WP-047b S1 (0205): the estimate and the frozen charge-back.
+        CheckConstraint(
+            "(estimated_cost IS NULL OR estimated_cost >= 0)"
+            " AND (charged_amount IS NULL OR charged_amount >= 0)",
+            name="money_not_negative",
+        ),
+        CheckConstraint(
+            "estimate_period IS NULL OR estimate_period IN ('once', 'month', 'year')",
+            name="estimate_period_code",
+        ),
+        Index(
+            "ix_work_items_charged",
+            "tenant_id",
+            "charged_at",
+            postgresql_where=text("charged_at IS NOT NULL"),
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "catalog_item_id"],
             ["catalog_items.tenant_id", "catalog_items.id"],
@@ -918,6 +934,14 @@ class WorkItem(TenantEntity):
     # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
     quantity: Mapped[int | None] = mapped_column(Integer)
     needed_by: Mapped[datetime | None]
+    # WP-047b S1 (0205): the estimate snapshotted at submission (D-184), and what a fulfilled
+    # request charged, frozen then (REQ-CAT-021 AC1). Base currency (D-164).
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    estimate_period: Mapped[str | None] = mapped_column(String(10))
+    charge_department_id: Mapped[uuid.UUID | None]
+    charge_cost_centre: Mapped[str | None] = mapped_column(String(100))
+    charged_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    charged_at: Mapped[datetime | None]
     expected_delivery_at: Mapped[datetime | None]
     # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
     # clock keeps running while it waits for approval.

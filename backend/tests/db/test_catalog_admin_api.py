@@ -474,7 +474,11 @@ async def test_search_answers_within_500_ms_for_1000_items(world: World) -> None
 async def test_settings_read_without_writing_and_change_with_if_match(world: World) -> None:
     a, b = world.a, world.b
     read = await world.call("GET", "/catalog/settings", a, a.requester)
-    assert read.json() == {"hide_default_incident_template": False, "version": 1}
+    assert read.json() == {
+        "hide_default_incident_template": False,
+        "requesters_see_prices": False,  # WP-047b S1 (D-184): off by default
+        "version": 1,
+    }
     rows = await world.sql(
         "SELECT count(*) AS n FROM catalog_settings WHERE tenant_id = $1", a.tenant
     )
@@ -486,7 +490,11 @@ async def test_settings_read_without_writing_and_change_with_if_match(world: Wor
     changed = await patch(
         world, a, a.admin, "/catalog/settings", 1, hide_default_incident_template=True
     )
-    assert changed.json() == {"hide_default_incident_template": True, "version": 2}
+    assert changed.json() == {
+        "hide_default_incident_template": True,
+        "requesters_see_prices": False,
+        "version": 2,
+    }
     stale = await patch(
         world, a, a.admin, "/catalog/settings", 1, hide_default_incident_template=False
     )

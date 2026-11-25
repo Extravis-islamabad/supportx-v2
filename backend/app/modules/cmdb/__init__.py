@@ -32,6 +32,7 @@ from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.core.modules import ModuleSpec
 from app.modules.cmdb.api.downtime_routes import router as downtime_router
 from app.modules.cmdb.api.graph_routes import router as graph_router
+from app.modules.cmdb.api.linked_routes import router as linked_router
 from app.modules.cmdb.api.merge_routes import router as merge_router
 from app.modules.cmdb.api.routes import router
 from app.modules.cmdb.api.sync_routes import router as sync_router
@@ -64,6 +65,12 @@ from app.modules.cmdb.service.impact import (
     impact_of,
 )
 from app.modules.cmdb.service.imports import run_cmdb_imports
+from app.modules.cmdb.service.linked import (
+    CiLinkedRecord,
+    CiLinkedRecords,
+    clear_ci_linked_records,
+    register_ci_linked_records,
+)
 from app.modules.cmdb.service.links import CiLinksPort, register_ci_links
 from app.modules.cmdb.service.monitoring_sync import (
     MonitoredUpdate,
@@ -117,7 +124,7 @@ module = ModuleSpec(
     name="cmdb",
     # The sync routes first: /cmdb/sync-rules is not under /cmdb/cis/{id}, but keep fixed paths
     # ahead of the parameterised ones as the other modules do.
-    routers=[sync_router, router, graph_router, merge_router, downtime_router],
+    routers=[sync_router, router, graph_router, merge_router, downtime_router, linked_router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
@@ -159,6 +166,8 @@ _notifications.register()  # a CI's state change, to its owner and groups (S5d)
 __all__ = [
     "LINKED_TYPES",
     "AffectedUsers",
+    "CiLinkedRecord",
+    "CiLinkedRecords",
     "CiLinksPort",
     "CiRef",
     "Count",
@@ -174,6 +183,7 @@ __all__ = [
     "can_see",
     "ci_field_publications",
     "ci_refs",
+    "clear_ci_linked_records",
     "impact_of",
     "module",
     "monitored_ci_create",
@@ -182,6 +192,7 @@ __all__ = [
     "monitored_retire",
     "monitored_unlink",
     "owners_of",
+    "register_ci_linked_records",
     "register_ci_links",
     "register_open_counts",
     "visible_ci_ids",

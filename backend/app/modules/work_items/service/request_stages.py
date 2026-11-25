@@ -97,7 +97,12 @@ async def _rule_values(session: AsyncSession, record: WorkItem) -> dict[str, Any
     The condition's values, and the requester's groups (`eq` a group: they are a member).
     """
     groups = (await organization.memberships(session, record.requester_id)).group_ids
-    return {**_values(record), service_catalog.REQUESTER_GROUPS: sorted(str(g) for g in groups)}
+    cost = record.estimated_cost  # WP-047b S1 (REQ-SR-033 AC2): a number, or nothing
+    return {
+        **_values(record),
+        service_catalog.REQUESTER_GROUPS: sorted(str(g) for g in groups),
+        service_catalog.ESTIMATED_COST: float(cost) if cost is not None else None,
+    }
 
 
 def _earlier_approvers(rows: Sequence[WorkItemApproval], number: int) -> dict[uuid.UUID, int]:

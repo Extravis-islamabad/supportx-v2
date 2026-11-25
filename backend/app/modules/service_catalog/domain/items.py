@@ -136,6 +136,8 @@ class Question:
     # WP-047a S3b (REQ-SR-041, Essentials): a change to this answer after submitting restarts the
     # request's approval from its first stage.
     restarts_approval: bool = False
+    # WP-047b S1 (REQ-CAT-020): a choice's extra price per option, decimal text (domain/pricing).
+    option_prices: Mapping[str, str] = field(default_factory=dict)
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -150,6 +152,7 @@ class Question:
             "default": self.default,
             "shown_to": sorted(a.value for a in self.shown_to),
             **({"restarts_approval": True} if self.restarts_approval else {}),
+            **({"option_prices": dict(self.option_prices)} if self.option_prices else {}),
         }
 
 
@@ -431,12 +434,16 @@ def stages_problems(
             found.append((f"{at}.parallel_group", "invalid_value"))
         if stage.condition is not None:
             found += condition_problems(stage.condition, fields, f"{at}.condition")
-        found += _auto_rule_problems(stage.auto_rules, fields | {REQUESTER_GROUPS}, at)
+        found += _auto_rule_problems(
+            stage.auto_rules, fields | {REQUESTER_GROUPS, ESTIMATED_COST}, at
+        )
     return found
 
 
 # WP-047a S2b (REQ-SR-033): what an automatic rule may read beyond the form, and how many.
 REQUESTER_GROUPS = "requester_groups"
+# WP-047b S1 (REQ-SR-033 AC2): "approve below a cost" reads the request's estimate (lt/lte).
+ESTIMATED_COST = "estimated_cost"
 MAX_AUTO_RULES = 5
 
 
@@ -667,6 +674,7 @@ def needs_approval(rules: ItemRules) -> bool:
 
 
 __all__ = [
+    "ESTIMATED_COST",
     "LANGUAGES",
     "MAX_AUTO_RULES",
     "REQUESTER_GROUPS",

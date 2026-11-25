@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.cmdb.infra.models import BusinessView, Ci
+from app.modules.cmdb.service import linked
 from app.modules.cmdb.service.business_views import visible_views
 from app.modules.cmdb.service.catalogue import VIEW
 from app.modules.cmdb.service.cis import CIS
@@ -46,6 +47,7 @@ CHANGED = "cmdb.ci.changed"
 CONFIG_CHANGED = "cmdb.config_changed"
 RELATIONSHIPS = "relationships"  # the field a relationship change names on both CIs
 DOWNTIMES = "downtimes"  # the field a downtime change names on its CI (S5b)
+LINKED = "linked"  # its linked work items changed: the Associations tab refetches (S5c)
 VIEW_KIND = "cmdb_view"
 VIEW_CHANGED = "cmdb.view.changed"
 VIEWS_CHANGED = "cmdb.views_changed"
@@ -157,6 +159,37 @@ async def _downtimes_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     )
 
 
+def _linked(tenant: uuid.UUID, ci_id: uuid.UUID, actor: str | None) -> Publication:
+    """The CI's record channel only, IDs only: who may see which work item is the API's call."""
+    return Publication(
+        record(tenant, RECORD_KIND, ci_id),
+        CHANGED,
+        ids=(str(ci_id),),
+        fields=(LINKED,),
+        actor_id=actor,
+    )
+
+
+async def _link_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A work item was linked to the CI or unlinked (lane A's `work_items.ci_link.changed`)."""
+    del session
+    ci_id = uuid.UUID(str(envelope.payload["ci_id"]))
+    return RealtimeEffects(publications=[_linked(envelope.tenant_id, ci_id, _actor(envelope))])
+
+
+async def _linked_work_item_moved(
+    envelope: EventEnvelope, session: AsyncSession
+) -> RealtimeEffects:
+    """A linked work item changed status: each of its CIs' open counts may change."""
+    work_item = uuid.UUID(str(envelope.payload["work_item_id"]))
+    return RealtimeEffects(
+        publications=[
+            _linked(envelope.tenant_id, ci_id, _actor(envelope))
+            for ci_id in await linked.ci_ids_of(session, work_item)
+        ]
+    )
+
+
 async def _view_channel(request: ChannelRequest) -> ChannelAccess | None:
     try:
         view_id = uuid.UUID(request.channel.key or "")
@@ -236,4 +269,7 @@ ROUTES = [
     RealtimeRoute(("cmdb.sync_rule.changed", "cmdb.sync_run.changed"), _sync_changed),
     RealtimeRoute(("cmdb.import.progressed",), _import_progressed),
     RealtimeRoute(("cmdb.downtime.changed",), _downtimes_changed),
+    # S5c: the Associations tab, live on links and on a linked record's status (as assets do).
+    RealtimeRoute(("work_items.ci_link.changed",), _link_changed),
+    RealtimeRoute(("work_items.work_item.status_changed",), _linked_work_item_moved),
 ]

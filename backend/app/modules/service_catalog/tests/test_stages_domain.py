@@ -111,7 +111,7 @@ def test_a_condition_is_the_forms_dsl_over_the_answers_and_the_quantity() -> Non
         },
     )
     unknown = _stage(MANAGER, condition={"field": "salary", "op": "eq", "value": 1})
-    bad_op = _stage(MANAGER, condition={"field": "model", "op": "gt", "value": 1})
+    bad_op = _stage(MANAGER, condition={"field": "model", "op": "contains", "value": "pro"})
     assert stages_problems([good], QUESTIONS) == []
     assert stages_problems([unknown], QUESTIONS) == [
         ("approval.stages.0.condition.field", "not_a_form_field")

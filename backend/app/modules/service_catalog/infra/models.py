@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -12,6 +13,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -70,6 +72,15 @@ class CatalogItem(TenantEntity):
         CheckConstraint(
             "max_quantity IS NULL OR (max_quantity >= 1 AND max_quantity <= 10000)",
             name="max_quantity_range",
+        ),
+        # WP-047b S1 (0205): the price, its period and who a fulfilled request charges.
+        CheckConstraint(
+            "(price IS NULL OR price >= 0) AND (internal_cost IS NULL OR internal_cost >= 0)",
+            name="money_not_negative",
+        ),
+        CheckConstraint("price_period IN ('once', 'month', 'year')", name="price_period_code"),
+        CheckConstraint(
+            "charge_to IN ('requested_for_department', 'question')", name="charge_to_code"
         ),
         CheckConstraint(
             "default_priority IS NULL OR default_priority IN ('p1', 'p2', 'p3', 'p4')",
@@ -190,6 +201,12 @@ class CatalogItem(TenantEntity):
     requesters_see_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
     starter: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-138
     extra_category_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()), server_default="{}")
+    # WP-047b S1 (0205; REQ-CAT-020, -021): base currency only (D-164).
+    price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    internal_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    price_period: Mapped[str] = mapped_column(String(10), server_default="once")
+    charge_to: Mapped[str] = mapped_column(String(30), server_default="requested_for_department")
+    charge_question_key: Mapped[str | None] = mapped_column(String(40))
     # WP-047a S5 (0204, REQ-SR-053): the item's fulfilment workflow (service request type).
     workflow_id: Mapped[uuid.UUID | None]
     # Columns of the table, not of the mapped object: never loaded or written by the ORM.
@@ -210,6 +227,8 @@ class CatalogSettings(Timestamps, Actors, Versioned, Base):
     # D-138: set when the starter catalog was added (or the tenant existed before it); never
     # cleared, so a tenant that deletes everything never gets it back by itself.
     starter_seeded_at: Mapped[datetime | None]
+    # WP-047b S1 (0205, D-184): requesters see prices and the estimate only when it is on.
+    requesters_see_prices: Mapped[bool] = mapped_column(Boolean, server_default="false")
     hide_default_incident_template: Mapped[bool] = mapped_column(
         Boolean, server_default="false"
     )  # REQ-CAT-014
