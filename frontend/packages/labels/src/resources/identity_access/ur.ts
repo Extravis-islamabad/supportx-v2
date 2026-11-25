@@ -1421,6 +1421,7 @@ export const ur: LabelResource = {
     'ہر گروپ، بالکل جیسے فراہم کنندہ بھیجتا ہے، ایک رول یا ایک سپورٹ گروپ دیتا ہے۔',
   'security.groups.maps_to': '{{group}} سے {{target}} ملتا ہے',
   'security.groups.none': 'ابھی کوئی گروپ میپ نہیں۔',
+  'security.groups.remove': 'ہٹائیں',
   'security.groups.remove_access': 'اس کے ذریعے ان کی رسائی ابھی ختم ہو',
   'security.groups.remove_holders_one':
     '{{count}} شخص کو اس کے ذریعے رسائی ہے۔ ان کی رسائی کا کیا ہو؟',

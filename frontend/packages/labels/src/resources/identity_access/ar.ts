@@ -1413,6 +1413,7 @@ export const ar: LabelResource = {
     'كل مجموعة، كما يرسلها المزوّد تمامًا، تمنح دورًا واحدًا أو مجموعة دعم واحدة.',
   'security.groups.maps_to': '{{group}} تمنح {{target}}',
   'security.groups.none': 'لا توجد مجموعات مربوطة بعد.',
+  'security.groups.remove': 'إزالة',
   'security.groups.remove_access': 'ينتهي وصولهم من خلاله الآن',
   'security.groups.remove_holders_few': 'لدى {{count}} أشخاص وصول من خلاله. ماذا يحدث لوصولهم؟',
   'security.groups.remove_holders_many': 'لدى {{count}} شخصًا وصول من خلاله. ماذا يحدث لوصولهم؟',

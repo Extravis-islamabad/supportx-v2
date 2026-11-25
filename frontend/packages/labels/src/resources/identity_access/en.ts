@@ -1425,6 +1425,7 @@ export const en = {
     'Each group, exactly as the provider sends it, gives one role or one support group.',
   'security.groups.maps_to': '{{group}} gives {{target}}',
   'security.groups.none': 'No groups mapped yet.',
+  'security.groups.remove': 'Remove',
   'security.groups.remove_access': 'Their access through it ends now',
   'security.groups.remove_holders_one':
     '{{count}} person has access through it. What happens to their access?',

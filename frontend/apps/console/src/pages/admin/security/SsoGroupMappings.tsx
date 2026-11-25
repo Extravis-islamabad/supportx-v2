@@ -116,7 +116,7 @@ export function SsoGroupMappings({ providerId }: { providerId: string }) {
                 }}
                 data-testid={`sso-group-remove-${m.external_group_id}`}
               >
-                {t('actions.remove')}
+                {t('security.groups.remove')}
               </Button>,
             ]}
           >
@@ -171,7 +171,7 @@ export function SsoGroupMappings({ providerId }: { providerId: string }) {
       <Modal
         open={removing !== null}
         title={t('security.groups.remove_title')}
-        okText={t('actions.remove')}
+        okText={t('security.groups.remove')}
         okButtonProps={{ danger: true, loading: remove.isPending }}
         onCancel={() => {
           setRemoving(null);
