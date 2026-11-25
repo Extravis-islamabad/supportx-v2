@@ -420,10 +420,27 @@ MONEY_FIELDS = frozenset(
 
 
 def money_withheld(subject: Subject, wtype: WorkItemType) -> frozenset[str]:
-    """The money fields withheld from `subject` on `wtype` (empty with its cost right)."""
+    """The money fields a list, view or report withholds from `subject` on `wtype`.
+
+    Lists and reports span every record the reader may list, so the cost right must cover the
+    list right's reach (lane C's #633 condition): `view_costs` at `all`, or at the same scope as
+    `view`, and never through a conditional grant. A lead with `view: all` and `view_costs:
+    group` gets the money withheld here; the record page still checks each record (D-184).
+    """
     if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
         return frozenset()
-    return frozenset() if subject.holds(wtype.permission(VIEW_COSTS)) else MONEY_FIELDS
+    return frozenset() if _costs_cover_listing(subject, wtype) else MONEY_FIELDS
+
+
+def _costs_cover_listing(subject: Subject, wtype: WorkItemType) -> bool:
+    costs = subject.grants.get(wtype.permission(VIEW_COSTS), ())
+    plain = [g.scope for g in costs if not g.condition]
+    if not plain:
+        return False
+    if "all" in plain:
+        return True
+    listing = subject.broadest_scope(wtype.permission("view"))
+    return listing is not None and listing in plain
 
 
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {

@@ -14,7 +14,7 @@ from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import approvals, fresh, manager_of
 from tests.db.test_catalog_api import add as add_item
 from tests.db.test_fulfilment_api import done, tasks
-from tests.db.test_incidents_api import CONSOLE, Org, World, problem
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role
 from tests.db.test_service_requests_api import SR, an_item, raise_request
 from tests.db.test_users_api import seed_users
 
@@ -266,3 +266,41 @@ async def test_lane_c_money_cannot_be_filtered_or_sorted_without_the_cost_right(
     assert sorted_.status_code == 422, sorted_.text
     fields = (await world.call("GET", f"{SR}/list-fields", a, a.tech_a)).json()
     assert not {"estimated_cost", "charged_amount"} & {f["name"] for f in fields}
+
+
+async def test_lane_c_a_group_scoped_cost_right_never_filters_money_across_all(
+    world: World,
+) -> None:
+    """Lane C's #633 condition: `view_costs` must cover the list's reach to filter money."""
+    import json  # noqa: PLC0415 - one test
+
+    a = world.a
+    item = await priced(world, a)
+    await raised(world, a, item, "pro")
+    params = {"filter": json.dumps({"field": "estimated_cost", "op": "gt", "value": 100})}
+    narrow = await role(
+        world,
+        a,
+        f"Lead {uuid.uuid4().hex[:6]}",
+        [("requests.view", "all"), ("requests.view_costs", "group")],
+    )
+    given = await world.call("PUT", f"/users/{a.tech_c}/roles/{narrow}", a, a.admin)
+    assert given.status_code == 204, given.text
+    try:
+        refused = await world.call("GET", SR, a, a.tech_c, params=params)
+        assert refused.status_code == 422, refused.text
+    finally:
+        await world.call("DELETE", f"/users/{a.tech_c}/roles/{narrow}", a, a.admin)
+    wide = await role(
+        world,
+        a,
+        f"Costs {uuid.uuid4().hex[:6]}",
+        [("requests.view", "all"), ("requests.view_costs", "all")],
+    )
+    given = await world.call("PUT", f"/users/{a.tech_c}/roles/{wide}", a, a.admin)
+    assert given.status_code == 204, given.text
+    try:
+        allowed = await world.call("GET", SR, a, a.tech_c, params=params)
+        assert allowed.status_code == 200, allowed.text
+    finally:
+        await world.call("DELETE", f"/users/{a.tech_c}/roles/{wide}", a, a.admin)
