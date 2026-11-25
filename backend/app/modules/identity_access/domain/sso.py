@@ -150,9 +150,18 @@ def check_url(value: str, field_name: str) -> Problem | None:
     return None
 
 
+ALIAS_MAX = 60
+
+
 def alias_for(slug: str, token: str) -> str:
-    """The Keycloak alias of a tenant's set-up: unique, and naming the tenant for operators."""
-    return f"sx-{slug}-{token}"[:60]
+    """The Keycloak alias of a tenant's set-up: unique, and naming the tenant for operators.
+
+    The random token is always whole: only the slug is shortened, so two set-ups of a tenant
+    with a long slug never share an alias, nor its group attributes (lane C's #632 note). An
+    alias already stored on a set-up keeps its value; this only shapes new ones.
+    """
+    room = ALIAS_MAX - len("sx-") - len("-") - len(token)
+    return f"sx-{slug[:room].rstrip('-')}-{token}"
 
 
 def oidc_config(discovery: dict[str, Any], *, client_id: str, scopes: str) -> dict[str, str]:
