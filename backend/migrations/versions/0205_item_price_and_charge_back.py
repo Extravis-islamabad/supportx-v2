@@ -29,6 +29,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from migrations.helpers import grant_report_columns, revoke_report
+
 revision: str = "0205"
 # On main's head 0202 for now; re-pointed at its queue turn (after #630's 0204).
 down_revision: str | None = "0202"
@@ -36,6 +38,9 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 ITEMS, SETTINGS, TABLE = "catalog_items", "catalog_settings", "work_items"
+# The charge-back report names its items (lane C's condition 3): supportx_report reads only an
+# item's ID and names, never its descriptions or forms (free text).
+ITEM_REPORT_COLUMNS = ("id", "tenant_id", "names", "deleted_at")
 MONEY = sa.Numeric(14, 2)
 PERIODS = "('once', 'month', 'year')"
 
@@ -95,10 +100,12 @@ def upgrade() -> None:
         ["tenant_id", "charged_at"],
         postgresql_where=sa.text("charged_at IS NOT NULL"),
     )
+    grant_report_columns(ITEMS, ITEM_REPORT_COLUMNS)
 
 
 def downgrade() -> None:
     """Back to before (the columns hold only what this added)."""
+    revoke_report(ITEMS)
     op.drop_index("ix_work_items_charged", table_name=TABLE)
     op.drop_constraint(op.f("ck_work_items_estimate_period_code"), TABLE, type_="check")
     op.drop_constraint(op.f("ck_work_items_money_not_negative"), TABLE, type_="check")

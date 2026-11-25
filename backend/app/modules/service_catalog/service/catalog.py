@@ -1295,6 +1295,7 @@ __all__ = [
     "get_item",
     "item_decides",
     "item_decides_with",
+    "item_name_maps",
     "item_requestable",
     "list_items",
     "offered",
@@ -1305,3 +1306,13 @@ __all__ = [
     "stored",
     "update_item",
 ]
+
+
+async def item_name_maps(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str]]:
+    """Each item's names per language, deleted ones too (WP-047b S1: reports name them)."""
+    rows = await session.execute(
+        select(CatalogItem.id, CatalogItem.names).where(CatalogItem.id.in_(ids))
+    )
+    return {row.id: {k: str(v) for k, v in dict(row.names or {}).items()} for row in rows}

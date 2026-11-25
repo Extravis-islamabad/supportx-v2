@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
+from app.core.errors import PermissionDenied
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.organization import base_currency
@@ -604,6 +605,33 @@ async def _shown(session: AsyncSession, subject: Subject, *, staff: bool) -> tup
     licensed = await service.quantity_licensed(subject)  # both are the catalog feature
     shown = licensed and (await settings.read(session)).requesters_see_prices
     return licensed, shown, currency
+
+
+class ItemNameOut(BaseModel):
+    """One item's names per language (WP-047b S1: reports name the items they group by)."""
+
+    id: uuid.UUID
+    names: dict[str, str]
+
+
+ITEM_NAMES_MAX = 100
+
+
+@router.get("/items/names", summary="Catalog item names by ID, for reports (staff)")
+async def item_names(
+    session: TenantSession,
+    subject: SignedIn,
+    ids: Annotated[list[uuid.UUID], Query(max_length=ITEM_NAMES_MAX)],
+) -> list[ItemNameOut]:
+    """Names of these items, retired, unpublished and deleted ones too (lane C's condition 1).
+
+    A charge-back from last quarter still names an item retired since. Staff only (names are
+    the desk's catalog, never anything about a request); unknown IDs are left out.
+    """
+    if not is_staff(subject):
+        raise PermissionDenied(params={"permission": "catalog_items.view"})
+    rows = await service.item_name_maps(session, list(ids))
+    return [ItemNameOut(id=i, names=n) for i, n in rows.items()]
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
