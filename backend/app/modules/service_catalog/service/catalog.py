@@ -15,8 +15,9 @@ offering retire otherwise).
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Select, or_, select
@@ -26,6 +27,7 @@ from app.core.errors import Conflict, NotFound
 from app.modules import licensing, sla
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.organization import existing_unit_ids
+from app.modules.service_catalog.domain import pricing
 from app.modules.service_catalog.domain.catalog import (
     DESCRIPTION_MAX,
     MAX_EXTRA_CATEGORIES,
@@ -124,6 +126,12 @@ ITEM_FIELDS = (
     "subject_template",
     "requesters_see_approval",
     "extra_category_ids",
+    # WP-047b S1 (REQ-CAT-020, -021)
+    "price",
+    "price_period",
+    "internal_cost",
+    "charge_to",
+    "charge_question_key",
     "workflow_id",  # WP-047a S5 (REQ-SR-053)
     "publish_at",
     "retire_at",
@@ -166,6 +174,7 @@ def _question(q: Mapping[str, Any]) -> Question:
             QuestionAudience(a) for a in q.get("shown_to") or list(QuestionAudience)
         ),
         restarts_approval=bool(q.get("restarts_approval", False)),
+        option_prices={str(k): str(v) for k, v in (q.get("option_prices") or {}).items()},
     )
 
 
@@ -354,6 +363,12 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "default": q.get("default"),
         "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
         **({"restarts_approval": True} if q.get("restarts_approval") else {}),
+        # WP-047b S1 (REQ-CAT-020): a choice's option prices, as decimal text (never floats).
+        **(
+            {"option_prices": {str(k): str(v) for k, v in q["option_prices"].items()}}
+            if q.get("option_prices")
+            else {}
+        ),
     }
 
 
@@ -695,8 +710,30 @@ def snapshot(item: CatalogItem) -> dict[str, Any]:
             value = value.isoformat()
         elif name == "extra_category_ids":
             value = [str(v) for v in value or []]
+        elif isinstance(value, Decimal):
+            value = str(value)  # money as text in the history (WP-047b S1)
         out[name] = value
     return out
+
+
+CHARGE_TO_DEPARTMENT = pricing.ChargeTo.REQUESTED_FOR_DEPARTMENT.value
+CHARGE_TO_QUESTION = pricing.ChargeTo.QUESTION.value
+# A cost centre is a form answer in V1 (the coordinator, 2026-11-25): text or a choice.
+CHARGE_QUESTION_KINDS = frozenset({QuestionKind.TEXT, QuestionKind.CHOICE})
+
+
+def _charge_problems(item: CatalogItem, rules: ItemRules) -> list[tuple[str, str]]:
+    """Who a fulfilled request charges (REQ-CAT-021): the department, or a form answer."""
+    if item.charge_to != CHARGE_TO_QUESTION:
+        return [] if item.charge_question_key is None else [("charge_question_key", "not_allowed")]
+    asked = {q.key: q for q in rules.questions}
+    question = asked.get(item.charge_question_key or "")
+    if question is None:
+        missing = "required" if not item.charge_question_key else "not_found"
+        return [("charge_question_key", missing)]
+    if question.kind not in CHARGE_QUESTION_KINDS:
+        return [("charge_question_key", "invalid_choice")]
+    return []
 
 
 async def _check(session: AsyncSession, item: CatalogItem, clock: Clock) -> None:
@@ -706,6 +743,10 @@ async def _check(session: AsyncSession, item: CatalogItem, clock: Clock) -> None
         rules_problems(rules)
         + subject_template_problems(item.subject_template, rules.questions)
         + await _reference_problems(session, item, rules)
+        # WP-047b S1 (REQ-CAT-020, -021): the amounts, the option prices and who it charges.
+        + pricing.price_problems(item.price, item.internal_cost)
+        + pricing.option_price_problems(rules.questions)
+        + _charge_problems(item, rules)
     )
     if item.kind == ItemKind.INCIDENT_TEMPLATE.value and (rules.questions or rules.plan):
         problems.append(("kind", "not_allowed"))  # the template decides the incident's form
@@ -893,6 +934,10 @@ async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> Non
         "workflow_id"
     ) is not None:
         await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047b S1: prices, an internal cost, option prices and charge-back are Professional
+    # (REQ-CAT-020, -021); clearing them is always allowed.
+    if _priced(values):
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
 
 
 def _professional_step(step: Any) -> bool:  # noqa: ANN401 - the API's plan JSON
@@ -904,6 +949,20 @@ def _professional_step(step: Any) -> bool:  # noqa: ANN401 - the API's plan JSON
         or step.get("fields")
         or (owner not in (None, TaskOwnerKind.PERSON.value))
         or step.get("kind") not in (None, PlanStepKind.TASK.value)
+    )
+
+
+def _priced(values: Mapping[str, Any]) -> bool:
+    questions = values.get("questions")
+    return bool(
+        values.get("price") is not None
+        or values.get("internal_cost") is not None
+        or values.get("price_period") not in (None, "once")
+        or values.get("charge_to") not in (None, CHARGE_TO_DEPARTMENT)
+        or (
+            isinstance(questions, list)
+            and any(isinstance(q, Mapping) and q.get("option_prices") for q in questions)
+        )
     )
 
 
@@ -1175,6 +1234,12 @@ class RequestItem:
     # WP-047a S3b (REQ-SR-041): what restarts approval when it changes after submitting: the
     # marked questions' keys, and `quantity` / `requested_for` when the item says so.
     restart_keys: tuple[str, ...] = ()
+    # WP-047b S1 (REQ-CAT-020, -021; D-184): plain values for the request's estimate and charge.
+    price: Decimal | None = None
+    price_period: str = "once"
+    option_prices: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+    charge_to: str = CHARGE_TO_DEPARTMENT
+    charge_question_key: str | None = None
 
 
 async def request_item(
@@ -1208,6 +1273,11 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         count_approval_time=rules.count_approval_time,
         auto_fulfil=rules.auto_fulfil,
         max_quantity=item.max_quantity,
+        price=item.price,
+        price_period=item.price_period,
+        option_prices=pricing.priced_options(rules.questions),
+        charge_to=item.charge_to,
+        charge_question_key=item.charge_question_key,
         asks_needed_by=item.asks_needed_by,
         answer_problems=tuple(answer_problems(rules.questions, answers)),
         approvers=tuple(
@@ -1327,6 +1397,7 @@ __all__ = [
     "get_item",
     "item_decides",
     "item_decides_with",
+    "item_name_maps",
     "item_requestable",
     "list_items",
     "offered",
@@ -1337,3 +1408,13 @@ __all__ = [
     "stored",
     "update_item",
 ]
+
+
+async def item_name_maps(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str]]:
+    """Each item's names per language, deleted ones too (WP-047b S1: reports name them)."""
+    rows = await session.execute(
+        select(CatalogItem.id, CatalogItem.names).where(CatalogItem.id.in_(ids))
+    )
+    return {row.id: {k: str(v) for k, v in dict(row.names or {}).items()} for row in rows}

@@ -20,7 +20,7 @@ from app.modules.service_catalog.infra.models import CatalogSettings
 from app.modules.service_catalog.service.common import require_manage
 from app.shared.events import record_event
 
-EDITABLE = ("hide_default_incident_template",)
+EDITABLE = ("hide_default_incident_template", "requesters_see_prices")  # +WP-047b S1 (D-184)
 
 
 async def read(session: AsyncSession) -> CatalogSettings:
@@ -35,6 +35,7 @@ async def read(session: AsyncSession) -> CatalogSettings:
         tenant_id=session.info[SESSION_TENANT_KEY].tenant_id,
         starter_seeded_at=None,
         hide_default_incident_template=False,
+        requesters_see_prices=False,
         version=1,
     )
 

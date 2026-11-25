@@ -28,7 +28,25 @@ export const KINDS: Kind[] = [
 export const TODAYS_KINDS: Kind[] = ['person', 'requested_for_manager'];
 export const RULES: Rule[] = ['any', 'all', 'majority'];
 // The condition operators a stage takes (the form rules' DSL, app/shared/conditions.py).
-export const OPS = ['eq', 'ne', 'in', 'not_in', 'is_null', 'is_not_null'] as const;
+export const OPS = [
+  'eq',
+  'ne',
+  'in',
+  'not_in',
+  'is_null',
+  'is_not_null',
+  // WP-047b S1: numbers only (the shared DSL; a mismatched type never matches).
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+] as const;
+/** The operators a number field offers (the quantity, and an automatic rule's estimate). */
+export const NUMBER_OPS = ['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'is_null', 'is_not_null'] as const;
+/** The operators other fields offer (no ordering on text or choices). */
+export const TEXT_OPS = ['eq', 'ne', 'in', 'not_in', 'is_null', 'is_not_null'] as const;
+/** The fields a condition reads as numbers. */
+export const NUMBER_FIELDS = new Set(['quantity', 'estimated_cost']);
 export type Op = (typeof OPS)[number];
 
 /** A new stage: the requested-for person's manager, decided by the first answer. */

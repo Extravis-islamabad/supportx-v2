@@ -3,6 +3,7 @@ import {
   useIncidentCatalogue,
   useIncidentCategories,
   useStructure,
+  useCatalogItemNames,
   useUsers,
   type CustomField,
   type ReportField,
@@ -109,10 +110,15 @@ export interface ReportWords {
 }
 
 function userIds(result: ReportResult | undefined): string[] {
+  return referenceIds(result, 'user');
+}
+
+/** The IDs a result's groups of one reference kind name (top-N reports fit in 100). */
+function referenceIds(result: ReportResult | undefined, kind: string): string[] {
   if (result === undefined) return [];
   const ids = new Set<string>();
   result.groups.forEach((group, index) => {
-    if (group.reference !== 'user') return;
+    if (group.reference !== kind) return;
     for (const row of result.rows) {
       const key = row.keys[index];
       if (typeof key === 'string') ids.add(key);
@@ -142,6 +148,10 @@ export function useReportWords(result?: ReportResult): ReportWords {
   const people = new Map(
     (users.data?.pages ?? []).flatMap((page) => page.items).map((u) => [u.id, u.display_name]),
   );
+  // WP-047b S1 (lane C's condition 1): items by ID, retired and deleted ones too, per language.
+  const itemIds = referenceIds(result, 'catalog_item');
+  const itemNames = useCatalogItemNames(itemIds);
+  const items = new Map((itemNames.data ?? []).map((i) => [i.id, i.names]));
   const customFields = custom.data ?? [];
   const number = new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 1 });
   const percent = new Intl.NumberFormat(intlLocale, { style: 'percent', maximumFractionDigits: 1 });
@@ -167,6 +177,13 @@ export function useReportWords(result?: ReportResult): ReportWords {
           : undefined;
       case 'user':
         return people.get(id);
+      case 'catalog_item': {
+        const names = items.get(id);
+        if (names === undefined) return undefined;
+        // An item named only in English shows that, never a blank (the server's rule too).
+        const own = names[locale];
+        return own !== undefined && own !== '' ? own : names.en;
+      }
       default:
         return undefined;
     }

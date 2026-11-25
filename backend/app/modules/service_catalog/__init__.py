@@ -18,10 +18,12 @@ answers them: it depends on the catalog, so the catalog cannot ask it directly).
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.service_catalog.api.routes import router
-from app.modules.service_catalog.domain.items import REQUESTER_GROUPS
+from app.modules.service_catalog.domain.items import ESTIMATED_COST, REQUESTER_GROUPS
+from app.modules.service_catalog.domain.pricing import ChargeTo, PricePeriod
+from app.modules.service_catalog.domain.pricing import estimate as estimate_cost
 from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
-from app.modules.service_catalog.service import person_data
+from app.modules.service_catalog.service import person_data, report_names
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
     AgainForm,
@@ -78,15 +80,19 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "ESTIMATED_COST",
     "REQUESTER_GROUPS",
     "AgainForm",
     "ApproverSpec",
+    "ChargeTo",
     "PlanStep",
+    "PricePeriod",
     "RequestItem",
     "StageSpec",
     "again_form",
     "approver_question_keys",
     "catalog_settings",
+    "estimate_cost",
     "item_decides",
     "item_decides_with",
     "item_requestable",
@@ -100,3 +106,5 @@ __all__ = [
     "rules_of",
     "templated_subject",
 ]
+
+report_names.register()  # WP-047b S1: item names in report files (charge-back)

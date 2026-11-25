@@ -41,7 +41,7 @@ from app.modules.work_items.service import bulk as bulk_service
 from app.modules.work_items.service import catalogue, custom_values, view_audit, view_filters
 from app.modules.work_items.service import lists as service
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS, type_fields
+from app.modules.work_items.service.access import FIELDS, money_withheld, type_fields
 from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, set_etag
 from app.shared.api.filters import FilterField
 from app.shared.api.idempotency import Created, Idempotency
@@ -322,7 +322,10 @@ def _hooks(wtype: WorkItemType) -> dict[str, Any]:
 
     async def withheld(request: Request, tenant: TenantContext) -> frozenset[str]:
         subject = await get_policy(request).subject_for(request, tenant)
-        return field_rules.unseen(subject.field_access, wtype.code.value).all
+        # A request's money too, without the cost right (D-184; lane C's #633 review).
+        return field_rules.unseen(subject.field_access, wtype.code.value).all | money_withheld(
+            subject, wtype
+        )
 
     async def sealed(
         session: AsyncSession,

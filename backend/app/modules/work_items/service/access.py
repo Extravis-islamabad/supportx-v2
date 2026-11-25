@@ -400,7 +400,50 @@ INCIDENT_FIELDS: Mapping[str, FilterField] = {
         WorkItem.major_declared_at, FieldType.DATETIME, sortable=True, simple=False
     ),
 }
+# WP-047b S1 (REQ-CAT-021 AC2): a request's estimate and its frozen charge, for the charge-back
+# report by department and item (money: withheld from reports without view_costs, D-184).
+SERVICE_REQUEST_FIELDS: Mapping[str, FilterField] = {
+    "estimated_cost": FilterField(WorkItem.estimated_cost, FieldType.DECIMAL, simple=False),
+    "charged_amount": FilterField(WorkItem.charged_amount, FieldType.DECIMAL, simple=False),
+    "charge_department_id": FilterField(
+        WorkItem.charge_department_id, FieldType.UUID, simple=False
+    ),
+    "charge_cost_centre": FilterField(WorkItem.charge_cost_centre, FieldType.STRING, simple=False),
+    "charged_at": FilterField(WorkItem.charged_at, FieldType.DATETIME, sortable=True, simple=False),
+}
+# A request's money (D-184): never filtered, sorted, shown or reported without the type's cost
+# right (lane C's #633 review: a filter `estimated_cost gt N` would reveal the value).
+MONEY_FIELDS = frozenset(
+    {"estimated_cost", "charged_amount", "charge_department_id", "charge_cost_centre", "charged_at"}
+)
+
+
+def money_withheld(subject: Subject, wtype: WorkItemType) -> frozenset[str]:
+    """The money fields a list, view or report withholds from `subject` on `wtype`.
+
+    Lists and reports span every record the reader may list, so the cost right must cover the
+    list right's reach (lane C's #633 condition): `view_costs` at `all`, or at the same scope as
+    `view`, and never through a conditional grant. A lead with `view: all` and `view_costs:
+    group` gets the money withheld here; the record page still checks each record (D-184).
+    """
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        return frozenset()
+    return frozenset() if _costs_cover_listing(subject, wtype) else MONEY_FIELDS
+
+
+def _costs_cover_listing(subject: Subject, wtype: WorkItemType) -> bool:
+    costs = subject.grants.get(wtype.permission(VIEW_COSTS), ())
+    plain = [g.scope for g in costs if not g.condition]
+    if not plain:
+        return False
+    if "all" in plain:
+        return True
+    listing = subject.broadest_scope(wtype.permission("view"))
+    return listing is not None and listing in plain
+
+
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.SERVICE_REQUEST: SERVICE_REQUEST_FIELDS,
     WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,
     WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
     WorkItemTypeCode.CHANGE: CHANGE_FIELDS,

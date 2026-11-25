@@ -16,6 +16,7 @@ routes, which apply the requester's rules (`/service-requests/{id}/approvals`, `
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -23,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
+from app.modules import service_catalog
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.work_items.api.portal_routes import (
     PortalConversationOut,
@@ -73,6 +75,10 @@ class PortalRequestOut(BaseModel):
         default=None, description="From the item's SLA; updated when approval completes."
     )
     needed_earlier: bool = False
+    # WP-047b S1 (D-184): the estimate, base currency; to an approver always, to the requester's
+    # side only when the tenant shows prices (off by default). Never the charge or actual cost.
+    estimated_cost: Decimal | None = None
+    estimate_period: str | None = None
     created_at: datetime
     updated_at: datetime
     resolution: str | None = None
@@ -107,8 +113,14 @@ class PortalStepsOut(BaseModel):
     total: int
 
 
-def _out(found: service.PortalRecord) -> PortalRequestOut:
+async def _prices_shown(session: TenantSession) -> bool:
+    """Whether the tenant shows prices and estimates to requesters (D-184; off by default)."""
+    return (await service_catalog.catalog_settings(session)).requesters_see_prices
+
+
+def _out(found: service.PortalRecord, *, prices_shown: bool = False) -> PortalRequestOut:
     r = found.record
+    money = prices_shown or found.reach is PortalReach.APPROVER
     return PortalRequestOut(
         id=r.id,
         display_id=r.display_id,
@@ -124,6 +136,8 @@ def _out(found: service.PortalRecord) -> PortalRequestOut:
         needed_by=r.needed_by,
         expected_delivery_at=r.expected_delivery_at,
         needed_earlier=sr_rules.needed_earlier(r.needed_by, r.expected_delivery_at),
+        estimated_cost=r.estimated_cost if money else None,
+        estimate_period=r.estimate_period if money and r.estimated_cost is not None else None,
         created_at=r.created_at,
         updated_at=r.updated_at,
         resolution=r.resolution,
@@ -143,8 +157,11 @@ async def list_portal_requests(
     rows, page = await service.list_records(
         session, subject, query, wtype=SERVICE_REQUEST, state=state
     )
+    shown = await _prices_shown(session)
     return PortalRequestPage(
-        items=[_out(r) for r in rows], next_cursor=page.next_cursor, has_more=page.has_more
+        items=[_out(r, prices_shown=shown) for r in rows],
+        next_cursor=page.next_cursor,
+        has_more=page.has_more,
     )
 
 
@@ -153,7 +170,8 @@ async def get_portal_request(
     record_id: uuid.UUID, session: TenantSession, subject: SignedIn
 ) -> PortalRequestOut:
     """Out of reach reads as not found (404), never forbidden."""
-    return _out(await service.get_record(session, subject, record_id, SERVICE_REQUEST))
+    found = await service.get_record(session, subject, record_id, SERVICE_REQUEST)
+    return _out(found, prices_shown=await _prices_shown(session))
 
 
 class PortalRequestAgainOut(BaseModel):

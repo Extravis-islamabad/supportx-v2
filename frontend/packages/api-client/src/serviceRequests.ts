@@ -64,6 +64,21 @@ export function useCatalogItem(id: string | undefined) {
   });
 }
 
+/**
+ * Catalog items' names by ID, retired and deleted ones too (WP-047b S1): what a report grouped
+ * by item shows, the same names the server's report files use. At most 100 at once.
+ */
+export function useCatalogItemNames(ids: readonly string[], enabled = true) {
+  const sorted = [...ids].sort().slice(0, 100);
+  return useQuery({
+    queryKey: ['catalog', 'item-names', sorted] as const,
+    queryFn: () =>
+      call(api.GET('/api/v1/catalog/items/names', { params: { query: { ids: sorted } } })),
+    enabled: enabled && sorted.length > 0,
+    staleTime: 60_000,
+  });
+}
+
 export function useCatalogCategories() {
   return useQuery({
     queryKey: serviceRequestKeys.categories,
