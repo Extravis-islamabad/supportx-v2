@@ -2965,7 +2965,6 @@ export const en = {
   'work_item.field.template_id': 'Template',
   'work_item.field.urgency': 'Urgency',
   'work_item.field.workaround': 'Workaround',
-  'work_item.field.workflow_stopped': 'Workflow stopped',
   'work_item.field.workflow_version': 'Workflow version',
   'work_item.field.worklog': 'Worklog',
   'work_item.history.changed': '{{who}} changed {{field}} from {{old}} to {{new}}',

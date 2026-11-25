@@ -11,7 +11,7 @@ import {
   type CatalogQuestion,
   type PortalTask,
 } from '@supportx/api-client';
-import { usePersonalChannel } from '@supportx/realtime';
+import { refreshQueries, usePersonalChannel } from '@supportx/realtime';
 import {
   markHandled,
   QuestionField,
@@ -61,12 +61,13 @@ export function TaskPage() {
   usePersonalChannel(
     (event) => {
       if (event.type === MY_TASKS_CHANGED && event.ids.includes(id)) {
-        void queryClient.invalidateQueries({ queryKey: portalTaskKeys.detail(id) });
+        refreshQueries(queryClient, portalTaskKeys.detail(id));
       }
     },
     { covers: [portalTaskKeys.detail(id)] },
   );
-  if (found.isError) {
+  // Not yours, closed or given to someone else (404); any other failure is reported (lane C).
+  if (found.error instanceof ApiError && found.error.status === 404) {
     return (
       <Flex vertical gap={16} style={FORM_COLUMN}>
         <Alert type="info" showIcon message={t('portal.tasks.gone')} />
@@ -74,6 +75,7 @@ export function TaskPage() {
       </Flex>
     );
   }
+  if (found.error) reportError(found.error);
   const task = found.data;
   if (task === undefined) return <Skeleton active />;
   const fields = task.fields ?? [];
@@ -94,7 +96,7 @@ export function TaskPage() {
       {
         onSuccess: () => {
           setValues(null);
-          if (status === 'done') void navigate('/tasks?completed=1', { replace: true });
+          if (status === 'done') void navigate('/tasks', { replace: true });
         },
         onError: (error) => {
           if (error instanceof ApiError && error.status === 422) {

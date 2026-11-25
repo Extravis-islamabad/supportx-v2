@@ -109,6 +109,27 @@ describe('portal: your tasks', () => {
     expect(screen.queryByText('Manager sign-off')).toBeNull();
   });
 
+  it('a server failure is reported, never read as "no longer yours"', async () => {
+    window.history.pushState({}, '', `/tasks/${TASK.id}`);
+    const fake = portal({
+      [`GET /api/v1/portal/tasks/${TASK.id}`]: {
+        status: 500,
+        body: {
+          ...GONE.body,
+          status: 500,
+          code: 'internal_error',
+          message_key: 'errors.internal_error',
+        },
+      },
+    });
+    render(<App />);
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/portal/tasks/${TASK.id}`).length).toBeGreaterThan(0);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50)); // the failed fetch settles
+    expect(screen.queryByText('This task is no longer yours, or it is already closed.')).toBeNull();
+  });
+
   it('a hand-over task is completed by the desk, never from the portal', async () => {
     window.history.pushState({}, '', `/tasks/${TASK.id}`);
     portal({

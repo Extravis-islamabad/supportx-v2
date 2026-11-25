@@ -3,7 +3,7 @@ import { Card, Flex, List, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { portalTaskKeys, usePortalTasks } from '@supportx/api-client';
-import { usePersonalChannel } from '@supportx/realtime';
+import { refreshQueries, usePersonalChannel } from '@supportx/realtime';
 import { EmptyText, reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
 // Sent on the person's own channel when a task is given to them, changes or leaves them.
@@ -22,7 +22,7 @@ export function MyTasksPage() {
   usePersonalChannel(
     (event) => {
       if (event.type === MY_TASKS_CHANGED) {
-        void queryClient.invalidateQueries({ queryKey: portalTaskKeys.all });
+        refreshQueries(queryClient, portalTaskKeys.all);
       }
     },
     { covers: [portalTaskKeys.all] },

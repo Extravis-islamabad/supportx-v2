@@ -20,6 +20,7 @@ import {
   toGraph,
   type WorkflowNode,
 } from '@supportx/flow';
+import { useListFormat } from '@supportx/labels';
 import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   EmptyText,
@@ -442,6 +443,7 @@ export function WorkflowWaitingBanner({
   const allowed = can('workflows.run') || can('workflows.manage');
   const runs = useRecordWorkflows(recordType, recordId, allowed);
   const customFields = useCustomFields(recordType as CustomFieldEntity, true, allowed);
+  const listFormat = useListFormat();
   useRecordEvents(
     'wi',
     allowed ? recordId : undefined,
@@ -475,7 +477,7 @@ export function WorkflowWaitingBanner({
             description={[
               (wait.fields ?? []).length > 0
                 ? t('workflows.record.waiting_fields', {
-                    fields: (wait.fields ?? []).map(fieldWord).join(', '),
+                    fields: listFormat((wait.fields ?? []).map(fieldWord)),
                   })
                 : null,
               wait.until != null
