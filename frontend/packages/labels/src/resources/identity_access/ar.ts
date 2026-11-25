@@ -224,6 +224,7 @@ export const ar: LabelResource = {
   'erasure_count.group_memberships': 'عضويات المجموعات المحذوفة',
   'erasure_count.groups_led': 'المجموعات المسلّمة إلى الخلف',
   'erasure_count.holder_notices_sent': 'إبلاغ فريق الأصول بما لا يزال لديه',
+  'erasure_count.idp_group_attributes_cleared': 'مسح تفاصيل مجموعات تسجيل الدخول',
   'erasure_count.invitation_addresses_cleared': 'عناوين الدعوات الممسوحة',
   'erasure_count.invitations_revoked': 'الدعوات الملغاة',
   'erasure_count.kb_articles_moved': 'مقالات المعرفة المُسلَّمة إلى الخلف',

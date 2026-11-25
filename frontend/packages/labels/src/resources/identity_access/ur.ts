@@ -222,6 +222,7 @@ export const ur: LabelResource = {
   'erasure_count.group_memberships': 'ہٹائی گئی گروپ رکنیتیں',
   'erasure_count.groups_led': 'جانشین کو سونپے گئے گروپ',
   'erasure_count.holder_notices_sent': 'اثاثہ ٹیم کو بتایا گیا کہ ان کے پاس ابھی کیا ہے',
+  'erasure_count.idp_group_attributes_cleared': 'سائن اِن گروپ کی تفصیلات صاف کی گئیں',
   'erasure_count.invitation_addresses_cleared': 'صاف کیے گئے دعوتی پتے',
   'erasure_count.invitations_revoked': 'منسوخ شدہ دعوتیں',
   'erasure_count.kb_articles_moved': 'علمی مضامین جانشین کے حوالے کیے گئے',

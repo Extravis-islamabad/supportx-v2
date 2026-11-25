@@ -217,6 +217,7 @@ export const en = {
   'erasure_count.group_memberships': 'Group memberships removed',
   'erasure_count.groups_led': 'Groups handed to the successor',
   'erasure_count.holder_notices_sent': 'Asset team told what they still hold',
+  'erasure_count.idp_group_attributes_cleared': 'Sign-in group details cleared',
   'erasure_count.invitation_addresses_cleared': 'Invitation addresses cleared',
   'erasure_count.invitations_revoked': 'Invitations revoked',
   'erasure_count.kb_articles_moved': 'Knowledge articles handed to the successor',
