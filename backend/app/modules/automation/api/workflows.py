@@ -822,17 +822,15 @@ async def _instance_to_act_on(
     return instance
 
 
-@router.post(
-    "/instances/{instance_id}/stop",
-    summary="Stop a workflow on a record, with a reason",
-    dependencies=[
-        audited(
-            "automation.workflow_stopped",
-            object_type="workflow_instance",
-            object_param="instance_id",
-        )
-    ],
-)
+StopNote = Annotated[
+    AuditNote,
+    audited(
+        "automation.workflow_stopped", object_type="workflow_instance", object_param="instance_id"
+    ),
+]
+
+
+@router.post("/instances/{instance_id}/stop", summary="Stop a workflow on a record, with a reason")
 async def stop_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     instance_id: uuid.UUID,
     body: StopIn,
@@ -840,11 +838,17 @@ async def stop_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     response: Response,
     session: TenantSession,
     subject: Run,
+    note: StopNote,
 ) -> InstanceOut:
-    """Its log stays readable; the record goes on through its life cycle (REQ-WF-026)."""
+    """Its log and tasks stay; the record goes on through its life cycle (REQ-WF-026, SR-054).
+
+    The reason goes to the record's history and to this audit entry (REQ-SR-054 AC1).
+    """
     await _instance_to_act_on(session, subject, instance_id)
+    reason = body.reason.strip()
+    note.details = {"reason": reason}
     stopped = await workflow_runtime.stop(
-        session, instance_id, reason=body.reason.strip(), expected_version=version
+        session, instance_id, reason=reason, expected_version=version
     )
     set_etag(response, stopped.version)
     return _instance(stopped)

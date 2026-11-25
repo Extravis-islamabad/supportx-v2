@@ -530,6 +530,9 @@ async def stop(
     kind = registered(instance.record_type)
     if kind is not None and kind.close_workflow is not None:
         await kind.close_workflow(session, instance.record_id, instance.id)
+    if kind is not None and kind.record_stop is not None:  # REQ-SR-054 AC1: with its reason
+        ref = {"workflow_id": str(instance.workflow_id), "instance_id": str(instance.id)}
+        await kind.record_stop(session, instance.record_id, ref, reason)
     return instance
 
 

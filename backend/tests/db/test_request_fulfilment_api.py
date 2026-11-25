@@ -7,6 +7,7 @@ hand-over port on lane B's terms (its six cases).
 """
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
@@ -353,3 +354,34 @@ async def test_handover_never_reaches_another_tenant_s_asset(world: World) -> No
         uuid.UUID(theirs["id"]),
     )
     assert row["owner_user_id"] is None
+
+
+async def test_the_actual_cost_adds_task_costs_for_the_cost_right_only(world: World) -> None:
+    """REQ-SR-052 AC3: task costs plus worklog costs; hidden without view_costs."""
+    a = world.a
+    record = await request_for(world, a, [step("Order", key="order")], {"remote": "no"})
+    [order] = await tasks(world, a, record)
+    priced = await patch_task(world, a, a.admin, record, order, {"extra_cost": "120.00"})
+    assert priced.status_code == 200, priced.text
+    logged = await world.call(
+        "POST",
+        f"{SR}/{record['id']}/worklogs",
+        a,
+        a.admin,
+        json={
+            "worklog_type": "fix",
+            "started_at": "2026-11-12T09:00:00+00:00",
+            "minutes": 30,
+            "costs": [{"amount": "5.50", "note": "Cable"}],
+        },
+    )
+    assert logged.status_code == 201, logged.text
+    full = await world.call("GET", f"{SR}/{record['id']}/worklogs", a, a.admin)
+    assert full.status_code == 200, full.text
+    body = full.json()
+    assert (Decimal(body["task_cost"]), Decimal(body["actual_cost"])) == (
+        Decimal("120.00"),
+        Decimal("125.50"),
+    )
+    hidden = (await world.call("GET", f"{SR}/{record['id']}/worklogs", a, a.tech_a)).json()
+    assert (hidden["task_cost"], hidden["actual_cost"]) == (None, None)

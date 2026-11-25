@@ -416,6 +416,10 @@ class WorkItemWorklogsOut(BaseModel):
     technician_cost: Decimal | None = None
     other_cost: Decimal | None = None
     total_cost: Decimal | None = None
+    # WP-047a S5 (REQ-SR-052 AC3): the record's task costs and the actual cost (worklogs and
+    # tasks), with the same cost right as the rest; live as tasks and worklogs change.
+    task_cost: Decimal | None = None
+    actual_cost: Decimal | None = None
 
 
 class WorkItemLinkIn(BaseModel):
@@ -474,8 +478,10 @@ def _worklogs_out(
     *,
     money: bool,
     currency: str,
+    tasks: list[WorkItemTask] | None = None,
 ) -> WorkItemWorklogsOut:
     totals = service.totals_of(rows, costs)
+    task_cost = service.task_cost(tasks or [])
     return WorkItemWorklogsOut(
         items=[WorkItemWorklogOut.of(r, costs.get(r.id), money=money) for r in rows],
         minutes=totals.minutes,
@@ -488,6 +494,8 @@ def _worklogs_out(
         technician_cost=totals.technician_cost if money else None,
         other_cost=totals.other_cost if money else None,
         total_cost=totals.total_cost if money else None,
+        task_cost=task_cost if money else None,
+        actual_cost=totals.total_cost + task_cost if money else None,
     )
 
 
@@ -1006,6 +1014,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
             await service.worklog_costs(session, record_id),
             money=await service.may_see_money(session, subject, wtype, record_id),
             currency=await base_currency(session),
+            tasks=await service.tasks_of(session, record_id),
         )
 
     @router.post(

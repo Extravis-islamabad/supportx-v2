@@ -1203,6 +1203,20 @@ class WorklogTotals:
         return self.technician_cost + self.other_cost
 
 
+def task_cost(tasks: list[WorkItemTask]) -> Decimal:
+    """The extra costs of a record's live, not cancelled tasks (REQ-SR-052)."""
+    return sum(
+        (
+            t.extra_cost
+            for t in tasks
+            if t.extra_cost is not None
+            and t.deleted_at is None
+            and t.status != TaskStatus.CANCELED.value
+        ),
+        Decimal("0.00"),
+    )
+
+
 async def _worklogs(session: AsyncSession, record_id: uuid.UUID) -> list[WorkItemWorklog]:
     rows = await session.scalars(
         select(WorkItemWorklog)
