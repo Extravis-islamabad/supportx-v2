@@ -25,7 +25,7 @@ REQ-SEC-014; lane B blocks it, with conditions in ~/Extravis/plans/wp-057-s5c-pl
   source.
 
 Revision ID: 0201
-Revises: 0203
+Revises: 0202
 Created: 2026-11-24
 """
 
@@ -37,7 +37,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0201"
-down_revision: str | None = "0203"  # main's head; re-pointed at its queue turn
+down_revision: str | None = "0202"  # main's head; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
