@@ -17,6 +17,8 @@ from sqlalchemy import text
 if TYPE_CHECKING:
     import uuid
 
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.core.database import Database
 
 _HOST = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
@@ -75,6 +77,24 @@ async def tenant_for_host(
                 )
             ).first()
     return HostTenant(row.tenant_id, row.slug) if row is not None else None
+
+
+async def host_in_use(session: AsyncSession, host: str, base_domain: str | None) -> bool:
+    """Whether `host` is still an active tenant's subdomain or verified domain, any tenant.
+
+    The same two SECURITY DEFINER lookups as `tenant_for_host`, on a session already open (a
+    consumer's tenant transaction): they answer for every tenant, so a host one tenant removed
+    but another still verifies is in use (identity_access keeps its sign-in callback, ADR-031).
+    """
+    name = normalise_host(host)
+    if name is None:
+        return False
+    slug = subdomain_slug(name, base_domain)
+    if slug is not None:
+        query, params = "SELECT tenant_id FROM sx_tenant_for_slug(:slug)", {"slug": slug}
+    else:
+        query, params = "SELECT tenant_id FROM sx_tenant_for_host(:host)", {"host": name}
+    return (await session.execute(text(query), params)).first() is not None
 
 
 async def tenant_for_slug(database: Database, slug: str) -> HostTenant | None:
