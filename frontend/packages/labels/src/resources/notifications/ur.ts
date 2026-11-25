@@ -92,6 +92,8 @@ export const ur: LabelResource = {
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
+  'notification_event.asset.overdue_trash_paused':
+    'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا روک دیا گیا',
   'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
   'notification_event.break_glass.signed_in': 'ایک ہنگامی منتظم نے سائن اِن کیا',
@@ -258,6 +260,7 @@ export const ur: LabelResource = {
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.reviewer': 'جائزہ کار',
+  'notification_recipient.rule_fixers': 'وہ لوگ جو اثاثے حذف اور ترتیب دے سکتے ہیں',
   'notification_recipient.schedule_owner': 'شیڈول کا مالک',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
@@ -346,6 +349,12 @@ export const ur: LabelResource = {
     '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
   'notification_template.asset.mentioned.subject':
     '{{ record.display_id }} پر آپ کا ذکر ہوا: {{ record.title }}',
+  'notification_template.asset.overdue_trash_paused.body':
+    'السلام علیکم {{ recipient.name }}،\nتاخیر سے اسکین کا اصول اثاثے ردی میں منتقل کرنے پر مقرر ہے، لیکن جس شخص نے اسے آخری بار محفوظ کیا وہ اب اثاثے حذف نہیں کر سکتا، اس لیے کچھ بھی ردی میں ڈالنے سے پہلے اسے بند کر دیا گیا۔ دوبارہ چالو کرنے کے لیے اثاثہ حذف کرنے کا اختیار رکھنے والا اسے پھر محفوظ کرے۔ {{ record.link }}',
+  'notification_template.asset.overdue_trash_paused.in_app':
+    'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا رکا ہوا ہے: اثاثہ حذف کرنے کا اختیار رکھنے والا اسے دوبارہ محفوظ کرے',
+  'notification_template.asset.overdue_trash_paused.subject':
+    'تاخیر سے اسکین کا اصول اثاثے ردی میں منتقل کرنے سے پہلے روک دیا گیا',
   'notification_template.asset.stock_low.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا اسٹاک {{ stock.quantity }} تک گر گیا ہے، جو اس کی کم از کم حد {{ stock.minimum }} کے برابر یا اس سے کم ہے۔',
   'notification_template.asset.stock_low.in_app':

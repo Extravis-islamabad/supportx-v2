@@ -89,6 +89,8 @@ export const en = {
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
   'notification_event.asset.mentioned': 'Mentioned in an asset note',
+  'notification_event.asset.overdue_trash_paused':
+    "The overdue-scan rule's move to trash was paused",
   'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
   'notification_event.break_glass.signed_in': 'An emergency administrator signed in',
@@ -252,6 +254,7 @@ export const en = {
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.reviewer': 'Reviewer',
+  'notification_recipient.rule_fixers': 'People who may delete and configure assets',
   'notification_recipient.schedule_owner': "The schedule's owner",
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
@@ -340,6 +343,12 @@ export const en = {
     '{{ conversation.author }} mentioned you on {{ record.display_id }}',
   'notification_template.asset.mentioned.subject':
     'You were mentioned on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.overdue_trash_paused.body':
+    'Hello {{ recipient.name }},\nThe overdue-scan rule is set to move assets to the trash, but the person who last saved it may no longer delete assets, so it was switched off before trashing anything. Someone with asset delete must save it again to turn it back on. {{ record.link }}',
+  'notification_template.asset.overdue_trash_paused.in_app':
+    "The overdue-scan rule's move to trash is paused: someone with asset delete must save it again",
+  'notification_template.asset.overdue_trash_paused.subject':
+    'The overdue-scan rule was paused before moving assets to the trash',
   'notification_template.asset.stock_low.body':
     'Hello {{ recipient.name }},\n\nStock of {{ record.title }} has fallen to {{ stock.quantity }}, at or below its minimum of {{ stock.minimum }}.',
   'notification_template.asset.stock_low.in_app':

@@ -1602,6 +1602,36 @@
         "type": "object"
       }
     },
+    "assets.overdue_rule.trash_paused": {
+      "1": {
+        "description": "The overdue-scan rule's \"move to trash\" was paused before it trashed anything (D-185).\n\nThe person who last saved it no longer holds `assets.delete` (or never did: a rule saved\nbefore 0202), so the system never trashes in their name; the rule is switched off and the\npeople who may fix it are told. IDs only.",
+        "properties": {
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "saved_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved By"
+          }
+        },
+        "required": [
+          "rule_id",
+          "saved_by"
+        ],
+        "title": "OverdueTrashPaused",
+        "type": "object"
+      }
+    },
     "assets.product.changed": {
       "1": {
         "description": "A product was created, changed or moved to the trash (REQ-AST-005).",

@@ -606,6 +606,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_audit.fixes_applied", AuditCategory.RECORDS, "assets"),
     ("asset_overdue_rule.changed", AuditCategory.CONFIGURATION, "assets"),
     ("asset_overdue_rule.ran", AuditCategory.RECORDS, "assets"),
+    ("asset_overdue_rule.trash_paused", AuditCategory.RECORDS, "assets"),
     ("asset_scan.cleaned_up", AuditCategory.DATA, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),
