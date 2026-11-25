@@ -242,6 +242,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("identity.site_networks_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sign_ins_viewed", AuditCategory.SECURITY, "identity_access"),
     ("identity.sso_policy_changed", AuditCategory.SECURITY, "identity_access"),
+    # ADR-031: a tenant address added to or removed from the sign-in clients' callbacks.
+    ("identity.client_addresses_changed", AuditCategory.SECURITY, "identity_access"),
     ("identity.break_glass_changed", AuditCategory.SECURITY, "identity_access"),
     ("session.break_glass_sign_in", AuditCategory.SECURITY, "identity_access"),
     # the service catalog (WP-030)
@@ -567,6 +569,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.moved", AuditCategory.RECORDS, "assets"),
     ("asset.disposed", AuditCategory.RECORDS, "assets"),
     ("asset.assigned", AuditCategory.RECORDS, "assets"),
+    ("asset.handed_over", AuditCategory.RECORDS, "assets"),  # WP-047a S5: a fulfilment hand-over
     ("asset.unassigned", AuditCategory.RECORDS, "assets"),
     ("asset.linked", AuditCategory.RECORDS, "assets"),
     ("asset.unlinked", AuditCategory.RECORDS, "assets"),

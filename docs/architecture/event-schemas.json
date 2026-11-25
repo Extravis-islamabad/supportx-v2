@@ -7403,6 +7403,19 @@
             "title": "Part Id",
             "type": "string"
           },
+          "previous_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous Owner Id"
+          },
           "task_status": {
             "anyOf": [
               {
@@ -7747,6 +7760,19 @@
             "format": "uuid",
             "title": "Owner Id",
             "type": "string"
+          },
+          "previous_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous Owner Id"
           },
           "task_id": {
             "format": "uuid",

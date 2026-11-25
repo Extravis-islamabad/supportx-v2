@@ -299,6 +299,7 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/catalog/categories/{category_id}` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
 | POST | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items/names` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items/popular` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items/search` | signed_in | - | `service_request` (module) |
 | DELETE | `/api/v1/catalog/items/{item_id}` | signed_in | - | `service_request` (module) |
@@ -507,6 +508,8 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/cmdb/cis/{ci_id}/downtimes/{downtime_id}` | `cmdb.record_downtime` | cmdb.record_downtime: all/site/group/own | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/history` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/impact` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/linked` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
+| GET | `/api/v1/cmdb/cis/{ci_id}/linked/{kind}` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
 | GET | `/api/v1/cmdb/cis/{ci_id}/neighbours` | `cmdb.view` | cmdb.view: all/site/group/own | `cmdb` (module, permission) |
 | POST | `/api/v1/cmdb/cis/{ci_id}/relationships` | `cmdb.edit` or `cmdb.manage` | cmdb.edit: all/site/group/own; cmdb.manage: all | `cmdb` (module, permission) |
 | POST | `/api/v1/cmdb/cis/{ci_id}/restore` | `cmdb.delete` | cmdb.delete: all/site/group/own | `cmdb` (module, permission) |
@@ -964,6 +967,9 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
 | PATCH | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
 | GET | `/api/v1/portal/summary` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/tasks` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/problem-repeats/hits` | `problems.create` | problems.create: all | `problem` (module, permission) |
 | POST | `/api/v1/problem-repeats/hits/{hit_id}/handle` | `problems.create` | problems.create: all | `problem` (module, permission) |
 | GET | `/api/v1/problem-repeats/hits/{hit_id}/incidents` | `problems.create` | problems.create: all | `problem` (module, permission) |

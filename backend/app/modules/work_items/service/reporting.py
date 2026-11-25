@@ -14,7 +14,11 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.service import custom_values
-from app.modules.work_items.service.access import FIELDS, type_fields
+from app.modules.work_items.service.access import (
+    FIELDS,
+    money_withheld,
+    type_fields,
+)
 from app.modules.work_items.service.work_items import staff_rows
 from app.shared.api.filters import FieldType, ResourceFields
 from app.shared.reporting import (
@@ -98,7 +102,16 @@ RELEASE_DIMENSIONS: Mapping[str, Dimension] = {
     "stage_overdue": Dimension(_D.BOOLEAN),
     "approval_turnaround_seconds": Dimension(_D.NUMBER),
 }
+# WP-047b S1 (REQ-CAT-021 AC2): charge-back by department, item and month; the amounts summed.
+SERVICE_REQUEST_DIMENSIONS: Mapping[str, Dimension] = {
+    "catalog_item_id": Dimension(_D.REFERENCE, reference="catalog_item"),
+    "charge_department_id": Dimension(_D.REFERENCE, reference="department"),
+    "charged_at": Dimension(_D.DATETIME),
+    "estimated_cost": Dimension(_D.NUMBER),
+    "charged_amount": Dimension(_D.NUMBER),
+}
 TYPE_DIMENSIONS: Mapping[WorkItemTypeCode, Mapping[str, Dimension]] = {
+    WorkItemTypeCode.SERVICE_REQUEST: SERVICE_REQUEST_DIMENSIONS,
     WorkItemTypeCode.PROBLEM: PROBLEM_DIMENSIONS,
     WorkItemTypeCode.CHANGE: CHANGE_DIMENSIONS,
     WorkItemTypeCode.RELEASE: RELEASE_DIMENSIONS,
@@ -144,6 +157,9 @@ class WorkItemSource:
         # neither filter, group nor sort them; a report naming one is refused the same way.
         sealed = await custom_values.not_plain_keys(session, self.entity)
         withheld = withheld | {f"custom.{key}" for key in sealed}
+        # A request's money only with its cost right (WP-047b S1; D-184): the charge-back
+        # report is for those who may see costs, in filters, group-bys and columns alike.
+        withheld = withheld | money_withheld(subject, self._wtype)
         fields = {n: f for n, f in {**FIELDS.fields, **own, **custom}.items() if n not in withheld}
         return ReportingSource(
             entity=self.entity,

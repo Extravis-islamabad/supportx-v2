@@ -19,6 +19,8 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 names); `leads_group`, `led_groups`, `may_manage_group`, `require_group_manager`, `GroupActor`
 (D-152: a team lead manages only the groups they lead); `erase_person_units` (the
 organisation's part of a GDPR erasure, ADR-052: memberships go, leadership to the successor);
+`tenant_addresses`, `TenantAddresses`, `domain_host`, `host_in_use` (a tenant's slug and
+verified custom domains, read only: identity_access registers them as sign-in callbacks, ADR-031);
 `Audience`, `AudienceKind`, `count_people`, `people_in`, `register_audience_resolver` (who some
 departments, sites and groups reach, each person once: a business service's subscribers, 0185;
 identity_access registers the resolver).
@@ -53,6 +55,7 @@ from app.modules.organization.service.calendars import (
     register_calendar_check,
     unit_calendars,
 )
+from app.modules.organization.service.domains import TenantAddresses, domain_host, tenant_addresses
 from app.modules.organization.service.email_branding import (
     EmailBranding,
     email_branding,
@@ -62,6 +65,7 @@ from app.modules.organization.service.erasure import erase_person_units
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import (
     HostTenant,
+    host_in_use,
     link_tenant,
     tenant_for_host,
     tenant_for_slug,
@@ -188,6 +192,7 @@ __all__ = [
     "Memberships",
     "RegionalDefaults",
     "SiteDefaults",
+    "TenantAddresses",
     "TenantStatus",
     "TenantView",
     "active_groups",
@@ -199,6 +204,7 @@ __all__ = [
     "default_desk_id",
     "default_site",
     "department_site",
+    "domain_host",
     "email_branding",
     "erase_person_units",
     "existing_departments",
@@ -210,6 +216,7 @@ __all__ = [
     "get_current_tenant",
     "header_html",
     "heads_department",
+    "host_in_use",
     "leads_group",
     "leave_groups",
     "led_groups",
@@ -231,6 +238,7 @@ __all__ = [
     "require_group_manager",
     "site_defaults",
     "site_names",
+    "tenant_addresses",
     "tenant_for_host",
     "tenant_for_slug",
     "unit_calendars",

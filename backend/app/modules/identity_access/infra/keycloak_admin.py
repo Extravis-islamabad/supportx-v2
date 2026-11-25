@@ -20,9 +20,11 @@ import httpx
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
+from app.modules.identity_access.domain import sso
 from app.modules.identity_access.domain.sign_in_import import KeycloakEvent
 
 _TOKEN_MARGIN_SECONDS = 30
+_PAGE = 100  # users per page when clearing a provider's group attributes
 
 
 class IdentityAdminNotConfigured(ServiceUnavailable):
@@ -109,6 +111,8 @@ class IdentityAdmin(Protocol):
     async def linked_providers(self, organization_id: str) -> list[str]: ...  # noqa: D102
 
     async def replace_mappers(self, alias: str, mappers: list[dict[str, Any]]) -> None: ...  # noqa: D102
+
+    async def clear_group_attributes(self, alias: str) -> int: ...  # noqa: D102
 
     async def parse_saml_metadata(self, metadata: str) -> dict[str, str]: ...  # noqa: D102
 
@@ -507,6 +511,53 @@ class KeycloakAdmin:
             await self._call("DELETE", f"{path}/{existing['id']}", missing_ok=True)
         for mapper in mappers:
             await self._call("POST", path, json={**mapper, "identityProviderAlias": alias})
+
+    async def clear_group_attributes(self, alias: str) -> int:
+        """Clear the provider's group attributes from everyone linked to it; how many changed.
+
+        Before the provider (and its links) is deleted, so a later set-up re-using the alias
+        never reads a stale list. Each person is read in full and written back without them:
+        a partial write would replace every other attribute too.
+
+        Paging by offset is stable: the page is "people linked to `alias`", and clearing
+        attributes never removes a link. The read-then-write is not atomic (Keycloak has no
+        partial update): an admin's edit to the same person in between, or a sign-in's
+        department/site import, can be overwritten. The group importers are already gone
+        (callers change the mappers first), so no group value comes back, and a lost
+        department or site is rewritten at that person's next sign-in (lane A's #632 notes).
+        """
+        names = set(sso.group_attributes(alias).all())
+        cleared = first = 0
+        while True:
+            page = (
+                await self._json(
+                    "GET",
+                    "/users",
+                    params={
+                        "idpAlias": alias,
+                        "first": first,
+                        "max": _PAGE,
+                        "briefRepresentation": "false",
+                    },
+                )
+                or []
+            )
+            for user in page:
+                if not names & set(user.get("attributes") or {}):
+                    continue
+                full = await self._json("GET", f"/users/{user['id']}")
+                if full is None:
+                    continue
+                attributes = {
+                    k: v for k, v in (full.get("attributes") or {}).items() if k not in names
+                }
+                await self._call(
+                    "PUT", f"/users/{user['id']}", json={**full, "attributes": attributes}
+                )
+                cleared += 1
+            if len(page) < _PAGE:
+                return cleared
+            first += _PAGE
 
     async def parse_saml_metadata(self, metadata: str) -> dict[str, str]:
         """Keycloak's own reading of SAML metadata (D-089: no XML parser in SupportX)."""

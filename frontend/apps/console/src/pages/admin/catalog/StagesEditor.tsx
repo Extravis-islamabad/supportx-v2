@@ -17,7 +17,10 @@ import {
   MAX_AUTO_RULES,
   MAX_STAGES,
   type Op,
+  NUMBER_FIELDS,
+  NUMBER_OPS,
   OPS,
+  TEXT_OPS,
   type Rule,
   RULES,
   type Stage,
@@ -510,7 +513,7 @@ function AutoApproval({
   );
 }
 
-function ConditionField({
+export function ConditionField({
   condition,
   questions,
   licensed,
@@ -535,7 +538,11 @@ function ConditionField({
   const fields = [
     { value: 'quantity', label: t('requests.condition_quantity') },
     ...(groups
-      ? [{ value: 'requester_groups', label: t('requests.condition_requester_groups') }]
+      ? [
+          { value: 'requester_groups', label: t('requests.condition_requester_groups') },
+          // WP-047b S1 (REQ-SR-033 AC2): "approve below a cost" reads the estimate.
+          { value: 'estimated_cost', label: t('requests.condition_estimated_cost') },
+        ]
       : []),
     ...questions.map((q) => ({ value: q.key, label: q.label[locale] ?? q.label.en ?? '' })),
   ];
@@ -586,7 +593,12 @@ function ConditionField({
           <Select<Op>
             style={{ minWidth: 160 }}
             value={leaf.op}
-            options={(isGroups ? GROUP_OPS : OPS).map((op) => ({
+            options={(isGroups
+              ? GROUP_OPS
+              : NUMBER_FIELDS.has(leaf.field)
+                ? NUMBER_OPS
+                : TEXT_OPS
+            ).map((op) => ({
               value: op,
               label: t(isGroups ? `catalog_admin.stages.auto.group_op.${op}` : `rule_op.${op}`),
             }))}
@@ -627,7 +639,8 @@ function ConditionField({
                 value={valueText(leaf.value)}
                 onChange={(e) => {
                   const text = e.target.value;
-                  const asNumber = leaf.field === 'quantity' && /^\d+$/.test(text);
+                  // A number field compares as a number (decimals for the estimate).
+                  const asNumber = NUMBER_FIELDS.has(leaf.field) && /^\d+(\.\d{1,2})?$/.test(text);
                   set({ ...leaf, value: asNumber ? Number(text) : text });
                 }}
                 aria-label={t('catalog_admin.stages.condition_value')}

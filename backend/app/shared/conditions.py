@@ -31,9 +31,36 @@ class RuleOp(StrEnum):
     NOT_IN = "not_in"
     IS_NULL = "is_null"
     IS_NOT_NULL = "is_not_null"
+    # WP-047b S1 (the coordinator's 2026-11-25 ruling; REQ-SR-033 AC2 "below a cost"): numbers
+    # only. A value of another type (text, a flag, a list, nothing) never matches: false, never
+    # an error, on both sides (the browser twin and the shared vectors agree).
+    LT = "lt"
+    LTE = "lte"
+    GT = "gt"
+    GTE = "gte"
 
 
 _NO_VALUE = frozenset({RuleOp.IS_NULL, RuleOp.IS_NOT_NULL})
+_COMPARED = frozenset({RuleOp.LT, RuleOp.LTE, RuleOp.GT, RuleOp.GTE})
+
+
+def number(value: Any) -> bool:  # noqa: ANN401 - any form value
+    """A number a comparison reads: an int or a float, never a flag (True is not 1 here)."""
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def _compared(op: RuleOp, wanted: Any, actual: Any) -> bool:  # noqa: ANN401 - validated JSON
+    if not (number(wanted) and number(actual)):
+        return False  # numbers compare only with numbers
+    if op is RuleOp.LT:
+        return bool(actual < wanted)
+    if op is RuleOp.LTE:
+        return bool(actual <= wanted)
+    if op is RuleOp.GT:
+        return bool(actual > wanted)
+    return bool(actual >= wanted)
+
+
 _LISTED = frozenset({RuleOp.IN, RuleOp.NOT_IN})
 
 
@@ -58,6 +85,8 @@ def _leaf(op: RuleOp, wanted: Any, actual: Any) -> bool:  # noqa: ANN401 - valid
         return empty(actual)
     if op is RuleOp.IS_NOT_NULL:
         return not empty(actual)
+    if op in _COMPARED:
+        return _compared(op, wanted, actual)
     choices = {_text(v) for v in (wanted if op in _LISTED else [wanted])}
     if empty(actual):
         return op in {RuleOp.NE, RuleOp.NOT_IN}
@@ -105,13 +134,20 @@ def _problems(  # noqa: C901, PLR0911 - one check per part of a condition, flat
         return [(f"{path}.field", "not_a_form_field")]
     if node.get("op") not in set(RuleOp):
         return [(f"{path}.op", "invalid_choice")]
-    op, value = RuleOp(node["op"]), node.get("value")
+    return _value_problems(RuleOp(node["op"]), node.get("value"), path)
+
+
+def _value_problems(op: RuleOp, value: Any, path: str) -> list[tuple[str, str]]:  # noqa: ANN401 - untrusted JSON
+    """A leaf's value fits its operator: none, a list, a number (comparisons) or a scalar."""
     if op in _NO_VALUE:
-        return [] if value is None else [(f"{path}.value", "invalid_value")]
-    if op in _LISTED:
+        ok = value is None
+    elif op in _LISTED:
         ok = isinstance(value, list) and 0 < len(value) <= VALUES_MAX and all(map(scalar, value))
-        return [] if ok else [(f"{path}.value", "invalid_value")]
-    return [] if scalar(value) else [(f"{path}.value", "invalid_value")]
+    elif op in _COMPARED:  # a comparison names a number, never text or a flag
+        ok = number(value)
+    else:
+        ok = scalar(value)
+    return [] if ok else [(f"{path}.value", "invalid_value")]
 
 
 def scalar(value: Any) -> bool:  # noqa: ANN401 - untrusted JSON

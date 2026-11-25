@@ -42,12 +42,14 @@ import {
   Tabs,
 } from '@supportx/ui';
 
-import { RecordWorkflows } from '../workflows/RecordWorkflows';
+import { RecordWorkflows, WorkflowWaitingBanner } from '../workflows/RecordWorkflows';
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
 import { ApprovalsPanel, WithdrawButton } from './Approvals';
 import { RequestTasks } from './RequestTasks';
+import { DepartmentName } from '../assets/AssetRelations';
+import { useMoney } from '../assets/money';
 import { useActionReason } from '../incidents/actionReason';
 import { AssignDialog } from '../incidents/assign';
 import { useStatusActions } from '../incidents/StatusActions';
@@ -76,13 +78,25 @@ export function RequestPage() {
     'wi',
     id === '' ? undefined : id,
     (m) => {
-      if (m.covered !== true) refreshQueries(queryClient, serviceRequestKeys.detail(id));
+      if (m.covered === true) return;
+      refreshQueries(queryClient, serviceRequestKeys.detail(id));
+      // WP-047a S5 (REQ-SR-052 AC3): the worklog totals and the actual cost follow a task or
+      // a worklog change; that panel keeps the shared parts key.
+      if (m.type === 'work_items.part_changed') {
+        refreshQueries(queryClient, queryKeys.incidents.worklogs(id));
+      }
     },
     {
-      // Its SLA, approvals and tasks sit under the detail key; the shared conversation panel
-      // keeps its own (no id: nothing joined or shown).
+      // Its SLA, approvals and tasks sit under the detail key; the shared conversation and
+      // worklog panels keep their own (no id: nothing joined or shown).
       covers:
-        id === '' ? [] : [serviceRequestKeys.detail(id), queryKeys.incidents.conversation(id)],
+        id === ''
+          ? []
+          : [
+              serviceRequestKeys.detail(id),
+              queryKeys.incidents.conversation(id),
+              queryKeys.incidents.worklogs(id),
+            ],
     },
   );
   if (record.isLoading) return <Skeleton active />;
@@ -141,6 +155,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
   const [replyRequest, setReplyRequest] = useState(0);
   const [replyMode, setReplyMode] = useState<ReplyMode>('reply');
   const questions = item.data?.questions ?? [];
+  const money = useMoney(item.data?.currency); // base currency (D-164), named by the item
   const sites = useUnits('sites');
   const siteName = sites.data?.find((u) => u.id === r.site_id)?.name;
   const mayWithdraw =
@@ -402,6 +417,8 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           />
         }
       >
+        {/* WP-047a S5 (REQ-SR-053 AC1): what the request's workflow waits for. */}
+        <WorkflowWaitingBanner recordType="service_request" recordId={r.id} />
         <Tabs
           data-testid="sr-tabs"
           destroyOnHidden
@@ -441,6 +458,34 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   {r.expected_delivery_at != null && (
                     <Descriptions.Item label={t('work_item.field.expected_delivery_at')}>
                       <span data-testid="sr-expected">{dates.format(r.expected_delivery_at)}</span>
+                    </Descriptions.Item>
+                  )}
+                  {/* WP-047b S1 (D-184): the estimate, for whom the server sends it. */}
+                  {r.estimated_cost != null && (
+                    <Descriptions.Item label={t('work_item.field.estimated_cost')}>
+                      <span data-testid="sr-estimate">
+                        {r.estimate_period != null && r.estimate_period !== 'once'
+                          ? t(`requests.price_per.${r.estimate_period}`, {
+                              amount: money(r.estimated_cost) ?? '',
+                            })
+                          : money(r.estimated_cost)}
+                      </span>
+                    </Descriptions.Item>
+                  )}
+                  {/* REQ-CAT-021: what fulfilment charged, frozen then (view_costs only). */}
+                  {r.charged_amount != null && (
+                    <Descriptions.Item label={t('work_item.field.charged_amount')}>
+                      <span data-testid="sr-charged">{money(r.charged_amount)}</span>
+                    </Descriptions.Item>
+                  )}
+                  {r.charge_department_id != null && (
+                    <Descriptions.Item label={t('work_item.field.charge_department_id')}>
+                      <DepartmentName id={r.charge_department_id} />
+                    </Descriptions.Item>
+                  )}
+                  {r.charge_cost_centre != null && (
+                    <Descriptions.Item label={t('work_item.field.charge_cost_centre')}>
+                      <bdi>{r.charge_cost_centre}</bdi>
                     </Descriptions.Item>
                   )}
                   {r.needed_by != null && (

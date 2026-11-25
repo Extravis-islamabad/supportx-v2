@@ -6,11 +6,13 @@ import type { CatalogCategory, CatalogItem } from '@supportx/api-client';
 import { CatalogIcon, textIn, useAppearance, useLabel } from '@supportx/ui';
 
 import { entryPath } from './entries';
+import { priceText } from './price';
 
 /** One item as a card: its icon, name, summary, and "needs approval" when it has an approval stage. */
 export function ItemCard({ item }: { item: CatalogItem }) {
   const t = useLabel();
-  const { locale, direction } = useAppearance();
+  const { locale, direction, intlLocale } = useAppearance();
+  const price = priceText(t, item, intlLocale); // D-184: only when the tenant shows prices
   // Not when the tenant hides approvals from requesters (REQ-SR-024 AC3).
   const approval = item.requesters_see_approval && (item.approval?.approvers ?? []).length > 0;
   return (
@@ -27,6 +29,9 @@ export function ItemCard({ item }: { item: CatalogItem }) {
             <Typography.Text type="secondary" ellipsis>
               {textIn(item.summaries, locale)}
             </Typography.Text>
+            {price !== null && (
+              <Typography.Text data-testid={`portal-cat-price-${item.id}`}>{price}</Typography.Text>
+            )}
             {approval && (
               <span>
                 <Tag data-testid={`portal-cat-needs-approval-${item.id}`}>

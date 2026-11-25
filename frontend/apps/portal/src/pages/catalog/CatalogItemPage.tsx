@@ -43,6 +43,7 @@ import { useFilesToAttach } from '../requests/useFilesToAttach';
 import { ForWhom } from '../requests/ForWhom';
 import { FormCard } from '../FormCard';
 import { deliveryText } from './delivery';
+import { estimateOf, moneyText, periodText, priceText } from './price';
 import { FORM_COLUMN } from '../formColumn';
 import { AssetsField } from '../requests/AssetsField';
 
@@ -56,7 +57,7 @@ const SUBJECT_MAX = 250;
  */
 export function CatalogItemPage() {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
   const { id } = useParams();
@@ -125,6 +126,9 @@ export function CatalogItemPage() {
     .map((step) => textIn(step.title, locale))
     .filter((title) => title !== '');
   const delivery = deliveryText(t, item.expected_delivery);
+  // WP-047b S1 (REQ-CAT-020, D-184): shown only when the tenant shows prices (the server says).
+  const price = priceText(t, item, intlLocale);
+  const estimate = estimateOf(item, shown, asksQuantity ? (quantity ?? 1) : null);
   const approval =
     item.approval === null || item.approval.approvers.length === 0
       ? null
@@ -140,6 +144,11 @@ export function CatalogItemPage() {
           {name}
         </Typography.Title>
         <Typography.Text type="secondary">{textIn(item.summaries, locale)}</Typography.Text>
+        {price !== null && (
+          <Typography.Text strong data-testid="portal-cat-price">
+            {price}
+          </Typography.Text>
+        )}
       </Flex>
       {description !== '' && (
         <section aria-label={t('portal.catalog.about')} data-testid="portal-cat-description">
@@ -303,6 +312,17 @@ export function CatalogItemPage() {
                 data-testid="portal-cat-quantity"
               />
             </Form.Item>
+          )}
+          {estimate !== null && (
+            <Typography.Text data-testid="portal-cat-estimate">
+              {t('portal.catalog.estimate', {
+                amount: periodText(
+                  t,
+                  moneyText(estimate.toFixed(2), item.currency, intlLocale) ?? '',
+                  item.price_period,
+                ),
+              })}
+            </Typography.Text>
           )}
           {item.asks_needed_by && (
             <Form.Item

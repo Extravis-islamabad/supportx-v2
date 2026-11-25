@@ -293,6 +293,150 @@
         "set_values": {},
         "matched": ["flag"]
       }
+    },
+    {
+      "name": "WP-047b S1: gt holds for a larger number",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": 3 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": 5 },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["big"]
+      }
+    },
+    {
+      "name": "WP-047b S1: lte holds at its boundary",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "lte", "value": 3 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": 3 },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["big"]
+      }
+    },
+    {
+      "name": "WP-047b S1: lt fails at its boundary",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "lt", "value": 3 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": 3 },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "WP-047b S1: gte holds for a decimal at its boundary",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gte", "value": 2.5 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": 2.5 },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": true, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": ["big"]
+      }
+    },
+    {
+      "name": "WP-047b S1: text is never a number (false, not an error)",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": 3 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": "5" },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "WP-047b S1: a flag is never a number",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": 0 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": true },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "WP-047b S1: a list is never a number",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": 0 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": { "impact": [5] },
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
+    },
+    {
+      "name": "WP-047b S1: a missing value never compares",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "lt", "value": 3 },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "values": {},
+      "expect": {
+        "fields": {
+          "site_id": { "shown": true, "required": false, "locked": false, "keep_value": false }
+        },
+        "set_values": {},
+        "matched": []
+      }
     }
   ],
   "invalid": [
@@ -404,6 +548,39 @@
         }
       ],
       "problems": [["form_rules.0.when.and.0.or.0.and.0", "rule_too_deep"]]
+    },
+    {
+      "name": "WP-047b S1: a comparison with text is refused",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": "3" },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.value", "invalid_value"]]
+    },
+    {
+      "name": "WP-047b S1: a comparison with a flag is refused",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": true },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.value", "invalid_value"]]
+    },
+    {
+      "name": "WP-047b S1: a comparison with a list is refused",
+      "rules": [
+        {
+          "id": "big",
+          "when": { "field": "impact", "op": "gt", "value": [3] },
+          "then": [{ "do": "require", "field": "site_id" }]
+        }
+      ],
+      "problems": [["form_rules.0.when.value", "invalid_value"]]
     }
   ]
 }

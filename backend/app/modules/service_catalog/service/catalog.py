@@ -15,8 +15,9 @@ offering retire otherwise).
 
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Select, or_, select
@@ -26,6 +27,7 @@ from app.core.errors import Conflict, NotFound
 from app.modules import licensing, sla
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.organization import existing_unit_ids
+from app.modules.service_catalog.domain import pricing
 from app.modules.service_catalog.domain.catalog import (
     DESCRIPTION_MAX,
     MAX_EXTRA_CATEGORIES,
@@ -53,11 +55,15 @@ from app.modules.service_catalog.domain.items import (
     ItemAudience,
     ItemRules,
     PlannedTask,
+    PlanStepKind,
     Question,
     QuestionAudience,
     QuestionKind,
     RestartOn,
     StageRule,
+    TaskField,
+    TaskFieldKind,
+    TaskOwnerKind,
     answer_problems,
     name_problems,
     needs_approval,
@@ -120,10 +126,25 @@ ITEM_FIELDS = (
     "subject_template",
     "requesters_see_approval",
     "extra_category_ids",
+    # WP-047b S1 (REQ-CAT-020, -021)
+    "price",
+    "price_period",
+    "internal_cost",
+    "charge_to",
+    "charge_question_key",
+    "workflow_id",  # WP-047a S5 (REQ-SR-053)
     "publish_at",
     "retire_at",
 )
-_IDS = ("category_id", "sla_policy_id", "group_id", "technician_id", "template_id", "owner_id")
+_IDS = (
+    "category_id",
+    "sla_policy_id",
+    "group_id",
+    "technician_id",
+    "template_id",
+    "owner_id",
+    "workflow_id",
+)
 
 
 class ItemRepository(Repository[CatalogItem]):
@@ -153,6 +174,7 @@ def _question(q: Mapping[str, Any]) -> Question:
             QuestionAudience(a) for a in q.get("shown_to") or list(QuestionAudience)
         ),
         restarts_approval=bool(q.get("restarts_approval", False)),
+        option_prices={str(k): str(v) for k, v in (q.get("option_prices") or {}).items()},
     )
 
 
@@ -163,21 +185,42 @@ def rules_of(item: CatalogItem) -> ItemRules:
     return ItemRules(
         questions=tuple(_question(q) for q in item.questions),
         approval=stage,
-        plan=tuple(
-            PlannedTask(
-                t.get("title", {}),
-                _uuid(t.get("group_id")),
-                _uuid(t.get("owner_id")),
-                bool(t.get("required", True)),
-                bool(t.get("internal", False)),
-            )
-            for t in item.plan
-        ),
+        plan=tuple(planned_task(t) for t in item.plan),
         technician_after_approval=item.technician_after_approval,
         count_approval_time=item.count_approval_time,
         auto_fulfil=item.auto_fulfil,
         stages=stages,
         restart_on=restart_on_of(item.approval),
+    )
+
+
+def _task_field(f: Mapping[str, Any]) -> TaskField:
+    return TaskField(
+        key=str(f.get("key", "")),
+        label=dict(f.get("label") or {}),
+        kind=TaskFieldKind(f.get("kind") or TaskFieldKind.TEXT.value),
+        required=bool(f.get("required", False)),
+        options=tuple(str(o) for o in f.get("options") or ()),
+        requester_visible=bool(f.get("requester_visible", False)),
+    )
+
+
+def planned_task(t: Mapping[str, Any]) -> PlannedTask:
+    """One stored plan step as the domain sees it (WP-047a S5 adds keys, order, fields, owner)."""
+    owner_kind = t.get("owner_kind")
+    return PlannedTask(
+        t.get("title", {}),
+        _uuid(t.get("group_id")),
+        _uuid(t.get("owner_id")),
+        bool(t.get("required", True)),
+        bool(t.get("internal", False)),
+        key=t.get("key"),
+        waits_for=tuple(str(w) for w in t.get("waits_for") or ()),
+        condition=t.get("condition"),
+        fields=tuple(_task_field(f) for f in t.get("fields") or ()),
+        owner_kind=TaskOwnerKind(owner_kind) if owner_kind else None,
+        question_key=t.get("question_key"),
+        kind=PlanStepKind(t.get("kind") or PlanStepKind.TASK.value),
     )
 
 
@@ -320,6 +363,12 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "default": q.get("default"),
         "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
         **({"restarts_approval": True} if q.get("restarts_approval") else {}),
+        # WP-047b S1 (REQ-CAT-020): a choice's option prices, as decimal text (never floats).
+        **(
+            {"option_prices": {str(k): str(v) for k, v in q["option_prices"].items()}}
+            if q.get("option_prices")
+            else {}
+        ),
     }
 
 
@@ -407,6 +456,15 @@ def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rul
                 "owner_id": None if t.get("owner_id") is None else str(t["owner_id"]),
                 "required": bool(t.get("required", True)),
                 "internal": bool(t.get("internal", False)),
+                # WP-047a S5 (REQ-SR-047..050, -056): kept only when set.
+                **{
+                    k: t[k]
+                    for k in ("key", "condition", "owner_kind", "question_key")
+                    if t.get(k) is not None
+                },
+                **({"waits_for": list(t["waits_for"])} if t.get("waits_for") else {}),
+                **({"fields": [dict(f) for f in t["fields"]]} if t.get("fields") else {}),
+                **({"kind": t["kind"]} if t.get("kind") not in (None, "task") else {}),
             }
             for t in out["plan"]
         ]
@@ -493,6 +551,12 @@ async def _reference_problems(
         and await ports.entry_template(session, item.template_id) is None
     ):
         found.append(("template_id", "not_found"))
+    if item.workflow_id is not None and (
+        problem := await ports.workflow_problem(
+            session, item.workflow_id, live=item.status == "published"
+        )
+    ):
+        found.append(("workflow_id", problem))  # REQ-SR-053: a service request workflow
     found += await _group_problems(session, item, rules)
     people = _people_named(item, rules)
     known = await user_contacts(session, sorted({str(p) for p in people.values()}))
@@ -646,8 +710,30 @@ def snapshot(item: CatalogItem) -> dict[str, Any]:
             value = value.isoformat()
         elif name == "extra_category_ids":
             value = [str(v) for v in value or []]
+        elif isinstance(value, Decimal):
+            value = str(value)  # money as text in the history (WP-047b S1)
         out[name] = value
     return out
+
+
+CHARGE_TO_DEPARTMENT = pricing.ChargeTo.REQUESTED_FOR_DEPARTMENT.value
+CHARGE_TO_QUESTION = pricing.ChargeTo.QUESTION.value
+# A cost centre is a form answer in V1 (the coordinator, 2026-11-25): text or a choice.
+CHARGE_QUESTION_KINDS = frozenset({QuestionKind.TEXT, QuestionKind.CHOICE})
+
+
+def _charge_problems(item: CatalogItem, rules: ItemRules) -> list[tuple[str, str]]:
+    """Who a fulfilled request charges (REQ-CAT-021): the department, or a form answer."""
+    if item.charge_to != CHARGE_TO_QUESTION:
+        return [] if item.charge_question_key is None else [("charge_question_key", "not_allowed")]
+    asked = {q.key: q for q in rules.questions}
+    question = asked.get(item.charge_question_key or "")
+    if question is None:
+        missing = "required" if not item.charge_question_key else "not_found"
+        return [("charge_question_key", missing)]
+    if question.kind not in CHARGE_QUESTION_KINDS:
+        return [("charge_question_key", "invalid_choice")]
+    return []
 
 
 async def _check(session: AsyncSession, item: CatalogItem, clock: Clock) -> None:
@@ -657,6 +743,10 @@ async def _check(session: AsyncSession, item: CatalogItem, clock: Clock) -> None
         rules_problems(rules)
         + subject_template_problems(item.subject_template, rules.questions)
         + await _reference_problems(session, item, rules)
+        # WP-047b S1 (REQ-CAT-020, -021): the amounts, the option prices and who it charges.
+        + pricing.price_problems(item.price, item.internal_cost)
+        + pricing.option_price_problems(rules.questions)
+        + _charge_problems(item, rules)
     )
     if item.kind == ItemKind.INCIDENT_TEMPLATE.value and (rules.questions or rules.plan):
         problems.append(("kind", "not_allowed"))  # the template decides the incident's form
@@ -836,6 +926,44 @@ async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> Non
     approval = values.get("approval")
     if isinstance(approval, Mapping) and uses_stages(stages_of(approval)):
         await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047a S5: a plan's ordered steps, task fields, owners by kind and hand-overs, and an
+    # item's workflow, are Professional (REQ-SR-047, -049, -050, -053, -056); a step's condition
+    # is Essentials (REQ-SR-048). Clearing them is always allowed.
+    plan = values.get("plan")
+    if (isinstance(plan, list) and any(_professional_step(t) for t in plan)) or values.get(
+        "workflow_id"
+    ) is not None:
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047b S1: prices, an internal cost, option prices and charge-back are Professional
+    # (REQ-CAT-020, -021); clearing them is always allowed.
+    if _priced(values):
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
+def _professional_step(step: Any) -> bool:  # noqa: ANN401 - the API's plan JSON
+    if not isinstance(step, Mapping):
+        return False
+    owner = step.get("owner_kind")
+    return bool(
+        step.get("waits_for")
+        or step.get("fields")
+        or (owner not in (None, TaskOwnerKind.PERSON.value))
+        or step.get("kind") not in (None, PlanStepKind.TASK.value)
+    )
+
+
+def _priced(values: Mapping[str, Any]) -> bool:
+    questions = values.get("questions")
+    return bool(
+        values.get("price") is not None
+        or values.get("internal_cost") is not None
+        or values.get("price_period") not in (None, "once")
+        or values.get("charge_to") not in (None, CHARGE_TO_DEPARTMENT)
+        or (
+            isinstance(questions, list)
+            and any(isinstance(q, Mapping) and q.get("option_prices") for q in questions)
+        )
+    )
 
 
 async def create_item(
@@ -1027,6 +1155,14 @@ class PlanStep:
     owner_id: uuid.UUID | None
     required: bool
     internal: bool
+    # WP-047a S5 (REQ-SR-047..050, -056), as plain values for work_items' plan.
+    key: str | None = None
+    waits_for: tuple[str, ...] = ()
+    condition: Mapping[str, Any] | None = None
+    fields: tuple[Mapping[str, Any], ...] = ()  # key, label, kind, required, options, visible
+    owner_kind: str | None = None  # person | requested_for_manager | person_answer
+    question_key: str | None = None
+    kind: str = "task"  # task | asset_handover
 
 
 @dataclass(frozen=True)
@@ -1086,6 +1222,7 @@ class RequestItem:
     comments_required: bool = False
     plan: tuple[PlanStep, ...] = ()  # WP-030 s3: the fulfilment tasks, in order
     requesters_see_approval: bool = True  # WP-031 plan D8
+    workflow_id: uuid.UUID | None = None  # WP-047a S5 (REQ-SR-053): its fulfilment workflow
     # WP-047a S2a: every stage in order (the single-stage fields above stay for stage 1).
     stages: tuple[StageSpec, ...] = ()
     # The keys of its "person" questions: each answer must name a live person of the tenant,
@@ -1097,6 +1234,12 @@ class RequestItem:
     # WP-047a S3b (REQ-SR-041): what restarts approval when it changes after submitting: the
     # marked questions' keys, and `quantity` / `requested_for` when the item says so.
     restart_keys: tuple[str, ...] = ()
+    # WP-047b S1 (REQ-CAT-020, -021; D-184): plain values for the request's estimate and charge.
+    price: Decimal | None = None
+    price_period: str = "once"
+    option_prices: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+    charge_to: str = CHARGE_TO_DEPARTMENT
+    charge_question_key: str | None = None
 
 
 async def request_item(
@@ -1130,6 +1273,11 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         count_approval_time=rules.count_approval_time,
         auto_fulfil=rules.auto_fulfil,
         max_quantity=item.max_quantity,
+        price=item.price,
+        price_period=item.price_period,
+        option_prices=pricing.priced_options(rules.questions),
+        charge_to=item.charge_to,
+        charge_question_key=item.charge_question_key,
         asks_needed_by=item.asks_needed_by,
         answer_problems=tuple(answer_problems(rules.questions, answers)),
         approvers=tuple(
@@ -1146,10 +1294,28 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
                 owner_id=t.owner_id,
                 required=t.required,
                 internal=t.internal,
+                key=t.key,
+                waits_for=tuple(t.waits_for),
+                condition=t.condition,
+                fields=tuple(
+                    {
+                        "key": f.key,
+                        "label": dict(f.label),
+                        "kind": f.kind.value,
+                        "required": f.required,
+                        "options": list(f.options),
+                        "requester_visible": f.requester_visible,
+                    }
+                    for f in t.fields
+                ),
+                owner_kind=t.owner_kind.value if t.owner_kind else None,
+                question_key=t.question_key,
+                kind=t.kind.value,
             )
             for t in rules.plan
         ),
         requesters_see_approval=item.requesters_see_approval,
+        workflow_id=item.workflow_id,
         stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
         person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
         uses_stages=uses_stages(rules.stages),
@@ -1231,6 +1397,7 @@ __all__ = [
     "get_item",
     "item_decides",
     "item_decides_with",
+    "item_name_maps",
     "item_requestable",
     "list_items",
     "offered",
@@ -1241,3 +1408,13 @@ __all__ = [
     "stored",
     "update_item",
 ]
+
+
+async def item_name_maps(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str]]:
+    """Each item's names per language, deleted ones too (WP-047b S1: reports name them)."""
+    rows = await session.execute(
+        select(CatalogItem.id, CatalogItem.names).where(CatalogItem.id.in_(ids))
+    )
+    return {row.id: {k: str(v) for k, v in dict(row.names or {}).items()} for row in rows}

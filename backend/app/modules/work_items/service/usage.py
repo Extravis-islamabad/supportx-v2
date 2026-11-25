@@ -17,13 +17,15 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules import automation
 from app.modules.organization import register_usage
 from app.modules.service_catalog import (
     register_item_usage,
     register_request_counts,
     register_template_check,
+    register_workflow_check,
 )
-from app.modules.work_items.domain.types import INCIDENT
+from app.modules.work_items.domain.types import INCIDENT, SERVICE_REQUEST
 from app.modules.work_items.infra.models import WorkItem, WorkItemTemplate
 
 
@@ -53,6 +55,17 @@ async def _from_item(session: AsyncSession, item_id: uuid.UUID) -> int:
         select(func.count()).select_from(WorkItem).where(WorkItem.catalog_item_id == item_id)
     )
     return int(count or 0)
+
+
+async def _fulfilment_workflow(
+    session: AsyncSession,
+    workflow_id: uuid.UUID,
+    live: bool,  # noqa: FBT001 - the port's shape
+) -> str | None:
+    """Why the workflow cannot fulfil a catalog item: it must be a service request one."""
+    return await automation.workflow_problem(
+        session, workflow_id, SERVICE_REQUEST.code.value, live=live
+    )
 
 
 async def _entry_template(
@@ -94,4 +107,5 @@ def register_record_usage() -> None:
     register_usage("department", "records", _in_department)
     register_item_usage(_from_item)
     register_template_check(_entry_template)
+    register_workflow_check(_fulfilment_workflow)  # WP-047a S5 (REQ-SR-053)
     register_request_counts(_request_counts)

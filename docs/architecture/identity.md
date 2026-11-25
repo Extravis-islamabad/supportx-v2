@@ -14,7 +14,7 @@ console by hand.
 | Piece | Where | Notes |
 |---|---|---|
 | Realm-settings account | `supportx-realm` client, same step | `manage-realm` only (the password policy is a realm setting). Its secret goes to the consumers worker alone, never to the API |
-| Service account | `supportx-identity` client, made by `tooling/keycloak_identity.py` | Client credentials only; `manage-users`, `manage-identity-providers`, `manage-organizations`, `view-events`. Chart Job `keycloak-identity` per revision; `make keycloak-identity` on the Compose stack. Also turns login events on (7 days), raises the realm's SSO session to SupportX's longest, turns refresh-token rotation on, declares `sx_department` / `sx_site` in the user profile |
+| Service account | `supportx-identity` client, made by `tooling/keycloak_identity.py` | Client credentials only; `manage-users`, `manage-identity-providers`, `manage-organizations`, `view-events`. Chart Job `keycloak-identity` per revision; `make keycloak-identity` on the Compose stack. Also turns login events on (7 days), raises the realm's SSO session to SupportX's longest, turns refresh-token rotation on, declares `sx_department` / `sx_site` in the user profile, and keeps undeclared attributes for admins only (`unmanagedAttributePolicy` ADMIN_EDIT, D-187) |
 | Admin API client | `identity_access/infra/keycloak_admin.py` | Organizations found by their `tenant_id` attribute, confirmed by alias |
 | Settings | `identity_settings` (RLS) | Session idle and absolute limits per app; people creation on first sign-in |
 | Set-ups | `sso_providers` (RLS) | Mirror of a Keycloak identity provider (`sx-<slug>-<random>`), never the client secret |
@@ -106,6 +106,9 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
 
 - The service account can manage every user of the realm: tenant scoping is SupportX's (ADR-036
   item 2), tested in `tests/db/test_identity_api.py`.
+- IdP group attributes are written by the provider's mappers at each sign-in (FORCE) and read
+  then cleared by SupportX under a per-person lock; no person and no tenant admin can write them
+  (ADMIN_EDIT, and the identity account never holds manage-realm).
 - Existing Keycloak accounts are linked only through Keycloak's default flow (confirm, then
   prove the account). Automatic linking is never configured: in a shared realm one tenant's
   provider could otherwise sign in as another tenant's user.
@@ -203,8 +206,15 @@ do nothing. Tested against the API's compile in `tests/db/test_subject_for.py`.
 - New installation or upgrade: nothing to do; the chart's Job sets up the service account.
 - If the bootstrap admin was replaced, the Job says so and exits 0. Create the client by hand
   once: confidential, service accounts only, the secret `keycloak-identity-secret`, and the four
-  `realm-management` roles above; then turn on login events and declare `sx_department` and
-  `sx_site` in the user profile (admins view and edit).
+  `realm-management` roles above; then turn on login events, declare `sx_department` and
+  `sx_site` in the user profile (admins view and edit), and set the user profile's
+  **Unmanaged attributes** to **Admin can edit** (D-187).
+- **Group mappings from a provider (WP-057 S5c, D-187):** a provider's groups arrive in per-alias
+  user attributes (`sx_groups_<alias>`, `sx_groups_seen_<alias>`, `sx_groups_overage_<alias>`,
+  `sx_groups_hasgroups_<alias>`), which Keycloak keeps only because the realm keeps undeclared
+  attributes for admins. The Job sets that on every run. Never set it to **Enabled**: people
+  could then write their own groups, and SupportX would grant what they wrote. SAML providers
+  can't carry groups yet (`idp_groups_saml_unsupported`).
 - The password policy needs `supportx-realm`: `deploy/scripts/secrets.sh` adds
   `keycloak-realm-secret` to an existing secret; the next Helm revision's Job makes the client.
   Without it the policy is saved but not applied (the card says so). By hand: a confidential

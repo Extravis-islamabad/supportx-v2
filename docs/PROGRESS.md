@@ -999,8 +999,9 @@ it with no reload (rule c). Not built yet.
 - **Shipping (2026-11-05):** S1-S2 merge through the queue as #220 (stack smoke green, run
   41944547602; 0096 now follows 0092). The coordinator approved this exception to one PR per
   WP because S3 is blocked on a decision.
-- [ ] S3 preview as a person (REQ-PRT-032): **open, waiting for Haider's OK** of the conditions.
-  It ships as its own PR once approved; lane B builds the read-only preview session.
+- [ ] S3 preview as a person (REQ-PRT-032): Haider approved its conditions (D-143); lane A builds
+  both halves under the 2026-11-18 rebalance, lane B blocks the identity part, reusing lane C's
+  RecentAuth. Planned with WP-047b.
 
 ### [ ] WP-044a — Problems: record, creation, templates, statuses, assignment (lane A, 2026-11-05; 5 sessions; #211)
 - **Plan:** ~/Desktop/wp-044-plan.md (all of WP-044, 13 sessions; coordinator approved
@@ -1766,6 +1767,37 @@ declare major) default to the tenant admin and service desk manager, grantable, 
     runs the ordinary cancel as the decider; declining sends their note as a public reply; the
     requester may withdraw. Events, history, labels en/ar/ur; the portal, the record's strip
     and the admin card.
+
+### [~] WP-047b — Catalog and portal V1 (lane A, 2026-11-25; 22 REQs, sliced S1-S9)
+
+Plan approved 2026-11-25 (the coordinator): S1 price and charge-back (0205), then S2 forms, S3
+audience and views, S4 versions, bundles and limits, S6 portal shell, S5 figures, S7-S9 (S7's
+sign-in parts are lane B's, S9's assistant lane C's; lane A builds the portal pages). Surveys
+(PRT-012, CAT-030's CSAT) are out of 047b: the survey engine lives in work_items (no new module,
+no ADR) as its own small lane A WP after S1, lane C building the designer and survey reports
+(ADM-069 onward, RPT-018) on its public API; REQ-INC-103 moves there from WP-046b. CAT-012 stays
+with lane C's WP-034.
+
+- [x] **S1, price, estimate and charge-back** (REQ-CAT-020, -021, D-184; REQ-SR-014 AC1, SR-033
+  AC2), Professional on the server, migration 0205:
+  - **The item:** a price (once, per month or year), an internal cost (staff only), option
+    prices on choice questions, and who a fulfilled request charges (the requested-for person's
+    department, or a form answer naming a cost centre); base currency only (D-164).
+  - **The estimate (D-184):** (price + chosen options) times the quantity, snapshotted at
+    submission and when the answers change, from the item as it is then; never on later item
+    edits. It shows to `view_costs` and the request's approvers; to requesters (and item prices)
+    only with `requesters_see_prices` (off by default).
+  - **Charge-back:** fulfilment freezes the department or cost centre and the amount, once
+    (`charge_back.charge_basis`: today the estimate, until Haider rules; a tenant setting may
+    switch it). The monthly export is a service request report by item, department and month
+    (money withheld without `view_costs`, in every report path); items named by ID in files
+    and on screen, retired and deleted ones too (lane C's conditions; `supportx_report` reads an
+    item's ID and names only).
+  - **Rules:** the shared condition DSL gains `lt`, `lte`, `gt`, `gte` (numbers only, a
+    mismatched type is false; vectors shared with the browser twin); an automatic rule may read
+    `estimated_cost`.
+  - Gaps: an organization cost-centre list (lane B's module); the actual cost beside the charged
+    amount in the export needs a stored figure (follow-up); what is charged awaits Haider.
 
 ### [~] WP-047a — Service requests V1: raising, approvals, fulfilment (lane A, 2026-11-23; 6 sessions; 29 REQs)
 

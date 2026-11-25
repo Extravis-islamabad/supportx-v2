@@ -689,6 +689,22 @@ class WorkItem(TenantEntity):
         CheckConstraint(
             "quantity IS NULL OR (quantity >= 1 AND quantity <= 10000)", name="quantity_range"
         ),
+        # WP-047b S1 (0205): the estimate and the frozen charge-back.
+        CheckConstraint(
+            "(estimated_cost IS NULL OR estimated_cost >= 0)"
+            " AND (charged_amount IS NULL OR charged_amount >= 0)",
+            name="money_not_negative",
+        ),
+        CheckConstraint(
+            "estimate_period IS NULL OR estimate_period IN ('once', 'month', 'year')",
+            name="estimate_period_code",
+        ),
+        Index(
+            "ix_work_items_charged",
+            "tenant_id",
+            "charged_at",
+            postgresql_where=text("charged_at IS NOT NULL"),
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "catalog_item_id"],
             ["catalog_items.tenant_id", "catalog_items.id"],
@@ -918,6 +934,14 @@ class WorkItem(TenantEntity):
     # WP-047a S1 (0193): quantity (REQ-SR-014), needed-by and expected delivery (REQ-SR-015).
     quantity: Mapped[int | None] = mapped_column(Integer)
     needed_by: Mapped[datetime | None]
+    # WP-047b S1 (0205): the estimate snapshotted at submission (D-184), and what a fulfilled
+    # request charged, frozen then (REQ-CAT-021 AC1). Base currency (D-164).
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    estimate_period: Mapped[str | None] = mapped_column(String(10))
+    charge_department_id: Mapped[uuid.UUID | None]
+    charge_cost_centre: Mapped[str | None] = mapped_column(String(100))
+    charged_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    charged_at: Mapped[datetime | None]
     expected_delivery_at: Mapped[datetime | None]
     # The item's "count approval time" kept at submission (REQ-SR-007 AC2, WP-030 s2): the SLA
     # clock keeps running while it waits for approval.
@@ -1588,6 +1612,10 @@ class WorkItemTask(TenantEntity):
         CheckConstraint(_codes("status", TaskStatus), name="status_code"),
         CheckConstraint(_codes("priority", TaskPriority), name="priority_code"),
         CheckConstraint("length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        # WP-047a S5 (0204): an ordinary task or an asset hand-over; values an object.
+        CheckConstraint("kind IN ('task', 'asset_handover')", name="kind_code"),
+        CheckConstraint("jsonb_typeof(field_values) = 'object'", name="field_values_object"),
+        CheckConstraint("fields IS NULL OR jsonb_typeof(fields) = 'array'", name="fields_array"),
         CheckConstraint(
             "description IS NULL OR char_length(description) <= 4000", name="description_length"
         ),
@@ -1668,6 +1696,16 @@ class WorkItemTask(TenantEntity):
     # A reminder this many minutes before the scheduled start (REQ-INC-073 AC2), sent once.
     remind_before_minutes: Mapped[int | None] = mapped_column(Integer)
     reminded_at: Mapped[datetime | None]
+    # WP-047a S5 (0204; REQ-SR-047..050, -056): the plan step it came from (by key), its own
+    # fields and their values, an asset hand-over or not, task-only access by this task alone,
+    # and a conditional task no longer wanted but kept for a person (worklogs or values).
+    plan_key: Mapped[str | None] = mapped_column(String(40))
+    # None is SQL NULL, never JSON null (the fields-array check, 0204).
+    fields: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB(none_as_null=True))
+    field_values: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    kind: Mapped[str] = mapped_column(String(20), server_default="task")
+    task_only: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    needs_review: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemTaskTemplate(TenantEntity):

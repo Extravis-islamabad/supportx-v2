@@ -105,6 +105,7 @@ from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import (
     break_glass_notifications,
+    client_addresses,
     directory,
     domain_notifications,
     erasure_job,
@@ -541,6 +542,8 @@ module = ModuleSpec(
         KEYCLOAK_SESSION_END,
         service_account_handover.OWNER_LEFT,
         verified_domains.DOMAIN_SYNC,
+        # ADR-031 (plan A): tenant addresses as the sign-in clients' callbacks.
+        client_addresses.CLIENT_ADDRESSES,
     ],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
@@ -560,6 +563,12 @@ module = ModuleSpec(
         ScheduleSpec("identity_access__expiry_alerts", 86400, expiry_alerts.expiry_schedule),
         # REQ-SEC-010 (WP-057 S5d): domain checks, lapses and the Keycloak reconcile.
         ScheduleSpec("identity_access__verified_domains", 86400, verified_domains.check_schedule),
+        # ADR-031 (plan A): the clients' tenant addresses re-synced from the database.
+        ScheduleSpec(
+            "identity_access__client_addresses",
+            client_addresses.EVERY_SECONDS,
+            client_addresses.reconcile_schedule,
+        ),
         # Sign-in key ring changes claimed at start-up, into every tenant's audit log (D-162).
         ScheduleSpec("identity_access__session_key_announce", 30, announce_session_keys),
         # GDPR erasures (ADR-052): expire unapproved requests, run approved ones step by step.
