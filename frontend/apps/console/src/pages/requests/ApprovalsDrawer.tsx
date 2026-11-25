@@ -4,7 +4,12 @@ import { Badge, Button, Empty, List, Space, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { serviceRequestKeys, useMyApprovals, useMyTypeApprovals } from '@supportx/api-client';
+import {
+  serviceRequestKeys,
+  typeApprovalsKey,
+  useMyApprovals,
+  useMyTypeApprovals,
+} from '@supportx/api-client';
 import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { Drawer, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
@@ -31,9 +36,9 @@ export function ApprovalsDrawer() {
   // What the drawer shows: the service requests' and each other type's approvals waiting on me.
   const shown = [
     serviceRequestKeys.myApprovals,
-    ['problems', 'my-approvals'],
-    ['releases', 'my-approvals'],
-    ['changes', 'my-approvals'],
+    typeApprovalsKey('problems'),
+    typeApprovalsKey('releases'),
+    typeApprovalsKey('changes'),
   ];
   const refresh = (type: string) => {
     if (type === MY_APPROVALS_CHANGED) {

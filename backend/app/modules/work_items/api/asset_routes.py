@@ -17,8 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.entitlements import requires_feature
 from app.modules import assets
 from app.modules.identity_access import Subject
+from app.modules.licensing import Feature
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import WorkItemAsset
 from app.modules.work_items.service import asset_links as service
@@ -92,6 +94,8 @@ def add_asset_routes(router: APIRouter, wtype: WorkItemType) -> None:
         summary="Link assets to a record",
         status_code=status.HTTP_201_CREATED,
         response_model=WorkItemAssetsOut,
+        # The route's own licence check (lane C's #619 Feature column); the service keeps its.
+        dependencies=[requires_feature(Feature.ASSETS)],
     )
     async def link_assets(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,

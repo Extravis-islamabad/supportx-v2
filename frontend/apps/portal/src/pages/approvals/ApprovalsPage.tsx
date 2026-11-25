@@ -18,6 +18,7 @@ import { Link } from 'react-router';
 import {
   ApiError,
   serviceRequestKeys,
+  typeApprovalsKey,
   useApproveMany,
   useDecideApproval,
   useMyApprovals,
@@ -30,7 +31,7 @@ import { usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { lengthLimit, reportError, useDateTime, useLabel } from '@supportx/ui';
 
 // What waits for me and what I decided (under my approvals), and changes waiting for me (§8.3).
-const COVERS = [serviceRequestKeys.myApprovals, ['changes', 'my-approvals']] as const;
+const COVERS = [serviceRequestKeys.myApprovals, typeApprovalsKey('changes')] as const;
 
 const COMMENT_MAX = 4000;
 const BULK_MAX = 20; // D-143: approve at most this many at once
@@ -69,7 +70,7 @@ export function ApprovalsPage() {
     if (type === MY_APPROVALS_CHANGED) {
       // A request withdrawn meanwhile leaves the inbox live (AC3).
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
-      void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+      void queryClient.invalidateQueries({ queryKey: typeApprovalsKey('changes') });
     }
   };
   usePersonalChannel(
