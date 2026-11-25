@@ -19,7 +19,7 @@ service (a workflow of the service request type); and `workflow_instances.starte
 Reversible; RLS unchanged (existing tables).
 
 Revision ID: 0204
-Revises: 0203
+Revises: 0202
 Created: 2026-11-24
 """
 
@@ -30,8 +30,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0204"
-# On 0203 (WP-047a S4, merged); re-pointed at its queue turn if main moved on.
-down_revision: str | None = "0203"
+# On main's head 0202 (lane B's #623); re-pointed at its queue turn if main moves on.
+down_revision: str | None = "0202"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
