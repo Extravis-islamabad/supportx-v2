@@ -75,6 +75,8 @@ class TriggerActionKind(StrEnum):
     SET = "set"
     NOTE = "note"
     START_WORKFLOW = "start_workflow"  # triggers only, never a move's "after" (WP-048b)
+    # WP-047a S4 (REQ-SR-044): an ad hoc ask of named approvers; triggers only, as above.
+    START_APPROVAL = "start_approval"
 
 
 class Relative(StrEnum):
@@ -213,6 +215,8 @@ def check_after_actions(
     for index, action in enumerate(actions):
         if start_workflow and _kind_of(action) == TriggerActionKind.START_WORKFLOW.value:
             problems += _workflow_problems(index, action)
+        elif start_workflow and _kind_of(action) == TriggerActionKind.START_APPROVAL.value:
+            problems += _ask_problems(index, action)
         else:
             problems += _action_problems(index, action, fields, seen)
     return problems
@@ -227,6 +231,15 @@ def _workflow_problems(index: int, action: Mapping[str, Any]) -> list[Problem]:
         uuid.UUID(str(action.get("workflow_id")))
     except ValueError:
         return [(f"actions.{index}.workflow_id", "required", {})]
+    return []
+
+
+def _ask_problems(index: int, action: Mapping[str, Any]) -> list[Problem]:
+    """An ask's rule; who is asked is the service's check (it knows the type's roles)."""
+    if not isinstance(action.get("approvers"), dict):
+        return [(f"actions.{index}.approvers", "required", {})]
+    if action.get("rule", "any") not in {"any", "all", "majority"}:
+        return [(f"actions.{index}.rule", "invalid_choice", {})]
     return []
 
 

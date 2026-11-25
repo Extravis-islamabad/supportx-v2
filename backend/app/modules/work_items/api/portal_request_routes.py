@@ -6,6 +6,8 @@
     POST …/{id}/resolution/confirm | reject         received it, or not done (REQ-SR-059)
     GET  …/{id}/conversation                        public replies and notes (WP-047a S3a)
     POST …/{id}/replies                             the requester's public reply (Idempotency-Key)
+    GET|PUT …/{id}/missing-answers                  made from mail: what it still needs, and
+                                                    the answers, then submitted (WP-047a S4)
 
 The same reach and plain-status rules as the portal's incidents (service/portal.py, D-129).
 Approvals (respecting "hide approvals from requesters") and withdrawal use the engine's own
@@ -17,7 +19,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
@@ -34,6 +36,7 @@ from app.modules.work_items.domain.portal import PortalReach, PortalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.service import parts
 from app.modules.work_items.service import portal as service
+from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, list_query
 from app.shared.api.ratelimit import rate_limit
@@ -302,6 +305,59 @@ async def portal_request_reply(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         )
 
     return await idempotency.run(body, run, status_code=status.HTTP_201_CREATED)
+
+
+class MissingAnswersOut(BaseModel):
+    """A request made from mail that waits for answers (WP-047a S4; REQ-SR-017 AC2)."""
+
+    catalog_item_id: uuid.UUID = Field(description="The item whose form asks the questions.")
+    missing: list[str] = Field(description="Keys of the required questions still unanswered.")
+    version: int
+
+
+class MissingAnswersIn(BaseModel):
+    """The missing answers (and any others the requester may give on the item's form)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answers: dict[str, Any] = Field(max_length=200)
+
+
+@router.get("/{record_id}/missing-answers", summary="What your request made from mail still needs")
+async def portal_missing_answers(
+    record_id: uuid.UUID, session: TenantSession, subject: SignedIn, response: Response
+) -> MissingAnswersOut:
+    """Only your own request waiting for answers; anything else is 404 (REQ-SR-017 AC2)."""
+    found = await service.missing_answers(session, subject, record_id)
+    set_etag(response, found.version)
+    return MissingAnswersOut(
+        catalog_item_id=found.catalog_item_id, missing=list(found.keys), version=found.version
+    )
+
+
+@router.put("/{record_id}/missing-answers", summary="Give the missing answers and submit")
+async def portal_complete_answers(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_id: uuid.UUID,
+    body: MissingAnswersIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: SignedIn,
+    request: Request,
+    response: Response,
+    policy: Annotated[PolicyService, Depends(get_policy)],
+) -> PortalRequestOut:
+    """Checked as your form answers (every required one); then submitted as any request (AC3)."""
+    found = await service.complete_answers(
+        session,
+        subject,
+        record_id,
+        body.answers,
+        expected_version=version,
+        source=source_of(request),
+        holders=policy,
+    )
+    set_etag(response, found.record.version)
+    return _out(found)
 
 
 __all__ = ["router"]

@@ -73,9 +73,14 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
   // The server's refusal (a bad file, a limit) is shown here, once (QA WP-029 BUG-02).
   const refused = useFormProblem();
   const queryClient = useQueryClient();
-  useListChannel(open ? 'people_imports' : null, () => {
-    refreshList(queryClient, queryKeys.people.imports);
-  });
+  useListChannel(
+    open ? 'people_imports' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.people.imports);
+    },
+    { covers: [queryKeys.people.imports] },
+  );
 
   const upload = (file: File) => {
     setProblem(undefined);

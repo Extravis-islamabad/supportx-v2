@@ -55,10 +55,12 @@ from app.shared.labels import plain_label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text, request_text
 from app.shared.mail.ports import (
+    ApprovalReply,
     CreatedRecord,
     FoundRecord,
     InboundRefused,
     InboundTarget,
+    approval_replies,
     inbound_target,
 )
 
@@ -237,6 +239,59 @@ async def _finish(  # noqa: PLR0913 - the ledger row's result, explicit
     return outcome
 
 
+async def _approval_reply(
+    session: AsyncSession,
+    settings: Settings,
+    mailbox: Mailbox,
+    message: InboundMessage,
+    *,
+    vouched: bool,
+) -> Outcome | None:
+    """A reply to an approval mail, decided or answered why not; None for any other mail.
+
+    Never automatic mail, nor mail a block rule holds (unless an admin released it). The ledger
+    keeps it as a reply on its record (with the reason when nothing was applied).
+    """
+    replies = approval_replies()
+    if replies is None or message.automatic is not None or not message.thread_ids:
+        return None
+    if not vouched and blocked_by(
+        await block_rules(session),
+        sender=message.sender,
+        subject=message.subject,
+        text=message.text,
+    ):
+        return None
+    sender_id = await person_by_email(session, message.sender) if message.sender else None
+    decided: ApprovalReply | None = await replies.decide_from_mail(
+        session,
+        thread_ids=message.thread_ids,
+        sender_id=sender_id,
+        sender_verified=message.sender_verified,
+        text=message.text,
+    )
+    if decided is None:
+        return None
+    if decided.reason is not None and decided.answer_sender:
+        await _answer(
+            session,
+            settings,
+            mailbox,
+            message,
+            f"mailbox_answer.approval_reply.{decided.reason}",
+            person=sender_id,
+            display_id=decided.display_id,
+        )
+    return await _finish(
+        session,
+        mailbox,
+        message,
+        Outcome.REPLIED,
+        reason=None if decided.reason is None else f"approval_reply_{decided.reason}",
+        record=(decided.record_type, decided.record_id),
+    )
+
+
 @dataclass(frozen=True)
 class _Context:
     session: AsyncSession
@@ -362,6 +417,12 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         text=ctx.message.text,
         sender_verified=ctx.message.sender_verified,
         cc=tuple(a for a in ctx.message.cc if a not in {o.lower() for o in ctx.own}),
+        # WP-047a S4 (REQ-SR-017): a request mailbox makes requests of its catalog item.
+        catalog_item_id=(
+            ctx.mailbox.catalog_item_id
+            if ctx.mailbox.creates == MailboxCreates.SERVICE_REQUEST.value
+            else None
+        ),
     )
     await _keep_files(
         ctx, screened, owner=(OwnerType.WORK_ITEM, created.record_id), person=requester
@@ -411,7 +472,26 @@ async def _commands_answer(ctx: _Context, created: CreatedRecord, person: uuid.U
     )  # fmt: skip
 
 
-async def _handle(  # noqa: PLR0913 - one return per outcome of the module docstring
+async def _handle(  # noqa: PLR0913 - the message and its context, explicit
+    session: AsyncSession,
+    settings: Settings,
+    mailbox: Mailbox,
+    message: InboundMessage,
+    size: int,
+    *,
+    own_addresses: tuple[str, ...],
+    vouched: bool = False,
+) -> Outcome:
+    """A reply to an approval mail decides first (WP-047a S4, REQ-SR-038); else `_decide`."""
+    replied = await _approval_reply(session, settings, mailbox, message, vouched=vouched)
+    if replied is not None:
+        return replied
+    return await _decide(
+        session, settings, mailbox, message, size, own_addresses=own_addresses, vouched=vouched
+    )
+
+
+async def _decide(  # noqa: PLR0913 - one return per outcome of the module docstring
     session: AsyncSession,
     settings: Settings,
     mailbox: Mailbox,

@@ -946,6 +946,8 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/portal/service-requests` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/portal/service-requests/{record_id}` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/portal/service-requests/{record_id}/conversation` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - | `service_request` (module) |
+| PUT | `/api/v1/portal/service-requests/{record_id}/missing-answers` | signed_in | - | `service_request` (module) |
 | POST | `/api/v1/portal/service-requests/{record_id}/replies` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/portal/service-requests/{record_id}/request-again` | signed_in | - | `service_request` (module) |
 | POST | `/api/v1/portal/service-requests/{record_id}/resolution/confirm` | signed_in | - | `service_request` (module) |

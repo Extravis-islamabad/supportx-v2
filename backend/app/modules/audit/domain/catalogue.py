@@ -410,6 +410,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
     # WP-047a S2a: a request stage named its own requester, who was left out (condition 2).
     ("service_request.approver_was_requester", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S4 (REQ-SR-038): an approval decided, or not applied, by an e-mail reply.
+    ("service_request.approval_mail_decided", AuditCategory.RECORDS, "work_items"),
+    ("service_request.approval_mail_ignored", AuditCategory.RECORDS, "work_items"),
     # WP-047a S2b: approved with nobody asked (REQ-SR-033), and a running approval adjusted
     # or asked ad hoc (REQ-SR-042).
     ("service_request.approved_automatically", AuditCategory.RECORDS, "work_items"),

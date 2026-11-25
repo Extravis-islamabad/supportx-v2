@@ -160,13 +160,18 @@ export function CiImportDrawer({ open, onClose }: { open: boolean; onClose: () =
   const [key, setKey] = useState(() => crypto.randomUUID());
   const input = useRef<HTMLInputElement>(null);
   const job = useCiImport(jobId);
-  usePersonalChannel((message) => {
-    if (jobId === undefined || message.type !== CI_IMPORT_PROGRESS) return;
-    if (!message.ids.includes(jobId)) return;
-    void queryClient.invalidateQueries({ queryKey: ciMergeKeys.import(jobId) });
-    // Rows that were applied reach the lists through their own events; refetch to be sure.
-    void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.all, 'list'] });
-  });
+  usePersonalChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the job
+      if (jobId === undefined || message.type !== CI_IMPORT_PROGRESS) return;
+      if (!message.ids.includes(jobId)) return;
+      void queryClient.invalidateQueries({ queryKey: ciMergeKeys.import(jobId) });
+      // Rows that were applied reach the lists through their own events; refetch to be sure.
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.all, 'list'] });
+    },
+    // The drawer shows only its import job (the list behind it covers itself).
+    { covers: jobId === undefined ? [] : [ciMergeKeys.import(jobId)] },
+  );
   const reset = () => {
     setFile(undefined);
     setJobId(undefined);

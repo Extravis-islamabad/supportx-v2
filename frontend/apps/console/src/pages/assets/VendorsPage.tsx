@@ -71,11 +71,15 @@ export function VendorsPage() {
   const change = useVendorChange();
   const { problems, show, clear } = useAssetSaveProblems();
   const [editing, setEditing] = useState<Editing>();
-  useTenantChannel((message) => {
-    if (message.type === 'procurement.vendors_changed' || message.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'procurement.vendors_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.vendors.all });
+      }
+    },
+    { covers: [queryKeys.vendors.all] },
+  );
   if (!allowed) return <NoAccess titleKey="assets.record.vendors" />;
   const rows = vendors.data?.pages.flatMap((p) => p.items) ?? [];
   const canAdd = access.can('vendors.create');

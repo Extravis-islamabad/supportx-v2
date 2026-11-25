@@ -17,9 +17,14 @@ export function AuditAlertBanner({ showLink = true }: { showLink?: boolean }) {
   const allowed = can('audit.view');
   const status = useAuditStatus(allowed);
   const queryClient = useQueryClient();
-  useListChannel(allowed ? 'audit' : null, () => {
-    refreshList(queryClient, queryKeys.audit.status);
-  });
+  useListChannel(
+    allowed ? 'audit' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.audit.status);
+    },
+    { covers: [queryKeys.audit.status] },
+  );
   const alert = status.data?.alert;
   if (!allowed || alert === null || alert === undefined) return null;
   return (

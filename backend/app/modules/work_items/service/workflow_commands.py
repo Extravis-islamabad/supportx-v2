@@ -48,6 +48,8 @@ ASSIGNMENT_FIELDS = ("group_id", "technician_id")  # set through the assignment 
 OPEN_APPROVAL = "open_approval"  # decided later: the result comes with the decision
 OPEN_TASKS = "open_tasks"  # done later: the result comes when every task is done
 NOTIFY = "notify"  # through the one notification engine (an outbox event), done at once
+# WP-047a S4 (REQ-SR-044): an approval node's timeout passed; the result names the output.
+EXPIRE_APPROVAL = "expire_approval"
 # The types whose notification source maps a workflow notice (REQ-WF-022): incidents now.
 NOTICE_TYPES = frozenset({"incident"})
 
@@ -119,7 +121,7 @@ def runner(wtype: WorkItemType) -> automation.CommandRunner:
         version = await _version(session, record_id)
         if version is None:
             return automation.CommandResult(ok=False, error="not_found")
-        if kind in {OPEN_APPROVAL, OPEN_TASKS, NOTIFY}:
+        if kind in {OPEN_APPROVAL, OPEN_TASKS, NOTIFY, EXPIRE_APPROVAL}:
             return await _people_command(
                 session, wtype, record_id, kind=kind, payload=payload, ref=ref
             )
@@ -175,6 +177,25 @@ async def _open_approval(
     return automation.CommandResult(ok=True, pending=True)
 
 
+async def _expire_approval(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    payload: Mapping[str, Any],
+    ref: Mapping[str, Any],
+) -> automation.CommandResult:
+    """An approval node's timeout (REQ-SR-044): `timed_out`, or the decision made first."""
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return automation.CommandResult(ok=False, error="not_found")
+    port = await workflow_approvals.expire_for(
+        session,
+        record,
+        instance_id=uuid.UUID(str(ref["instance_id"])),
+        command=str(payload.get("opened") or ""),
+    )
+    return automation.CommandResult(ok=True, port=port)
+
+
 def _id(value: Any) -> uuid.UUID | None:  # noqa: ANN401 - untrusted JSON
     return uuid.UUID(str(value)) if value else None
 
@@ -191,6 +212,8 @@ async def _people_command(  # noqa: PLR0913 - one command and its context, expli
     """An approval, a checklist or a notice: their results come through the record's own parts."""
     if kind == OPEN_APPROVAL:
         return await _open_approval(session, wtype, record_id, payload, ref)
+    if kind == EXPIRE_APPROVAL:
+        return await _expire_approval(session, record_id, payload, ref)
     if kind == OPEN_TASKS:
         return await _open_tasks(session, record_id, payload, ref)
     return await _notify(session, wtype, record_id, payload, ref)

@@ -39,11 +39,15 @@ export function BusinessViewsPage() {
   const typed = useDebounced(search, SEARCH_DELAY_MS);
   const allowed = has('cmdb') && can('cmdb.view');
   const views = useBusinessViews({ search: allowed ? typed : '' });
-  useTenantChannel((message) => {
-    if (message.type === 'cmdb.views_changed' || message.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.views, 'list'] });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the list
+      if (message.type === 'cmdb.views_changed') {
+        void queryClient.invalidateQueries({ queryKey: [...queryKeys.cmdb.views, 'list'] });
+      }
+    },
+    { covers: [[...queryKeys.cmdb.views, 'list']] },
+  );
   if (!has('cmdb')) return <NotInPlan titleKey="cmdb.views.title" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="cmdb.views.title" />;
   const items = views.data?.pages.flatMap((p) => p.items) ?? [];
