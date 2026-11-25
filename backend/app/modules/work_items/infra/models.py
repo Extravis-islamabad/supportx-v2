@@ -1130,6 +1130,39 @@ class WorkItemCi(TenantEntity):
     at_creation: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
+class WorkItemExternalKey(TenantEntity):
+    """An outside problem's one incident for life (WP-053 S7a, D-050; 0210).
+
+    `(source_kind, source_id, external_id)` names the problem (a MonetX connection's problem ID);
+    `work_item_id` is the incident it made and `last_version` the newest version applied. Never
+    deleted or repointed: a merged incident is followed along `merged_into` when read, so the
+    loser's key can never make a new incident (the coordinator's condition 3).
+    """
+
+    __tablename__ = "work_item_external_keys"
+    __table_args__ = (
+        _work_item_fk("fk_work_item_external_keys_work_item"),
+        Index(
+            "uq_wiek_tenant_source_external",
+            "tenant_id",
+            "source_kind",
+            "source_id",
+            "external_id",
+            unique=True,
+        ),
+        Index("ix_wiek_tenant_item", "tenant_id", "work_item_id"),
+        CheckConstraint(
+            "source_kind IN ('monetx', 'alert_webhook')", name="ck_wiek_source_kind_code"
+        ),
+    )
+
+    source_kind: Mapped[str] = mapped_column(String(20))
+    source_id: Mapped[uuid.UUID]
+    external_id: Mapped[str] = mapped_column(String(200))
+    work_item_id: Mapped[uuid.UUID]
+    last_version: Mapped[int] = mapped_column(BigInteger)
+
+
 class WorkItemAnnouncement(TenantEntity):
     """An announcement made from a work item (WP-046b S4, REQ-INC-129).
 
