@@ -3214,6 +3214,7 @@ export const ar: LabelResource = {
   'work_item.field.priority_source': 'مصدر الأولوية',
   'work_item.field.problem_type': 'نوع المشكلة',
   'work_item.field.quantity': 'الكمية',
+  'work_item.field.raised_from_ci': 'عنصر تهيئة',
   'work_item.field.reapproval_restarted': 'أُعيد للموافقة مجددًا بسبب',
   'work_item.field.reassignment_count': 'مرات إعادة الإسناد',
   'work_item.field.release_engineer_id': 'مهندس الإصدار',

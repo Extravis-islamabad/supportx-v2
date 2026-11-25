@@ -1,8 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AssetRecord, CatalogItem } from '@supportx/api-client';
+import type { AssetRecord, CatalogItem, Ci } from '@supportx/api-client';
 import {
+  fakeEntitlements,
   fakeIncidentCatalogue,
   fakeIncidentTemplate,
   fakeSession,
@@ -87,9 +88,9 @@ afterEach(() => {
   restore();
 });
 
-function api(routes: Record<string, unknown> = {}) {
+function api(routes: Record<string, unknown> = {}, locale: 'en' | 'ar' | 'ur' = 'en') {
   const fake = consoleApi({
-    me: fakeSession({ roles: ['tenant_admin'] }),
+    me: fakeSession({ roles: ['tenant_admin'], locale }),
     routes: {
       'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
       'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
@@ -159,5 +160,72 @@ describe('prefill from the address (raised from an asset)', () => {
     expect(await screen.findByTestId(`sr-item-${ITEM_ID}`)).toBeTruthy();
     expect(fake.find('GET', `/api/v1/catalog/items/${UNKNOWN}`)).toHaveLength(0);
     noErrorShown();
+  });
+});
+
+describe('prefill from the address (raised from a CI)', () => {
+  // Lane B's WP-053 S5c Raise menu: `?ci=` shows the CI by name, read-only, once it is known and
+  // the plan has the CMDB; unknown, unseen or unlicensed, nothing shows and nothing is said.
+  const CI_ID = '01a1a2b3-0000-7000-8000-0000000c1c1c';
+  const coreSwitch = { id: CI_ID, name: 'Core switch 1', display_id: 'CI-12' } as Ci;
+
+  it('a known CI shows by its name on a new incident, never its ID', async () => {
+    window.history.pushState({}, '', `/incidents/new?ci=${CI_ID}`);
+    api({ [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch } });
+    render(<App />);
+    expect((await screen.findByTestId('raised-from-ci')).textContent).toBe('Core switch 1');
+    expect(document.body.textContent).not.toContain(CI_ID);
+  });
+
+  it('the CI line reads right to left in Arabic and Urdu, by name', async () => {
+    for (const locale of ['ar', 'ur'] as const) {
+      window.history.pushState({}, '', `/incidents/new?ci=${CI_ID}`);
+      api({ [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch } }, locale);
+      const { unmount } = render(<App />);
+      const line = await screen.findByTestId('raised-from-ci');
+      await waitFor(() => {
+        expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+      });
+      expect(line.textContent).toBe('Core switch 1');
+      expect(document.body.textContent).toContain(
+        locale === 'ar' ? 'عنصر تهيئة' : 'کنفیگریشن آئٹم',
+      );
+      unmount();
+      restore();
+    }
+  });
+
+  it('a known CI shows on a new request for an item', async () => {
+    window.history.pushState({}, '', `/requests/new?item=${ITEM_ID}&ci=${CI_ID}`);
+    api({ [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch } });
+    render(<App />);
+    expect((await screen.findByTestId('raised-from-ci')).textContent).toBe('Core switch 1');
+  });
+
+  it('an unknown CI shows nothing on the incident form, with no error', async () => {
+    window.history.pushState({}, '', `/incidents/new?ci=${UNKNOWN}`);
+    const fake = api();
+    render(<App />);
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/cmdb/cis/${UNKNOWN}`).length).toBeGreaterThan(0);
+    });
+    expect(await screen.findByTestId('inc-template')).toBeTruthy();
+    expect(screen.queryByTestId('raised-from-ci')).toBeNull();
+    noErrorShown();
+  });
+
+  it('without the CMDB in the plan the CI is never asked for', async () => {
+    window.history.pushState({}, '', `/incidents/new?ci=${CI_ID}`);
+    const plan = fakeEntitlements();
+    const fake = api({
+      'GET /api/v1/entitlements': {
+        body: { ...plan, features: plan.features.filter((f) => f !== 'cmdb') },
+      },
+      [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('inc-template')).toBeTruthy();
+    expect(fake.find('GET', `/api/v1/cmdb/cis/${CI_ID}`)).toHaveLength(0);
+    expect(screen.queryByTestId('raised-from-ci')).toBeNull();
   });
 });
