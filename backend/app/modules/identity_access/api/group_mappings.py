@@ -3,7 +3,7 @@
 `identity.manage`, every write audited and asking for a recent sign-in.
 - `GET /identity/group-mappings?source_kind=&source_id=`: a source's mappings.
 - `POST /identity/group-mappings`: a new mapping onto a role or a support group (Idempotency-Key).
-  - An SSO source: 422 `idp_group_mappings_coming_soon` until S5c-1b.
+  - An SSO source: this tenant's own set-up (S5c-1b); another is 404 `mapping_source_not_found`.
   - A privileged target without the tenant opt-in: 409 `mapping_grants_privileged_access`.
 - `GET /identity/group-mappings/{id}/holders`: how many people hold access through it (the
   remove dialog's count).
@@ -25,7 +25,6 @@ from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.domain.group_mappings import (
     MAX_GROUP_ID,
-    SSO_GROUP_MAPPINGS_READY,
     SourceKind,
 )
 from app.modules.identity_access.domain.policy import Subject
@@ -100,7 +99,7 @@ class MappingSettingsOut(BaseModel):
         description="A mapping may give tenant admin or another never_via_idp right."
     )
     sso_sources_ready: bool = Field(
-        description="SSO set-ups may be a mapping's source (false until S5c-1b)."
+        description="SSO set-ups may be a mapping's source (always true since S5c-1b)."
     )
     version: int = Field(description="The access settings' version, for If-Match (0: never saved).")
 
@@ -166,7 +165,7 @@ async def get_mapping_settings(
     set_etag(response, version)
     return MappingSettingsOut(
         privileged_allowed=await mappings.privileged_allowed(session),
-        sso_sources_ready=SSO_GROUP_MAPPINGS_READY,
+        sso_sources_ready=True,  # S5c-1b: SSO sign-ins follow their groups
         version=version,
     )
 
@@ -193,7 +192,7 @@ async def save_mapping_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencie
     set_etag(response, saved)
     return MappingSettingsOut(
         privileged_allowed=body.privileged_allowed,
-        sso_sources_ready=SSO_GROUP_MAPPINGS_READY,
+        sso_sources_ready=True,
         version=saved,
     )
 

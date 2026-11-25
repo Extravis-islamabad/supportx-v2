@@ -745,6 +745,17 @@ class SsoMappingBody(BaseModel):
     site: str | None = Field(default=None, max_length=300)
 
 
+class SsoGroupsBody(BaseModel):
+    """Following the provider's groups (WP-057 S5c-1b; OpenID Connect only)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    follow: bool
+    claim: str = Field(
+        default="groups", max_length=128, description="The token claim that lists the groups."
+    )
+
+
 class SsoBody(BaseModel):
     """A set-up.
 
@@ -778,11 +789,20 @@ class SsoBody(BaseModel):
         description="OpenID Connect: when the client secret runs out (admins are told before).",
     )
 
+    groups: SsoGroupsBody | None = Field(
+        default=None, description="Follow the provider's groups; left out keeps the setting."
+    )
+
     def values(self) -> sso.SsoInput:
         """The service's input."""
-        data = self.model_dump(exclude={"mapping"})
+        data = self.model_dump(exclude={"mapping", "groups"})
         mapping = None if self.mapping is None else sso_rules.Mapping(**self.mapping.model_dump())
-        return sso.SsoInput(**data, mapping=mapping)
+        groups = (
+            None
+            if self.groups is None
+            else sso_rules.GroupsSetting(follow=self.groups.follow, claim=self.groups.claim)
+        )
+        return sso.SsoInput(**data, mapping=mapping, groups=groups)
 
 
 class SsoCheckOut(BaseModel):
@@ -909,10 +929,7 @@ async def get_sso(
 @router.put(
     "/sso/{provider_id}",
     summary="Change a single sign-on set-up",
-    dependencies=[
-        RecentAuth,
-        audited("sso.updated", object_type="sso_provider", object_param="provider_id"),
-    ],
+    dependencies=[RecentAuth],
 )
 async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     provider_id: uuid.UUID,
@@ -925,9 +942,15 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     admin: Admin,
     allowance: FetchAllowance,
     require_domain_proof: RequireDomainProof,
+    note: Annotated[
+        AuditNote,
+        audited("sso.updated", object_type="sso_provider", object_param="provider_id"),
+    ],
 ) -> SsoOut:
     """A connection change sends it back to draft (an "on" set-up: switch it off first)."""
     del subject
+    # Which IdP groups grant access is sensitive (lane B, S5c-1b): the entry names the change.
+    before = (await sso.get_provider(session, provider_id)).settings.get("groups") or {}
     view = await sso.update_provider(
         session,
         admin,
@@ -937,6 +960,14 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
         allowance=allowance,
         require_domain_proof=require_domain_proof,
     )
+    after = view.settings.get("groups") or {}
+    if after != before:
+        note.details = {
+            "groups_follow.before": bool(before.get("follow")),
+            "groups_follow.after": bool(after.get("follow")),
+            "groups_claim.before": before.get("claim"),
+            "groups_claim.after": after.get("claim"),
+        }
     set_etag(response, view.version)
     return _sso_out(request, view)
 

@@ -19,11 +19,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
-# S5c-1a ships SSO-source mappings switched off (the coordinator, 2026-11-24): nothing applies
-# them until S5c-1b's sign-in wiring lands, so the API refuses them and the screen doesn't offer
-# them. S5c-1b deletes this constant. It's a release switch for unfinished work, never licensing.
-SSO_GROUP_MAPPINGS_READY = False
-
 TENANT_ADMIN_ROLE = "tenant_admin"
 # Rights that can mint access or hide its trail (lane B's Q3, in real keys, 2026-11-24).
 NEVER_VIA_IDP: frozenset[str] = frozenset(

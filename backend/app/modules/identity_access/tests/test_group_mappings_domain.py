@@ -5,7 +5,6 @@ import pytest
 from app.modules.identity_access.domain import group_mappings as gm
 from app.modules.identity_access.domain.group_mappings import (
     NEVER_VIA_IDP,
-    SSO_GROUP_MAPPINGS_READY,
     Held,
     Target,
     overage,
@@ -57,10 +56,6 @@ def test_an_overlong_or_odd_list_is_an_overage() -> None:
     assert overage(["x"] * 501)
     assert overage(["x" * 257])
     assert overage([""])
-
-
-def test_sso_mappings_ship_switched_off_until_s5c_1b() -> None:
-    assert SSO_GROUP_MAPPINGS_READY is False
 
 
 # --- a sign-in's groups (WP-057 S5c-1b) ------------------------------------------------------

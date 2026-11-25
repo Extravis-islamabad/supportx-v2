@@ -78,19 +78,30 @@ async def test_a_directory_mapping_onto_a_role_is_made_listed_counted_and_remove
     assert (await world.call("GET", f"{BASE}/settings", a, a.tech_a)).status_code == 403
 
 
-async def test_sso_sources_wait_for_s5c_1b_and_an_unknown_source_is_not_found(
+async def test_an_sso_source_is_mapped_and_an_unknown_source_is_not_found(
     world: World,
 ) -> None:
+    """S5c-1b: the release switch is gone; an SSO set-up of this tenant is a mapping's source."""
     a = world.a
     changer = await role(world, a, f"Change {uuid.uuid4().hex[:6]}", [("changes.view", "all")])
+    provider = uuid.uuid4()
+    await world.sql(
+        "INSERT INTO sso_providers (id, tenant_id, alias, protocol, preset, display_name)"
+        " VALUES ($1, $2, $3, 'oidc', 'entra', 'Acme')",
+        provider, a.tenant, f"sx-m-{provider.hex[:6]}",
+    )  # fmt: skip
     sso = await _create(
+        world, a, source_kind="sso", source_id=str(provider),
+        external_group_id="g-1", role_id=str(changer),
+    )  # fmt: skip
+    assert sso.status_code == 201, sso.text
+    settings = await world.call("GET", f"{BASE}/settings", a, a.admin)
+    assert settings.json()["sso_sources_ready"] is True
+    elsewhere = await _create(
         world, a, source_kind="sso", source_id=str(uuid.uuid4()),
         external_group_id="g-1", role_id=str(changer),
     )  # fmt: skip
-    assert sso.status_code == 422, sso.text
-    assert sso.json()["errors"][0]["code"] == "idp_group_mappings_coming_soon"
-    settings = await world.call("GET", f"{BASE}/settings", a, a.admin)
-    assert settings.json()["sso_sources_ready"] is False
+    assert (elsewhere.status_code, elsewhere.json()["code"]) == (404, "mapping_source_not_found")
     unknown = await _create(
         world, a, source_kind="directory", source_id=str(uuid.uuid4()),
         external_group_id="g-1", role_id=str(changer),

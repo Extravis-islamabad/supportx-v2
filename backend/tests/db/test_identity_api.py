@@ -1506,17 +1506,27 @@ async def test_mfa_policies_are_tenant_isolated(world: World) -> None:
 # --- S5c: group importers go before their attributes are cleared (lane C's #632 review) -------
 
 
-async def _follow_groups(world: World, provider: str, *, follow: bool) -> None:
-    conn = await asyncpg.connect(world.db.admin_url)
-    try:
-        await conn.execute(
-            "UPDATE sso_providers SET settings = jsonb_set(coalesce(settings, '{}'), '{groups}',"
-            " $2::jsonb) WHERE id = $1",
-            uuid.UUID(provider),
-            json.dumps({"follow": follow, "claim": "groups"}),
-        )
-    finally:
-        await conn.close()
+SSO_BODY = {
+    "preset": "entra",
+    "display_name": "Acme Entra ID",
+    "domains": ["acme.test"],
+    "issuer": ISSUER,
+    "client_id": "supportx",
+}
+
+
+async def _save_sso(
+    world: World,
+    provider: str,
+    version: int,
+    **groups: Any,  # noqa: ANN401 - JSON
+) -> httpx.Response:
+    """PUT the set-up, with `groups` when given (S5c-1b: the admin's switch)."""
+    body = {**SSO_BODY, **({"groups": groups} if groups else {})}
+    return await world.call(
+        "PUT", f"/identity/sso/{provider}", world.a, json=body,
+        headers={"If-Match": f'"{version}"'},
+    )  # fmt: skip
 
 
 async def test_turning_groups_off_or_removing_drops_the_importers_before_clearing(
@@ -1525,30 +1535,23 @@ async def test_turning_groups_off_or_removing_drops_the_importers_before_clearin
     """A sign-in between a clear and a mapper change would write the groups back."""
     added = (await world.add_oidc(world.a)).json()
     path = f"/identity/sso/{added['id']}"
-    body = {
-        "preset": "entra",
-        "display_name": "Acme Entra ID",
-        "domains": ["acme.test"],
-        "issuer": ISSUER,
-        "client_id": "supportx",
-    }
-    await _follow_groups(world, added["id"], follow=True)
-    on = await world.call(
-        "PUT", path, world.a, json=body, headers={"If-Match": f'"{added["version"]}"'}
-    )
+    on = await _save_sso(world, added["id"], added["version"], follow=True, claim="groups")
     assert on.status_code == 200, on.text
     alias = next(iter(world.admin.providers))
     assert world.admin.steps[-1] == ("mappers", alias, True)  # following: importers on
+    assert world.admin.cleared_groups == []  # turning on clears nothing
     world.admin.steps.clear()
-    await _follow_groups(world, added["id"], follow=False)
-    off = await world.call(
-        "PUT", path, world.a, json=body, headers={"If-Match": f'"{on.json()["version"]}"'}
-    )
+    off = await _save_sso(world, added["id"], on.json()["version"], follow=False, claim="groups")
     assert off.status_code == 200, off.text
     assert world.admin.steps == [("mappers", alias, False), ("clear", alias, False)]
     world.admin.steps.clear()
+    # Saving again while off: no second clear (only the true-to-false transition clears).
+    again = await _save_sso(world, added["id"], off.json()["version"])
+    assert again.status_code == 200, again.text
+    assert ("clear", alias, False) not in world.admin.steps
+    world.admin.steps.clear()
     gone = await world.call(
-        "DELETE", path, world.a, headers={"If-Match": f'"{off.json()["version"]}"'}
+        "DELETE", path, world.a, headers={"If-Match": f'"{again.json()["version"]}"'}
     )
     assert gone.status_code == 204, gone.text
     assert world.admin.steps == [
@@ -1556,3 +1559,46 @@ async def test_turning_groups_off_or_removing_drops_the_importers_before_clearin
         ("clear", alias, False),
         ("delete", alias, False),
     ]
+
+
+async def test_a_claim_change_while_following_rewrites_the_importers_and_clears_nothing(
+    world: World,
+) -> None:
+    """Lane B's S5c-1b note 2: the attributes are per alias; the next sign-in rewrites them."""
+    added = (await world.add_oidc(world.a)).json()
+    on = await _save_sso(world, added["id"], added["version"], follow=True, claim="groups")
+    assert on.status_code == 200, on.text
+    alias = next(iter(world.admin.providers))
+    changed = await _save_sso(world, added["id"], on.json()["version"], follow=True, claim="roles")
+    assert changed.status_code == 200, changed.text
+    claims = {m["config"].get("claim") for m in world.admin.mapper_sets[alias]}
+    assert "roles" in claims
+    assert "groups" not in claims
+    assert world.admin.cleared_groups == []
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        raw = await conn.fetchval(
+            "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = 'sso.updated'"
+            " ORDER BY occurred_at DESC LIMIT 1",
+            world.a.tenant,
+        )
+    finally:
+        await conn.close()
+    details = json.loads(raw) if isinstance(raw, str) else raw
+    assert (details["groups_claim.before"], details["groups_claim.after"]) == ("groups", "roles")
+    assert details["groups_follow.after"] is True
+
+
+async def test_following_is_oidc_only_and_never_a_reserved_or_our_own_claim(
+    world: World,
+) -> None:
+    added = (await world.add_oidc(world.a)).json()
+    for claim, code in (
+        ("email", "idp_groups_claim_reserved"),
+        ("sub", "idp_groups_claim_reserved"),
+        ("sx_groups_x", "idp_groups_claim_invalid"),
+        ("groups with space", "idp_groups_claim_invalid"),
+    ):
+        refused = await _save_sso(world, added["id"], added["version"], follow=True, claim=claim)
+        assert refused.status_code == 422, (claim, refused.text)
+        assert code in {e["code"] for e in refused.json()["errors"]}, refused.text

@@ -28,7 +28,6 @@ from app.core.tenancy import AccessSource as TenantAccessSource
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access.domain.group_mappings import (
     MAX_GROUP_ID,
-    SSO_GROUP_MAPPINGS_READY,
     Held,
     Plan,
     SourceKind,
@@ -286,7 +285,6 @@ async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: 
 # --- the mappings themselves (admins; directory connectors' screen today) ----------------------
 
 PRIVILEGED_CODE = "mapping_grants_privileged_access"
-COMING_SOON_CODE = "idp_group_mappings_coming_soon"
 CHOICE_REQUIRED_CODE = "mapping_in_use_choice_required"
 HOLDS_LAST_ADMIN_CODE = "mapping_holds_last_admin"
 OnHeld = Literal["keep", "remove"]
@@ -377,9 +375,7 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
     role_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
 ) -> IdpGroupMapping:
-    """A new mapping, after the guards: SSO waits for S5c-1b; privileged access is refused."""
-    if source_kind is SourceKind.SSO and not SSO_GROUP_MAPPINGS_READY:
-        raise ValidationFailed(errors=[_error("source_kind", COMING_SOON_CODE)])
+    """A new mapping, after the guards: the source exists; privileged access is refused."""
     await require_source(session, source_kind, source_id)
     if (role_id is None) == (group_id is None):
         raise ValidationFailed(errors=[_error("target", "one_target_required")])
