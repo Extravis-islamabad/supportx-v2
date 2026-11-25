@@ -22,6 +22,7 @@ from tooling.keycloak_identity import (
     REALM_ROLES,
     ROLES,
     SSO_MAX_SECONDS,
+    UNMANAGED_POLICY,
     Outcome,
     Result,
     Target,
@@ -514,3 +515,17 @@ async def test_d177_no_provider_keeps_a_trusted_email_and_a_second_run_changes_n
     second = await _run(keycloak)
     assert not [c for c in second.changes if c.startswith("identity provider")]
     assert [w for w in keycloak.writes if "identity-provider" in w] == puts
+
+
+async def test_d187_undeclared_attributes_are_kept_for_admins_only_even_if_set_otherwise() -> None:
+    """IdP groups land in per-alias attributes; ENABLED would let a person write their own."""
+    keycloak = FakeKeycloak()
+    keycloak.profile["unmanagedAttributePolicy"] = "ENABLED"  # an operator's or an old default
+    first = await _run(keycloak)
+    assert first.outcome == Outcome.UPDATED
+    assert keycloak.profile["unmanagedAttributePolicy"] == UNMANAGED_POLICY == "ADMIN_EDIT"
+    declared = {a["name"] for a in keycloak.profile["attributes"]}
+    assert declared == {"email", *PROFILE_ATTRIBUTES}  # nothing declared is lost
+    keycloak.writes.clear()
+    second = await _run(keycloak)
+    assert (second.outcome, keycloak.writes) == (Outcome.READY, [])

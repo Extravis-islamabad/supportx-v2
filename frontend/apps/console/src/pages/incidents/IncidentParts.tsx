@@ -699,6 +699,21 @@ export function IncidentWorklogs({
                   label: t('incidents.worklogs.total_cost'),
                   children: money(found.data.total_cost) ?? NO_AMOUNT,
                 },
+                // WP-047a S5 (REQ-SR-052 AC3): the tasks' costs and the actual cost, with them.
+                ...(found.data.task_cost != null && Number(found.data.task_cost) > 0
+                  ? [
+                      {
+                        key: 'task_cost',
+                        label: t('incidents.worklogs.task_cost'),
+                        children: money(found.data.task_cost) ?? NO_AMOUNT,
+                      },
+                      {
+                        key: 'actual_cost',
+                        label: t('incidents.worklogs.actual_cost'),
+                        children: money(found.data.actual_cost) ?? NO_AMOUNT,
+                      },
+                    ]
+                  : []),
               ]
             : []),
         ]}

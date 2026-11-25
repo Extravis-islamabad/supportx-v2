@@ -31,6 +31,7 @@ import {
   useSlaPolicies,
   useUnits,
   useUpdateCatalogItem,
+  useWorkflows,
   type CatalogItem,
   type CatalogItemInput,
   type Labels,
@@ -174,6 +175,7 @@ export function CatalogItemPage() {
 
 function ItemEditor({ id }: { id: string | undefined }) {
   const t = useLabel();
+  const licence = useLicence();
   const { locale } = useAppearance();
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -382,7 +384,10 @@ function ItemEditor({ id }: { id: string | undefined }) {
                       set({ plan });
                     }}
                     disabled={draft.kind === 'incident_template'}
+                    questions={draft.questions ?? []}
+                    licensed={licence.has('catalog')}
                   />
+                  <FulfilmentWorkflow draft={draft} set={set} licensed={licence.has('catalog')} />
                   <Flex align="center" gap={12}>
                     <Switch
                       checked={draft.auto_fulfil ?? true}
@@ -457,6 +462,43 @@ interface TabProps {
  * (REQ-SR-014, Professional: shown only with the catalogue feature, and refused by the server
  * without it) and when it is needed (REQ-SR-015).
  */
+/**
+ * The item's own fulfilment workflow (WP-047a S5; REQ-SR-053, Professional): a service request
+ * workflow, started when the plan would. Listed for those who may manage workflows; the server
+ * checks the choice again (a published item needs one published and switched on).
+ */
+function FulfilmentWorkflow({ draft, set, licensed }: TabProps & { licensed: boolean }) {
+  const t = useLabel();
+  const mayManage = useAccess().can('workflows.manage');
+  const flows = useWorkflows('service_request', licensed && mayManage);
+  if (!licensed && draft.workflow_id == null) return null;
+  return (
+    <Flex vertical gap={4} data-testid="cat-fulfilment-workflow">
+      <Typography.Text strong>{t('catalog_admin.workflow.title')}</Typography.Text>
+      <Select
+        allowClear
+        style={{ maxWidth: 420 }}
+        aria-label={t('catalog_admin.workflow.title')}
+        placeholder={t('catalog_admin.workflow.none')}
+        disabled={!mayManage}
+        value={draft.workflow_id ?? undefined}
+        options={(flows.data ?? []).map((flow) => ({
+          value: flow.id,
+          label:
+            flow.published_version == null || !flow.enabled
+              ? t('catalog_admin.workflow.not_ready', { name: flow.name })
+              : flow.name,
+        }))}
+        onChange={(workflow_id: string | undefined) => {
+          set({ workflow_id: workflow_id ?? null });
+        }}
+        data-testid="cat-workflow"
+      />
+      <Typography.Text type="secondary">{t('catalog_admin.workflow.help')}</Typography.Text>
+    </Flex>
+  );
+}
+
 function RequestOptions({ draft, set }: TabProps) {
   const t = useLabel();
   const hasCatalog = useLicence().has('catalog');

@@ -684,15 +684,18 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
         )
-        if owner is not None:
-            publications.append(
-                Publication(
-                    personal(envelope.tenant_id, owner),
-                    MY_TASKS_CHANGED,
-                    ids=(str(part_id),),
-                    actor_id=_actor(envelope),
-                )
+        # The owner now, and the one a hand-off took it from (lane C's #630 review): both
+        # people's own task lists ("Your tasks", My tasks, an open task page) refresh live.
+        before = _uuid(payload.get("previous_owner_id"))
+        publications.extend(
+            Publication(
+                personal(envelope.tenant_id, person),
+                MY_TASKS_CHANGED,
+                ids=(str(part_id),),
+                actor_id=_actor(envelope),
             )
+            for person in dict.fromkeys(p for p in (owner, before) if p is not None)
+        )
     return RealtimeEffects(publications=publications)
 
 
@@ -743,6 +746,24 @@ async def _draft_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+async def _task_reassigned(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """The previous owner's "My tasks" (console and portal) drop the task: IDs only."""
+    del session
+    before = _uuid(envelope.payload.get("previous_owner_id"))
+    if before is None:
+        return RealtimeEffects(publications=[])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, before),
+                MY_TASKS_CHANGED,
+                ids=(str(envelope.payload["task_id"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(("work_items.draft.changed",), _draft_changed),
     RealtimeRoute(
@@ -779,6 +800,8 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    # WP-047a S5: a task moved to someone else leaves the previous owner's task lists.
+    RealtimeRoute(("work_items.task.assigned",), _task_reassigned),
     RealtimeRoute(("work_items.asset_link.changed",), _asset_link_changed),
     # WP-047a S3a (REQ-SR-037): a question asked or answered refreshes the same screens.
     RealtimeRoute(

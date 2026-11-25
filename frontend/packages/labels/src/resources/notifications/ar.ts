@@ -91,6 +91,8 @@ export const ar: LabelResource = {
   'notification_event.asset.loan_due': 'موعد إرجاع الإعارة غدًا',
   'notification_event.asset.loan_overdue': 'الإعارة متأخرة',
   'notification_event.asset.mentioned': 'إشارة في ملاحظة أصل',
+  'notification_event.asset.overdue_trash_paused':
+    'أُوقف نقل قاعدة المسح المتأخر إلى سلة المهملات مؤقتًا',
   'notification_event.asset.stock_low': 'المخزون عند حده الأدنى',
   'notification_event.asset.warranty_expiring': 'الضمان ينتهي قريبًا',
   'notification_event.break_glass.signed_in': 'سجّل مسؤول طوارئ الدخول',
@@ -253,6 +255,7 @@ export const ar: LabelResource = {
   'notification_recipient.previous_assignee': 'الفني السابق',
   'notification_recipient.requester': 'مقدّم الطلب',
   'notification_recipient.reviewer': 'المراجِع',
+  'notification_recipient.rule_fixers': 'من يمكنهم حذف الأصول وتهيئتها',
   'notification_recipient.schedule_owner': 'مالك الجدول',
   'notification_recipient.step_owner': 'مالك القاعدة (وإلا فمسؤولوها)',
   'notification_recipient.stock_watchers': 'الأشخاص المحددون للحد الأدنى',
@@ -341,6 +344,12 @@ export const ar: LabelResource = {
     'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
   'notification_template.asset.mentioned.subject':
     'أُشير إليك في {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.overdue_trash_paused.body':
+    'مرحبًا {{ recipient.name }}،\nقاعدة المسح المتأخر مضبوطة على نقل الأصول إلى سلة المهملات، لكن آخر من حفظها لم يعد يملك صلاحية حذف الأصول، لذا أُوقفت قبل نقل أي شيء. يجب أن يحفظها مجددًا من لديه صلاحية حذف الأصول لإعادة تشغيلها. {{ record.link }}',
+  'notification_template.asset.overdue_trash_paused.in_app':
+    'نقل قاعدة المسح المتأخر إلى سلة المهملات موقوف: يجب أن يحفظها من لديه صلاحية حذف الأصول مجددًا',
+  'notification_template.asset.overdue_trash_paused.subject':
+    'أُوقفت قاعدة المسح المتأخر قبل نقل الأصول إلى سلة المهملات',
   'notification_template.asset.stock_low.body':
     'مرحبًا {{ recipient.name }}،\n\nانخفض مخزون {{ record.title }} إلى {{ stock.quantity }}، عند حده الأدنى {{ stock.minimum }} أو دونه.',
   'notification_template.asset.stock_low.in_app':

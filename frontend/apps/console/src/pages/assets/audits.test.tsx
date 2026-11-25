@@ -13,6 +13,8 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
+import { problem } from '@supportx/api-client/testing';
+
 import { consoleApi, fakeSession } from '../../test/api';
 
 // WP-049b s3: asset audits (REQ-AST-042, 043), labels (039), scans (054), the overdue rule (056).
@@ -589,5 +591,61 @@ describe('the overdue-scan rule (056)', () => {
     expect(fake.find('PATCH', '/api/v1/assets/overdue-rule')[0]?.headers.get('If-Match')).toBe(
       '"1"',
     );
+  });
+
+  it('a site-scoped deleter is told a trash rule needs delete rights everywhere (D-185)', async () => {
+    window.history.pushState({}, '', '/admin/assets?tab=settings');
+    const fake = consoleApi({
+      me: fakeSession({ roles: ['tenant_admin'] }),
+      routes: {
+        'GET /api/v1/assets/settings': {
+          body: {
+            tag_pattern: 'AST-{n}',
+            age_basis: 'acquisition_date',
+            cost_includes_tax: true,
+            copy_limit: 50,
+            site_follows_owner: false,
+            portal_own_assets_only: true,
+            email_include_assets: false,
+            warranty_notice_days: 30,
+            scan_retention_months: 6,
+            portal_booking: false,
+            version: 1,
+          },
+        },
+        'GET /api/v1/assets/states': { body: [] },
+        'GET /api/v1/assets/life-cycles': { body: [] },
+        'GET /api/v1/assets/product-types': { body: [] },
+        'GET /api/v1/assets/stock-rules': { body: [] },
+        'GET /api/v1/assets/overdue-rule': { body: rule },
+        'GET /api/v1/assets/overdue-rule/runs': { body: [] },
+        'GET /api/v1/assets/overdue-rule/states': { body: { state_ids: [] } },
+        'POST /api/v1/assets/overdue-rule/preview': {
+          status: 403,
+          body: problem(403, 'permission_denied', {
+            params: {
+              permission: 'assets.delete',
+              scope: 'all',
+              reason: 'trash_rule_needs_tenant_wide_delete',
+            },
+          }),
+        },
+      },
+    });
+    restore = fake.restore;
+    render(<App />);
+    const card = await screen.findByTestId('asset-overdue-rule');
+    fireEvent.click(within(card).getByTestId('asset-overdue-enabled'));
+    const action = within(card).getByTestId('asset-overdue-action');
+    fireEvent.mouseDown(action.querySelector('.ant-select-selector') ?? action);
+    fireEvent.click(await screen.findByTitle('Move to the trash (can be restored)'));
+    fireEvent.click(within(card).getByTestId('asset-overdue-check'));
+    // The reason in words under the refusal: never the code, the permission key or the scope.
+    expect(
+      await within(card).findByText(
+        'A rule that moves assets to the trash needs delete rights for assets on every site.',
+      ),
+    ).toBeTruthy();
+    expect(card.textContent).not.toMatch(/trash_rule_needs|assets\.delete|permission_denied/);
   });
 });

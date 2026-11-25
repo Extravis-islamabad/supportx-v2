@@ -59,6 +59,8 @@ export const ur: LabelResource = {
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
+  'errors.asset_assigned_elsewhere':
+    'یہ اثاثہ کسی اور کو دیا گیا ہے۔ حوالے کرنے سے پہلے اسے فارغ کریں۔',
   'errors.asset_audit_closed': 'یہ آڈٹ بند ہے اور اب بدلا نہیں جا سکتا۔',
   'errors.asset_audit_item_not_found': 'یہ آئٹم اس آڈٹ کا حصہ نہیں۔',
   'errors.asset_audit_not_auditor': 'صرف اس آڈٹ کے نامزد آڈیٹر اس کے آئٹم نشان زد کر سکتے ہیں۔',
@@ -95,6 +97,8 @@ export const ur: LabelResource = {
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
   'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
+  'errors.asset_handover_end_of_life':
+    'یہ اثاثہ ریٹائر یا تلف ہو چکا ہے، اس لیے حوالے نہیں کیا جا سکتا۔',
   'errors.asset_has_components':
     'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
   'errors.asset_import_exists': 'اس کلید والا ریکارڈ پہلے سے موجود ہے، اور درآمد صرف شامل کرتی ہے۔',
@@ -581,6 +585,7 @@ export const ur: LabelResource = {
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
   'errors.field.half_day_single_date': 'صبح یا دوپہر کی چھٹی صرف ایک دن کی ہوتی ہے۔',
+  'errors.field.handover_person_not_active': 'اثاثہ حوالے کرنے کے لیے کوئی فعال شخص منتخب کریں۔',
   'errors.field.hidden_cannot_be_required':
     'چھپی ہوئی فیلڈ لازمی نہیں ہو سکتی: اسے کوئی بھر نہیں سکے گا۔',
   'errors.field.hidden_required_needs_default':
@@ -735,6 +740,8 @@ export const ur: LabelResource = {
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
+  'errors.field.plan_waits_in_a_loop':
+    'یہ مراحل ایک دوسرے کے منتظر ہیں، اس لیے کوئی شروع نہیں ہو سکتا۔',
   'errors.field.port_not_allowed': 'میل پورٹ استعمال کریں: 993 (TLS) یا 143۔',
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
@@ -844,6 +851,7 @@ export const ur: LabelResource = {
     'چوبیس گھنٹے ہمیشہ ہر گھنٹہ گنتا ہے۔ صرف اس کا نام بدلا جا سکتا ہے۔',
   'errors.field.target_amount_invalid': '1 سے 100,000 تک کا پورا عدد درج کریں۔',
   'errors.field.target_duplicate': 'اس ترجیح کے لیے یہ ہدف پہلے سے مقرر ہے۔',
+  'errors.field.task_field_required': 'کام مکمل کرنے سے پہلے یہ بھریں۔',
   'errors.field.technician_audience_empty': 'تمام تکنیکی ماہرین یا کم از کم ایک گروپ منتخب کریں۔',
   'errors.field.technician_not_allowed': 'یہ شخص ان ریکارڈز پر کام نہیں کر سکتا۔',
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',

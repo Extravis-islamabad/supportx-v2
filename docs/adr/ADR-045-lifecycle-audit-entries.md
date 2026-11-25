@@ -55,3 +55,24 @@ routes already write their own entry with `audited(...)` for the same save (`inc
   `problem` ...) through the `subtype` keyword, or a resolver the owning module registers.
 - Before/after values stay in `field_changes`. A later session (S2) adds the change set's
   fingerprint, per-subject salts and erasure.
+
+## Amendment (2026-11-25): a route's own object leads, or gets its own entry
+
+Found by lane A on #630 (REQ-WF-026, SR-054). A route that saves audited records leads the entry
+of the record it names (`AuditNote.object_id`): its action, details, reason and change set go on
+that record's entry. But when the route names an object that **none** of its saves is, the lead
+fell back to the first save. So a workflow stop, which names its instance but saves the request,
+had the stop merged onto the request's entry, and the instance had no entry of its own.
+
+Now:
+
+- **The route names one of its saved records:** that record's entry is led by the route, as
+  before.
+- **The route names an object none of its saves is:** each save is a plain record entry, and the
+  route writes its own entry on its object, with its action, details, reason and latest change
+  set. It's never merged onto another record.
+- **The route names no object yet** (a create, which knows its ID only after saving): its first
+  save leads, as before.
+
+Only new writes are affected. Entries already written and sealed are never rewritten, since the
+chain is append-only.

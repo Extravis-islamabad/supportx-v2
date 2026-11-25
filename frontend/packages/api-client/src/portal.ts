@@ -273,6 +273,52 @@ export function useCompletePortalAnswers(id: string) {
   });
 }
 
+export type PortalTask = components['schemas']['PortalTaskOut'];
+export type PortalTaskChange = components['schemas']['PortalTaskPatch'];
+
+/** The portal's own tasks (WP-047a S5): the key the personal channel refreshes. */
+export const portalTaskKeys = {
+  all: ['portal', 'tasks'] as const,
+  detail: (id: string) => ['portal', 'tasks', 'detail', id] as const,
+};
+
+/** Your open tasks from a request's plan, each alone (REQ-SR-050; condition 1). */
+export function usePortalTasks() {
+  return useQuery({
+    queryKey: portalTaskKeys.all,
+    queryFn: () => call(api.GET('/api/v1/portal/tasks')),
+  });
+}
+
+/** One of your tasks: not found once it is closed or given to someone else. */
+export function usePortalTask(id: string) {
+  return useQuery({
+    queryKey: portalTaskKeys.detail(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/portal/tasks/{task_id}', { params: { path: { task_id: id } } })),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Start or complete one of your tasks, or fill in its fields (If-Match). */
+export function useUpdatePortalTask(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ change, version }: { change: PortalTaskChange; version: number }) =>
+      call(
+        api.PATCH('/api/v1/portal/tasks/{task_id}', {
+          params: { path: { task_id: id }, header: { 'If-Match': `"${String(version)}"` } },
+          body: change,
+        }),
+      ),
+    onSuccess: (task) => {
+      queryClient.setQueryData(portalTaskKeys.detail(id), task);
+      void queryClient.invalidateQueries({ queryKey: portalTaskKeys.all });
+    },
+  });
+}
+
 /** Fulfilment progress, internal step names hidden (REQ-SR-051 AC2). */
 export function usePortalRequestSteps(id: string) {
   return useQuery({

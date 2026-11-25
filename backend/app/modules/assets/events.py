@@ -346,6 +346,22 @@ class OverdueRuleChanged(DomainEvent):
     changed_count: int = 0
 
 
+class OverdueTrashPaused(DomainEvent):
+    """The overdue-scan rule's "move to trash" was paused before it trashed anything (D-185).
+
+    The person who last saved it no longer holds `assets.delete` (or never did: a rule saved
+    before 0202), so the system never trashes in their name; the rule is switched off and the
+    people who may fix it are told. IDs only.
+    """
+
+    event_type: ClassVar[str] = "assets.overdue_rule.trash_paused"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "asset_overdue_rule"
+
+    rule_id: uuid.UUID
+    saved_by: uuid.UUID | None
+
+
 BulkJobStatus = Literal["queued", "running", "done", "failed"]
 
 
@@ -409,6 +425,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditItemChanged,
     ScanRecorded,
     OverdueRuleChanged,
+    OverdueTrashPaused,
     AssetBulkJobProgressed,
     AssetImportProgressed,
 )

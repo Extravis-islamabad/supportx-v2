@@ -57,6 +57,8 @@ export const en = {
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_assigned_elsewhere':
+    'This asset is assigned to someone else. Free it before handing it over.',
   'errors.asset_audit_closed': 'This audit is closed and can no longer change.',
   'errors.asset_audit_item_not_found': 'That item is not part of this audit.',
   'errors.asset_audit_not_auditor': 'Only the auditors named on this audit can mark its items.',
@@ -93,6 +95,8 @@ export const en = {
     "A dynamic group's members come from its filter; change the filter instead.",
   'errors.asset_group_name_taken': 'Another group already has this name.',
   'errors.asset_group_not_found': 'That group no longer exists.',
+  'errors.asset_handover_end_of_life':
+    "This asset is retired or disposed, so it can't be handed over.",
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
   'errors.asset_import_exists': 'A record with this key already exists, and the import only adds.',
@@ -577,6 +581,7 @@ export const en = {
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.handover_person_not_active': 'Choose an active person to hand the asset to.',
   'errors.field.hidden_cannot_be_required':
     'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
@@ -728,6 +733,7 @@ export const en = {
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.field.plan_waits_in_a_loop': 'These steps wait for each other, so none could start.',
   'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
@@ -836,6 +842,7 @@ export const en = {
     'Around the clock always counts every hour. Only its name can change.',
   'errors.field.target_amount_invalid': 'Enter a whole number from 1 to 100,000.',
   'errors.field.target_duplicate': 'This target is already set for this priority.',
+  'errors.field.task_field_required': 'Fill this in before completing the task.',
   'errors.field.technician_audience_empty': 'Choose all technicians or at least one group.',
   'errors.field.technician_not_allowed': 'This person cannot work on these records.',
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',

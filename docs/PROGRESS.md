@@ -184,8 +184,12 @@ decisions D1-D13 (D-038).
    `assets.manage` (same scope), so existing roles keep deleting; its log counts the roles held by
    service identities, for an admin to review. **A role made from now on needs `assets.delete`
    ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
-   overdue-scan rule whose action is the trash need it too. An overdue rule already set to trash
-   before upgrading keeps running: review its action after the upgrade.
+   overdue-scan rule whose action is the trash need it too. An overdue rule set to trash whose last
+   saver doesn't hold `assets.delete` tenant-wide (one saved before the upgrade, by a site-scoped
+   deleter, or by someone who later lost the right) is paused before it trashes anything, and the
+   people who may delete and configure assets are told: someone with tenant-wide `assets.delete`
+   saves it again to turn it back on. A deleter limited to some sites can no longer save or own a
+   trash rule, since the rule trashes across every site.
 12. **OpenFeature is approved but not set up (lane C, 2026-11-25; the coordinator):** D-004 lists
    the OpenFeature SDK for release flags, but no SDK, provider or flag exists in the backend or
    the frontend yet. WP-057 S5c-1a uses a module constant (`SSO_GROUP_MAPPINGS_READY`, deleted by

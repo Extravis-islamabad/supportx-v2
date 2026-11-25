@@ -219,15 +219,63 @@ class AutoRule:
     condition: Mapping[str, Any]
 
 
+class TaskFieldKind(StrEnum):
+    """What a fulfilment task's own field takes (WP-047a S4b/S5; REQ-SR-049)."""
+
+    TEXT = "text"
+    NUMBER = "number"
+    DATE = "date"
+    CHOICE = "choice"
+    PERSON = "person"
+
+
+@dataclass(frozen=True)
+class TaskField:
+    """A value the task's owner fills in, for later steps and the resolution (REQ-SR-049)."""
+
+    key: str
+    label: Mapping[str, str]
+    kind: TaskFieldKind = TaskFieldKind.TEXT
+    required: bool = False
+    options: Sequence[str] = ()  # choice only
+    # Only a field marked so reaches the requester's notices (the coordinator's Q2; off).
+    requester_visible: bool = False
+
+
+class TaskOwnerKind(StrEnum):
+    """Who a plan step's task goes to (WP-047a S5; REQ-SR-050), as S2a's approvers are named."""
+
+    PERSON = "person"  # `owner_id`
+    REQUESTED_FOR_MANAGER = "requested_for_manager"
+    PERSON_ANSWER = "person_answer"  # the person a "person" question names (`question_key`)
+
+
+class PlanStepKind(StrEnum):
+    """An ordinary task, or one that hands over an asset when completed (REQ-SR-056)."""
+
+    TASK = "task"
+    ASSET_HANDOVER = "asset_handover"
+
+
 @dataclass(frozen=True)
 class PlannedTask:
-    """One fulfilment task the plan creates (REQ-SR-046)."""
+    """One fulfilment task the plan creates (REQ-SR-046; WP-047a S5: REQ-SR-047..050, -056)."""
 
     title: Mapping[str, str]
     group_id: uuid.UUID | None = None
     owner_id: uuid.UUID | None = None
     required: bool = True  # REQ-SR-058: the last required one fulfils the request
     internal: bool = False  # REQ-SR-051 AC2: shown to requesters only as "step n of m"
+    # WP-047a S5: a key other steps wait for (REQ-SR-047), and those it waits for.
+    key: str | None = None
+    waits_for: Sequence[str] = ()
+    # REQ-SR-048: made only when this holds (the shared DSL over the answers and the quantity).
+    condition: Mapping[str, Any] | None = None
+    fields: Sequence[TaskField] = ()  # REQ-SR-049
+    # REQ-SR-050: the owner by kind; a person outside the desk gets this task alone.
+    owner_kind: TaskOwnerKind | None = None
+    question_key: str | None = None  # person_answer only
+    kind: PlanStepKind = PlanStepKind.TASK  # REQ-SR-056
 
 
 @dataclass(frozen=True)
@@ -424,14 +472,81 @@ def approval_problems(stage: ApprovalStage | None) -> list[Problem]:
     return found
 
 
-def plan_problems(plan: Sequence[PlannedTask]) -> list[Problem]:
-    """Tasks have a title in English; not too many."""
+MAX_TASK_FIELDS = 10
+
+
+def plan_problems(
+    plan: Sequence[PlannedTask], questions: Sequence["Question"] = ()
+) -> list[Problem]:
+    """Tasks have a title in English; not too many; WP-047a S5's parts each checked.
+
+    Keys are unique; a step waits only for steps that exist, never in a loop (REQ-SR-047); a
+    condition reads the form (REQ-SR-048); at most `MAX_TASK_FIELDS` fields, keys unique, a
+    choice with options (REQ-SR-049); an owner by kind names what it needs (REQ-SR-050).
+    """
     found: list[Problem] = []
     if len(plan) > MAX_TASKS:
         found.append(("plan", "too_many_tasks"))
+    keys = [t.key for t in plan if t.key is not None]
+    fields = frozenset({*(q.key for q in questions), "quantity"})
+    people = {q.key for q in questions if q.kind is QuestionKind.PERSON}
     for i, task in enumerate(plan):
-        found += name_problems(f"plan.{i}.title", task.title, required=True)
+        at = f"plan.{i}"
+        found += name_problems(f"{at}.title", task.title, required=True)
+        if task.key is not None and (not _KEY.fullmatch(task.key) or keys.count(task.key) > 1):
+            found.append((f"{at}.key", "invalid_value"))
+        if task.waits_for and task.key is None:
+            found.append((f"{at}.key", "required"))
+        if any(w not in keys or w == task.key for w in task.waits_for):
+            found.append((f"{at}.waits_for", "invalid_choice"))
+        if task.condition is not None:
+            found += condition_problems(task.condition, fields, f"{at}.condition")
+        found += _task_field_problems(task.fields, at)
+        found += _task_owner_problems(task, people, at)
+    if not found and _has_cycle(plan):
+        found.append(("plan", "plan_waits_in_a_loop"))
     return found
+
+
+def _task_field_problems(fields: Sequence[TaskField], at: str) -> list[Problem]:
+    found: list[Problem] = []
+    if len(fields) > MAX_TASK_FIELDS:
+        return [(f"{at}.fields", "too_many_values")]
+    keys = [f.key for f in fields]
+    for j, one in enumerate(fields):
+        here = f"{at}.fields.{j}"
+        if not _KEY.fullmatch(one.key) or keys.count(one.key) > 1:
+            found.append((f"{here}.key", "invalid_value"))
+        found += name_problems(f"{here}.label", one.label, required=True)
+        if one.kind is TaskFieldKind.CHOICE and not one.options:
+            found.append((f"{here}.options", "required"))
+    return found
+
+
+def _task_owner_problems(task: PlannedTask, people: set[str], at: str) -> list[Problem]:
+    if task.owner_kind is TaskOwnerKind.PERSON and task.owner_id is None:
+        return [(f"{at}.owner_id", "required")]
+    if task.owner_kind is TaskOwnerKind.PERSON_ANSWER and task.question_key not in people:
+        return [(f"{at}.question_key", "not_a_person_question")]
+    return []
+
+
+def _has_cycle(plan: Sequence[PlannedTask]) -> bool:
+    """Whether the steps' `waits_for` loop back (REQ-SR-047: a plan that could never start)."""
+    edges = {t.key: tuple(t.waits_for) for t in plan if t.key is not None}
+    state: dict[str, int] = {}  # 1: on the path, 2: done
+
+    def visit(key: str) -> bool:
+        if state.get(key) == 1:
+            return True
+        if state.get(key) == 2:  # noqa: PLR2004 - the "done" mark
+            return False
+        state[key] = 1
+        looped = any(visit(w) for w in edges.get(key, ()))
+        state[key] = 2
+        return looped
+
+    return any(visit(k) for k in edges)
 
 
 def rules_problems(rules: ItemRules) -> list[Problem]:
@@ -443,7 +558,7 @@ def rules_problems(rules: ItemRules) -> list[Problem]:
         + (stages_problems(rules.stages, rules.questions) if staged else [])
         + ([] if staged else approval_problems(rules.approval))
         + _single_stage_problems(single, rules.questions)
-        + plan_problems(rules.plan)
+        + plan_problems(rules.plan, rules.questions)
     )
 
 

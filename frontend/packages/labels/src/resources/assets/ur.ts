@@ -2,6 +2,8 @@ import type { LabelResource } from '../en';
 
 // assets labels (see ../README.md).
 export const ur: LabelResource = {
+  'action_reason.trash_rule_needs_tenant_wide_delete':
+    'اثاثے ردی میں منتقل کرنے والے اصول کے لیے ہر سائٹ پر اثاثے حذف کرنے کا اختیار درکار ہے۔',
   'asset_ack_channel.console': 'کنسول',
   'asset_ack_channel.portal': 'پورٹل',
   'asset_ack_status.accepted': 'قبول شدہ',

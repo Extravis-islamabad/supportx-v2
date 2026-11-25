@@ -54,6 +54,9 @@ makes the realm ready for that, on fresh and upgraded installations alike:
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
+- undeclared attributes are kept for admins only (`unmanagedAttributePolicy` ADMIN_EDIT, D-187):
+  an identity provider's groups arrive in per-alias attributes whose names can't be declared
+  ahead. Set again on every run: ENABLED would let a person write their own groups;
 
 It is never part of the realm import file: a placeholder without its value would leave a
 guessable secret. Run by the chart's `keycloak-identity` Job on every Helm revision and by
@@ -91,6 +94,8 @@ CLIENT_ID = "supportx-identity"
 # domains, provider links) and reading login events (why a test sign-in failed). No realm,
 # client or master-realm rights: it cannot change the realm's settings or reach the console.
 ROLES = ("manage-users", "manage-identity-providers", "manage-organizations", "view-events")
+# D-187: IdP group attributes are per alias, so undeclared; kept for admins only (never ENABLED).
+UNMANAGED_POLICY = "ADMIN_EDIT"
 REALM_CLIENT_ID = "supportx-realm"
 REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
 FEDERATION_CLIENT_ID = "supportx-federation"
@@ -471,7 +476,14 @@ async def _ensure_untrusted_provider_emails(
 async def _ensure_user_profile(
     client: httpx.AsyncClient, headers: dict[str, str], realm: str
 ) -> list[str]:
-    """The single sign-on attributes declared in the user profile (admins only)."""
+    """Declared SSO attributes, and undeclared ones kept for admins only (D-187).
+
+    An identity provider's groups land in per-alias attributes (`sx_groups_<alias>` ...), whose
+    names can't be declared ahead; Keycloak 26 drops undeclared attributes unless the realm's
+    `unmanagedAttributePolicy` keeps them. It is set to ADMIN_EDIT on every run: kept, visible
+    and editable by admins (and the broker's mappers) only. Never ENABLED, which would let a
+    person write their own groups; a security baseline, not an operator choice.
+    """
     path = f"/admin/realms/{realm}/users/profile"
     current = await client.get(path, headers=headers)
     current.raise_for_status()
@@ -479,7 +491,8 @@ async def _ensure_user_profile(
     attributes = list(profile.get("attributes") or [])
     known = {attribute["name"] for attribute in attributes}
     missing = [name for name in PROFILE_ATTRIBUTES if name not in known]
-    if not missing:
+    unmanaged = profile.get("unmanagedAttributePolicy") != UNMANAGED_POLICY
+    if not missing and not unmanaged:
         return []
     attributes += [
         {
@@ -490,10 +503,12 @@ async def _ensure_user_profile(
         }
         for name in missing
     ]
-    (
-        await client.put(path, headers=headers, json={**profile, "attributes": attributes})
-    ).raise_for_status()
-    return ["user profile: " + ", ".join(missing)]
+    body = {**profile, "attributes": attributes, "unmanagedAttributePolicy": UNMANAGED_POLICY}
+    (await client.put(path, headers=headers, json=body)).raise_for_status()
+    changed = ["user profile: " + ", ".join(missing)] if missing else []
+    if unmanaged:
+        changed.append(f"user profile: unmanaged attributes {UNMANAGED_POLICY}")
+    return changed
 
 
 async def _ensure_smtp(
