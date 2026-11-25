@@ -27,7 +27,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0207"
-down_revision: str | None = "0204"  # main's head when written; re-pointed at its queue turn
+down_revision: str | None = "0205"  # main's head at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
