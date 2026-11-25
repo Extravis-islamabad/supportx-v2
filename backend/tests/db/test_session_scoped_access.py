@@ -148,3 +148,21 @@ async def test_organizations_port_leaves_out_a_managed_membership_it_does_not_ad
     assert cast.org.gb in everyone.group_ids  # routing: every membership
     assert cast.org.gb not in none_admitted.group_ids
     assert cast.org.gb in admitted.group_ids
+
+
+async def test_the_profile_lists_what_only_another_sign_in_applies(world: World) -> None:
+    """Lane B's Q3: self only, names only, empty never 404; SSO through that provider lists none."""
+    cast = await _cast(world)
+    listed = await world.call("GET", "/identity/my-access/elsewhere", cast.org, cast.person)
+    assert listed.status_code == 200, listed.text
+    found = {(i["kind"], i["provider_name"]) for i in listed.json()}
+    assert found == {("role", "Acme sign-in"), ("group", "Acme sign-in")}
+    assert all(i["name"] for i in listed.json())  # named, never a bare ID
+    # Someone with nothing from a sign-in group: an empty list, not a 404.
+    nobody = await world.call("GET", "/identity/my-access/elsewhere", cast.org, cast.org.tech_a)
+    assert (nobody.status_code, nobody.json()) == (200, [])
+    async with world.app.state.db.tenant_session(TenantContext(cast.org.tenant)) as session:
+        through = await group_mappings.held_elsewhere(
+            session, cast.person, AccessSource(AccessSourceKind.SSO, cast.alias)
+        )
+    assert through == []

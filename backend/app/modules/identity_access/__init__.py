@@ -53,6 +53,7 @@ from app.modules.identity_access.api.field_access import router as field_access_
 from app.modules.identity_access.api.group_mappings import router as group_mappings_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.invite_links import public_router as invite_links_router
+from app.modules.identity_access.api.my_access import router as my_access_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.resource_access import router as resource_access_router
@@ -524,6 +525,7 @@ module = ModuleSpec(
         verified_domains_router,  # WP-057 S5d: verified e-mail domains (REQ-SEC-010)
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         group_mappings_router,  # WP-057 S5c: roles and groups from external groups
+        my_access_router,  # WP-057 S5c-1b: access that applies only through another sign-in
         resource_access_router,  # ADR-053: fine-grained access to assets and CIs
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)

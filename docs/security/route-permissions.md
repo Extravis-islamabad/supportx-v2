@@ -612,6 +612,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/identity/invitations/{invitation_id}/revoke` | `users.manage` | users.manage: all | - |
 | GET | `/api/v1/identity/mfa` | `identity.manage` | identity.manage: all | - |
 | PUT | `/api/v1/identity/mfa/roles/{role_id}` | `identity.manage` | identity.manage: all | - |
+| GET | `/api/v1/identity/my-access/elsewhere` | signed_in | - | - |
 | GET | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all | - |
 | PUT | `/api/v1/identity/network-rules` | `identity.manage` | identity.manage: all | - |
 | POST | `/api/v1/identity/people/{user_id}/require-new-password` | `users.manage` | users.manage: all | - |
