@@ -30,6 +30,7 @@ from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
+from app.modules.organization import base_currency
 from app.modules.service_catalog.domain.catalog import ItemKind, ItemStatus
 from app.modules.service_catalog.domain.items import (
     ApproverKind,
@@ -308,6 +309,9 @@ class CatalogItemOut(BaseModel):
     internal_cost: Decimal | None = Field(default=None, description="Staff only.")
     charge_to: ChargeTo = ChargeTo.REQUESTED_FOR_DEPARTMENT
     charge_question_key: str | None = None
+    currency: str | None = Field(
+        default=None, description="The tenant's base currency, with a price shown (D-164)."
+    )
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
@@ -325,6 +329,7 @@ class CatalogItemOut(BaseModel):
         staff: bool,
         quantity_offered: bool = True,
         prices_shown: bool = True,
+        currency: str | None = None,
     ) -> "CatalogItemOut":
         """From the service's view; requesters never see questions meant for others.
 
@@ -349,6 +354,7 @@ class CatalogItemOut(BaseModel):
         if not prices_shown:  # D-184: requesters see prices only when the tenant shows them
             fields["price"] = None
             questions = [{k: v for k, v in q.items() if k != "option_prices"} for q in questions]
+        fields["currency"] = currency if prices_shown else None
         return cls.model_validate(
             {
                 **fields,
@@ -581,19 +587,23 @@ async def list_items(
         statuses=item_status or (),
         featured=featured,
     )
-    offered, prices = await _shown(session, subject, staff=staff)
+    offered, prices, currency = await _shown(session, subject, staff=staff)
     return [
-        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
+        CatalogItemOut.of(
+            v, staff=staff, quantity_offered=offered, prices_shown=prices, currency=currency
+        )
         for v in views
     ]
 
 
-async def _shown(session: AsyncSession, subject: Subject, *, staff: bool) -> tuple[bool, bool]:
-    """(a quantity is offered, prices are shown) for this person (REQ-SR-014; D-184)."""
+async def _shown(session: AsyncSession, subject: Subject, *, staff: bool) -> tuple[bool, bool, str]:
+    """(a quantity is offered, prices are shown, the base currency) (REQ-SR-014; D-184)."""
+    currency = await base_currency(session)
     if staff:
-        return True, True
+        return True, True, currency
     licensed = await service.quantity_licensed(subject)  # both are the catalog feature
-    return licensed, licensed and (await settings.read(session)).requesters_see_prices
+    shown = licensed and (await settings.read(session)).requesters_see_prices
+    return licensed, shown, currency
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
@@ -605,9 +615,11 @@ async def popular_items(
     """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
     staff = is_staff(subject)
     views = await service.popular_items(session, subject, limit=limit)
-    offered, prices = await _shown(session, subject, staff=staff)
+    offered, prices, currency = await _shown(session, subject, staff=staff)
     return [
-        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
+        CatalogItemOut.of(
+            v, staff=staff, quantity_offered=offered, prices_shown=prices, currency=currency
+        )
         for v in views
     ]
 
@@ -621,9 +633,11 @@ async def search_items(
 ) -> list[CatalogItemOut]:
     """Names, keywords, summaries and descriptions in every language; best match first."""
     staff = is_staff(subject)
-    offered, prices = await _shown(session, subject, staff=staff)
+    offered, prices, currency = await _shown(session, subject, staff=staff)
     return [
-        CatalogItemOut.of(v, staff=staff, quantity_offered=offered, prices_shown=prices)
+        CatalogItemOut.of(
+            v, staff=staff, quantity_offered=offered, prices_shown=prices, currency=currency
+        )
         for v in await search.search_items(session, subject, q, limit=limit)
     ]
 
@@ -636,8 +650,10 @@ async def get_item(
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
     staff = is_staff(subject)
-    offered, prices = await _shown(session, subject, staff=staff)
-    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered, prices_shown=prices)
+    offered, prices, currency = await _shown(session, subject, staff=staff)
+    out = CatalogItemOut.of(
+        view, staff=staff, quantity_offered=offered, prices_shown=prices, currency=currency
+    )
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(
@@ -668,7 +684,7 @@ async def create_item(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     async def run() -> Created:
         view = await service.create_item(session, subject, _fields(body), source=source_of(request))
         note.object_id = str(view.item.id)
-        out = CatalogItemOut.of(view, staff=True)
+        out = CatalogItemOut.of(view, staff=True, currency=await base_currency(session))
         return Created(
             body=out,
             headers={"Location": f"/api/v1/catalog/items/{out.id}", "ETag": f'"{out.version}"'},
@@ -702,7 +718,7 @@ async def update_item(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     note.details = {"changed_fields": sorted(body.model_fields_set)}
     set_etag(response, view.item.version)
-    return CatalogItemOut.of(view, staff=True)
+    return CatalogItemOut.of(view, staff=True, currency=await base_currency(session))
 
 
 @router.post(
@@ -725,7 +741,7 @@ async def copy_item(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         view = await service.copy_item(session, subject, item_id, source=source_of(request))
         note.object_id = str(view.item.id)
         note.details = {"copied_from": str(item_id)}
-        out = CatalogItemOut.of(view, staff=True)
+        out = CatalogItemOut.of(view, staff=True, currency=await base_currency(session))
         return Created(
             body=out,
             headers={"Location": f"/api/v1/catalog/items/{out.id}", "ETag": f'"{out.version}"'},
