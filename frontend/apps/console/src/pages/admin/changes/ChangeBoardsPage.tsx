@@ -407,9 +407,12 @@ export function ChangeBoardsPage() {
   const [editing, setEditing] = useState<ChangeBoard | 'new'>();
   const manage = can('changes.manage_boards') || can('settings.manage');
   // Another admin's change shows at once (rule c): the boards' broadcast refetches the list.
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_boards_changed') void boards.refetch();
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'work_items.change_boards_changed') void boards.refetch();
+    },
+    { covers: [['change-boards']] }, // useChangeBoards' key (not exported)
+  );
   const rows = [...(boards.data ?? [])].sort((a, b) => a.position - b.position);
   const move = (board: ChangeBoard, by: -1 | 1) => {
     const other = rows[rows.indexOf(board) + by];

@@ -40,6 +40,7 @@ const item: CatalogItem = {
   questions: [
     {
       key: 'size',
+      restarts_approval: false,
       label: { en: 'Size' },
       kind: 'text',
       required: true,
@@ -290,5 +291,56 @@ describe('the conversation on a request (WP-047a S3a; REQ-SR-037)', () => {
     expect(talk.textContent).toContain('Omar Manager');
     expect(await screen.findByTestId('portal-request-reply-send')).toBeDefined();
     expect(fake.find('GET', `/api/v1/portal/service-requests/${SR}/conversation`)).toHaveLength(1);
+  });
+});
+
+describe('a request made from mail asks only its missing answers (WP-047a S4)', () => {
+  it('REQ-SR-017 AC2: the completion page asks what is missing, then submits', async () => {
+    const [size] = item.questions;
+    if (size === undefined) throw new Error('the item asks a size');
+    const withTwo: CatalogItem = {
+      ...item,
+      questions: [
+        ...item.questions,
+        { ...size, key: 'colour', label: { en: 'Colour' }, required: false },
+      ],
+    };
+    window.history.pushState({}, '', `/service-requests/${SR}/complete`);
+    const fake = api({
+      [`GET /api/v1/catalog/items/${ITEM}`]: { body: withTwo },
+      [`GET /api/v1/portal/service-requests/${SR}/missing-answers`]: {
+        body: { catalog_item_id: ITEM, missing: ['size'], version: 3 },
+      },
+      [`PUT /api/v1/portal/service-requests/${SR}/missing-answers`]: {
+        body: { id: SR, display_id: 'SR-71' },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('portal-complete');
+    expect(screen.queryByLabelText('Colour')).toBeNull(); // only the missing one
+    const send = screen.getByTestId('portal-complete-send');
+    expect(send).toHaveProperty('disabled', true);
+    fireEvent.change(screen.getByLabelText('Size'), { target: { value: '27 inch' } });
+    fireEvent.click(send);
+    await waitFor(() => {
+      expect(
+        fake.find('PUT', `/api/v1/portal/service-requests/${SR}/missing-answers`),
+      ).toHaveLength(1);
+    });
+    const sent = fake.find('PUT', `/api/v1/portal/service-requests/${SR}/missing-answers`)[0];
+    expect(sent?.body).toEqual({ answers: { size: '27 inch' } });
+    expect(sent?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('a request not waiting for answers says so', async () => {
+    window.history.pushState({}, '', `/service-requests/${SR}/complete`);
+    api({
+      [`GET /api/v1/portal/service-requests/${SR}/missing-answers`]: {
+        status: 404,
+        body: { code: 'work_item_not_found', message_key: 'errors.work_item_not_found' },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText('This request is not waiting for answers.')).toBeDefined();
   });
 });

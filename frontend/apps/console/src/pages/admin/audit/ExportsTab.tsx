@@ -44,9 +44,14 @@ export function ExportsTab() {
   const [format, setFormat] = useState<'jsonl' | 'csv'>('jsonl');
   const [downloadError, setDownloadError] = useState<unknown>(null);
   const queryClient = useQueryClient();
-  useListChannel('audit', () => {
-    refreshList(queryClient, queryKeys.audit.exports);
-  });
+  useListChannel(
+    'audit',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.audit.exports);
+    },
+    { covers: [queryKeys.audit.exports] },
+  );
 
   const download = async (row: AuditExport) => {
     setDownloadError(null);

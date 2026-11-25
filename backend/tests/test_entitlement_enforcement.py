@@ -20,7 +20,7 @@ from fastapi import APIRouter, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from app.core.authorization import AUTHORIZER_STATE
-from app.core.entitlements import read_only_exempt
+from app.core.entitlements import entitlement_exempt, read_only_exempt, requires_feature
 from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.recent_auth import SignInFreshness, record_freshness
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
@@ -64,6 +64,36 @@ def sample_router(prefix: str) -> APIRouter:
     async def export() -> dict[str, str]:
         return {"ok": "export"}
 
+    @router.get("/free")
+    @entitlement_exempt
+    async def free() -> dict[str, str]:
+        return {"ok": "free"}
+
+    return router
+
+
+def route_gated_router(prefix: str) -> APIRouter:
+    """The sample routes, each gated by `requires_feature("esm")` instead of its module."""
+    router = APIRouter(prefix=prefix)
+    gate = [requires_feature("esm")]
+
+    @router.get("/items", dependencies=gate)
+    async def list_items() -> dict[str, str]:
+        return {"ok": "read"}
+
+    for method in WRITE_METHODS:
+        router.add_api_route("/items", _write, methods=[method], dependencies=gate)
+
+    @router.post("/export", dependencies=gate)
+    @read_only_exempt
+    async def export() -> dict[str, str]:
+        return {"ok": "export"}
+
+    @router.get("/free", dependencies=gate)
+    @entitlement_exempt
+    async def free() -> dict[str, str]:
+        return {"ok": "free"}
+
     return router
 
 
@@ -73,7 +103,11 @@ async def _write() -> dict[str, str]:
 
 SAMPLE_ESM = ModuleSpec(name="sample_esm", routers=[sample_router("/esm")], feature="esm")
 SAMPLE_CORE = ModuleSpec(name="sample_core", routers=[sample_router("/core")])
-REGISTRY = ModuleRegistry.from_specs([licensing.module, system.module, SAMPLE_ESM, SAMPLE_CORE])
+# No module feature: each route names it (route-level gating, the route-permission map's `route`).
+SAMPLE_ROUTE = ModuleSpec(name="sample_route", routers=[route_gated_router("/route")])
+REGISTRY = ModuleRegistry.from_specs(
+    [licensing.module, system.module, SAMPLE_ESM, SAMPLE_CORE, SAMPLE_ROUTE]
+)
 
 
 FRESH = SignInFreshness(interactive=True, recent=True)
@@ -382,3 +416,49 @@ async def test_licence_reload_picks_up_a_new_file(tmp_path: Path) -> None:
     entitled = await provider.load(uuid.uuid4())
     assert entitled.edition is Edition.PROFESSIONAL
     assert entitled.limit(LimitKey.TECHNICIANS) == 50
+
+
+# --- route-level gating (requires_feature) answers like module-level gating (lane B, rule 8) -----
+
+
+async def _answers(client: AsyncClient, prefix: str, headers: dict[str, str]) -> list[Any]:
+    found: list[Any] = []
+    for method, path in (
+        ("GET", "/items"),
+        *((m, "/items") for m in WRITE_METHODS),
+        ("POST", "/export"),
+        ("GET", "/free"),
+    ):
+        response = await client.request(method, f"{prefix}{path}", headers=headers)
+        body = response.json()
+        found.append((method, path, response.status_code, body.get("code"), body.get("params")))
+    return found
+
+
+@pytest.mark.parametrize(
+    ("state", "value"),
+    [
+        ("unlicensed", entitlement(Edition.PROFESSIONAL)),
+        ("licensed", entitlement(Edition.ENTERPRISE)),
+        ("read_only", entitlement(expires_at=NOW - 30 * DAY, grace_days=14)),
+    ],
+)
+async def test_a_route_level_feature_answers_like_the_module_level_one(
+    app: FastAPI, client: AsyncClient, state: str, value: Entitlement
+) -> None:
+    use(app, StaticProvider(default=value))
+    headers = as_tenant("tenant_admin,technician")
+    module = await _answers(client, "/api/v1/esm", headers)
+    route = await _answers(client, "/api/v1/route", headers)
+    assert route == module, state
+    if state == "unlicensed":
+        # Refused by name, except the exempt endpoint, which no level gates.
+        assert {code for _m, path, _s, code, _p in route if path != "/free"} == {
+            "entitlement_required"
+        }
+        assert route[-1][2] == 200
+    if state == "read_only":
+        codes = {(m, path): code for m, path, _s, code, _p in route}
+        assert codes[("GET", "/items")] is None
+        assert codes[("POST", "/items")] == "read_only_mode"
+        assert codes[("POST", "/export")] is None  # read-only exempt at both levels

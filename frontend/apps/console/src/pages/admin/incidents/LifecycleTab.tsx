@@ -104,11 +104,14 @@ export function LifecycleTab({
   const [confirm, setConfirm] = useState<'publish' | 'discard' | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Another admin's change (or this one's in another window) reaches the screen live (§8).
-  useTenantChannel((event) => {
-    if (event.type === SETTINGS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: lifecycleKeys.all(base) });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.covered !== true && event.type === SETTINGS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: lifecycleKeys.all(base) });
+      }
+    },
+    { covers: [lifecycleKeys.all(base)] },
+  );
 
   const status = (code: string | null) =>
     code === null ? t('settings.previous_status') : statusLabel(t, catalogue, code, locale);

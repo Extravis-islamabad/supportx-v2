@@ -40,6 +40,7 @@ const laptop: CatalogItem = {
   questions: [
     {
       key: 'model',
+      restarts_approval: false,
       label: { en: 'Model' },
       kind: 'choice',
       required: true,
@@ -989,5 +990,56 @@ describe('console: approval reminders, escalation and clarification (WP-047a S3a
       expect(sent?.body).toEqual({ question: 'Which colour?', addressee: 'requester' });
       expect(sent?.headers.get('If-Match')).toBe('"1"');
     });
+  });
+});
+
+describe('console: approval delegation and restart (WP-047a S3b)', () => {
+  const DELEGATE = '01a1a2b3-0000-7000-8000-00000000b041';
+
+  it('REQ-SR-035 AC2 and 041: "A on behalf of B", and an earlier round marked', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              state: 'approved',
+              decided_by: MANAGER,
+              decided_at: '2026-11-24T09:00:00Z',
+              channel: 'app',
+              round: 1,
+              can_decide: false,
+            },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a041',
+              approver_id: DELEGATE,
+              on_behalf_of_id: MANAGER,
+              state: 'approved',
+              decided_by: DELEGATE,
+              decided_at: '2026-11-24T10:00:00Z',
+              channel: 'app',
+              round: 2,
+              can_decide: false,
+            },
+          ],
+          people: {
+            ...approvalsBody.people,
+            [DELEGATE]: { display_name: 'Dana Delegate', email: 'dana@example.com' },
+          },
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const earlier = await screen.findByTestId(`sr-approval-${APPROVAL_ID}`);
+    expect(within(earlier).getByTestId('approval-earlier-round').textContent).toBe(
+      'Round 1 (before a restart)',
+    );
+    const delegated = screen.getByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a041');
+    expect(delegated.textContent).toContain('Dana Delegate on behalf of Omar Manager');
+    expect(within(delegated).queryByTestId('approval-earlier-round')).toBeNull();
   });
 });

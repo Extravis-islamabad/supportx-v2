@@ -25,6 +25,9 @@ export const ur: LabelResource = {
   'audit.action.api_key.refused': 'API کلید رد کی گئی',
   'audit.action.api_key.revoked': 'API کلید منسوخ کی',
   'audit.action.api_key.settings_changed': 'API کلید کے قواعد بدلے',
+  'audit.action.approval_delegation.changed': 'منظوری کی تفویض تبدیل کی گئی',
+  'audit.action.approval_delegation.created': 'منظوری کی تفویض مقرر کی گئی',
+  'audit.action.approval_delegation.ended': 'منظوری کی تفویض ختم ہوئی',
   'audit.action.approvals.settings_changed': 'منظوری کی ترتیبات تبدیل کیں',
   'audit.action.asset.assigned': 'اثاثہ کسی کے حوالے کیا',
   'audit.action.asset.bulk_started': 'اثاثوں کی اجتماعی تبدیلی شروع کی',
@@ -488,8 +491,12 @@ export const ur: LabelResource = {
   'audit.action.service_request.access_changed': 'سروس کی درخواست تک رسائی رکھنے والے بدلے',
   'audit.action.service_request.approval_decided': 'سروس درخواست منظور یا مسترد کی',
   'audit.action.service_request.approval_escalated': 'سروس درخواست کی منظوری آگے بڑھائی گئی',
+  'audit.action.service_request.approval_mail_decided': 'ای میل کے جواب سے منظوری کا فیصلہ کیا',
+  'audit.action.service_request.approval_mail_ignored': 'منظوری پر ای میل جواب پر عمل نہیں کیا',
   'audit.action.service_request.approval_requested':
     'سروس درخواست کی منظوری کے لیے مخصوص لوگوں سے کہا',
+  'audit.action.service_request.approval_restarted':
+    'تبدیلی کے بعد سروس درخواست کی منظوری دوبارہ شروع ہوئی',
   'audit.action.service_request.approved_automatically':
     'سروس درخواست کا ایک مرحلہ خودکار طور پر منظور ہوا',
   'audit.action.service_request.approver_was_requester':
@@ -653,6 +660,7 @@ export const ur: LabelResource = {
   'audit.object.announcement': 'اعلان',
   'audit.object.announcement_settings': 'اعلانات کی ترتیبات',
   'audit.object.api_key': 'API کلید',
+  'audit.object.approval_delegation': 'منظوری کی تفویض',
   'audit.object.approval_settings': 'منظوری کی ترتیبات',
   'audit.object.asset': 'اثاثہ',
   'audit.object.asset_audit': 'اثاثوں کا آڈٹ',
@@ -1243,6 +1251,8 @@ export const ur: LabelResource = {
   'event_type.system.mail.state_changed': 'ای میل بھیجی گئی، دوبارہ کوشش ہوئی یا ناکام',
   'event_type.work_items.approval.changed': 'منظوری کھلی یا فیصلہ ہوا',
   'event_type.work_items.approval.clarification': 'منظوری پر سوال پوچھا گیا یا اس کا جواب دیا گیا',
+  'event_type.work_items.approval.restarted': 'درخواست کی منظوری دوبارہ شروع ہوئی',
+  'event_type.work_items.approval_delegation.changed': 'منظوری کی تفویض مقرر، تبدیل یا ختم ہوئی',
   'event_type.work_items.approval_settings.changed': 'منظوری کی ترتیبات بدلیں',
   'event_type.work_items.asset_link.changed': 'اثاثہ منسلک یا الگ کیا گیا',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',

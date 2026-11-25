@@ -56,6 +56,7 @@ from app.modules.service_catalog.domain.items import (
     Question,
     QuestionAudience,
     QuestionKind,
+    RestartOn,
     StageRule,
     answer_problems,
     name_problems,
@@ -151,6 +152,7 @@ def _question(q: Mapping[str, Any]) -> Question:
         shown_to=frozenset(
             QuestionAudience(a) for a in q.get("shown_to") or list(QuestionAudience)
         ),
+        restarts_approval=bool(q.get("restarts_approval", False)),
     )
 
 
@@ -175,6 +177,16 @@ def rules_of(item: CatalogItem) -> ItemRules:
         count_approval_time=item.count_approval_time,
         auto_fulfil=item.auto_fulfil,
         stages=stages,
+        restart_on=restart_on_of(item.approval),
+    )
+
+
+def restart_on_of(approval: Mapping[str, Any] | None) -> frozenset[RestartOn]:
+    """The request values whose change restarts approval (WP-047a S3b; REQ-SR-041)."""
+    return frozenset(
+        RestartOn(code)
+        for code in (approval or {}).get("restart_on") or []
+        if code in set(RestartOn)
     )
 
 
@@ -280,6 +292,11 @@ def _stage_shape(stage: Mapping[str, Any], at: str) -> list[tuple[str, str]]:
 
 def _approval_shape(approval: Mapping[str, Any]) -> list[tuple[str, str]]:
     """The raw approval's shape before it is parsed: one stage, or a `stages` list (S2a)."""
+    restart = approval.get("restart_on")
+    if restart is not None and (
+        not isinstance(restart, list) or any(r not in set(RestartOn) for r in restart)
+    ):
+        return [("approval.restart_on", "invalid_choice")]  # WP-047a S3b
     if approval.get("stages") is None:  # today's single stage (or `stages: null`)
         return _stage_shape(approval, "approval")
     stages = approval["stages"]
@@ -302,6 +319,7 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "help": dict(q.get("help") or {}),
         "default": q.get("default"),
         "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
+        **({"restarts_approval": True} if q.get("restarts_approval") else {}),
     }
 
 
@@ -345,9 +363,12 @@ def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C9
             ]
         return kept
 
+    # WP-047a S3b (REQ-SR-041): which of the request's own values restart approval, on both shapes.
+    restart = sorted({str(c) for c in approval.get("restart_on") or []})
+    extra = {"restart_on": restart} if restart else {}
     if approval.get("stages"):
-        return {"stages": [stage(s) for s in approval["stages"]]}
-    return stage(approval)
+        return {"stages": [stage(s) for s in approval["stages"]], **extra}
+    return {**stage(approval), **extra}
 
 
 def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rule per field, flat
@@ -704,6 +725,24 @@ async def requester_question_keys(
     an approver's, never reaches them). Read as system data: the caller already decided the
     record is the requester's to see.
     """
+    return await question_keys(session, item_ids, QuestionAudience.REQUESTER)
+
+
+async def approver_question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions its approvers see (WP-047a S4; REQ-SR-043 AC2).
+
+    The same default deny as the requester's: a question marked hidden from approvers, or one
+    the item no longer has, never reaches the approval page or mail.
+    """
+    return await question_keys(session, item_ids, QuestionAudience.APPROVER)
+
+
+async def question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID], audience: QuestionAudience
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions `audience` sees (a question names none: everyone)."""
     if not item_ids:
         return {}
     rows = await session.execute(
@@ -713,8 +752,7 @@ async def requester_question_keys(
         item_id: frozenset(
             q["key"]
             for q in questions or []
-            if QuestionAudience.REQUESTER.value
-            in (q.get("shown_to") or [a.value for a in QuestionAudience])
+            if audience.value in (q.get("shown_to") or [a.value for a in QuestionAudience])
         )
         for item_id, questions in rows.all()
     }
@@ -1056,6 +1094,9 @@ class RequestItem:
     # Whether the stages engine runs it: the catalog's one answer (`uses_stages`), the same one
     # that gates saving, so the save and the raise can never disagree (lane C's #582 review).
     uses_stages: bool = False
+    # WP-047a S3b (REQ-SR-041): what restarts approval when it changes after submitting: the
+    # marked questions' keys, and `quantity` / `requested_for` when the item says so.
+    restart_keys: tuple[str, ...] = ()
 
 
 async def request_item(
@@ -1112,6 +1153,12 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
         person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
         uses_stages=uses_stages(rules.stages),
+        restart_keys=tuple(
+            sorted(
+                {q.key for q in rules.questions if q.restarts_approval}
+                | {r.value for r in rules.restart_on}
+            )
+        ),
     )
 
 
@@ -1133,6 +1180,21 @@ def _spec(stage: ApprovalStage) -> StageSpec:
     )
 
 
+async def item_requestable(session: AsyncSession, item_id: uuid.UUID) -> bool:
+    """Whether a request can be raised from this item now: published, a service, not deleted.
+
+    For a setting that names an item (a request mailbox, WP-047a S4): no viewer, as no person
+    saves it; whether the requester may raise it is checked when the mail arrives.
+    """
+    row = await session.get(CatalogItem, item_id)
+    return (
+        row is not None
+        and row.deleted_at is None
+        and row.status == ItemStatus.PUBLISHED.value
+        and row.kind == ItemKind.SERVICE.value
+    )
+
+
 async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem | None:
     """What an existing request's item says, for a step after submission (WP-030 s2).
 
@@ -1141,6 +1203,18 @@ async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem
     """
     row = await session.get(CatalogItem, item_id)
     return None if row is None else _decides(row, {})
+
+
+async def item_decides_with(
+    session: AsyncSession, item_id: uuid.UUID, answers: Mapping[str, Any]
+) -> RequestItem | None:
+    """As `item_decides`, with `answers` checked against the item's form (`answer_problems`).
+
+    WP-047a S3b (REQ-SR-041): changed answers on an existing request are checked as the raise
+    checks them, against the item as it is now (items have no versions yet, the plan's Q8).
+    """
+    row = await session.get(CatalogItem, item_id)
+    return None if row is None else _decides(row, answers)
 
 
 __all__ = [
@@ -1156,6 +1230,8 @@ __all__ = [
     "facts_of",
     "get_item",
     "item_decides",
+    "item_decides_with",
+    "item_requestable",
     "list_items",
     "offered",
     "record_item_change",

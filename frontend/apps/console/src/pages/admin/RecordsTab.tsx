@@ -95,9 +95,13 @@ export function RecordsTab({ roleId }: { roleId: string }) {
   const choices = useChoices();
   const [editing, setEditing] = useState<{ resource: AccessResource; rule?: ResourceRule }>();
   // Live: a rule set elsewhere (another admin, another tab) shows here at once.
-  useListChannel('resource_access', () => {
-    refreshList(queryClient, resourceAccessKeys.all);
-  });
+  useListChannel(
+    'resource_access',
+    (m) => {
+      if (m.covered !== true) refreshList(queryClient, resourceAccessKeys.all);
+    },
+    { covers: [resourceAccessKeys.all] },
+  );
   const manage = can('roles.manage');
   // A lapsed plan keeps every rule applied; rules can only be viewed and removed (ADR-053 §5).
   const licensed = licence.has('fine_grained_access');

@@ -59,11 +59,18 @@ export function useServerDraft<T extends FieldValues>(
   const loading = kept.isLoading;
 
   // Another tab of the same person kept or discarded: read the version again.
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.draft_changed' && event.ids.includes(formKey)) {
-      void queryClient.invalidateQueries({ queryKey: keptDraftKeys.one(formKey) });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (
+        event.covered !== true &&
+        event.type === 'work_items.draft_changed' &&
+        event.ids.includes(formKey)
+      ) {
+        void queryClient.invalidateQueries({ queryKey: keptDraftKeys.one(formKey) });
+      }
+    },
+    { covers: [keptDraftKeys.one(formKey)] },
+  );
 
   useEffect(() => {
     if (pending || loading) return;

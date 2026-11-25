@@ -45,6 +45,8 @@ export const ur: LabelResource = {
   'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
+  'errors.approval_delegation_not_found': 'یہ تفویض اب موجود نہیں۔',
+  'errors.approval_expired': 'اس منظوری کی میعاد فیصلے سے پہلے ختم ہو گئی۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_not_running':
     '{{display_id}} پر کوئی منظوری زیرِ انتظار نہیں، اس لیے منظور کنندگان اب نہیں بدلے جا سکتے۔',
@@ -434,6 +436,8 @@ export const ur: LabelResource = {
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'errors.field.catalog_item_not_requestable':
+    'ایسی شائع شدہ سروس آئٹم منتخب کریں جس کی لوگ درخواست کر سکیں۔',
   'errors.field.catalog_too_deep': 'کیٹلاگ کیٹیگریز کے زیادہ سے زیادہ چار درجے ہو سکتے ہیں۔',
   'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
   'errors.field.category_loop':
@@ -490,6 +494,13 @@ export const ur: LabelResource = {
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
+  'errors.field.delegate_is_delegator': 'آپ منظوریاں خود کو تفویض نہیں کر سکتے۔',
+  'errors.field.delegate_not_eligible':
+    'یہ شخص منظوریاں نہیں لے سکتا: اسے فعال اور سائن ان کے قابل ہونا چاہیے۔',
+  'errors.field.delegation_ended': 'یہ تفویض ختم ہو چکی ہے اور تبدیل نہیں ہو سکتی۔',
+  'errors.field.delegation_overlaps': 'ایک اور تفویض پہلے ہی ان تاریخوں کا احاطہ کرتی ہے۔',
+  'errors.field.delegation_reason_too_long': 'وجہ زیادہ سے زیادہ 500 حروف کی ہو سکتی ہے۔',
+  'errors.field.delegation_too_long': 'تفویض زیادہ سے زیادہ 90 دن رہ سکتی ہے۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
   'errors.field.dependency_loop':
     'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',
@@ -1266,6 +1277,7 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.request_not_awaiting_answers': 'یہ درخواست اب جوابات کی منتظر نہیں ہے۔',
   'errors.request_too_slow':
     'اس میں بہت زیادہ وقت لگا، اس لیے اسے روک دیا گیا۔ محدود تلاش یا فلٹر آزمائیں، یا بعد میں دوبارہ کوشش کریں۔',
   'errors.requester_action_closed':

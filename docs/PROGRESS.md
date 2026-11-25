@@ -54,11 +54,19 @@
   unknown problem approver is refused, and raising on behalf of an unknown person is refused
   by the scope (`on_behalf_out_of_scope`; under `all_users` it used to pass the scope and be
   refused only by a later field check, a 422).
-- **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
-  WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
-  `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
-  route-level feature declaration (a `require_feature` dependency) and a Feature column in the
-  generated map. Until then a WP's PR body lists each REQ's edition and where it is gated.
+- [x] **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
+  WP-047a S1). Done (lane C, 2026-11-24):
+  - **The Feature column** in `docs/security/route-permissions.md` names each route's licence
+    feature and where it's declared: `module` (the module's or router's), `route` (the new
+    `app.core.entitlements.requires_feature`, the same check as the router's) or `permission`.
+  - **The SIEM add and change routes** declare `siem_stream` on the route.
+  - **Still service-only, so not shown yet:**
+    - **Whole-route gates.** Their owners add `requires_feature` on the route when next in those
+      files: work_items' CI-link and asset-link routes (lane A) and integrations LDAP (lane A).
+    - **Conditional on the request** (a feature needed only for one option in the body). These
+      stay in the service by design, and the WP's PR body names them: request stages and
+      quantities, approver changes, service catalogue, the work item settings check, and the
+      personal-data log setting.
 
 ### Engineering-practices audit (#444), lane B security items
 
@@ -1856,7 +1864,72 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
   - **Follow-ups:** asking from the portal approvals page and the mobile app goes with S4
     (channels); history field names (`approval_reminder_sent`, `approval_escalated`,
     `approval_clarification`) get labels with the requests History tab.
-- [ ] **S3b, delegation and restart (0197; REQ-SR-035, -041):** next.
+- [~] **S3b, delegation and restart (0197; REQ-SR-035, -041; lane B blocks delegation):**
+  built 2026-11-24, PR after #604 merges.
+  - REQ-SR-035 (Essentials, the coordinator's condition 1): an approver names a delegate for a
+    date range (both dates, at most 90 days, one at a time, never oneself). While it is active,
+    a new request approval for them goes to the delegate (`on_behalf_of_id`), if the delegate
+    is eligible, not the request's own people and not already on the stage. A delegate's own
+    delegation is never followed. The approver can still decide, and the inbox keeps it for
+    both. A delegate's decision reads "A on behalf of B". When it ends early, or its date comes
+    (the reminder sweep), approvals still pending move back with a fresh link. Create, change
+    and end are audited, and both people are told. One's own delegation needs no right;
+    someone else's needs `requests.manage_delegations` (SDM by default, vendor support never).
+    The console has Approvals › Delegations.
+  - REQ-SR-041 (Essentials, condition 3): a question may restart approval, and so may the
+    quantity or the requested-for person (`restart_on`). `PATCH /service-requests/{id}/answers`
+    is staff-only. A marked change while approval is pending or approved, and before fulfilment
+    has started:
+    - ends this round's pending approvals with the reason in history;
+    - tells the round's approvers;
+    - revokes every link of the round;
+    - moves the request back to awaiting approval;
+    - opens round N+1 from stage 1 on the snapshot as raised.
+
+    An unmarked change does nothing, and one after fulfilment started is recorded only.
+    `work_items.approval_round` is the round the stages count.
+  - **Follow-ups:**
+    - requester edits of answers (`requester_edit_fields`) and a console answers editor;
+    - delegation for change and release approvals;
+    - delegation in the portal for requester-only approvers.
+- [~] **S4, channels (0203; REQ-SR-017, -038, -039, -043, -044; plan
+  `~/Extravis/plans/wp-047a-s4-plan-lane-a.md`, approved 2026-11-25; lane B blocks the 017 link
+  and the 038 reply decisions, lane C the mail paths, 043's filtering and 044 in automation):**
+  draft #627.
+  - REQ-SR-017 (Essentials): a mailbox can make service requests of one catalog item
+    (`creates = service_request`, `catalog_item_id`); the item is checked again for every mail
+    as the requester would raise it, and an item no longer requestable holds the mail (never an
+    incident instead). No answers come from free mail text: required ones missing make the
+    request wait (`awaiting_requester`, approval status `awaiting_answers`, no approval yet).
+    The requester is told: with the portal page that asks only the missing questions, or (a
+    requester made from mail cannot sign in, lane B) with no link and how to get access. Saving
+    the answers submits the request as any other. A mail command `item:` is a follow-up.
+  - REQ-SR-038 (Essentials): a reply to the approval mail approves or rejects only when it
+    answers that mail, the trusted server vouched for the sender (stricter than the spec, the
+    coordinator's Q2), the sender is the approver (or the delegate it went to), the approval was
+    pending when the mail was sent, and its first line is a clear decision word in English,
+    Arabic or Urdu (no AI at V1). Anything else changes nothing and the sender is told why, with
+    the app as the way to decide; no new no-sign-in link is ever minted. Every reply is audited.
+  - REQ-SR-039: mobile decides on the same routes; push stays WP-M6.
+  - REQ-SR-043 (Essentials): an approver sees the questions meant for approvers (it was the
+    requester's set) and the public conversation, never a private note; this supersedes the
+    QA10-P2-06 rule (the coordinator, 2026-11-25).
+  - REQ-SR-044 (Professional): a workflow approval node may time out (1-720 hours, through the
+    workflow timers worker): its level expires (links revoked), the node takes `timed_out`, and a
+    decision after that is refused (`approval_expired`); a decision that got there first wins.
+    A trigger may ask for an approval (`start_approval`): an ad hoc ask under the rule's
+    identity that never moves the request, and none while one is pending (the coordinator's
+    option a; decision-driven next steps use a one-node workflow through `start_workflow`).
+  - **Spec gaps:**
+    - REQ-SR-043 AC3's "show cost to approvers" toggle is replaced by D-184: approvers always see
+      the estimate; only the requesters' toggle exists.
+    - Replies to a service request's own mails are not threaded to the request (the inbound
+      target finds incidents only), so they would make a new incident; the S4 mails never ask
+      for a reply. Threading request replies is a follow-up.
+  - **Follow-ups:** a console screen for service request (and problem, change, release)
+    triggers, since Admin › Automation lists incident triggers only, so `start_approval` is
+    reachable through the API today; the mail command `item:`; native-speaker checks of the new
+    Arabic and Urdu texts.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

@@ -221,11 +221,20 @@ export function GroupsPage() {
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string>();
   const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.assets.groups });
-  useTenantChannel((event) => {
-    if (event.type === 'assets.groups_changed') refresh();
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'assets.groups_changed') refresh();
+    },
+    { covers: [queryKeys.assets.groups] },
+  );
   // A changed asset can enter or leave a dynamic group: counts follow the asset list's events.
-  useListChannel(allowed ? 'assets' : null, refresh);
+  useListChannel(
+    allowed ? 'assets' : null,
+    (message) => {
+      if (message.covered !== true) refresh(); // a refresh: `covers` refetched the groups
+    },
+    { covers: [queryKeys.assets.groups] },
+  );
   if (!allowed) return <NoAccess titleKey="nav.assets" />;
   return (
     <ListPage

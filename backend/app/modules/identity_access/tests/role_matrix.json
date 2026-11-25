@@ -21,6 +21,9 @@
   "cmdb.manage": [
    "all"
   ],
+  "cmdb.record_downtime": [
+   "all"
+  ],
   "cmdb.view": [
    "all"
   ],
@@ -57,6 +60,9 @@
    "all"
   ],
   "cmdb.manage": [
+   "all"
+  ],
+  "cmdb.record_downtime": [
    "all"
   ],
   "cmdb.view": [
@@ -818,6 +824,9 @@
   "changes.view_costs": [
    "all"
   ],
+  "cmdb.record_downtime": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -1074,6 +1083,9 @@
    "all"
   ],
   "requests.edit_due_dates": [
+   "all"
+  ],
+  "requests.manage_delegations": [
    "all"
   ],
   "requests.manage_followers": [
@@ -1198,6 +1210,9 @@
   "changes.view_costs": [
    "all"
   ],
+  "cmdb.record_downtime": [
+   "all"
+  ],
   "config.announcements": [
    "all"
   ],
@@ -1454,6 +1469,9 @@
    "all"
   ],
   "requests.edit_due_dates": [
+   "all"
+  ],
+  "requests.manage_delegations": [
    "all"
   ],
   "requests.manage_followers": [

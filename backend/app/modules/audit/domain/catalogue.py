@@ -314,6 +314,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
     ("cmdb.ci_merged", AuditCategory.RECORDS, "cmdb"),  # a duplicate CI merged (S4b, 0192)
+    ("cmdb.downtime_recorded", AuditCategory.RECORDS, "cmdb"),  # by hand on a CI (S5b, 0198)
+    ("cmdb.downtime_changed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
+    ("cmdb.downtime_removed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
     ("cmdb.import_started", AuditCategory.DATA, "cmdb"),  # a CMDB import uploaded (S4b)
     ("cmdb.import_run", AuditCategory.DATA, "cmdb"),  # a checked dry run run for real (S4b)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
@@ -415,6 +418,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
     # WP-047a S2a: a request stage named its own requester, who was left out (condition 2).
     ("service_request.approver_was_requester", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S4 (REQ-SR-038): an approval decided, or not applied, by an e-mail reply.
+    ("service_request.approval_mail_decided", AuditCategory.RECORDS, "work_items"),
+    ("service_request.approval_mail_ignored", AuditCategory.RECORDS, "work_items"),
     # WP-047a S2b: approved with nobody asked (REQ-SR-033), and a running approval adjusted
     # or asked ad hoc (REQ-SR-042).
     ("service_request.approved_automatically", AuditCategory.RECORDS, "work_items"),
@@ -422,6 +428,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("service_request.approval_escalated", AuditCategory.RECORDS, "work_items"),
     ("service_request.clarification_asked", AuditCategory.RECORDS, "work_items"),
     ("service_request.clarification_answered", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S3b (REQ-SR-035, -041)
+    ("service_request.approval_restarted", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.created", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.changed", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.ended", AuditCategory.RECORDS, "work_items"),
     ("service_request.approvers_modified", AuditCategory.RECORDS, "work_items"),
     ("service_request.approval_requested", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4

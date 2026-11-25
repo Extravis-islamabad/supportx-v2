@@ -28,20 +28,30 @@ export function ApprovalsDrawer() {
   const problems = useMyTypeApprovals('problems');
   const releases = useMyTypeApprovals('releases');
   const changes = useMyTypeApprovals('changes'); // WP-045d S4a, REQ-CHG-117
+  // What the drawer shows: the service requests' and each other type's approvals waiting on me.
+  const shown = [
+    serviceRequestKeys.myApprovals,
+    ['problems', 'my-approvals'],
+    ['releases', 'my-approvals'],
+    ['changes', 'my-approvals'],
+  ];
   const refresh = (type: string) => {
     if (type === MY_APPROVALS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
-      void queryClient.invalidateQueries({ queryKey: ['problems', 'my-approvals'] });
-      void queryClient.invalidateQueries({ queryKey: ['releases', 'my-approvals'] });
-      void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+      for (const queryKey of shown) void queryClient.invalidateQueries({ queryKey });
     }
   };
-  usePersonalChannel((event) => {
-    refresh(event.type);
-  });
-  useTenantChannel((event) => {
-    refresh(event.type);
-  });
+  usePersonalChannel(
+    (event) => {
+      refresh(event.type);
+    },
+    { covers: shown },
+  );
+  useTenantChannel(
+    (event) => {
+      refresh(event.type);
+    },
+    { covers: shown },
+  );
   const items = mine.data?.items ?? [];
   const people = mine.data?.people ?? {};
   const others = [
@@ -75,6 +85,16 @@ export function ApprovalsDrawer() {
         }}
         data-testid="approvals-drawer"
       >
+        {/* WP-047a S3b (REQ-SR-035): away for a while? Hand your approvals to someone. */}
+        <Link
+          to="/approvals/delegations"
+          onClick={() => {
+            setOpen(false);
+          }}
+          data-testid="approvals-delegations-link"
+        >
+          {t('delegations.title')}
+        </Link>
         <List
           dataSource={items}
           locale={{

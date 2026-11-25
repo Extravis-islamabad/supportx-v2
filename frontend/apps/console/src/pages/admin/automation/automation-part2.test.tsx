@@ -105,6 +105,7 @@ function routes(extra: Routes = {}) {
             'status_changed',
             'updated',
           ],
+          offered_actions: ['set', 'note'],
         },
       },
       'GET /api/v1/automation/transitions': { body: [] },

@@ -1075,6 +1075,9 @@ export const ar: LabelResource = {
   'permission.requests.edit_due_dates': 'تعيين مواعيد استحقاق الطلبات يدويًا',
   'permission.requests.edit_due_dates.description':
     'تعيين موعد استحقاق الاستجابة أو التنفيذ لطلب خدمة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
+  'permission.requests.manage_delegations': 'إدارة تفويضات الموافقة للآخرين',
+  'permission.requests.manage_delegations.description':
+    'تعيين تفويض موافقة لشخص آخر أو تغييره أو إنهاؤه. يمكن لأي شخص إدارة تفويضه.',
   'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
   'permission.requests.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',

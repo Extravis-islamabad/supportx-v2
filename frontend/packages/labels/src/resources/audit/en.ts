@@ -23,6 +23,9 @@ export const en = {
   'audit.action.api_key.refused': 'API key refused',
   'audit.action.api_key.revoked': 'Revoked an API key',
   'audit.action.api_key.settings_changed': 'Changed the API key rules',
+  'audit.action.approval_delegation.changed': 'An approval delegation was changed',
+  'audit.action.approval_delegation.created': 'An approval delegation was set',
+  'audit.action.approval_delegation.ended': 'An approval delegation ended',
   'audit.action.approvals.settings_changed': 'Changed the approval settings',
   'audit.action.asset.assigned': 'Gave an asset to someone',
   'audit.action.asset.bulk_started': 'Started a bulk change of assets',
@@ -487,8 +490,13 @@ export const en = {
   'audit.action.service_request.access_changed': 'Changed who can see or work on a service request',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
   'audit.action.service_request.approval_escalated': 'A service request approval was escalated',
+  'audit.action.service_request.approval_mail_decided': 'Decided an approval by an email reply',
+  'audit.action.service_request.approval_mail_ignored':
+    'Did not apply an email reply to an approval',
   'audit.action.service_request.approval_requested':
     'Asked named people to approve a service request',
+  'audit.action.service_request.approval_restarted':
+    "A service request's approval started again after a change",
   'audit.action.service_request.approved_automatically':
     'A service request stage was approved automatically',
   'audit.action.service_request.approver_was_requester':
@@ -653,6 +661,7 @@ export const en = {
   'audit.object.announcement': 'Announcement',
   'audit.object.announcement_settings': 'Announcement settings',
   'audit.object.api_key': 'API key',
+  'audit.object.approval_delegation': 'Approval delegation',
   'audit.object.approval_settings': 'Approval settings',
   'audit.object.asset': 'Asset',
   'audit.object.asset_audit': 'Asset audit',
@@ -1241,6 +1250,9 @@ export const en = {
   'event_type.system.mail.state_changed': 'Email sent, retried or failed',
   'event_type.work_items.approval.changed': 'Approval opened or decided',
   'event_type.work_items.approval.clarification': 'A question on an approval was asked or answered',
+  'event_type.work_items.approval.restarted': "A request's approval started again",
+  'event_type.work_items.approval_delegation.changed':
+    'An approval delegation was set, changed or ended',
   'event_type.work_items.approval_settings.changed': 'Approval settings changed',
   'event_type.work_items.asset_link.changed': 'Asset linked or unlinked',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',

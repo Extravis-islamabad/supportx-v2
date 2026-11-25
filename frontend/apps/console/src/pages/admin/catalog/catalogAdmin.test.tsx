@@ -52,6 +52,7 @@ const laptop: CatalogItem = {
   questions: [
     {
       key: 'model',
+      restarts_approval: false,
       label: { en: 'Model' },
       kind: 'choice',
       required: true,
@@ -63,6 +64,7 @@ const laptop: CatalogItem = {
     },
     {
       key: 'asset_tag',
+      restarts_approval: false,
       label: { en: 'Asset tag' },
       kind: 'text',
       required: false,

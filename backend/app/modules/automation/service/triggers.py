@@ -20,7 +20,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import AppError, Conflict
+from app.core.errors import AppError, Conflict, PermissionDenied
+from app.modules import licensing
 from app.modules.automation.domain import field_refs
 from app.modules.automation.domain.rules import (
     MAX_RULES,
@@ -40,6 +41,7 @@ from app.modules.automation.domain.triggers import (
     check_trigger,
     loop_stop,
 )
+from app.modules.automation.domain.workflows import approvers_problem
 from app.modules.automation.events import AutomationChanged, AutomationStopped
 from app.modules.automation.infra.models import (
     AutomationRun,
@@ -81,6 +83,7 @@ TRIGGER_EVENT_TYPES = (
     "cmdb.ci.created",
     "cmdb.ci.updated",
     "cmdb.relationship.changed",
+    "cmdb.downtime.changed",  # a downtime becoming active (downtime_started)
 )
 
 
@@ -131,6 +134,7 @@ async def check(
     if not problems:
         enabled = state == RuleState.ENABLED.value
         problems += await _workflow_problems(session, kind.code, actions, enabled=enabled)
+        problems += await _ask_problems(session, kind, actions)
     cleaned = {
         "record_type": kind.code,
         "name": name,
@@ -170,9 +174,46 @@ async def _workflow_problems(
     return problems
 
 
+async def _ask_problems(
+    session: AsyncSession, kind: RecordType, actions: Sequence[Mapping[str, Any]]
+) -> list[tuple[str, str, Mapping[str, Any]]]:
+    """A "start an approval" action (WP-047a S4, REQ-SR-044; lane C's shape).
+
+    Offered only by a type whose approvals can be decided (`approval_roles`), else
+    `action_not_offered`; its approvers checked by the approval node's own function (one rule
+    for both); behind the workflows licence (Professional), checked again at run.
+    """
+    problems: list[tuple[str, str, Mapping[str, Any]]] = []
+    for index, action in enumerate(actions):
+        if action.get("kind") != TriggerActionKind.START_APPROVAL.value:
+            continue
+        if kind.approval_roles is None or kind.ask_approval is None:
+            problems.append(
+                (f"actions.{index}.kind", "action_not_offered", {"kind": "start_approval"})
+            )
+            continue
+        found = approvers_problem(action.get("approvers"), frozenset(kind.approval_roles))
+        if found is not None:
+            problems.append((f"actions.{index}.approvers", found[1], found[2]))
+        elif not await licensing.has_feature(_tenant(session), licensing.Feature.WORKFLOWS):
+            raise PermissionDenied(
+                code="entitlement_required", params={"feature": licensing.Feature.WORKFLOWS.value}
+            )
+    return problems
+
+
 def _clean_action(action: Mapping[str, Any]) -> dict[str, Any]:
     if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
         return {"kind": "start_workflow", "workflow_id": str(action.get("workflow_id"))}
+    if action.get("kind") == TriggerActionKind.START_APPROVAL.value:
+        return {
+            "kind": "start_approval",
+            "approvers": {
+                key: [str(v) for v in (action.get("approvers") or {}).get(key, [])]
+                for key in ("user_ids", "group_ids", "roles")
+            },
+            "rule": str(action.get("rule") or "any"),
+        }
     if action.get("kind") == TriggerActionKind.NOTE.value:
         return {"kind": "note", "text": str(action.get("text") or "").strip()}
     return {
@@ -580,10 +621,14 @@ async def _action(  # noqa: PLR0913 - the action and the record it works on, exp
     shown = {"kind": action.get("kind"), "field": action.get("field")}
     if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
         shown = {"kind": action.get("kind"), "workflow_id": action.get("workflow_id")}
+    if action.get("kind") == TriggerActionKind.START_APPROVAL.value:
+        shown = {"kind": action.get("kind")}
     try:
         async with session.begin_nested():
             if action.get("kind") == TriggerActionKind.START_WORKFLOW.value:
                 result = await _start_workflow(session, kind, record_id, action, cause)
+            elif action.get("kind") == TriggerActionKind.START_APPROVAL.value:
+                result = await _start_approval(session, kind, record_id, action, change)
             elif action.get("kind") == TriggerActionKind.NOTE.value:
                 result = await _note(session, kind, record_id, action, change)
             else:
@@ -623,6 +668,33 @@ async def _start_workflow(
         session, workflow_id=workflow_id, record_type=kind.code, record_id=record_id, how="trigger"
     )
     return {"outcome": "applied", "instance_id": str(instance.id)}
+
+
+async def _start_approval(
+    session: AsyncSession,
+    kind: RecordType,
+    record_id: uuid.UUID,
+    action: Mapping[str, Any],
+    change: AutomatedChange,
+) -> dict[str, Any]:
+    """Ask named approvers on the record (WP-047a S4; the coordinator's option a).
+
+    Never an error that stops the other actions: a lapsed licence skips (`approval_feature_lapsed`),
+    and an ask already pending is kept (`approval_pending`), so a rule never asks twice.
+    """
+    trigger_id = change.ref.get("trigger_id") if change.ref else None
+    if kind.ask_approval is None or trigger_id is None:  # pragma: no cover - checked on save
+        return {"outcome": "failed", "reason": "not_supported"}
+    if not await licensing.has_feature(_tenant(session), licensing.Feature.WORKFLOWS):
+        return {"outcome": "kept", "reason": "approval_feature_lapsed"}
+    found = await kind.ask_approval(
+        session,
+        record_id,
+        uuid.UUID(str(trigger_id)),
+        dict(action.get("approvers") or {}),
+        str(action.get("rule") or "any"),
+    )
+    return {"outcome": "applied"} if found == "applied" else {"outcome": "kept", "reason": found}
 
 
 async def _note(

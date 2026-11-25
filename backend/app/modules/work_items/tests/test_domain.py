@@ -22,6 +22,7 @@ from app.modules.work_items.domain.classification import (
     check_matrix,
     compute_priority,
 )
+from app.modules.work_items.domain.delegations import FIELD_PROBLEMS as DELEGATION_PROBLEMS
 from app.modules.work_items.domain.drafts import FIELD_PROBLEMS as DRAFT_PROBLEMS
 from app.modules.work_items.domain.kept_informed import FIELD_PROBLEMS as KEPT_PROBLEMS
 from app.modules.work_items.domain.lifecycle import (
@@ -333,6 +334,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | CHILD_PROBLEMS
         | APPROVER_CHANGE_PROBLEMS
         | CLARIFICATION_PROBLEMS
+        | DELEGATION_PROBLEMS
     )
     # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
     found -= set(get_args(Relation))
