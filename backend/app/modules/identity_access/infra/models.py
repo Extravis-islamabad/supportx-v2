@@ -491,6 +491,8 @@ SESSION_LIMITS = {
     "console": {"idle": 3600, "absolute": 43200, "max_absolute": 7 * 86400},
     "portal": {"idle": 1800, "absolute": 43200, "max_absolute": 30 * 86400},
 }
+# WP-057 S6b (0206): a mobile session's limits when the tenant sets them (NULL: the web app's).
+MOBILE_MAX_ABSOLUTE_SECONDS = 30 * 86400
 MIN_IDLE_SECONDS = 300
 MAX_IDLE_SECONDS = 86400
 
@@ -542,6 +544,21 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
             f"cardinality(portal_ip_allow) <= {IP_ALLOW_MAX}", name="portal_ip_allow_size"
         ),
         CheckConstraint(f"cardinality(api_ip_allow) <= {IP_ALLOW_MAX}", name="api_ip_allow_size"),
+        # WP-057 S6b (0206): the mobile app policy.
+        CheckConstraint("mobile_unlock_after_minutes BETWEEN 1 AND 60", name="mobile_unlock_range"),
+        CheckConstraint(
+            "(mobile_idle_seconds IS NULL AND mobile_absolute_seconds IS NULL) OR ("
+            f"mobile_idle_seconds BETWEEN {MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}"
+            " AND mobile_absolute_seconds BETWEEN mobile_idle_seconds AND "
+            f"{MOBILE_MAX_ABSOLUTE_SECONDS})",
+            name="mobile_limits",
+        ),
+        CheckConstraint(
+            "mobile_refusal_message IS NULL OR ("
+            "jsonb_typeof(mobile_refusal_message) = 'object'"
+            " AND mobile_refusal_message - ARRAY['en', 'ar', 'ur'] = '{}'::jsonb)",
+            name="mobile_message",
+        ),
     )
 
     console_idle_seconds: Mapped[int] = mapped_column(
@@ -598,6 +615,17 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     api_ip_allow: Mapped[list[str]] = mapped_column(
         ARRAY(CIDR), server_default=text("'{}'::cidr[]")
     )
+    # REQ-SEC-047 (WP-057 S6b, 0206): the mobile app policy. Server-enforced: allowed (AC1, with
+    # the tenant's message), a second factor, the session's length (NULL: the web app's).
+    # Client-enforced by the app: the device unlock (AC2) and clearing local data at sign-out.
+    mobile_allowed: Mapped[bool] = mapped_column(server_default="true")
+    mobile_refusal_message: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    mobile_mfa_required: Mapped[bool] = mapped_column(server_default="false")
+    mobile_device_unlock_required: Mapped[bool] = mapped_column(server_default="false")
+    mobile_unlock_after_minutes: Mapped[int] = mapped_column(Integer, server_default="5")
+    mobile_idle_seconds: Mapped[int | None] = mapped_column(Integer)
+    mobile_absolute_seconds: Mapped[int | None] = mapped_column(Integer)
+    mobile_clear_on_sign_out: Mapped[bool] = mapped_column(server_default="true")
     # REQ-SEC-009, REQ-SEC-026 (WP-057 S1b): single sign-on for nobody, technicians or everyone;
     # and SupportX's own MFA after a single sign-on too (off: the provider's MFA is trusted).
     sso_required: Mapped[str] = mapped_column(String(12), server_default="off")
