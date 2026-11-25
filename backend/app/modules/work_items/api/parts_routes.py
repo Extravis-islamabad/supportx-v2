@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
@@ -100,6 +100,25 @@ class WorkItemTaskPatch(BaseModel):
     remind_before_minutes: int | None = Field(
         default=None, ge=0, le=10080, description="Remind the owner this long before the start."
     )
+    # WP-047a S5: a plan task's own field values (REQ-SR-049), checked against its fields;
+    # a hand-over task's asset, handed over when it completes (REQ-SR-056).
+    field_values: dict[str, JsonValue] | None = Field(
+        default=None, description="Values of the task's own fields, by key."
+    )
+    asset_id: uuid.UUID | None = Field(
+        default=None, description="A hand-over task: the asset to hand over on completing it."
+    )
+
+
+class WorkItemTaskFieldOut(BaseModel):
+    """One field a plan task asks its owner to fill in (REQ-SR-049)."""
+
+    key: str
+    label: dict[str, str]
+    kind: str
+    required: bool = False
+    options: list[str] = Field(default_factory=list)
+    requester_visible: bool = False
 
 
 class WorkItemTaskOut(BaseModel):
@@ -133,6 +152,15 @@ class WorkItemTaskOut(BaseModel):
         default=None, description="Shown to those who may edit the record only."
     )
     remind_before_minutes: int | None = None
+    # WP-047a S5 (REQ-SR-049, -050, -048, -056).
+    plan_key: str | None = None
+    fields: list[WorkItemTaskFieldOut] = Field(default_factory=list)
+    field_values: dict[str, JsonValue] = Field(default_factory=dict)
+    kind: str = Field(default="task", description="task, or asset_handover.")
+    task_only: bool = Field(default=False, description="Its owner sees this task alone.")
+    needs_review: bool = Field(
+        default=False, description="No longer wanted by the plan, kept as work was done on it."
+    )
     depends_on: list[uuid.UUID] = Field(
         default_factory=list, description="Tasks of the same record this one waits for."
     )
@@ -154,7 +182,13 @@ class WorkItemTaskOut(BaseModel):
         money: bool = True,
     ) -> "WorkItemTaskOut":
         """From a row, with its dependencies; the cost only when `money` (may edit the record)."""
-        out = cls.model_validate(row, from_attributes=True)
+        out = cls.model_validate(
+            {
+                **{k: getattr(row, k) for k in cls.model_fields if hasattr(row, k)},
+                "fields": row.fields or [],
+                "field_values": row.field_values or {},
+            }
+        )
         out.depends_on = list(depends_on or [])
         out.blocked_by = list(blocked_by or [])
         out.overdue = service.is_overdue(row)
@@ -382,6 +416,10 @@ class WorkItemWorklogsOut(BaseModel):
     technician_cost: Decimal | None = None
     other_cost: Decimal | None = None
     total_cost: Decimal | None = None
+    # WP-047a S5 (REQ-SR-052 AC3): the record's task costs and the actual cost (worklogs and
+    # tasks), with the same cost right as the rest; live as tasks and worklogs change.
+    task_cost: Decimal | None = None
+    actual_cost: Decimal | None = None
 
 
 class WorkItemLinkIn(BaseModel):
@@ -440,8 +478,10 @@ def _worklogs_out(
     *,
     money: bool,
     currency: str,
+    tasks: list[WorkItemTask] | None = None,
 ) -> WorkItemWorklogsOut:
     totals = service.totals_of(rows, costs)
+    task_cost = service.task_cost(tasks or [])
     return WorkItemWorklogsOut(
         items=[WorkItemWorklogOut.of(r, costs.get(r.id), money=money) for r in rows],
         minutes=totals.minutes,
@@ -454,6 +494,8 @@ def _worklogs_out(
         technician_cost=totals.technician_cost if money else None,
         other_cost=totals.other_cost if money else None,
         total_cost=totals.total_cost if money else None,
+        task_cost=task_cost if money else None,
+        actual_cost=totals.total_cost + task_cost if money else None,
     )
 
 
@@ -972,6 +1014,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
             await service.worklog_costs(session, record_id),
             money=await service.may_see_money(session, subject, wtype, record_id),
             currency=await base_currency(session),
+            tasks=await service.tasks_of(session, record_id),
         )
 
     @router.post(

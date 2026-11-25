@@ -567,6 +567,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.moved", AuditCategory.RECORDS, "assets"),
     ("asset.disposed", AuditCategory.RECORDS, "assets"),
     ("asset.assigned", AuditCategory.RECORDS, "assets"),
+    ("asset.handed_over", AuditCategory.RECORDS, "assets"),  # WP-047a S5: a fulfilment hand-over
     ("asset.unassigned", AuditCategory.RECORDS, "assets"),
     ("asset.linked", AuditCategory.RECORDS, "assets"),
     ("asset.unlinked", AuditCategory.RECORDS, "assets"),

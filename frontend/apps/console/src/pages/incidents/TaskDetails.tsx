@@ -10,6 +10,9 @@ import {
 } from '@supportx/api-client';
 import { DateTimeField, Drawer, lengthLimit, reportError, useLabel } from '@supportx/ui';
 
+import { hasPlanParts } from './planTask';
+import { PlanTaskParts } from './PlanTaskParts';
+
 type Draft = Pick<
   IncidentTaskPatch,
   | 'task_type'
@@ -131,6 +134,9 @@ export function TaskDetails({
         </Flex>
       }
     >
+      {hasPlanParts(task) && (
+        <PlanTaskParts task={task} base={base} recordId={recordId} onDone={onClose} />
+      )}
       <Form layout="vertical">
         <Form.Item label={t('task.field.task_type')} htmlFor="task-type" {...field('task_type')}>
           <Input

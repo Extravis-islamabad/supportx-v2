@@ -19,10 +19,32 @@ ItemUsage = Callable[[AsyncSession, uuid.UUID], Awaitable[int]]
 TemplateCheck = Callable[[AsyncSession, uuid.UUID], Awaitable[Mapping[str, str] | None]]
 
 RequestCounts = Callable[[AsyncSession, datetime], Awaitable[Mapping[uuid.UUID, int]]]
+# Why a workflow cannot be an item's fulfilment workflow (None: it can); `live`: the item is
+# published, so the workflow must be too (WP-047a S5, REQ-SR-053; registered by work_items).
+WorkflowCheck = Callable[[AsyncSession, uuid.UUID, bool], Awaitable[str | None]]
 
 _usage: list[ItemUsage] = []
 _templates: list[TemplateCheck] = []
 _counts: list[RequestCounts] = []
+_workflows: list[WorkflowCheck] = []
+
+
+def register_workflow_check(check: WorkflowCheck) -> None:
+    """Whether a workflow may fulfil an item (registered by work_items)."""
+    if check not in _workflows:
+        _workflows.append(check)
+
+
+async def workflow_problem(
+    session: AsyncSession, workflow_id: uuid.UUID, *, live: bool
+) -> str | None:
+    """Why the workflow cannot fulfil an item; unregistered (no work_items): never one."""
+    if not _workflows:
+        return "workflow_not_found"
+    for check in _workflows:
+        if (problem := await check(session, workflow_id, live)) is not None:
+            return problem
+    return None
 
 
 def register_request_counts(counts: RequestCounts) -> None:
@@ -74,5 +96,7 @@ __all__ = [
     "register_item_usage",
     "register_request_counts",
     "register_template_check",
+    "register_workflow_check",
     "request_counts",
+    "workflow_problem",
 ]
