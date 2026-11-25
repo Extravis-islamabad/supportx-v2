@@ -14,7 +14,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0202"  # 0205's down revision for now (re-pointed at its queue turn)
+BEFORE = "0201"  # 0205's down revision for now (re-pointed at its queue turn)
 ITEM_COLUMNS = {"price", "internal_cost", "price_period", "charge_to", "charge_question_key"}
 REQUEST_COLUMNS = {
     "estimated_cost",
