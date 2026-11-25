@@ -88,6 +88,9 @@ class Choices:
     # Vendor support grants ended over 24 hours ago whose account is not confirmed gone (lane B).
     support_removals_stuck: int = 0
     plaintext_siem_destinations: int = 0  # D-181: syslog sent without TLS
+    # WP-057 S5c: directories giving managed access with no successful sync for over a day
+    # (the access stays; the overview makes it visible, the coordinator's condition).
+    directory_access_stale: int = 0
 
 
 def _expiry_flags(days_left: int | None) -> Iterable[Flag]:
@@ -185,6 +188,12 @@ def _count_flags(c: Choices) -> Iterable[Flag]:
             c.plaintext_siem_destinations,
             "siem_plaintext",
             SecurityArea.SIEM,
+            SecuritySeverity.MEDIUM,
+        ),
+        (
+            c.directory_access_stale,
+            "directory_access_stale",
+            SecurityArea.SIGN_IN,  # its own tile comes with the S5c-2 screens
             SecuritySeverity.MEDIUM,
         ),
     )

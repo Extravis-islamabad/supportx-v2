@@ -186,6 +186,11 @@ decisions D1-D13 (D-038).
    ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
    overdue-scan rule whose action is the trash need it too. An overdue rule already set to trash
    before upgrading keeps running: review its action after the upgrade.
+12. **OpenFeature is approved but not set up (lane C, 2026-11-25; the coordinator):** D-004 lists
+   the OpenFeature SDK for release flags, but no SDK, provider or flag exists in the backend or
+   the frontend yet. WP-057 S5c-1a uses a module constant (`SSO_GROUP_MAPPINGS_READY`, deleted by
+   S5c-1b) instead. The first lane that needs a real release flag sets OpenFeature up in its own
+   PR, with lane B reviewing core.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -2820,6 +2825,39 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
     `useHiddenPersonLabel`, lane A's OK) and person search is refused; e-mail and phone are never
     shown. The downgrade refuses while a grant has the tick on.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+  - [~] **S5c-1a (#620, migration 0201; REQ-SEC-014; lane B blocks, lane A reviews
+    integrations): roles and support groups from directory groups.** Plan
+    `~/Extravis/plans/wp-057-s5c-plan.md` (lane B's six conditions; D-186, D-187, D-188). Built:
+    - **The mappings:** `idp_group_mappings` (one external group ID onto a role or a support
+      group), `access_sources` (which mapping holds what) and `managed` on `user_roles` and
+      `group_members`. A mapping never removes hand-made access, and managed access can't be
+      removed by hand (409, AC3).
+    - **`follow()`:** one function for directory sync and, from S5c-1b, sign-in. It holds a
+      per-person lock; an incomplete list changes nothing; vendor support, service and
+      break-glass accounts are never followed; the last tenant admin is kept (audited); every
+      change is audited with its mapping.
+    - **Directory sync:** it applies a changed person's whole set of mapped groups, and an empty
+      set when they leave. **This fixes a bug: sync used to remove hand-made memberships too.**
+      The connector's `group_mappings` JSON moved to the table (the data step keeps today's
+      sync-made memberships removable); the connector API keeps its shape, plus `on_held`.
+    - **Privileged access needs the tenant opt-in:** tenant admin, or a never_via_idp right
+      (`identity.manage`, `audit.manage`, `audit.manage_holds`, `api_keys.manage`,
+      `roles.manage`, `users.manage`), directly or through a group, and adding such a role to a
+      mapped group. The opt-in needs a recent sign-in and is audited.
+    - **Removing a mapping is never silent:** holders keep their access as hand-made ("keep", the
+      default) or lose it now ("remove", behind a recent sign-in).
+    - **The API:** `/identity/group-mappings` (list, create, holders, remove, settings).
+      **SSO-source mappings** are refused as "coming soon" until S5c-1b.
+    - **A stale or switched-off directory** that gives managed access is flagged on the security
+      overview (`directory_access_stale`); the access stays.
+  - [ ] **S5c-1b (no migration):**
+    - sign-in reads the per-alias Keycloak attributes (D-187, lane B's realm PR) under the lock:
+      read, clear, then apply;
+    - freshness and overage, with `idp_groups_unverified`;
+    - IdP-managed access only in that IdP's sessions (D-188), with the cache key per source;
+    - real-Keycloak cross-tenant tests;
+    - the D-188 decision file;
+    - deleting `SSO_GROUP_MAPPINGS_READY`.
   - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
     e-mail domains, DONE.** Built:
     - adding a domain with a TXT record shown once (only its hash kept);
