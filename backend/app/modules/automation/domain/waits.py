@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from app.modules.automation.domain.interpreter import Token, TokenState
+from app.modules.automation.domain.interpreter import CommandKind, Step, Token, TokenState
 from app.modules.automation.domain.workflows import Definition, Node, NodeType
 
 
@@ -102,4 +102,35 @@ def waits_of(tokens: Iterable[Token], definition: Definition) -> list[Wait]:
     return [found[n] for n in sorted(found)]
 
 
-__all__ = ["Wait", "WaitKind", "waits_of"]
+def kind_of(node: Node) -> WaitKind | None:
+    """What a node waits for, from its type and config (None: it never waits)."""
+    if node.type is NodeType.WAIT:
+        return WaitKind.FIELD if _condition_fields(node.config.get("condition")) else WaitKind.EVENT
+    return {
+        NodeType.TIMER: WaitKind.DATE,
+        NodeType.TASKS: WaitKind.TASK,
+        NodeType.APPROVAL: WaitKind.APPROVAL,
+    }.get(node.type)
+
+
+# The commands a run waits on people for (an approval to be decided, tasks to be done).
+_PEOPLE_COMMANDS = frozenset({CommandKind.OPEN_APPROVAL.value, CommandKind.OPEN_TASKS.value})
+
+
+def waits_started(steps: Iterable[Step]) -> list[str]:
+    """The nodes whose wait began in these steps (one save's log), each once, in order.
+
+    From the transition only (lane B's condition 1): a node logs `waiting`, or opens an
+    approval or tasks, when a token arrives, never while it stays. So a re-save, a retry or an
+    unrelated edit while waiting starts nothing, and a loop back to the same node starts it again.
+    """
+    started: dict[str, None] = {}
+    for step in steps:
+        if step.result == "waiting" or (
+            step.result == "command" and step.detail.get("kind") in _PEOPLE_COMMANDS
+        ):
+            started.setdefault(step.node, None)
+    return list(started)
+
+
+__all__ = ["Wait", "WaitKind", "kind_of", "waits_of", "waits_started"]

@@ -42,6 +42,7 @@ from app.modules.automation.domain.interpreter import (
     advance,
 )
 from app.modules.automation.domain.rules import JsonValue
+from app.modules.automation.domain.waits import kind_of, waits_started
 from app.modules.automation.domain.workflows import Definition, TimeBasis, parse
 from app.modules.automation.events import (
     WorkflowFunctionRequested,
@@ -150,6 +151,24 @@ async def _subject(session: AsyncSession, workflow: Workflow) -> Subject | None:
     if workflow.service_identity_id is None:
         return None
     return await subject_for(session, workflow.tenant_id, workflow.service_identity_id)
+
+
+async def wait_kind(session: AsyncSession, instance_id: uuid.UUID, node_id: str) -> str | None:
+    """What a run's node waits for (a WaitKind code), from the run's own version (S5 follow-up).
+
+    For another module's notice (REQ-SR-053 AC1): codes only, never the node's name.
+    """
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance is None:
+        return None
+    version = await session.get(
+        WorkflowVersion, (instance.tenant_id, instance.workflow_id, instance.version_number)
+    )
+    if version is None:
+        return None
+    node = next((n for n in _definition(version).nodes if n.id == node_id), None)
+    kind = kind_of(node) if node is not None else None
+    return kind.value if kind is not None else None
 
 
 async def workflow_problem(
@@ -511,6 +530,7 @@ async def _save(  # noqa: PLR0913 - the instance and everything a run produced, 
             record_id=instance.record_id,
             status=state.status.value,
             version=instance.version,
+            waits_started=waits_started(steps),
         ),
         aggregate_id=instance.id,
         aggregate_version=instance.version,
@@ -570,6 +590,9 @@ async def stop(
     kind = registered(instance.record_type)
     if kind is not None and kind.close_workflow is not None:
         await kind.close_workflow(session, instance.record_id, instance.id)
+    if kind is not None and kind.record_stop is not None:  # REQ-SR-054 AC1: with its reason
+        ref = {"workflow_id": str(instance.workflow_id), "instance_id": str(instance.id)}
+        await kind.record_stop(session, instance.record_id, ref, reason)
     return instance
 
 

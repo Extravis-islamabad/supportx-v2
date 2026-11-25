@@ -37,6 +37,7 @@ from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import SERVICE_REQUEST
 from app.modules.work_items.events import (
     ServiceRequestReadyToFulfil,
+    ServiceRequestWorkflowWaiting,
     WorkItemApprovalChanged,
     WorkItemApprovalClarification,
     WorkItemApprovalRestarted,
@@ -56,6 +57,7 @@ from app.shared.action_links import LinkRequest
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
+    LabelRef,
     NotificationCategory,
     NotificationChannel,
     NotificationEvent,
@@ -75,6 +77,9 @@ WITHDRAWN = "service_request.withdrawn"
 FULFILLED = "service_request.fulfilled"
 REPLY = "service_request.public_reply"  # a reply to the requester, by e-mail (lane B's #359)
 READY = "service_request.ready_to_fulfil"  # D-154 "E1 follows d": to its group, in the app
+# WP-047a S5 follow-up (REQ-SR-053 AC1): its workflow began waiting; once per wait.
+WAITING = "service_request.workflow_waiting"
+ASSIGNEE = "assignee"  # the request's technician (the label incidents already use)
 # WP-047a S3a (REQ-SR-037 AC2): the approver who asked is told their question was answered;
 # the notice names the request, never the answer (the coordinator's condition 4).
 ANSWERED = "service_request.clarification_answered"
@@ -180,6 +185,13 @@ EVENTS: tuple[NotificationEvent, ...] = (
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=(GROUP,), channels=(NotificationChannel.IN_APP,)),
     ),
+    # Not required: people may mute it (lane B's condition 4). The technician, else the group.
+    NotificationEvent(
+        WAITING,
+        NotificationCategory.ASSIGNMENT,
+        EventDefault(enabled=True, recipients=(ASSIGNEE, GROUP)),
+        variables=(Variable("wait.kind", "notification_variable.wait.kind"),),
+    ),
 )
 VARIABLES = (
     Variable("record.display_id", "notification_variable.record.display_id"),
@@ -205,7 +217,7 @@ class ServiceRequestNotifications:
     record_type = "service_request"
     channel_kind = RECORD_KIND
     events = EVENTS
-    recipient_kinds = (APPROVER, ADMINISTRATORS, REQUESTER, GROUP)
+    recipient_kinds = (APPROVER, ADMINISTRATORS, REQUESTER, GROUP, ASSIGNEE)
     variables = VARIABLES
     conditions = ("priority",)
     event_types = (
@@ -216,15 +228,18 @@ class ServiceRequestNotifications:
         WorkItemConversationAdded.event_type,
         WorkItemApprovalClarification.event_type,
         WorkItemApprovalRestarted.event_type,
+        ServiceRequestWorkflowWaiting.event_type,
     )
 
-    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: PLR0911 - one return per event family, flat
+    def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:  # noqa: C901, PLR0911 - one return per event family, flat
         """An approval opened (its approver or the administrators), or the requester's news."""
         payload = envelope.payload
         if envelope.event_type == WorkItemConversationAdded.event_type:
             # No type on the event: `context` answers only for a request's outbound reply.
             automatic = payload.get("automatic")
             return () if automatic or payload.get("kind") != EntryKind.REPLY else (REPLY,)
+        if envelope.event_type == ServiceRequestWorkflowWaiting.event_type:
+            return (WAITING,)
         if envelope.event_type == WorkItemApprovalRestarted.event_type:
             return (RESTARTED,) if payload.get("approver_ids") else ()
         if envelope.event_type == WorkItemApprovalClarification.event_type:
@@ -260,6 +275,7 @@ class ServiceRequestNotifications:
             REPLY: _reply_context,
             ANSWERED: _answered_context,  # WP-047a S3a
             RESTARTED: _restarted_context,  # WP-047a S3b
+            WAITING: _waiting_context,  # WP-047a S5 follow-up
         }.get(event_code)
         if special is not None:
             return await special(session, envelope)
@@ -429,6 +445,49 @@ async def _answered_context(session: AsyncSession, envelope: EventEnvelope) -> R
         relatives={APPROVER: frozenset({uuid.UUID(str(payload["approver_id"]))})},
         conditions={"priority": record.priority},
         event_code=ANSWERED,
+    )
+
+
+async def _waiting_context(session: AsyncSession, envelope: EventEnvelope) -> RecordContext | None:
+    """The request's technician, or its group without one, while it is open (REQ-SR-053 AC1).
+
+    Never the requester. The engine's own access check keeps it to people who may view the
+    request; the group is the existing group-members kind with its cap. The node is never named:
+    only its wait kind, labelled (rule d).
+    """
+    payload = envelope.payload
+    record = await session.get(WorkItem, uuid.UUID(str(payload["work_item_id"])))
+    if (
+        record is None
+        or record.deleted_at is not None
+        or StatusCategory(record.status_category) not in items.OPEN_CATEGORIES
+    ):
+        return None
+    if record.technician_id is not None:
+        relatives = {ASSIGNEE: frozenset({record.technician_id})}
+    elif record.group_id is not None:
+        members = await session.scalars(users_in_groups(frozenset({record.group_id})))
+        relatives = {GROUP: frozenset(members)}
+    else:
+        return None
+    relatives = {k: v - {record.requester_id} for k, v in relatives.items()}  # never them
+    names = await user_names(session, [str(record.requester_id)])
+    variables: dict[str, VariableValue] = {
+        "record.display_id": record.display_id,
+        "record.title": record.subject,
+        "record.link": f"/requests/{record.id}",
+        "requester.name": names.get(str(record.requester_id)),
+        "wait.kind": LabelRef(f"workflow_wait_kind.{payload['wait_kind']}"),
+    }
+    return RecordContext(
+        record_id=record.id,
+        display_id=record.display_id,
+        link=f"/requests/{record.id}",
+        variables=variables,
+        public_variables=variables,
+        relatives=relatives,
+        conditions={"priority": record.priority},
+        event_code=WAITING,
     )
 
 
