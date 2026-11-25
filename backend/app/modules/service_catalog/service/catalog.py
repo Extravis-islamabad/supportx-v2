@@ -885,6 +885,26 @@ async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> Non
     approval = values.get("approval")
     if isinstance(approval, Mapping) and uses_stages(stages_of(approval)):
         await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047a S5: a plan's ordered steps, task fields, owners by kind and hand-overs, and an
+    # item's workflow, are Professional (REQ-SR-047, -049, -050, -053, -056); a step's condition
+    # is Essentials (REQ-SR-048). Clearing them is always allowed.
+    plan = values.get("plan")
+    if (isinstance(plan, list) and any(_professional_step(t) for t in plan)) or values.get(
+        "workflow_id"
+    ) is not None:
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
+def _professional_step(step: Any) -> bool:  # noqa: ANN401 - the API's plan JSON
+    if not isinstance(step, Mapping):
+        return False
+    owner = step.get("owner_kind")
+    return bool(
+        step.get("waits_for")
+        or step.get("fields")
+        or (owner not in (None, TaskOwnerKind.PERSON.value))
+        or step.get("kind") not in (None, PlanStepKind.TASK.value)
+    )
 
 
 async def create_item(

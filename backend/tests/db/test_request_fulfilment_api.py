@@ -10,14 +10,17 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+from conftest import assign_system_role, create_tenant
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_approvals_api import fresh, manager_of
 from tests.db.test_assets_api import _add as add_asset
 from tests.db.test_assets_api import _product
+from tests.db.test_catalog_api import add as add_item
 from tests.db.test_conversation_api import events_of
 from tests.db.test_fulfilment_api import tasks
-from tests.db.test_incidents_api import CONSOLE, Org, World
+from tests.db.test_incidents_api import CONSOLE, Org, World, problem
 from tests.db.test_service_requests_api import SR, an_item, raise_request
+from tests.db.test_users_api import seed_users
 
 pytestmark = MODULE_LOOP
 
@@ -385,3 +388,24 @@ async def test_the_actual_cost_adds_task_costs_for_the_cost_right_only(world: Wo
     )
     hidden = (await world.call("GET", f"{SR}/{record['id']}/worklogs", a, a.tech_a)).json()
     assert (hidden["task_cost"], hidden["actual_cost"]) == (None, None)
+
+
+async def test_editions_conditions_on_essentials_the_rest_professional(world: World) -> None:
+    """The plan's editions: REQ-SR-048 Essentials; -047, -049, -050, -053, -056 Professional."""
+    tenant = await create_tenant(world.db.migrator_url, "Essentials plan", edition="essentials")
+    (admin,) = await seed_users(world.db, tenant, [{"user_type": "technician"}])
+    await assign_system_role(world.db.admin_url, tenant, admin, "tenant_admin")
+    org = Org(tenant, admin, admin, admin, admin, admin, admin, admin)
+    base: dict[str, Any] = {"questions": [REMOTE], "names": {"en": "Laptop"}}
+    when = {"field": "remote", "op": "eq", "value": "yes"}
+    professional = {
+        "REQ-SR-047": [step("A", key="a"), step("B", key="b", waits_for=["a"])],
+        "REQ-SR-049": [step("A", fields=[{"key": "x", "label": {"en": "X"}, "kind": "text"}])],
+        "REQ-SR-050": [step("A", owner_kind="requested_for_manager")],
+        "REQ-SR-056": [step("A", kind="asset_handover")],
+    }
+    for req, plan in professional.items():
+        refused = await add_item(world, org, admin, **base, plan=plan)
+        assert problem(refused) == (403, "entitlement_required"), req
+    made = await add_item(world, org, admin, **base, plan=[step("A", key="a", condition=when)])
+    assert made.status_code == 201, made.text  # REQ-SR-048: a condition stays Essentials
