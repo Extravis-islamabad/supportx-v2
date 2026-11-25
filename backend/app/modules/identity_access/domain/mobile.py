@@ -90,3 +90,78 @@ def app_return(redirect_uri: str, **params: str) -> str:
     """The app's return link with `handoff` or `auth_error` in its query."""
     separator = "&" if "?" in redirect_uri else "?"
     return f"{redirect_uri}{separator}{urlencode(params)}"
+
+
+# --- the tenant's mobile app policy (WP-057 S6b; REQ-SEC-047) --------------------------------
+#
+# Server-enforced: whether the app may sign in (AC1, refused before any session exists, with the
+# tenant's message), a second factor for mobile sign-ins, and the mobile session's length.
+# Client-enforced, by the app: the device unlock after time in the background (AC2) and clearing
+# local data at sign-out. The server cannot prove those happened; it only states the policy.
+
+MOBILE_NOT_ALLOWED = "mobile_not_allowed"  # the app's sign-in refused: the tenant's message
+# A tenant switch on the app into a tenant that wants two-step sign-in on mobile, by someone not
+# enrolled: refused (they set it up from their account; a switch cannot enrol them).
+MOBILE_MFA_ENROLMENT_REQUIRED = "mobile_mfa_enrolment_required"
+UNLOCK_AFTER_MIN, UNLOCK_AFTER_MAX = 1, 60  # minutes in the background before a device unlock
+REFUSAL_MESSAGE_MAX = 500  # characters, per language, after cleaning
+MESSAGE_LANGUAGES = frozenset({"en", "ar", "ur"})  # the product's languages (lane B's condition 3)
+_CONTROL = re.compile("[\\x00-\\x08\\x0b-\\x1f\\x7f\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069]")
+_SPACES = re.compile(r"[ \t\r\n]+")
+
+
+@dataclass(frozen=True)
+class MobilePolicy:
+    """A tenant's mobile app policy; the defaults when it has set none (Appendix A style)."""
+
+    allowed: bool = True
+    refusal_message: dict[str, str] | None = None  # per language; None: the built-in text
+    mfa_required: bool = False
+    device_unlock_required: bool = False
+    unlock_after_minutes: int = 5
+    clear_on_sign_out: bool = True
+
+
+def _plain(text: str) -> str:
+    return _SPACES.sub(" ", _CONTROL.sub("", text)).strip()
+
+
+def clean_message(text: str) -> str:
+    """Plain text the app shows as is: no control or direction characters, one line, capped.
+
+    Admin-written, shown on a phone outside the web app's sanitiser, so it is cleaned on save and
+    again on render (lane B): no markup is interpreted (the app renders text, never HTML), and
+    whitespace runs become one space.
+    """
+    return _plain(text)[:REFUSAL_MESSAGE_MAX]
+
+
+def refusal_message(policy: MobilePolicy, language: str, default_language: str) -> str | None:
+    """The tenant's message in the person's language, else the tenant default; None: built-in."""
+    messages = policy.refusal_message or {}
+    for code in (language, default_language):
+        text = clean_message(messages.get(code) or "")
+        if text:
+            return text
+    return None
+
+
+def policy_problems(values: dict[str, Any]) -> list[tuple[str, str]]:
+    """Field problems of a policy as sent: (field, code); the server's rules, shown by the form."""
+    problems: list[tuple[str, str]] = []
+    minutes = values.get("unlock_after_minutes")
+    if minutes is not None and (
+        isinstance(minutes, bool)
+        or not isinstance(minutes, int)
+        or not UNLOCK_AFTER_MIN <= minutes <= UNLOCK_AFTER_MAX
+    ):
+        problems.append(("unlock_after_minutes", "out_of_range"))
+    messages = values.get("refusal_message")
+    if messages is not None:
+        if not isinstance(messages, dict) or not all(
+            k in MESSAGE_LANGUAGES and isinstance(v, str) for k, v in messages.items()
+        ):
+            problems.append(("refusal_message", "invalid"))
+        elif any(len(_plain(v)) > REFUSAL_MESSAGE_MAX for v in messages.values()):
+            problems.append(("refusal_message", "too_long"))
+    return problems

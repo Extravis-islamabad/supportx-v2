@@ -224,6 +224,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/auth/logout` | session (BFF) | - | - |
 | GET | `/api/v1/auth/me` | session (BFF) | - | - |
 | POST | `/api/v1/auth/mobile/exchange` | public | - | - |
+| GET | `/api/v1/auth/mobile/policy` | session (BFF) | - | - |
 | POST | `/api/v1/auth/password-reset` | public | - | - |
 | GET | `/api/v1/auth/sessions` | session (BFF) | - | - |
 | POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - | - |
@@ -624,6 +625,7 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/identity/security-overview` | `identity.manage` | identity.manage: all | - |
 | GET | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all | - |
 | PUT | `/api/v1/identity/settings` | `identity.manage` | identity.manage: all | - |
+| PUT | `/api/v1/identity/settings/mobile` | `identity.manage` | identity.manage: all | - |
 | POST | `/api/v1/identity/settings/password-policy/apply` | `identity.manage` | identity.manage: all | - |
 | GET | `/api/v1/identity/sign-ins` | `identity.view_sign_ins` | identity.view_sign_ins: all | - |
 | GET | `/api/v1/identity/site-networks` | `identity.manage` | identity.manage: all | - |

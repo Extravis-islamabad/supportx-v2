@@ -12,6 +12,7 @@ import { NetworkRulesCard } from './NetworkRulesCard';
 import { SiteNetworksCard } from './SiteNetworksCard';
 import { PasswordPolicyCard } from './PasswordPolicyCard';
 import { SecurityOverview } from './SecurityOverview';
+import { MobileAppCard } from './MobileAppCard';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
 import { SsoPolicyCard } from './SsoPolicyCard';
@@ -67,6 +68,7 @@ export function SecurityPage() {
       <MfaPolicyCard />
       <InvitationsCard />
       <SessionsCard />
+      <MobileAppCard />
       <NetworkRulesCard />
       <SiteNetworksCard />
       <VendorSupportCard />

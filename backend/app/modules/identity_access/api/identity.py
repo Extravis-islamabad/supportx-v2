@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.core.authorization import require_permission
-from app.core.database import TenantSession
+from app.core.database import TenantSession, after_commit
 from app.core.errors import NotFound, ProblemDetail
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
@@ -173,6 +173,21 @@ class IdentitySettingsOut(BaseModel):
     key_max_lifetime_days: int = Field(description="New keys last at most this long (days).")
     keys_require_ip_range: bool = Field(description="New keys must have an IP range.")
     key_unused_days: int = Field(description="Keys unused this long are listed to admins.")
+    # REQ-SEC-047 (WP-057 S6b): the mobile app policy.
+    mobile_allowed: bool = True
+    mobile_refusal_message: dict[str, str] | None = Field(
+        default=None, description="Plain text per language (en, ar, ur); none: the built-in."
+    )
+    mobile_mfa_required: bool = False
+    mobile_device_unlock_required: bool = Field(
+        default=False, description="Enforced by the app on the device, not by the server."
+    )
+    mobile_unlock_after_minutes: int = 5
+    mobile_idle_seconds: int | None = Field(default=None, description="None: the web app's.")
+    mobile_absolute_seconds: int | None = Field(default=None, description="None: the web app's.")
+    mobile_clear_on_sign_out: bool = Field(
+        default=True, description="Enforced by the app on the device, not by the server."
+    )
     password_policy_editable: bool = Field(
         description="False on multi-tenant installations: the platform's policy applies."
     )
@@ -227,6 +242,70 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, ve
     note.object_id = str(subject.tenant_id)
     note.details = details
     note.skip = not details
+    set_etag(response, saved.version)
+    return _out(saved, request)
+
+
+class MobilePolicyIn(BaseModel):
+    """The Mobile card's fields, all of them (REQ-SEC-047; WP-057 S6b)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    allowed: bool
+    refusal_message: dict[Literal["en", "ar", "ur"], str] | None = None
+    mfa_required: bool
+    device_unlock_required: bool
+    unlock_after_minutes: int
+    idle_seconds: int | None = None
+    absolute_seconds: int | None = None
+    clear_on_sign_out: bool
+
+
+@router.put("/settings/mobile", summary="Save the mobile app policy", dependencies=[RecentAuth])
+async def put_mobile_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    body: MobilePolicyIn,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote, audited("identity.settings_changed", object_type="identity_settings")
+    ],
+) -> IdentitySettingsOut:
+    """Only these fields change; a stale version is 409, never overwriting another card's."""
+    saved, details = await identity_settings.save_mobile_policy(
+        session,
+        identity_settings.MobileChange(
+            allowed=body.allowed,
+            refusal_message=None
+            if body.refusal_message is None
+            else {str(k): v for k, v in body.refusal_message.items()},
+            mfa_required=body.mfa_required,
+            device_unlock_required=body.device_unlock_required,
+            unlock_after_minutes=body.unlock_after_minutes,
+            idle_seconds=body.idle_seconds,
+            absolute_seconds=body.absolute_seconds,
+            clear_on_sign_out=body.clear_on_sign_out,
+        ),
+        expected_version=version,
+    )
+    note.object_id = str(subject.tenant_id)
+    note.details = details
+    note.skip = not details
+    changed = details.get("changed_fields")
+    if isinstance(changed, list) and "mobile_allowed" in changed and not saved.mobile_allowed:
+        # AC1: switched off, every mobile session of the tenant ends now, not at its expiry. After
+        # the commit (lane B's #642 note): a mobile sign-in racing the save sees "off" by then,
+        # and one that slipped in before is ended by the marker set after it.
+        auth = getattr(request.app.state, "auth", None)
+        if auth is not None:
+            tenant = subject.tenant_id
+
+            async def end_after_commit() -> None:
+                await auth.end_mobile_sessions(tenant)
+
+            after_commit(session, end_after_commit)
     set_etag(response, saved.version)
     return _out(saved, request)
 

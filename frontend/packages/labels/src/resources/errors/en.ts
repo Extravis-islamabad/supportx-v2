@@ -668,6 +668,11 @@ export const en = {
   'errors.field.message_required': 'Write the message in English at least.',
   'errors.field.mfa_grace_out_of_range': 'Use between {{min}} and {{max}} days.',
   'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
+  'errors.field.mobile_invalid': 'Write the message in English, Arabic or Urdu.',
+  'errors.field.mobile_limits_both':
+    'Set both mobile session limits, or neither to use the web limits.',
+  'errors.field.mobile_out_of_range': 'Use between 1 and 60 minutes.',
+  'errors.field.mobile_too_long': 'Keep the message to 500 characters.',
   'errors.field.month_out_of_range': 'Choose a month from the list.',
   'errors.field.move_articles_first': 'This topic still holds articles. Choose where they go.',
   'errors.field.must_be_future': 'Choose a time in the future.',
@@ -1156,6 +1161,11 @@ export const en = {
   'errors.mfa_reset_not_signed_in':
     'This person has not signed in yet, so there is nothing to reset.',
   'errors.mfa_reset_own': 'You cannot reset your own two-step sign-in. Ask another administrator.',
+  'errors.mobile_mfa_enrolment_required':
+    'Your organisation requires two-step sign-in on the mobile app. Set it up in your account, then switch again.',
+  'errors.mobile_not_allowed':
+    'Your organisation does not allow the mobile app. Use SupportX in a web browser.',
+  'errors.mobile_session_required': 'Only the SupportX mobile app can read this.',
   'errors.name_taken': 'This name is already used.',
   'errors.network_error':
     'SupportX cannot be reached right now. Check your connection; we will keep trying.',

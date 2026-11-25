@@ -73,6 +73,9 @@ class Session:
     # shown in the person's session list. None for the web apps.
     device_platform: str | None = None
     app_version: str | None = None
+    # A session the mobile app holds (ADR-044's hand-off; WP-057 S6b): the platform is optional
+    # at sign-in, so this, not `device_platform`, says it is the app's (REQ-SEC-047).
+    mobile: bool = False
     # How the person signed in (WP-057 S1b, lane B's condition 2): from the verified ID token at
     # sign-in, kept for the session, as a tenant switch has no new token and the single sign-on
     # rule must judge the original method. None for sessions begun before S1b (judged unknown).

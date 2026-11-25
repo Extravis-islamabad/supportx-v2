@@ -2910,7 +2910,20 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
       On multi-tenant installations DNS is the way, so AC1 is met there too.
     - Open: the CLAUDE.md §3 line for D-183 waits for Haider to confirm it in lane C's session.
 - [ ] Session 6: passkeys; the mobile access policy. REQ-SEC-015 (a dedicated realm per
-  tenant) moved to LATER (D-165).
+  tenant) moved to LATER (D-165). Plan approved 2026-11-25 (~/Extravis/plans/wp-057-s6-plan.md):
+  S6b first, then S6a after a real-Keycloak spike; lane B blocks both.
+  - **S6b, the mobile app policy (REQ-SEC-047), migration 0206, built 2026-11-25 (draft PR):**
+    - On `identity_settings` beside the web session limits; the Mobile card saves only its own
+      fields under the row's version (a stale card gets 409; lane B's condition 1).
+    - Server-enforced: AC1 (refused before anyone is provisioned, with the tenant's message on
+      the app's return link, cleaned on save and on render; switching off ends mobile sessions
+      at once), two-step sign-in on mobile, the mobile session's limits (else the web's).
+    - Client-enforced, named so (the coordinator's condition 4): AC2's device unlock and
+      clearing data at sign-out, read by the app from `GET /auth/mobile/policy`. The mobile
+      team builds the app side (docs/architecture/mobile.md).
+    - Tests: domain (11), DB (policy 7, 0206 migration), Vitest (Mobile card 2).
+  - **S6a, passkeys (REQ-SEC-023):** waits for the spike; a UV-verified passkey satisfies "MFA
+    required" (the coordinator, 2026-11-25); lane B writes the realm part from the spike's JSON.
 
 ### [~] WP-064 — Record lifecycle in the tamper-evident audit log (lane B; D-150; ADR-045, ADR-046; sessions 1-2 of 4 built 2026-11-10/11)
 

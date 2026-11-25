@@ -29,6 +29,11 @@ const DEFAULTS: IdentitySettings = {
   key_max_lifetime_days: 366,
   keys_require_ip_range: false,
   key_unused_days: 90,
+  mobile_allowed: true,
+  mobile_mfa_required: false,
+  mobile_device_unlock_required: false,
+  mobile_unlock_after_minutes: 5,
+  mobile_clear_on_sign_out: true,
   invitation_valid_days: 7,
   password_min_length: 12,
   password_upper: true,
@@ -623,5 +628,62 @@ describe('single sign-on', () => {
     window.history.pushState({}, '', '/sso-test-done');
     render(<App />);
     expect(await screen.findByTestId('sso-test-done')).toBeTruthy();
+  });
+});
+
+describe('the mobile app (WP-057 S6b; REQ-SEC-047)', () => {
+  it('switching the app off asks for the message, and saves only the Mobile card', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'PUT /api/v1/identity/settings/mobile': () => ({
+            body: { ...DEFAULTS, mobile_allowed: false, version: 1 },
+            headers: { ETag: '"1"' },
+          }),
+        },
+      }),
+    );
+    render(<App />);
+    await screen.findByTestId('security-mobile-save'); // loaded, not the loading card
+    const card = screen.getByTestId('security-mobile');
+    // Named as the app's own, never a server guarantee (the coordinator's condition 4).
+    expect(within(card).getByTestId('security-mobile-on-device').textContent).toContain(
+      'SupportX cannot check that a phone did so',
+    );
+    expect(within(card).queryByTestId('security-mobile-message-en')).toBeNull();
+    fireEvent.click(within(card).getByTestId('security-mobile-allowed'));
+    fireEvent.change(within(card).getByTestId('security-mobile-message-en'), {
+      target: { value: 'Use the web console.' },
+    });
+    expect(within(card).getByTestId('security-mobile-message-ar').getAttribute('dir')).toBe('rtl');
+    fireEvent.click(within(card).getByTestId('security-mobile-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings/mobile')).toHaveLength(1);
+    });
+    const put = fake.find('PUT', '/api/v1/identity/settings/mobile')[0];
+    expect(put?.headers.get('If-Match')).toBe('"0"');
+    expect(put?.body).toMatchObject({
+      allowed: false,
+      refusal_message: { en: 'Use the web console.' },
+      idle_seconds: null,
+      absolute_seconds: null,
+    });
+    expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(0); // its own fields only
+  });
+
+  it('an unlock time out of bounds is refused at the field, before saving', async () => {
+    api(routes());
+    render(<App />);
+    await screen.findByTestId('security-mobile-save'); // loaded, not the loading card
+    const card = screen.getByTestId('security-mobile');
+    fireEvent.click(within(card).getByTestId('security-mobile-unlock'));
+    fireEvent.change(within(card).getByTestId('security-mobile-unlock-after'), {
+      target: { value: '90' },
+    });
+    expect(
+      within(screen.getByTestId('security-mobile-unlock-after-field')).getByRole('alert')
+        .textContent,
+    ).toBe('Use between 1 and 60 minutes.');
+    expect(within(card).getByTestId('security-mobile-save').hasAttribute('disabled')).toBe(true);
   });
 });

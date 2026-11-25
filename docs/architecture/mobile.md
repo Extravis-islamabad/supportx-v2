@@ -58,6 +58,15 @@ Mobile sessions keep the web's idle and absolute limits (D-157) until the produc
 
 `@supportx/api-client` (done): `setApiOrigin()` for the chosen server, and `setSessionId()` / `onSessionId()` for the session header. Web behaviour is unchanged.
 
+### The tenant's mobile app policy (WP-057 S6b, REQ-SEC-047)
+
+For the app (the mobile team): a refused sign-in may carry `auth_message` next to `auth_error`,
+the organisation's own words; show it **as text, never markup**, under the label for
+`mobile_not_allowed`. Read `GET /api/v1/auth/mobile/policy` after sign-in and when the app comes
+to the foreground: `device_unlock_required` with `unlock_after_minutes` (ask for the device's PIN
+or biometrics after that long in the background) and `clear_on_sign_out`. These two are the
+app's to enforce: the server cannot check them (docs/architecture/identity.md).
+
 ## Repo integration
 - `mobile/` is its **own pnpm project** (React 19.3 there, while the `frontend/` catalog pins React 18.3.1).
 - It uses shared packages through `link:../frontend/packages/{api-client,labels,realtime}`.

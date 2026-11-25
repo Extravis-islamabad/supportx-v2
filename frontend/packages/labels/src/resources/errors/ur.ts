@@ -671,6 +671,11 @@ export const ur: LabelResource = {
   'errors.field.message_required': 'کم از کم انگریزی میں پیغام لکھیں۔',
   'errors.field.mfa_grace_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
   'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
+  'errors.field.mobile_invalid': 'پیغام انگریزی، عربی یا اردو میں لکھیں۔',
+  'errors.field.mobile_limits_both':
+    'موبائل سیشن کی دونوں حدیں مقرر کریں، یا ویب کی حدیں استعمال کرنے کے لیے دونوں خالی چھوڑیں۔',
+  'errors.field.mobile_out_of_range': '1 سے 60 منٹ کے درمیان رکھیں۔',
+  'errors.field.mobile_too_long': 'پیغام 500 حروف تک رکھیں۔',
   'errors.field.month_out_of_range': 'فہرست میں سے مہینہ چنیں۔',
   'errors.field.move_articles_first': 'اس موضوع میں ابھی مضامین ہیں۔ منتخب کریں کہ وہ کہاں جائیں۔',
   'errors.field.must_be_future': 'مستقبل کا کوئی وقت منتخب کریں۔',
@@ -1167,6 +1172,11 @@ export const ur: LabelResource = {
     'اس شخص نے ابھی سائن اِن نہیں کیا، اس لیے ری سیٹ کرنے کو کچھ نہیں۔',
   'errors.mfa_reset_own':
     'آپ اپنا دو مرحلہ سائن اِن خود ری سیٹ نہیں کر سکتے۔ کسی دوسرے ایڈمنسٹریٹر سے کہیں۔',
+  'errors.mobile_mfa_enrolment_required':
+    'آپ کی تنظیم موبائل ایپ پر دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے اپنے اکاؤنٹ میں ترتیب دیں، پھر دوبارہ تبدیل کریں۔',
+  'errors.mobile_not_allowed':
+    'آپ کی تنظیم موبائل ایپ کی اجازت نہیں دیتی۔ SupportX ویب براؤزر میں استعمال کریں۔',
+  'errors.mobile_session_required': 'یہ صرف SupportX موبائل ایپ پڑھ سکتی ہے۔',
   'errors.name_taken': 'یہ نام پہلے سے استعمال میں ہے۔',
   'errors.network_error':
     'SupportX تک ابھی رسائی نہیں ہو رہی۔ اپنا کنکشن چیک کریں؛ ہم کوشش جاری رکھیں گے۔',
