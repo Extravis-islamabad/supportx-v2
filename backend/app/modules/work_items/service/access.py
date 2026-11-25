@@ -412,6 +412,20 @@ SERVICE_REQUEST_FIELDS: Mapping[str, FilterField] = {
     "charge_cost_centre": FilterField(WorkItem.charge_cost_centre, FieldType.STRING, simple=False),
     "charged_at": FilterField(WorkItem.charged_at, FieldType.DATETIME, sortable=True, simple=False),
 }
+# A request's money (D-184): never filtered, sorted, shown or reported without the type's cost
+# right (lane C's #633 review: a filter `estimated_cost gt N` would reveal the value).
+MONEY_FIELDS = frozenset(
+    {"estimated_cost", "charged_amount", "charge_department_id", "charge_cost_centre", "charged_at"}
+)
+
+
+def money_withheld(subject: Subject, wtype: WorkItemType) -> frozenset[str]:
+    """The money fields withheld from `subject` on `wtype` (empty with its cost right)."""
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        return frozenset()
+    return frozenset() if subject.holds(wtype.permission(VIEW_COSTS)) else MONEY_FIELDS
+
+
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
     WorkItemTypeCode.SERVICE_REQUEST: SERVICE_REQUEST_FIELDS,
     WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,

@@ -14,7 +14,11 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain import field_access as field_rules
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.service import custom_values
-from app.modules.work_items.service.access import FIELDS, VIEW_COSTS, type_fields
+from app.modules.work_items.service.access import (
+    FIELDS,
+    money_withheld,
+    type_fields,
+)
 from app.modules.work_items.service.work_items import staff_rows
 from app.shared.api.filters import FieldType, ResourceFields
 from app.shared.reporting import (
@@ -106,10 +110,6 @@ SERVICE_REQUEST_DIMENSIONS: Mapping[str, Dimension] = {
     "estimated_cost": Dimension(_D.NUMBER),
     "charged_amount": Dimension(_D.NUMBER),
 }
-# Money a report never shows without the type's cost right (D-184; withheld, never blank).
-MONEY_FIELDS = frozenset(
-    {"estimated_cost", "charged_amount", "charge_department_id", "charge_cost_centre", "charged_at"}
-)
 TYPE_DIMENSIONS: Mapping[WorkItemTypeCode, Mapping[str, Dimension]] = {
     WorkItemTypeCode.SERVICE_REQUEST: SERVICE_REQUEST_DIMENSIONS,
     WorkItemTypeCode.PROBLEM: PROBLEM_DIMENSIONS,
@@ -158,11 +158,8 @@ class WorkItemSource:
         sealed = await custom_values.not_plain_keys(session, self.entity)
         withheld = withheld | {f"custom.{key}" for key in sealed}
         # A request's money only with its cost right (WP-047b S1; D-184): the charge-back
-        # report is for those who may see costs.
-        if self._wtype.code is WorkItemTypeCode.SERVICE_REQUEST and not subject.holds(
-            self._wtype.permission(VIEW_COSTS)
-        ):
-            withheld = withheld | MONEY_FIELDS
+        # report is for those who may see costs, in filters, group-bys and columns alike.
+        withheld = withheld | money_withheld(subject, self._wtype)
         fields = {n: f for n, f in {**FIELDS.fields, **own, **custom}.items() if n not in withheld}
         return ReportingSource(
             entity=self.entity,

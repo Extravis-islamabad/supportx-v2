@@ -86,3 +86,19 @@ async def test_charge_back_groups_by_item_and_department(reports: World) -> None
     )
 
     assert monthly.status_code == 200, monthly.text
+
+
+async def test_money_in_a_filter_or_a_grouping_is_refused_too(reports: World) -> None:
+    """Lane C's #633 review: not only columns; filters and group-bys never read money."""
+    world, a = reports, reports.a
+    uses = (
+        {"filter": {"field": "estimated_cost", "op": "gt", "value": 100}, "measures": ["count"]},
+        {"group_by": [{"field": "charge_department_id"}], "measures": ["count"]},
+        {"group_by": [{"field": "charged_at", "bucket": "month"}], "measures": ["count"]},
+    )
+    for use in uses:
+        definition = {"entity": "service_request", **use}
+        refused = await _run(world, a, a.tech_a, definition)
+        assert refused.status_code == 403, (use, refused.text)
+        assert refused.json()["code"] == "field_not_permitted", use
+        assert (await _run(world, a, a.admin, definition)).status_code == 200, use

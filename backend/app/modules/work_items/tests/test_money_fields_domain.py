@@ -5,9 +5,13 @@ must be in MONEY_FIELDS, so a new money column can never reach a report without 
 (work_items is granted to the report role table-wide, so the source is the only guard).
 """
 
-from app.modules.work_items.service.access import SERVICE_REQUEST_FIELDS
-from app.modules.work_items.service.reporting import MONEY_FIELDS
+from app.modules.work_items.service.access import MONEY_FIELDS, SERVICE_REQUEST_FIELDS
+from app.modules.work_items.service.reporting import SERVICE_REQUEST_DIMENSIONS
 from app.shared.api.filters import FieldType
+from app.shared.reporting import DimensionKind
+
+# A number a request may report that is not money: named here on purpose (lane B's note).
+NOT_MONEY: frozenset[str] = frozenset()
 
 
 def test_every_money_field_of_a_request_is_withheld_without_the_cost_right() -> None:
@@ -16,3 +20,12 @@ def test_every_money_field_of_a_request_is_withheld_without_the_cost_right() -> 
     assert money <= MONEY_FIELDS
     charge = {name for name in SERVICE_REQUEST_FIELDS if name.startswith("charge")}
     assert charge <= MONEY_FIELDS
+
+
+def test_every_money_dimension_of_a_request_is_withheld_too() -> None:
+    """Lane B's note: a money dimension added only to the report's dimensions is caught too."""
+    numbers = {
+        name for name, d in SERVICE_REQUEST_DIMENSIONS.items() if d.kind is DimensionKind.NUMBER
+    }
+    charge = {name for name in SERVICE_REQUEST_DIMENSIONS if name.startswith("charge")}
+    assert (numbers - NOT_MONEY) | charge <= MONEY_FIELDS

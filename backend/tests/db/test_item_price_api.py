@@ -239,3 +239,30 @@ async def test_sr033_ac2_a_rule_approves_below_a_cost(world: World) -> None:
     assert (await fresh(world, a, dear.json()))["approval_status"] == "pending"  # 600
     assert await approvals(world, a, a.admin, dear.json())
     assert uuid.UUID(cheap.json()["id"])
+
+
+async def test_lane_c_money_cannot_be_filtered_or_sorted_without_the_cost_right(
+    world: World,
+) -> None:
+    """D-184 (lane C's #633 review): a filter `estimated_cost gt N` would reveal the value."""
+    import json  # noqa: PLC0415 - one test
+
+    a = world.a
+    item = await priced(world, a)
+    await raised(world, a, item, "pro")
+    for field, op, value in (
+        ("estimated_cost", "gt", 100),
+        ("charged_amount", "gte", 1),
+        ("charge_department_id", "is_not_null", None),
+        ("charge_cost_centre", "eq", "CC-1"),
+    ):
+        probe = {"field": field, "op": op, **({} if value is None else {"value": value})}
+        params = {"filter": json.dumps(probe)}
+        refused = await world.call("GET", SR, a, a.tech_a, params=params)
+        assert refused.status_code == 422, (field, refused.text)
+        allowed = await world.call("GET", SR, a, a.admin, params=params)
+        assert allowed.status_code == 200, (field, allowed.text)
+    sorted_ = await world.call("GET", SR, a, a.tech_a, params={"sort": "charged_at"})
+    assert sorted_.status_code == 422, sorted_.text
+    fields = (await world.call("GET", f"{SR}/list-fields", a, a.tech_a)).json()
+    assert not {"estimated_cost", "charged_amount"} & {f["name"] for f in fields}
