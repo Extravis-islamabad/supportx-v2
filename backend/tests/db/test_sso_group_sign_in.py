@@ -146,8 +146,8 @@ async def test_the_admin_api_failing_refuses_the_sign_in_with_nothing_applied(bf
         world.admin.attributes[user.subject] = _sent(world.alias, groups=["sx-change"])
         world.admin.fail_take = True
         refused = await bff.login(user)
-        assert refused.status_code == 303, refused.text
-        assert "auth_error=idp_groups_unavailable" in refused.headers["location"]
+        # An API client gets the problem (a browser, the same code on its return address).
+        assert (refused.status_code, refused.json()["code"]) == (403, "idp_groups_unavailable")
         assert await _holds(bff, world.tenant, email, world.role) == []
         assert (await bff.me()).status_code == 401  # no session
 

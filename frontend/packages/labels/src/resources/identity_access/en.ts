@@ -284,6 +284,8 @@ export const en = {
   'form_density.title': 'Form layout',
   'group_mapping_source.directory': 'Directory',
   'group_mapping_source.sso': 'Single sign-on',
+  'held_elsewhere_kind.group': 'Support group',
+  'held_elsewhere_kind.role': 'Role',
   'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
   'identity.settings.people_edit_contact_help':
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',

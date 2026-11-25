@@ -20,8 +20,13 @@ from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.core.tenancy import resolve_tenant
 from app.modules.identity_access.service import group_mappings
+from app.shared.api.ratelimit import rate_limit
 
-router = APIRouter(prefix="/identity/my-access", tags=["identity"])
+router = APIRouter(
+    prefix="/identity/my-access",
+    tags=["identity"],
+    dependencies=[Depends(rate_limit("identity"))],
+)
 SignedIn = Annotated[Any, Depends(require_signed_in())]  # the module's Subject
 
 

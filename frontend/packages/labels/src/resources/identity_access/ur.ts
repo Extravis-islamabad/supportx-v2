@@ -288,6 +288,8 @@ export const ur: LabelResource = {
   'form_density.title': 'فارم کی ترتیب',
   'group_mapping_source.directory': 'ڈائریکٹری',
   'group_mapping_source.sso': 'سنگل سائن آن',
+  'held_elsewhere_kind.group': 'سپورٹ گروپ',
+  'held_elsewhere_kind.role': 'رول',
   'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
   'identity.settings.people_edit_contact_help':
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',

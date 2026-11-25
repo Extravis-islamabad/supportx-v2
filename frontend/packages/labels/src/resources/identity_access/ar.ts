@@ -290,6 +290,8 @@ export const ar: LabelResource = {
   'form_density.title': 'تخطيط النموذج',
   'group_mapping_source.directory': 'الدليل',
   'group_mapping_source.sso': 'تسجيل الدخول الموحد',
+  'held_elsewhere_kind.group': 'مجموعة دعم',
+  'held_elsewhere_kind.role': 'دور',
   'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
   'identity.settings.people_edit_contact_help':
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
