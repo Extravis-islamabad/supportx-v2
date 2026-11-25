@@ -1,4 +1,4 @@
-# 2026-11-25: WP-057 S6b, the mobile app policy (lane C)
+### 2026-11-25 — WP-057 S6b, the mobile app policy (lane C)
 
 - **Plan:** approved by the coordinator 2026-11-25 (S6b first, migration 0206); storage settled
   with lane B as columns on `identity_settings` with three conditions.
