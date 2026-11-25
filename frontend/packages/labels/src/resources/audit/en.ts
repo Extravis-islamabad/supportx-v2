@@ -362,6 +362,10 @@ export const en = {
   'audit.action.metadata.custom_field_sealed': "Finished sealing a sensitive field's values",
   'audit.action.metadata.custom_field_sensitivity_changed':
     'Changed whether a custom field is sensitive',
+  'audit.action.monitoring.connection_changed': 'Changed a MonetX connection',
+  'audit.action.monitoring.connection_created': 'Added a MonetX connection',
+  'audit.action.monitoring.connection_removed': 'Removed a MonetX connection',
+  'audit.action.monitoring.topology_requested': 'Asked for a topology import',
   'audit.action.notification.rule_changed': 'Changed a notification rule',
   'audit.action.notification.rule_reset': 'Reset a notification rule to the default',
   'audit.action.notify_link.used': 'Stopped e-mails to someone kept informed',
@@ -739,6 +743,7 @@ export const en = {
   'audit.object.kb_vote': 'Article feedback',
   'audit.object.mail_block_rule': 'Block rule for unwanted mail',
   'audit.object.mailbox': 'Mailbox',
+  'audit.object.monitoring_connection': 'MonetX connection',
   'audit.object.notification_rule': 'Notification rule',
   'audit.object.people_import': 'People import',
   'audit.object.person_erasure': 'Erasure',
@@ -1210,6 +1215,9 @@ export const en = {
   'event_type.metadata.custom_field.changed': 'Custom field changed',
   'event_type.metadata.custom_field.seal_changed': 'Custom field sealing started or finished',
   'event_type.metadata.custom_field.seal_paused': 'Custom field sealing paused',
+  'event_type.monitoring_integrations.connection.changed': 'MonetX connection changed',
+  'event_type.monitoring_integrations.health.changed': 'CI health changed',
+  'event_type.monitoring_integrations.topology_run.changed': 'Topology import moved on',
   'event_type.notifications.delivery.recorded': 'Notification delivery recorded',
   'event_type.notifications.mail.not_sent_summary': 'E-mails given up: mail not set up',
   // WP-023 notifications

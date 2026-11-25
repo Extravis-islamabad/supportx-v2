@@ -930,6 +930,9 @@ export const ur: LabelResource = {
   'permission.mailboxes.manage': 'میل باکس کا انتظام کریں',
   'permission.mailboxes.manage.description':
     'اس کی جگہ «ای میل کنیکٹر سیٹ اپ کریں» آ گئی ہے؛ ہٹائے جانے تک یہ کام کرتی رہے گی۔',
+  'permission.monitoring.manage': 'نگرانی کے کنکشن ترتیب دیں',
+  'permission.monitoring.manage.description':
+    'MonetX جوڑیں، اس کا API ٹوکن مقرر کریں اور اس کی ٹوپولوجی درآمد کریں۔',
   'permission.notifications.manage': 'اطلاعات کے قواعد کا انتظام کریں',
   'permission.notifications.manage.description':
     'منتخب کریں کہ کون سے واقعات کسے اور کن ذرائع سے اطلاع دیں۔',
@@ -1184,6 +1187,7 @@ export const ur: LabelResource = {
   'permission_module.knowledge': 'نالج',
   'permission_module.licence': 'لائسنس',
   'permission_module.mailboxes': 'میل باکس',
+  'permission_module.monitoring': 'نگرانی',
   'permission_module.notifications': 'اطلاعات',
   'permission_module.people': 'ذاتی ڈیٹا',
   'permission_module.problems': 'مسائل',

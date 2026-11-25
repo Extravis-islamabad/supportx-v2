@@ -5089,6 +5089,108 @@
         "type": "object"
       }
     },
+    "monitoring_integrations.connection.changed": {
+      "1": {
+        "description": "A MonetX connection was added, changed or removed (never its token).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "connection_id": {
+            "format": "uuid",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection_id",
+          "change",
+          "version"
+        ],
+        "title": "ConnectionChanged",
+        "type": "object"
+      }
+    },
+    "monitoring_integrations.health.changed": {
+      "1": {
+        "description": "A watched CI's health changed: the state code only (the coordinator's S6 condition 4).",
+        "properties": {
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ci_id",
+          "state"
+        ],
+        "title": "HealthChanged",
+        "type": "object"
+      }
+    },
+    "monitoring_integrations.topology_run.changed": {
+      "1": {
+        "description": "A topology import started or finished: its state and counts, never device names.",
+        "properties": {
+          "connection_id": {
+            "format": "uuid",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created": {
+            "default": 0,
+            "title": "Created",
+            "type": "integer"
+          },
+          "ended": {
+            "default": 0,
+            "title": "Ended",
+            "type": "integer"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "stale": {
+            "default": 0,
+            "title": "Stale",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "updated": {
+            "default": 0,
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection_id",
+          "run_id",
+          "state"
+        ],
+        "title": "TopologyRunChanged",
+        "type": "object"
+      }
+    },
     "notifications.delivery.recorded": {
       "1": {
         "description": "A notification was sent, held back or failed for a record (the record's log, REQ-INC-134).",

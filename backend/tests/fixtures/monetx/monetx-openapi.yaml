@@ -1,0 +1,89 @@
+# Our ASSUMED shape of the MonetX read API (D-172: no MonetX docs yet). WP-053 S6 is built and
+# contract-tested against this file and tests/monetx_fake.py, which serves it. When MonetX's own
+# OpenAPI arrives, it replaces this file and the contract test runs against it again.
+# SupportX only ever READS MonetX (ADR-017, D-001): every operation here is a GET.
+openapi: 3.1.0
+info:
+  title: MonetX read API (assumed by SupportX)
+  version: 0.0.0-assumed
+security:
+  - bearer: []
+paths:
+  /api/v1/devices:
+    get:
+      summary: Monitored devices, paged
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        kind: { type: string, description: "server, vm, router, switch, firewall, ..." }
+                        group: { type: string, description: "the MonetX group the admin maps to a site" }
+                  next_cursor: { type: [string, "null"] }
+  /api/v1/links:
+    get:
+      summary: Links between devices, paged
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, from, to]
+                      properties:
+                        id: { type: string }
+                        from: { type: string }
+                        to: { type: string }
+                  next_cursor: { type: [string, "null"] }
+  /api/v1/health:
+    get:
+      summary: Current health of some devices
+      parameters:
+        - { name: device_ids, in: query, required: true, schema: { type: string, description: "comma-separated" } }
+      responses:
+        "200":
+          description: Health per device
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [device_id, status]
+                      properties:
+                        device_id: { type: string }
+                        status: { type: string, description: "up, ok, warning, degraded, down, critical, unreachable" }
+                        since: { type: string, format: date-time }
+                        problem_count: { type: integer, minimum: 0 }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }

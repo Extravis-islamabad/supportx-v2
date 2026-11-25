@@ -618,6 +618,7 @@ export const ar: LabelResource = {
   'errors.field.message_required': 'اكتب الرسالة بالإنجليزية على الأقل.',
   'errors.field.mfa_grace_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
   'errors.field.mfa_mode_invalid': 'اختر معطّلة أو اختيارية أو مطلوبة.',
+  'errors.field.monitoring_base_url_invalid': 'أدخل عنوان MonetX، مثل https://monetx.example.com.',
   'errors.field.month_out_of_range': 'اختر شهرًا من القائمة.',
   'errors.field.move_articles_first': 'لا يزال هذا الموضوع يحتوي على مقالات. اختر إلى أين تُنقل.',
   'errors.field.must_be_future': 'اختر وقتاً في المستقبل.',
@@ -1075,6 +1076,8 @@ export const ar: LabelResource = {
   'errors.mfa_reset_not_signed_in': 'لم يسجّل هذا الشخص الدخول بعد، فلا يوجد ما يُعاد تعيينه.',
   'errors.mfa_reset_own':
     'لا يمكنك إعادة تعيين تسجيل الدخول بخطوتين الخاص بك. اطلب ذلك من مسؤول آخر.',
+  'errors.monitoring_connection_name_taken': 'يوجد اتصال MonetX آخر بهذا الاسم.',
+  'errors.monitoring_connection_not_found': 'لم يُعثر على اتصال MonetX.',
   'errors.name_taken': 'هذا الاسم مستخدم بالفعل.',
   'errors.network_error': 'تعذّر الوصول إلى SupportX حاليًا. تحقّق من اتصالك؛ سنواصل المحاولة.',
   'errors.no_organization': 'حسابك غير مرتبط بأي مؤسسة بعد. يرجى التواصل مع المسؤول.',

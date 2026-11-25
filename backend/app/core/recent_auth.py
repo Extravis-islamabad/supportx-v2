@@ -97,6 +97,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/integrations/directories",
     "PUT /api/v1/integrations/directories/{directory_id}",
     "DELETE /api/v1/integrations/directories/{directory_id}",
+    # MonetX connections: their API token (WP-053 S6).
+    "POST /api/v1/monitoring/connections",
+    "PUT /api/v1/monitoring/connections/{connection_id}",
+    "DELETE /api/v1/monitoring/connections/{connection_id}",
     "POST /api/v1/integrations/ldap-directories",
     "PUT /api/v1/integrations/ldap-directories/{directory_id}",
     "DELETE /api/v1/integrations/ldap-directories/{directory_id}",

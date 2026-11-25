@@ -359,6 +359,10 @@ export const ur: LabelResource = {
   'audit.action.metadata.custom_field_sealed': 'حساس فیلڈ کی قدروں کی مہر بندی مکمل کی',
   'audit.action.metadata.custom_field_sensitivity_changed':
     'تبدیل کیا کہ آیا اپنی مرضی کا خانہ حساس ہے',
+  'audit.action.monitoring.connection_changed': 'MonetX کنکشن تبدیل کیا',
+  'audit.action.monitoring.connection_created': 'MonetX کنکشن شامل کیا',
+  'audit.action.monitoring.connection_removed': 'MonetX کنکشن ہٹایا',
+  'audit.action.monitoring.topology_requested': 'ٹوپولوجی درآمد کی درخواست کی',
   'audit.action.notification.rule_changed': 'اطلاع کا قاعدہ تبدیل کیا',
   'audit.action.notification.rule_reset': 'اطلاع کا قاعدہ پہلے سے طے شدہ پر واپس کیا',
   'audit.action.notify_link.used': 'باخبر رکھے گئے شخص کی ای میلز روکیں',
@@ -737,6 +741,7 @@ export const ur: LabelResource = {
   'audit.object.kb_vote': 'مضمون پر رائے',
   'audit.object.mail_block_rule': 'ناپسندیدہ میل کا روک کا اصول',
   'audit.object.mailbox': 'میل باکس',
+  'audit.object.monitoring_connection': 'MonetX کنکشن',
   'audit.object.notification_rule': 'اطلاع کا اصول',
   'audit.object.people_import': 'افراد کی درآمد',
   'audit.object.person_erasure': 'ڈیٹا مٹانا',
@@ -1210,6 +1215,9 @@ export const ur: LabelResource = {
   'event_type.metadata.custom_field.seal_changed':
     'اپنی مرضی کے خانے کی مہر بندی شروع یا مکمل ہوئی',
   'event_type.metadata.custom_field.seal_paused': 'اپنی مرضی کے خانے کی مہر بندی رک گئی',
+  'event_type.monitoring_integrations.connection.changed': 'MonetX کنکشن تبدیل ہوا',
+  'event_type.monitoring_integrations.health.changed': 'کنفیگریشن آئٹم کی صحت بدلی',
+  'event_type.monitoring_integrations.topology_run.changed': 'ٹوپولوجی درآمد آگے بڑھی',
   'event_type.notifications.delivery.recorded': 'اطلاع کی ترسیل درج ہوئی',
   'event_type.notifications.mail.not_sent_summary': 'ای میلز چھوڑ دی گئیں: میل سیٹ اپ نہیں',
   // WP-023 notifications

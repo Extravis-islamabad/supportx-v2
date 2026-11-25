@@ -5,7 +5,9 @@ API, turning it into incidents and replies, and the mail page. Outgoing mail sta
 in the one sender, `app.shared.mail` (D-089). WP-040 adds the connector catalogue, which lists
 every module's connectors through `app.shared.connectors`.
 
-Public interface for other modules: none yet.
+Public interface for other modules: the connector secrets store (`store_connector_secret`,
+`read_connector_secret`, `forget_connector_secrets`, `connector_secret_info`; WP-053 S6, for
+monitoring_integrations' MonetX token).
 """
 
 from app.core.authorization import PermissionSpec
@@ -33,6 +35,13 @@ from app.modules.integrations.service.ldap_directories import LDAP_FEDERATION_AP
 from app.modules.integrations.service.ldap_people import ldap_people_schedule
 from app.modules.integrations.service.mailboxes import LEGACY_MANAGE, MANAGE
 from app.modules.integrations.service.realtime import ROUTES
+from app.modules.integrations.service.secret_store import (
+    SecretInfo,
+    connector_secret_info,
+    forget_connector_secrets,
+    read_connector_secret,
+    store_connector_secret,
+)
 from app.shared.connectors.ports import ConnectorCategory
 from app.shared.schedules import ScheduleSpec
 
@@ -82,4 +91,11 @@ module = ModuleSpec(
     realtime=ROUTES,
 )
 
-__all__ = ["module"]
+__all__ = [
+    "SecretInfo",
+    "connector_secret_info",
+    "forget_connector_secrets",
+    "module",
+    "read_connector_secret",
+    "store_connector_secret",
+]

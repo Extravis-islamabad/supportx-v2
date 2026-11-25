@@ -53,6 +53,7 @@ class SecretType(StrEnum):
     CLIENT_SECRET = "client_secret"  # noqa: S105 - a type code
     CERTIFICATE = "certificate"
     REFRESH_TOKEN = "refresh_token"  # noqa: S105 - a type code
+    API_TOKEN = "api_token"  # noqa: S105 - a type code (a MonetX connection's, WP-053 S6)
 
 
 @dataclass(frozen=True)
