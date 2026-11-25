@@ -494,6 +494,8 @@ export const en = {
     'This MonetX is on a private network, which is not reachable from SaaS yet.',
   'monitoring_reason.monitoring_refused': 'MonetX refused the API token.',
   'monitoring_reason.monitoring_secret_missing': 'No API token is set.',
+  'monitoring_reason.monitoring_too_large':
+    "MonetX sent more devices or links than SupportX imports at once (50,000). Narrow the connection's scope in MonetX.",
   'monitoring_reason.monitoring_unreachable': 'MonetX could not be reached.',
   'monitoring_run_state.done': 'Done',
   'monitoring_run_state.failed': 'Failed',

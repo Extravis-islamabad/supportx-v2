@@ -23,6 +23,7 @@ from app.modules.monitoring_integrations.domain.monitoring import (
     INVALID_ANSWER,
     NOT_REACHABLE_FROM_SAAS,
     REFUSED,
+    TOO_LARGE,
     UNREACHABLE,
 )
 from app.shared.egress import Allowance, Destination, EgressError, OutboundRequest, send
@@ -30,6 +31,9 @@ from app.shared.egress import Allowance, Destination, EgressError, OutboundReque
 _READ = "GET"  # the only method this module ever sends
 _HTTP_REFUSED = frozenset({401, 403})
 PAGE = 500
+# The most devices or links one import holds in memory: a hostile or broken MonetX that never
+# stops paging (or ignores `limit`) is refused, never allowed to exhaust the worker (lane C, #640).
+MAX_ITEMS = 50_000
 
 
 class MonitoringUnavailableError(Exception):
@@ -158,17 +162,23 @@ class MonetXClient:
     async def _pages(self, path: str) -> list[Mapping[str, Any]]:
         items: list[Mapping[str, Any]] = []
         cursor: str | None = None
-        for _ in range(1000):  # a bound: 500k items at most, never an endless loop
+        seen = 0  # every item MonetX sent, readable or not
+        while True:  # ends: every page adds items or stops, and MAX_ITEMS bounds the total
             query = {"limit": str(PAGE), **({"cursor": cursor} if cursor else {})}
             page = await self._transport.read(path, query)
             if not isinstance(page, Mapping) or not isinstance(page.get("items"), list):
                 raise MonitoringUnavailableError(INVALID_ANSWER)
-            items.extend(i for i in page["items"] if isinstance(i, Mapping))
+            got = page["items"]
+            seen += len(got)
+            if seen > MAX_ITEMS:
+                raise MonitoringUnavailableError(TOO_LARGE)
+            items.extend(i for i in got if isinstance(i, Mapping))
             nxt = page.get("next_cursor")
             if not isinstance(nxt, str) or not nxt:
                 return items
+            if not got or nxt == cursor:  # an empty page or a repeated cursor: a loop
+                raise MonitoringUnavailableError(INVALID_ANSWER)
             cursor = nxt
-        raise MonitoringUnavailableError(INVALID_ANSWER)
 
     async def check(self) -> None:
         """A connection test: one small read."""

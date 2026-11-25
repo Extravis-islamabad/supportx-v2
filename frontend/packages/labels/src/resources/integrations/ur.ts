@@ -494,6 +494,8 @@ export const ur: LabelResource = {
     'یہ MonetX ایک نجی نیٹ ورک پر ہے، جس تک SaaS سے ابھی رسائی نہیں۔',
   'monitoring_reason.monitoring_refused': 'MonetX نے API ٹوکن مسترد کر دیا۔',
   'monitoring_reason.monitoring_secret_missing': 'کوئی API ٹوکن مقرر نہیں۔',
+  'monitoring_reason.monitoring_too_large':
+    'MonetX نے اس سے زیادہ ڈیوائسز یا لنکس بھیجے جتنے SupportX ایک بار میں درآمد کرتا ہے (50,000)۔ MonetX میں کنکشن کا دائرہ محدود کریں۔',
   'monitoring_reason.monitoring_unreachable': 'MonetX تک رسائی نہیں ہو سکی۔',
   'monitoring_run_state.done': 'مکمل',
   'monitoring_run_state.failed': 'ناکام',

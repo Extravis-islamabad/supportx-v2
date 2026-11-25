@@ -489,6 +489,8 @@ export const ar: LabelResource = {
     'خادم MonetX هذا على شبكة خاصة لا يمكن الوصول إليها من الخدمة السحابية بعد.',
   'monitoring_reason.monitoring_refused': 'رفض MonetX رمز واجهة البرمجة.',
   'monitoring_reason.monitoring_secret_missing': 'لم يُضبط رمز واجهة البرمجة.',
+  'monitoring_reason.monitoring_too_large':
+    'أرسل MonetX أجهزة أو روابط أكثر مما يستورده SupportX دفعة واحدة (50,000). ضيّق نطاق الاتصال في MonetX.',
   'monitoring_reason.monitoring_unreachable': 'تعذّر الوصول إلى MonetX.',
   'monitoring_run_state.done': 'تم',
   'monitoring_run_state.failed': 'فشل',

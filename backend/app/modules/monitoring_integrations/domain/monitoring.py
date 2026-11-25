@@ -49,6 +49,7 @@ NOT_REACHABLE_FROM_SAAS = "monitoring_not_reachable_from_saas"
 NO_SECRET = "monitoring_secret_missing"  # noqa: S105 - a reason code
 REFUSED = "monitoring_refused"
 INVALID_ANSWER = "monitoring_invalid_answer"
+TOO_LARGE = "monitoring_too_large"  # more items than one import holds (lane C, #640)
 
 ENDED_AFTER = 3  # missed runs in a row before a device is ended
 HEALTH_IDS_MAX = 200
