@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, PermissionDenied, ValidationFailed
-from app.modules import service_catalog
+from app.modules import automation, service_catalog
 from app.modules.identity_access import UserType, person_placement
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory, WorkItemAction
@@ -27,7 +27,7 @@ from app.modules.work_items.service import closing, parts
 from app.modules.work_items.service import work_items as items
 from app.shared.conditions import matches
 from app.shared.events import record_event
-from app.shared.history import Change, Source
+from app.shared.history import Change, Source, record_changes
 
 TECHNICIAN = UserType.TECHNICIAN.value  # of the desk: an owner who is not gets task-only access
 # A plan step's owner kinds (service_catalog's TaskOwnerKind codes, plain values across modules).
@@ -72,6 +72,8 @@ async def start_plan(
     `waits_for` become the task's dependencies (REQ-SR-047), and only a task with nothing to wait
     for tells its owner now, the rest when their last predecessor completes (`can_start`).
     """
+    if item is not None and item.workflow_id is not None:
+        await _start_workflow(session, record, item.workflow_id, source=source)
     if item is None or not item.plan:
         return []
     existing = await parts.tasks_of(session, record.id)
@@ -120,6 +122,32 @@ async def start_plan(
         if task.id not in waiting:  # REQ-SR-047 AC1: the rest hear when they can start
             await parts.tell_owner(session, record, task)
     return made
+
+
+async def _start_workflow(
+    session: AsyncSession, record: WorkItem, workflow_id: uuid.UUID, *, source: Source
+) -> None:
+    """The item's fulfilment workflow starts when its plan would (REQ-SR-053; WP-047a S5).
+
+    As the workflow's run-as identity. One it can no longer run (switched off, unpublished,
+    already running) never undoes the approval: the record's history says why, labelled.
+    """
+    try:
+        await automation.start_workflow(
+            session, workflow_id=workflow_id, record_type=record.type, record_id=record.id
+        )
+    except Conflict as refused:
+        await record_changes(
+            session,
+            record_type=items.RECORD_TYPE,
+            record_id=record.id,
+            version=record.version,
+            kind="updated",
+            changes=[Change("fulfilment_workflow", None, str(workflow_id))],
+            source=source,
+            reason=refused.code,
+            subtype=record.type,
+        )
 
 
 def _plan_facts(record: WorkItem) -> dict[str, Any]:

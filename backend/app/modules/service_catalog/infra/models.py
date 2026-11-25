@@ -190,6 +190,8 @@ class CatalogItem(TenantEntity):
     requesters_see_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
     starter: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-138
     extra_category_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()), server_default="{}")
+    # WP-047a S5 (0204, REQ-SR-053): the item's fulfilment workflow (service request type).
+    workflow_id: Mapped[uuid.UUID | None]
     # Columns of the table, not of the mapped object: never loaded or written by the ORM.
     search_vector: Unmapped[Any] = unmapped_column(
         TSVECTOR, Computed(SEARCH_VECTOR, persisted=True)

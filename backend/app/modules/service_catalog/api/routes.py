@@ -242,6 +242,9 @@ class CatalogItemIn(BaseModel):
     sort_order: int | None = Field(default=None, ge=0, le=100_000)
     subject_template: str | None = Field(default=None, max_length=200)
     requesters_see_approval: bool | None = None
+    workflow_id: uuid.UUID | None = Field(
+        default=None, description="Its fulfilment workflow: a service request workflow."
+    )
     questions: list[QuestionIO] | None = Field(default=None, max_length=30)
     approval: ApprovalIO | None = None
     plan: list[PlannedTaskIO] | None = Field(default=None, max_length=20)
@@ -304,6 +307,7 @@ class CatalogItemOut(BaseModel):
     sort_order: int
     subject_template: str | None
     requesters_see_approval: bool
+    workflow_id: uuid.UUID | None = None
     starter: bool
     questions: list[QuestionIO]
     approval: ApprovalIO | None

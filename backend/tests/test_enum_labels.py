@@ -22,6 +22,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "PlanStepKind": "plan_step_kind",
     "TaskFieldKind": "task_field_kind",
     "TaskOwnerKind": "task_owner_kind",
+    "WaitKind": "workflow_wait_kind",
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",

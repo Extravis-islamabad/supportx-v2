@@ -12,7 +12,11 @@ Expand only, no data step. `work_item_tasks` gains:
 - `needs_review`: a conditional task no longer wanted but kept because work was done on it
   (worklogs or values; the coordinator's condition 3), for a person to decide.
 
-Reversible; RLS unchanged (an existing table).
+`catalog_items.workflow_id`: the item's fulfilment workflow (REQ-SR-053), checked by the
+service (a workflow of the service request type); and `workflow_instances.started_how` gains
+`catalog_item` for a run the item started.
+
+Reversible; RLS unchanged (existing tables).
 
 Revision ID: 0204
 Revises: 0203
@@ -32,6 +36,26 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 TASKS = "work_item_tasks"
+ITEMS = "catalog_items"
+INSTANCES = "workflow_instances"
+HOW = "started_how_code"  # the model's name; the naming convention adds ck_<table>_
+HOW_BEFORE = "started_how IN ('template', 'trigger', 'manual', 'sub_flow')"
+HOW_AFTER = "started_how IN ('template', 'trigger', 'manual', 'sub_flow', 'catalog_item')"
+
+
+# One pass per tenant (business tables force RLS, even for the migrator; see 0023).
+BACK_TO_TRIGGER = """
+DO $$
+DECLARE t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        UPDATE workflow_instances SET started_how = 'trigger'
+            WHERE tenant_id = t AND started_how = 'catalog_item';
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END $$;
+"""
 
 
 def upgrade() -> None:
@@ -67,10 +91,20 @@ def upgrade() -> None:
         TASKS,
         "fields IS NULL OR jsonb_typeof(fields) = 'array'",
     )
+    op.add_column(ITEMS, sa.Column("workflow_id", sa.Uuid(), nullable=True))
+    op.drop_constraint(op.f(f"ck_{INSTANCES}_{HOW}"), INSTANCES, type_="check")
+    op.create_check_constraint(op.f(f"ck_{INSTANCES}_{HOW}"), INSTANCES, HOW_AFTER)
 
 
 def downgrade() -> None:
-    """Back to before (the columns hold only what S5 added)."""
+    """Back to before (the columns hold only what S5 added).
+
+    A run the item started reads as a trigger's again, so the narrower check holds.
+    """
+    op.execute(BACK_TO_TRIGGER)
+    op.drop_constraint(op.f(f"ck_{INSTANCES}_{HOW}"), INSTANCES, type_="check")
+    op.create_check_constraint(op.f(f"ck_{INSTANCES}_{HOW}"), INSTANCES, HOW_BEFORE)
+    op.drop_column(ITEMS, "workflow_id")
     op.drop_constraint(op.f("ck_work_item_tasks_fields_array"), TASKS, type_="check")
     op.drop_constraint(op.f("ck_work_item_tasks_field_values_object"), TASKS, type_="check")
     op.drop_constraint(op.f("ck_work_item_tasks_kind_code"), TASKS, type_="check")

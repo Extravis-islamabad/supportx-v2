@@ -23,6 +23,7 @@ from app.core.errors import FieldError, NotFound, PermissionDenied, ValidationFa
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.interpreter import InstanceStatus
+from app.modules.automation.domain.waits import WaitKind, waits_of
 from app.modules.automation.domain.workflows import (
     Category,
     NodeType,
@@ -739,6 +740,16 @@ def _diagram(definition: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class WaitOut(BaseModel):
+    """What a waiting run waits for (REQ-SR-053 AC1): codes and field keys, labelled on screen."""
+
+    node: str
+    kind: WaitKind
+    fields: list[str] = Field(default_factory=list, description="The fields it waits on.")
+    events: list[str] = Field(default_factory=list, description="The events it listens for.")
+    until: datetime | None = Field(default=None, description="When it stops waiting, if set.")
+
+
 class RecordWorkflowOut(BaseModel):
     """One workflow run on a record, everything its panel draws (REQ-WF-023, -024)."""
 
@@ -749,6 +760,9 @@ class RecordWorkflowOut(BaseModel):
     )
     current_nodes: list[str] = Field(description="Where it is now (marked on the diagram).")
     steps: list[StepOut] = Field(description=f"Its log, oldest first (the last {STEPS_MAX}).")
+    waiting_for: list[WaitOut] = Field(
+        default_factory=list, description="While it waits: on what (the record's banner)."
+    )
 
 
 @router.get(
@@ -794,9 +808,23 @@ async def record_workflows(
                 definition=_diagram(dict(version.definition)) if version is not None else {},
                 current_nodes=_current(row.state),
                 steps=await _steps_of(session, row.id),
+                waiting_for=_waiting_for(row, version),
             )
         )
     return found
+
+
+def _waiting_for(row: WorkflowInstance, version: WorkflowVersion | None) -> list[WaitOut]:
+    """Where a waiting run waits, from its tokens and its version (REQ-SR-053 AC1)."""
+    if version is None or row.status != InstanceStatus.WAITING.value:
+        return []
+    state = workflow_runtime.load(row.state, row.status, row.failure)
+    return [
+        WaitOut(
+            node=w.node, kind=w.kind, fields=list(w.fields), events=list(w.events), until=w.until
+        )
+        for w in waits_of(state.tokens, workflow_runtime.definition_of(version))
+    ]
 
 
 async def _editable(

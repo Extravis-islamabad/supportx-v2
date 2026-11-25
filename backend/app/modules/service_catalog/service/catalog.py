@@ -124,10 +124,19 @@ ITEM_FIELDS = (
     "subject_template",
     "requesters_see_approval",
     "extra_category_ids",
+    "workflow_id",  # WP-047a S5 (REQ-SR-053)
     "publish_at",
     "retire_at",
 )
-_IDS = ("category_id", "sla_policy_id", "group_id", "technician_id", "template_id", "owner_id")
+_IDS = (
+    "category_id",
+    "sla_policy_id",
+    "group_id",
+    "technician_id",
+    "template_id",
+    "owner_id",
+    "workflow_id",
+)
 
 
 class ItemRepository(Repository[CatalogItem]):
@@ -527,6 +536,12 @@ async def _reference_problems(
         and await ports.entry_template(session, item.template_id) is None
     ):
         found.append(("template_id", "not_found"))
+    if item.workflow_id is not None and (
+        problem := await ports.workflow_problem(
+            session, item.workflow_id, live=item.status == "published"
+        )
+    ):
+        found.append(("workflow_id", problem))  # REQ-SR-053: a service request workflow
     found += await _group_problems(session, item, rules)
     people = _people_named(item, rules)
     known = await user_contacts(session, sorted({str(p) for p in people.values()}))
@@ -1128,6 +1143,7 @@ class RequestItem:
     comments_required: bool = False
     plan: tuple[PlanStep, ...] = ()  # WP-030 s3: the fulfilment tasks, in order
     requesters_see_approval: bool = True  # WP-031 plan D8
+    workflow_id: uuid.UUID | None = None  # WP-047a S5 (REQ-SR-053): its fulfilment workflow
     # WP-047a S2a: every stage in order (the single-stage fields above stay for stage 1).
     stages: tuple[StageSpec, ...] = ()
     # The keys of its "person" questions: each answer must name a live person of the tenant,
@@ -1209,6 +1225,7 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
             for t in rules.plan
         ),
         requesters_see_approval=item.requesters_see_approval,
+        workflow_id=item.workflow_id,
         stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
         person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
         uses_stages=uses_stages(rules.stages),
