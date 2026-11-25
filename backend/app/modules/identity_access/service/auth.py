@@ -49,6 +49,7 @@ from app.modules.identity_access.domain.identity import (
 )
 from app.modules.identity_access.domain.mobile import (
     HANDOFF_TTL,
+    MOBILE_MFA_ENROLMENT_REQUIRED,
     MOBILE_NOT_ALLOWED,
     SESSION_HEADER,
     MobileStart,
@@ -1751,6 +1752,15 @@ class AuthService:
             memberships=(),
             keycloak_session_id=session.keycloak_session_id,
         )
+        # WP-057 S6b (lane B's #642 review): the app's session switching tenant meets the target's
+        # mobile policy as a sign-in does, before anyone is provisioned there.
+        mobile = (
+            await self._mobile_policy(
+                tenant_id, identity, Attempt(_client_app(session), client_ip, None, mobile=True)
+            )
+            if session.mobile
+            else None
+        )
         user = await provision_user(
             self.database,
             tenant_id,
@@ -1760,6 +1770,11 @@ class AuthService:
             reason="tenant_switch",
             on_roles_mapped=self.on_roles_mapped,
         )
+        if mobile is not None and mobile.mobile_mfa_required:
+            async with self.database.tenant_session(TenantContext(tenant_id)) as db:
+                enrolled = (await mfa_service.status_of(db, user.user_id)).enrolled
+            if not enrolled:
+                raise PermissionDenied(code=MOBILE_MFA_ENROLMENT_REQUIRED)
         switched = replace(
             session,
             tenant_id=str(tenant_id),
@@ -1768,8 +1783,12 @@ class AuthService:
             csrf_token=secrets.token_urlsafe(32),
             # The new tenant's limits, counted from now: a new session in all but its tokens.
             created_at=self.clock.now(),
-            idle_seconds=user.session_idle_seconds,
-            absolute_seconds=user.session_absolute_seconds,
+            idle_seconds=user.session_idle_seconds
+            if mobile is None
+            else mobile.mobile_session_limits(_client_app(session))[0],
+            absolute_seconds=user.session_absolute_seconds
+            if mobile is None
+            else mobile.mobile_session_limits(_client_app(session))[1],
             # The new tenant maps its own address ranges to its own sites.
             place=await self.place_at(tenant_id, session.sign_in_ip),
         )

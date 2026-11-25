@@ -100,6 +100,9 @@ def app_return(redirect_uri: str, **params: str) -> str:
 # local data at sign-out. The server cannot prove those happened; it only states the policy.
 
 MOBILE_NOT_ALLOWED = "mobile_not_allowed"  # the app's sign-in refused: the tenant's message
+# A tenant switch on the app into a tenant that wants two-step sign-in on mobile, by someone not
+# enrolled: refused (they set it up from their account; a switch cannot enrol them).
+MOBILE_MFA_ENROLMENT_REQUIRED = "mobile_mfa_enrolment_required"
 UNLOCK_AFTER_MIN, UNLOCK_AFTER_MAX = 1, 60  # minutes in the background before a device unlock
 REFUSAL_MESSAGE_MAX = 500  # characters, per language, after cleaning
 MESSAGE_LANGUAGES = frozenset({"en", "ar", "ur"})  # the product's languages (lane B's condition 3)

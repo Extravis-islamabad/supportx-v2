@@ -71,7 +71,8 @@ async def _policy(bff: Bff, tenant: uuid.UUID, **columns: object) -> AsyncIterat
             bff,
             "UPDATE identity_settings SET mobile_allowed = true, mobile_refusal_message = NULL,"
             " mobile_idle_seconds = NULL, mobile_absolute_seconds = NULL,"
-            " mobile_device_unlock_required = false, mobile_unlock_after_minutes = 5"
+            " mobile_device_unlock_required = false, mobile_unlock_after_minutes = 5,"
+            " mobile_mfa_required = false"
             " WHERE tenant_id = $1",
             tenant,
         )
@@ -233,3 +234,58 @@ async def test_switching_the_app_off_through_the_card_ends_its_sessions(bff: Bff
         assert (after.status_code, after.json()["code"]) == (401, "mobile_not_allowed")
     finally:
         await _put_mobile(bff, csrf, off.json()["version"], allowed=True)
+
+
+# --- a tenant switch on the app meets the target's policy (lane B's #642 review) ------------------
+
+
+async def _switch(bff: Bff, phone: str, tenant: uuid.UUID) -> httpx.Response:
+    header = {SESSION_HEADER: phone}
+    cookies = bff.client.cookies
+    bff.client.cookies = httpx.Cookies()
+    try:
+        token = (await bff.client.get("/api/v1/auth/me", headers=header)).json()["csrf_token"]
+        return await bff.client.post(
+            "/api/v1/auth/switch-tenant",
+            json={"tenant_id": str(tenant)},
+            headers={**header, "X-CSRF-Token": token},
+        )
+    finally:
+        bff.client.cookies = cookies
+
+
+async def test_a_switch_into_a_tenant_with_the_app_off_is_refused(bff: Bff) -> None:
+    _a, b = bff.tenants
+    phone = await signed_in(bff, bff.user("a", "b", email=f"s-{uuid.uuid4().hex[:6]}@demo.test"))
+    async with _policy(bff, b, mobile_allowed=False):
+        refused = await _switch(bff, phone, b)
+        assert (refused.status_code, refused.json()["code"]) == (403, "mobile_not_allowed")
+        logged = await _sql(
+            bff,
+            "SELECT reason FROM sign_in_events WHERE tenant_id = $1"
+            " ORDER BY occurred_at DESC LIMIT 1",
+            b,
+        )
+        assert logged[0]["reason"] == "mobile_not_allowed"
+
+
+async def test_a_switch_takes_the_targets_mobile_limits(bff: Bff) -> None:
+    _a, b = bff.tenants
+    phone = await signed_in(bff, bff.user("a", "b", email=f"m-{uuid.uuid4().hex[:6]}@demo.test"))
+    async with _policy(bff, b, mobile_idle_seconds=900, mobile_absolute_seconds=3600):
+        switched = await _switch(bff, phone, b)
+        assert switched.status_code == 200, switched.text
+        stored = await bff.app.state.auth.store.get_session(switched.headers[SESSION_HEADER])
+        assert (stored["idle_seconds"], stored["absolute_seconds"]) == (900, 3600)
+        assert stored["mobile"] is True
+
+
+async def test_a_switch_into_a_tenant_wanting_mobile_mfa_is_refused_without_it(bff: Bff) -> None:
+    _a, b = bff.tenants
+    phone = await signed_in(bff, bff.user("a", "b", email=f"f-{uuid.uuid4().hex[:6]}@demo.test"))
+    async with _policy(bff, b, mobile_mfa_required=True):
+        refused = await _switch(bff, phone, b)
+        assert (refused.status_code, refused.json()["code"]) == (
+            403,
+            "mobile_mfa_enrolment_required",
+        )

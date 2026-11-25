@@ -1161,6 +1161,8 @@ export const en = {
   'errors.mfa_reset_not_signed_in':
     'This person has not signed in yet, so there is nothing to reset.',
   'errors.mfa_reset_own': 'You cannot reset your own two-step sign-in. Ask another administrator.',
+  'errors.mobile_mfa_enrolment_required':
+    'Your organisation requires two-step sign-in on the mobile app. Set it up in your account, then switch again.',
   'errors.mobile_not_allowed':
     'Your organisation does not allow the mobile app. Use SupportX in a web browser.',
   'errors.mobile_session_required': 'Only the SupportX mobile app can read this.',

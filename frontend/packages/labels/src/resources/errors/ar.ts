@@ -1080,6 +1080,8 @@ export const ar: LabelResource = {
   'errors.mfa_reset_not_signed_in': 'لم يسجّل هذا الشخص الدخول بعد، فلا يوجد ما يُعاد تعيينه.',
   'errors.mfa_reset_own':
     'لا يمكنك إعادة تعيين تسجيل الدخول بخطوتين الخاص بك. اطلب ذلك من مسؤول آخر.',
+  'errors.mobile_mfa_enrolment_required':
+    'تتطلب مؤسستك تسجيل الدخول بخطوتين في تطبيق الهاتف. أعدّه في حسابك، ثم بدّل مرة أخرى.',
   'errors.mobile_not_allowed':
     'لا تسمح مؤسستك باستخدام تطبيق الهاتف. استخدم SupportX في متصفح الويب.',
   'errors.mobile_session_required': 'لا يمكن قراءة هذا إلا من تطبيق SupportX للهاتف.',

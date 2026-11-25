@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.core.authorization import require_permission
-from app.core.database import TenantSession
+from app.core.database import TenantSession, after_commit
 from app.core.errors import NotFound, ProblemDetail
 from app.core.recent_auth import RecentAuth
 from app.modules.audit import AuditNote, audited
@@ -295,10 +295,17 @@ async def put_mobile_policy(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     note.skip = not details
     changed = details.get("changed_fields")
     if isinstance(changed, list) and "mobile_allowed" in changed and not saved.mobile_allowed:
-        # AC1: switched off, every mobile session of the tenant ends now, not at its expiry.
+        # AC1: switched off, every mobile session of the tenant ends now, not at its expiry. After
+        # the commit (lane B's #642 note): a mobile sign-in racing the save sees "off" by then,
+        # and one that slipped in before is ended by the marker set after it.
         auth = getattr(request.app.state, "auth", None)
         if auth is not None:
-            await auth.end_mobile_sessions(subject.tenant_id)
+            tenant = subject.tenant_id
+
+            async def end_after_commit() -> None:
+                await auth.end_mobile_sessions(tenant)
+
+            after_commit(session, end_after_commit)
     set_etag(response, saved.version)
     return _out(saved, request)
 
