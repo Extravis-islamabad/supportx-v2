@@ -20,6 +20,14 @@ const NAMES = {
   password_history: 'security.password.history',
   password_expiry_days: 'security.password.expiry',
   password_breached_check: 'security.password.breached',
+  // WP-057 S6b: the Mobile card (its message is shown in the card, not compared here).
+  mobile_allowed: 'security.mobile.allowed',
+  mobile_mfa_required: 'security.mobile.mfa',
+  mobile_idle_seconds: 'security.mobile.field.idle',
+  mobile_absolute_seconds: 'security.mobile.field.absolute',
+  mobile_device_unlock_required: 'security.mobile.unlock',
+  mobile_unlock_after_minutes: 'security.mobile.unlock_after',
+  mobile_clear_on_sign_out: 'security.mobile.clear',
 } as const;
 type Field = keyof typeof NAMES;
 

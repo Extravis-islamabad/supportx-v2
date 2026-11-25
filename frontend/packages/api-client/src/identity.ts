@@ -59,6 +59,30 @@ export function useSaveIdentitySettings() {
   });
 }
 
+/** The Mobile card's fields, all of them (WP-057 S6b; REQ-SEC-047). */
+export type MobilePolicyInput = components['schemas']['MobilePolicyIn'];
+
+/**
+ * Save the mobile app policy: only its own fields, under the settings' version, so a stale card
+ * gets 409 and never overwrites another card's save (lane B's S6b condition 1).
+ */
+export function useSaveMobilePolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, version }: { body: MobilePolicyInput; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/settings/mobile', { params: { header: ifMatch(version) }, body }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.settings, saved);
+    },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.settings }),
+    ),
+  });
+}
+
 /** The tenant's single sign-on set-ups. */
 export function useSsoProviders() {
   return useQuery({

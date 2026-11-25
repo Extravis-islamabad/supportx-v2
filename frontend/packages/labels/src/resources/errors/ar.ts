@@ -615,6 +615,11 @@ export const ar: LabelResource = {
   'errors.field.message_required': 'اكتب الرسالة بالإنجليزية على الأقل.',
   'errors.field.mfa_grace_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
   'errors.field.mfa_mode_invalid': 'اختر معطّلة أو اختيارية أو مطلوبة.',
+  'errors.field.mobile_invalid': 'اكتب الرسالة بالإنجليزية أو العربية أو الأردية.',
+  'errors.field.mobile_limits_both':
+    'حدد حدّي جلسة الهاتف معًا، أو اتركهما فارغين لاستخدام حدود الويب.',
+  'errors.field.mobile_out_of_range': 'استخدم ما بين 1 و60 دقيقة.',
+  'errors.field.mobile_too_long': 'اجعل الرسالة في حدود 500 حرف.',
   'errors.field.month_out_of_range': 'اختر شهرًا من القائمة.',
   'errors.field.move_articles_first': 'لا يزال هذا الموضوع يحتوي على مقالات. اختر إلى أين تُنقل.',
   'errors.field.must_be_future': 'اختر وقتاً في المستقبل.',
@@ -1070,6 +1075,9 @@ export const ar: LabelResource = {
   'errors.mfa_reset_not_signed_in': 'لم يسجّل هذا الشخص الدخول بعد، فلا يوجد ما يُعاد تعيينه.',
   'errors.mfa_reset_own':
     'لا يمكنك إعادة تعيين تسجيل الدخول بخطوتين الخاص بك. اطلب ذلك من مسؤول آخر.',
+  'errors.mobile_not_allowed':
+    'لا تسمح مؤسستك باستخدام تطبيق الهاتف. استخدم SupportX في متصفح الويب.',
+  'errors.mobile_session_required': 'لا يمكن قراءة هذا إلا من تطبيق SupportX للهاتف.',
   'errors.name_taken': 'هذا الاسم مستخدم بالفعل.',
   'errors.network_error': 'تعذّر الوصول إلى SupportX حاليًا. تحقّق من اتصالك؛ سنواصل المحاولة.',
   'errors.no_organization': 'حسابك غير مرتبط بأي مؤسسة بعد. يرجى التواصل مع المسؤول.',
