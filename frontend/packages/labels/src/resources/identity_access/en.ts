@@ -1426,7 +1426,9 @@ export const en = {
   'security.groups.maps_to': '{{group}} gives {{target}}',
   'security.groups.none': 'No groups mapped yet.',
   'security.groups.remove_access': 'Their access through it ends now',
-  'security.groups.remove_holders':
+  'security.groups.remove_holders_one':
+    '{{count}} person has access through it. What happens to their access?',
+  'security.groups.remove_holders_other':
     '{{count}} people have access through it. What happens to their access?',
   'security.groups.remove_title': 'Remove this mapping?',
   'security.groups.roles': 'Roles',

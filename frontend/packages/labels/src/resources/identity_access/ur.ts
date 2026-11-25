@@ -1422,7 +1422,9 @@ export const ur: LabelResource = {
   'security.groups.maps_to': '{{group}} سے {{target}} ملتا ہے',
   'security.groups.none': 'ابھی کوئی گروپ میپ نہیں۔',
   'security.groups.remove_access': 'اس کے ذریعے ان کی رسائی ابھی ختم ہو',
-  'security.groups.remove_holders':
+  'security.groups.remove_holders_one':
+    '{{count}} شخص کو اس کے ذریعے رسائی ہے۔ ان کی رسائی کا کیا ہو؟',
+  'security.groups.remove_holders_other':
     '{{count}} لوگوں کو اس کے ذریعے رسائی ہے۔ ان کی رسائی کا کیا ہو؟',
   'security.groups.remove_title': 'یہ میپنگ ہٹائیں؟',
   'security.groups.roles': 'رولز',
