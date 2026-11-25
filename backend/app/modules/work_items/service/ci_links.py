@@ -301,6 +301,8 @@ async def repoint_ci_links(
 
 # "Open" for the CMDB's counters (lane B's open_counts.py (b)): not resolved, closed or canceled.
 _OPEN = (StatusCategory.OPEN.value, StatusCategory.PAUSED.value)
+# The same "open", for the linked-records port's rows (ci_linked_port.py): one meaning for both.
+OPEN_CATEGORIES = frozenset(_OPEN)
 
 
 class CiLinkedCounts:
@@ -351,6 +353,7 @@ __all__ = [
     "FIELD",
     "LINKED_TYPES",
     "MAX_LINKS",
+    "OPEN_CATEGORIES",
     "attach",
     "ci_ids_of",
     "link",
