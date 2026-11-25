@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.events import WorkItemReminderDue
@@ -118,7 +119,7 @@ class ReminderNotifications:
         if record is None or record.deleted_at is not None:
             return RecordAccess.NONE
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(
                 session, subject, TYPES[WorkItemTypeCode(record.type)], record_id

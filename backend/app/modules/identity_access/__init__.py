@@ -40,7 +40,7 @@ from app.core.authorization import (
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
-from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.core.tenancy import NO_SIGN_IN, SESSION_RESOLVER_STATE, AccessSource
 from app.core.valkey import client as valkey_client
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
@@ -299,9 +299,12 @@ def build_catalogue(registry: ModuleRegistry) -> Catalogue:
 
 
 async def _members(
-    session: AsyncSession, user_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    admitted_managed: frozenset[uuid.UUID] | None = None,
 ) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
-    found = await memberships(session, user_id)
+    found = await memberships(session, user_id, admitted_managed=admitted_managed)
     return found.site_ids, found.group_ids
 
 
@@ -326,15 +329,26 @@ def worker_policy() -> PolicyService:
     return _worker_policy()
 
 
-async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
+async def subject_for(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    source: AccessSource = NO_SIGN_IN,
+) -> Subject:
     """The user's compiled subject, read from the database now (no cache), for workers and jobs.
 
     The very compile the API uses (same catalogue, roles, memberships and entitlements), so a
     worker applying a user's scope (exports, scheduled reports; D-052) decides exactly as the API
     would. A deactivated or deleted user gets the subject that may do nothing. `session` is a
     tenant session of `tenant_id`.
+
+    `source` (WP-057 S5c-1b, D-188): work without a session is the strict side, so access an SSO
+    group mapping gives never applies to a job, even one started in an SSO session (lane B's
+    condition 4), nor to an act off-session such as an approval by mail (Q1). Only "could act"
+    questions (who is told of a record) pass `ANY_SOURCE` (lane B's condition 2, option a).
     """
-    return await _worker_policy().compile(session, tenant_id, user_id)
+    return await _worker_policy().compile(session, tenant_id, user_id, source=source)
 
 
 def check_catalogue_labels(catalogue: Catalogue, settings: "Settings") -> None:

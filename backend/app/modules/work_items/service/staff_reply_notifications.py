@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for, user_names
 from app.modules.work_items.domain.conversation import EntryKind
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
@@ -121,7 +122,7 @@ class StaffReplyNotifications:
     ) -> RecordAccess:
         """Staff who see the record in full; its requester its public side."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, self._wtype, record_id)
         except NotFound:

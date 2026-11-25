@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for, worker_policy
 from app.modules.integrations.events import ConnectorFailing, ConnectorRecovered
 from app.modules.integrations.infra.models import ConnectorHealth
@@ -131,7 +132,7 @@ class ConnectorNotifications:
         if registered is None:
             return RecordAccess.NONE
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         allowed = may_set_up(subject, registered.kind.category)
         return RecordAccess.FULL if allowed else RecordAccess.NONE
 

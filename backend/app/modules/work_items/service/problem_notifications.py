@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules import sla
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
@@ -357,7 +358,7 @@ class ProblemNotifications:
     ) -> RecordAccess:
         """FULL for whoever may see the problem; NONE otherwise (never a public side)."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, PROBLEM, record_id)
         except (NotFound, PermissionDenied):  # lane B's review: either means not theirs
@@ -466,7 +467,7 @@ class RepeatNotifications:
         """FULL for who may create problems (they act on the set); NONE otherwise."""
         del record_id
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         return (
             RecordAccess.FULL if subject.holds(PROBLEM.permission("create")) else RecordAccess.NONE
         )

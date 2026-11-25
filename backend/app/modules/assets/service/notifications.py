@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
@@ -413,7 +414,7 @@ class AssetNotifications:
     ) -> RecordAccess:
         """FULL for staff who may see the asset; PUBLIC for the person who holds it."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         if await session.get(AssetConsumableStock, record_id) is not None:  # a low stock
             return RecordAccess.FULL if subject.holds(VIEW) else RecordAccess.NONE
         loan = await session.get(AssetLoan, record_id)
@@ -457,7 +458,7 @@ async def _seen_by_all(
     recipients: list[uuid.UUID] = []
     shared: set[uuid.UUID] | None = None
     for person in people:
-        subject = await subject_for(session, tenant, person)
+        subject = await subject_for(session, tenant, person, source=ANY_SOURCE)
         if not subject.holds(VIEW):
             continue
         seen = set(

@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.cmdb.events import CiUpdated
 from app.modules.cmdb.infra.models import Ci, CiState
 from app.modules.cmdb.service.realtime import RECORD_KIND
@@ -134,7 +135,7 @@ class CiNotifications:
     ) -> RecordAccess:
         """FULL for someone who may see the CI now; nothing for anyone else."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         seen = await can_see(session, subject, record_id)
         return RecordAccess.FULL if seen else RecordAccess.NONE
 

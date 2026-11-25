@@ -36,7 +36,7 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
-from app.core.tenancy import TenantContext
+from app.core.tenancy import AccessSource, AccessSourceKind, TenantContext
 from app.modules.audit import WORKER, RequestFacts, record_alone
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
@@ -1450,6 +1450,7 @@ class AuthService:
             support_grant_id=grant_id,
             mask_contacts=masked,
             mask_names=names_masked,
+            access_source=access_source_of(session),
         )
 
     async def _check_support(self, request: Request, session_id: str, session: Session) -> None:
@@ -1728,3 +1729,18 @@ class AuthService:
             "csrf_token": session.csrf_token,
             "mfa_due_at": session.mfa_due_at,
         }
+
+
+def access_source_of(session: Session) -> AccessSource:
+    """The session's source for access managed from outside SupportX (WP-057 S5c-1b, D-188).
+
+    Only what the sign-in stored: the verified broker claim (`identity_provider`, S1b) and the
+    break-glass mark, kept for the session's life (a tenant switch has no new token). Nothing a
+    request sends can change it (lane B's condition 3). A session from before S1b has no method:
+    judged a password sign-in, the strict side.
+    """
+    if session.break_glass:
+        return AccessSource(AccessSourceKind.BREAK_GLASS)
+    if session.identity_provider:
+        return AccessSource(AccessSourceKind.SSO, session.identity_provider)
+    return AccessSource(AccessSourceKind.PASSWORD)

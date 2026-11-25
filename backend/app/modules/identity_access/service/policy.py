@@ -24,7 +24,7 @@ from typing import Any, Literal, Protocol
 
 import valkey.exceptions
 from fastapi import Request
-from sqlalchemy import ColumnElement, and_, exists, false, or_, select, true
+from sqlalchemy import ColumnElement, Select, and_, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import Scope
@@ -32,11 +32,12 @@ from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.scopes import scope_of
-from app.core.tenancy import TenantContext
+from app.core.tenancy import NO_SIGN_IN, AccessSource, AccessSourceKind, TenantContext
 from app.modules.identity_access.domain import api_keys, support_access
 from app.modules.identity_access.domain import field_access as field_rules
 from app.modules.identity_access.domain import resource_access as resource_rules
 from app.modules.identity_access.domain import support_grants as support_rules
+from app.modules.identity_access.domain.group_mappings import SourceKind
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     DEPARTMENT_VIEWER,
@@ -59,10 +60,15 @@ from app.modules.identity_access.domain.policy import (
 )
 from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.infra.models import (
+    AccessSource as AccessSourceRow,
+)
+from app.modules.identity_access.infra.models import (
     GroupRole,
+    IdpGroupMapping,
     Role,
     RoleFieldAccess,
     RolePermission,
+    SsoProvider,
     SupportGrant,
     User,
     UserRole,
@@ -82,9 +88,106 @@ log = get_logger(__name__)
 
 
 SUBJECT_STATE = "authz_subject"
-MemberLookup = Callable[
-    [AsyncSession, uuid.UUID], Awaitable[tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]]
-]
+
+
+# --- access managed from outside SupportX, by sign-in (WP-057 S5c-1b; D-188) ------------------
+
+
+@dataclass(frozen=True)
+class Admitted:
+    """The managed roles and group memberships a sign-in admits (hand-made access always counts)."""
+
+    roles: frozenset[uuid.UUID]
+    groups: frozenset[uuid.UUID]
+
+
+NOTHING_MANAGED = Admitted(frozenset(), frozenset())
+
+
+def _own_roles(user_id: uuid.UUID, admitted: Admitted | None) -> Select[uuid.UUID]:
+    """The person's own role IDs: hand-made ones, and the managed ones the sign-in admits."""
+    own = select(UserRole.role_id).where(UserRole.user_id == user_id)
+    if admitted is None:
+        return own
+    return own.where(or_(UserRole.managed.is_(False), UserRole.role_id.in_(admitted.roles)))
+
+
+def source_tag(source: AccessSource) -> str:
+    """The compile's cache tag: one per source that compiles differently.
+
+    Password and no sign-in compile the same (directory-managed access only), so they share one.
+    An SSO session's tag is its alias: unique within the tenant, which the key names too.
+    """
+    match source.kind:
+        case AccessSourceKind.SSO:
+            return f"sso:{source.alias}"
+        case AccessSourceKind.BREAK_GLASS:
+            return "bg"
+        case AccessSourceKind.ANY:
+            return "any"
+        case _:
+            return "pw"
+
+
+async def admitted_managed(
+    session: AsyncSession, user_id: uuid.UUID, source: AccessSource
+) -> Admitted | None:
+    """What of the person's managed access `source` admits; None: all of it (ANY only).
+
+    - break-glass: none (hand-made access only);
+    - password, or no sign-in: what a directory mapping gives (the coordinator's ruling on (b));
+    - single sign-on: that too, and what a mapping of this tenant's provider `alias` gives. An
+      alias that is not this tenant's provider (a tenant switch) admits no SSO access.
+    A managed row counts when any one of its sources is admitted.
+    """
+    if source.kind is AccessSourceKind.ANY:
+        return None
+    if source.kind is AccessSourceKind.BREAK_GLASS:
+        return NOTHING_MANAGED
+    admits: list[ColumnElement[bool]] = [IdpGroupMapping.source_kind == SourceKind.DIRECTORY.value]
+    if source.kind is AccessSourceKind.SSO and source.alias:
+        provider = await session.scalar(
+            select(SsoProvider.id).where(
+                SsoProvider.alias == source.alias, SsoProvider.deleted_at.is_(None)
+            )
+        )
+        if provider is not None:
+            admits.append(
+                and_(
+                    IdpGroupMapping.source_kind == SourceKind.SSO.value,
+                    IdpGroupMapping.source_id == provider,
+                )
+            )
+    rows = (
+        await session.execute(
+            select(AccessSourceRow.target_kind, AccessSourceRow.target_id)
+            .join(IdpGroupMapping, IdpGroupMapping.id == AccessSourceRow.mapping_id)
+            .where(
+                AccessSourceRow.user_id == user_id,
+                IdpGroupMapping.deleted_at.is_(None),
+                or_(*admits),
+            )
+        )
+    ).all()
+    return Admitted(
+        roles=frozenset(r.target_id for r in rows if r.target_kind == "role"),
+        groups=frozenset(r.target_id for r in rows if r.target_kind == "group"),
+    )
+
+
+class MemberLookup(Protocol):
+    """A person's (site IDs, group IDs); `admitted_managed` filters managed group memberships."""
+
+    def __call__(  # noqa: D102 - the protocol's call
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        /,
+        *,
+        admitted_managed: frozenset[uuid.UUID] | None = None,
+    ) -> Awaitable[tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]]: ...
+
+
 EntitledFeatures = Callable[[uuid.UUID, AsyncSession | None], Awaitable[frozenset[str]]]
 
 
@@ -367,12 +470,14 @@ def visible(
 class SubjectCache(Protocol):
     """Where compiled subjects are kept (Valkey), per tenant generation."""
 
-    async def get(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[Subject | None, int]:
+    async def get(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, tag: str
+    ) -> tuple[Subject | None, int]:
         """The cached subject if current, plus the generation to store under."""
         ...
 
-    async def put(self, subject: Subject, generation: int) -> None:
-        """Store a compiled subject."""
+    async def put(self, subject: Subject, generation: int, *, tag: str) -> None:
+        """Store a compiled subject (`tag`: its access source, see `source_tag`)."""
         ...
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
@@ -383,14 +488,16 @@ class SubjectCache(Protocol):
 class NoSubjectCache:
     """No caching (no Valkey)."""
 
-    async def get(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[Subject | None, int]:
+    async def get(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, tag: str
+    ) -> tuple[Subject | None, int]:
         """Always a miss."""
-        del tenant_id, user_id
+        del tenant_id, user_id, tag
         return None, 0
 
-    async def put(self, subject: Subject, generation: int) -> None:
+    async def put(self, subject: Subject, generation: int, *, tag: str) -> None:
         """Nothing to store."""
-        del subject, generation
+        del subject, generation, tag
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Nothing to drop."""
@@ -401,25 +508,32 @@ _VALKEY_ERRORS = (valkey.exceptions.ValkeyError, OSError)
 
 
 class ValkeySubjectCache:
-    """`<prefix>authz:<tenant>:<user>` = {gen, subject}; `<prefix>authz:gen:<tenant>` counter."""
+    """`<prefix>authz:<tenant>:<user>:<source>` = {gen, subject}; `<prefix>authz:gen:<tenant>`.
+
+    One compile per access source (WP-057 S5c-1b, D-188): a password and an SSO session of the
+    same person never share one. The generation stays per tenant, so every invalidation still
+    reaches all of them.
+    """
 
     def __init__(self, client: Any, *, prefix: str, ttl_seconds: int) -> None:  # noqa: ANN401 - untyped valkey client
         self.client = client
         self.prefix = prefix
         self.ttl_seconds = ttl_seconds
 
-    def _key(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> str:
-        return f"{self.prefix}authz:{tenant_id}:{user_id}"
+    def _key(self, tenant_id: uuid.UUID, user_id: uuid.UUID, tag: str) -> str:
+        return f"{self.prefix}authz:{tenant_id}:{user_id}:{tag}"
 
     def generation_key(self, tenant_id: uuid.UUID) -> str:
         """Key of the tenant's generation counter."""
         return f"{self.prefix}authz:gen:{tenant_id}"
 
-    async def get(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[Subject | None, int]:
+    async def get(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, tag: str
+    ) -> tuple[Subject | None, int]:
         """The cached subject if its generation is current; Valkey errors count as a miss."""
         try:
             raw, gen = await self.client.mget(
-                self._key(tenant_id, user_id), self.generation_key(tenant_id)
+                self._key(tenant_id, user_id, tag), self.generation_key(tenant_id)
             )
         except _VALKEY_ERRORS:
             log.warning("authz_cache_unavailable", operation="get")
@@ -436,14 +550,14 @@ class ValkeySubjectCache:
             # A form this code can't read (an older release's): compiled again, never guessed.
             return None, generation
 
-    async def put(self, subject: Subject, generation: int) -> None:
+    async def put(self, subject: Subject, generation: int, *, tag: str) -> None:
         """Store under the generation it was compiled for."""
         if generation < 0:
             return
         entry = json.dumps({"gen": generation, "subject": subject.to_dict()})
         try:
             await self.client.set(
-                self._key(subject.tenant_id, subject.user_id), entry, ex=self.ttl_seconds
+                self._key(subject.tenant_id, subject.user_id, tag), entry, ex=self.ttl_seconds
             )
         except _VALKEY_ERRORS:
             log.warning("authz_cache_unavailable", operation="put")
@@ -502,27 +616,42 @@ class PolicyService:
         self.entitled_features = entitled_features
 
     async def subject(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession | None = None
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        session: AsyncSession | None = None,
+        *,
+        source: AccessSource = NO_SIGN_IN,
     ) -> Subject:
-        """The user's compiled subject (cache, else compiled; through `session` if given)."""
-        cached, generation = await self.cache.get(tenant_id, user_id)
+        """The user's compiled subject (cache, else compiled; through `session` if given).
+
+        `source` (WP-057 S5c-1b, D-188): how the person signed in, which decides the access
+        managed from outside SupportX that counts. Without one, the strict side (no sign-in).
+        """
+        tag = source_tag(source)
+        cached, generation = await self.cache.get(tenant_id, user_id, tag=tag)
         if cached is not None:
             return cached
         if session is not None:
-            subject = await self.compile(session, tenant_id, user_id)
+            subject = await self.compile(session, tenant_id, user_id, source=source)
         elif self.database is None:
             msg = "a PolicyService without a database compiles only through a given session"
             raise RuntimeError(msg)
         else:
             async with self.database.tenant_session(TenantContext(tenant_id, user_id)) as own:
-                subject = await self.compile(own, tenant_id, user_id)
-        await self.cache.put(subject, generation)
+                subject = await self.compile(own, tenant_id, user_id, source=source)
+        await self.cache.put(subject, generation, tag=tag)
         return subject
 
     async def compile(
-        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        source: AccessSource = NO_SIGN_IN,
     ) -> Subject:
-        """Build the subject from the database (no cache)."""
+        """Build the subject from the database (no cache), with the access `source` admits."""
         user = (
             await session.execute(
                 select(User.status, User.user_type, User.roles_mapped_at).where(User.id == user_id)
@@ -534,17 +663,22 @@ class PolicyService:
             # A vendor support account's permissions are its grant's only (D-173, lane B): never
             # a role, never a group's, never a default.
             return await self._support_subject(session, tenant_id, user_id)
-        site_ids, group_ids = await self.memberships(session, user_id)
+        # The managed access this sign-in admits (D-188); None: all of it ("could act" only).
+        admitted = await admitted_managed(session, user_id, source)
+        site_ids, group_ids = await self.memberships(
+            session, user_id, admitted_managed=None if admitted is None else admitted.groups
+        )
         # Roles of one's own and those of the active groups one belongs to (WP-042): a disabled
         # or deleted group grants nothing, at once.
         carrying = await active_groups(session, group_ids)
+        own_roles = _own_roles(user_id, admitted)
         roles = (
             await session.execute(
                 select(Role.id, Role.key, Role.is_system)
                 .where(
                     Role.deleted_at.is_(None),
                     or_(
-                        Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == user_id)),
+                        Role.id.in_(own_roles),
                         Role.id.in_(
                             select(GroupRole.role_id).where(GroupRole.group_id.in_(carrying))
                         ),
@@ -799,9 +933,13 @@ class PolicyService:
 
     async def subject_for(self, request: Request, context: TenantContext) -> Subject:
         """Once per request (memoised on request.state)."""
-        memo: Subject | None = getattr(request.state, SUBJECT_STATE, None)
-        if memo is not None and memo.tenant_id == context.tenant_id:
-            return memo
+        memo: tuple[AccessSource, Subject] | None = getattr(request.state, SUBJECT_STATE, None)
+        if (
+            memo is not None
+            and memo[1].tenant_id == context.tenant_id
+            and memo[0] == context.access_source
+        ):
+            return memo[1]
         subject = (
             _nobody(context.tenant_id, uuid.UUID(int=0))
             if context.user_id is None
@@ -810,6 +948,7 @@ class PolicyService:
                 context.user_id,
                 # Reuse the request's connection when it already holds one (see database.py).
                 getattr(request.state, REQUEST_SESSION_STATE, None),
+                source=context.access_source,
             )
         )
         if context.api_scopes is not None:
@@ -820,7 +959,7 @@ class PolicyService:
         # identity's API key included: only in-process jobs under their own identity are system
         # writes (lane B's #503 review).
         subject = replace(subject, person=True)
-        setattr(request.state, SUBJECT_STATE, subject)
+        setattr(request.state, SUBJECT_STATE, (context.access_source, subject))
         return subject
 
     def require(self, subject: Subject, permissions: Sequence[str]) -> None:

@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import person_placement, subject_for, user_names, worker_policy
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
@@ -305,7 +306,7 @@ class ServiceRequestNotifications:
     ) -> RecordAccess:
         """Staff who see the request in full; its approvers and requesters its summary."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, SERVICE_REQUEST, record_id)
         except NotFound:

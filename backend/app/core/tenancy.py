@@ -16,6 +16,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 
 import structlog
 from fastapi import Request
@@ -45,6 +46,33 @@ class AgentActor:
     tools: tuple[str, ...] = ()
 
 
+class AccessSourceKind(StrEnum):
+    """How the work's person signed in, as access managed from outside SupportX judges it.
+
+    WP-057 S5c-1b, D-188 (strict): access an SSO group mapping gives applies only in a session
+    that came through that provider; directory-managed access in every session but break-glass
+    (the coordinator's ruling on (b)). Hand-made access applies everywhere.
+    """
+
+    SSO = "sso"  # through the tenant's provider named by `alias` (the verified broker claim)
+    PASSWORD = "password"  # noqa: S105 - a sign-in method code, not a secret (LDAP included)
+    BREAK_GLASS = "break_glass"  # hand-made access only
+    NONE = "none"  # no sign-in: API keys, jobs and acts without a session (the strict side)
+    ANY = "any"  # "could act": routing and notices only, never a request's own access
+
+
+@dataclass(frozen=True)
+class AccessSource:
+    """A session's source; `alias` only for SSO (from `Session.identity_provider`, never input)."""
+
+    kind: AccessSourceKind
+    alias: str | None = None
+
+
+NO_SIGN_IN = AccessSource(AccessSourceKind.NONE)
+ANY_SOURCE = AccessSource(AccessSourceKind.ANY)
+
+
 @dataclass(frozen=True)
 class TenantContext:
     """Who the current work is for: the tenant and the acting user (None for system work)."""
@@ -72,6 +100,9 @@ class TenantContext:
     # People's names withheld too (D-180): only when the grant asks for it (its "Mask names too"
     # tick, 0188); names are shown by default.
     mask_names: bool = False
+    # How the session's person signed in (WP-057 S5c-1b, D-188): which access managed from
+    # outside SupportX applies. Every context built without a session gets the strict side.
+    access_source: AccessSource = NO_SIGN_IN
 
 
 # Returns the session's context, None when the request has no session, or raises a problem

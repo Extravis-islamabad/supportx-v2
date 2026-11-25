@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.announcements.domain.announcement import AnnouncementStatus
 from app.modules.announcements.events import AnnouncementStatusChanged, AnnouncementUpdated
 from app.modules.announcements.infra.models import Announcement, AnnouncementFollow
@@ -128,7 +129,9 @@ class AnnouncementNotifications:
         )
         if follows is None:
             return RecordAccess.NONE
-        subject = await subject_for(session, session.info[SESSION_TENANT_KEY].tenant_id, user_id)
+        subject = await subject_for(
+            session, session.info[SESSION_TENANT_KEY].tenant_id, user_id, source=ANY_SOURCE
+        )
         addressed = await session.scalar(
             select(Announcement.id).where(Announcement.id == record_id, addressed_to(subject))
         )
