@@ -546,8 +546,12 @@ export const ar: LabelResource = {
   'errors.field.ical_not_utf8': 'الملف ليس ملف تقويم نصيًا (UTF-8).',
   'errors.field.ical_too_large': 'حجم الملف أكبر من 1 ميغابايت.',
   'errors.field.ical_too_many_lines': 'يحتوي الملف على أكثر من 20,000 سطر.',
-  'errors.field.idp_group_mappings_coming_soon':
-    'ربط المجموعات من تسجيل الدخول الموحد قادم قريبًا. ربط مجموعات الدليل يعمل الآن.',
+  'errors.field.idp_groups_claim_invalid':
+    'استخدم الحروف والأرقام و . _ : / - فقط، حتى 128 حرفًا، دون أن يبدأ بـ sx_.',
+  'errors.field.idp_groups_claim_reserved':
+    'هذه المطالبة تحدد الشخص لا مجموعاته. استخدم المطالبة التي تسرد مجموعاته، مثل groups.',
+  'errors.field.idp_groups_saml_unsupported':
+    'متابعة المجموعات تعمل مع إعدادات OpenID Connect فقط حاليًا.',
   'errors.field.incident_actual_only': 'يسجّل الحادث فترة التوقف التي تسبب بها: أوقات فعلية فقط.',
   'errors.field.invalid_choice': 'هذه ليست إحدى القيم المسموح بها.',
   'errors.field.invalid_code': 'استخدم حروفًا أو أرقامًا أو نقاطًا أو شرطات (حتى 50).',
@@ -917,8 +921,8 @@ export const ar: LabelResource = {
     'تعذّر الوصول إلى خدمة تسجيل الدخول الآن. حاول مجددًا بعد قليل.',
   'errors.identity_organization_missing': 'مؤسستك غير مهيأة لتسجيل الدخول بعد. اسأل المسؤول.',
   'errors.identity_provider_unavailable': 'تسجيل الدخول غير متاح مؤقتًا. يرجى المحاولة بعد قليل.',
-  'errors.idp_group_mappings_coming_soon':
-    'ربط المجموعات من تسجيل الدخول الموحد قادم قريبًا. ربط مجموعات الدليل يعمل الآن.',
+  'errors.idp_groups_unavailable':
+    'تعذرت قراءة مجموعات تسجيل الدخول الآن. حاول تسجيل الدخول مرة أخرى بعد قليل.',
   'errors.incident_has_problem': 'هذه الحادثة مرتبطة بالفعل بـ {{display_id}}. انقلها للتأكيد.',
   'errors.insert_too_large': 'صور المقالة أكبر من أن تُدرج معًا: {{limit_mb}} ميغابايت على الأكثر.',
   'errors.instance_not_failed': 'لا يمكن إعادة محاولة سير عمل إلا إذا فشل.',

@@ -595,8 +595,12 @@ export const en = {
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
   'errors.field.ical_too_many_lines': 'The file has more than 20,000 lines.',
-  'errors.field.idp_group_mappings_coming_soon':
-    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
+  'errors.field.idp_groups_claim_invalid':
+    'Use letters, digits and . _ : / - only, up to 128 characters, not starting with sx_.',
+  'errors.field.idp_groups_claim_reserved':
+    'This claim names the person, not their groups. Use the claim that lists their groups, such as groups.',
+  'errors.field.idp_groups_saml_unsupported':
+    'Following groups works with OpenID Connect set-ups only for now.',
   'errors.field.incident_actual_only':
     'An incident records the downtime it caused: actual times only.',
   'errors.field.invalid_choice': 'This is not one of the allowed values.',
@@ -985,8 +989,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
-  'errors.idp_group_mappings_coming_soon':
-    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
+  'errors.idp_groups_unavailable':
+    'Your sign-in groups could not be read just now. Try signing in again in a moment.',
   'errors.incident_has_problem':
     'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
