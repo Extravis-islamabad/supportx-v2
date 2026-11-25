@@ -11,6 +11,7 @@
 - `cmdb_settings`: one row per tenant (pickers leave end-of-life CIs out by default).
 
 S2 (0180): relationship types and their rules, relationships, business views.
+S7b (0209): `cmdb_ci_baselines`, named copies of a CI to compare with.
 S4a (0191): each CI attribute's source and time (`cmdb_cis.sources`), which source wins
 (`cmdb_settings.source_precedence`), sync rules from assets and their runs.
 """
@@ -361,6 +362,31 @@ class BusinessView(TenantEntity):
     # Pinned nodes by CI ID, each an x and a y (a restricted node is never pinned).
     positions: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     owner_id: Mapped[uuid.UUID | None]
+
+
+class CiBaseline(TenantEntity):
+    """A CI's attributes saved under a name, to compare with later (WP-053 S7b; REQ-CMDB-033; 0209).
+
+    Its own copy of the CI as it was (`snapshot`, the shape of a version's: fields, custom values
+    and relationships), so it is kept until deleted whatever happens to versions (D-172 (6)).
+    `from_version` is the CI version it was taken at. Editable only for soft delete and erasure.
+    """
+
+    __tablename__ = "cmdb_ci_baselines"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_baselines_ci",
+        ),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        Index("ix_cmdb_ci_baselines_tenant_ci", "tenant_id", "ci_id", "created_at", "id"),
+    )
+
+    ci_id: Mapped[uuid.UUID]
+    name: Mapped[str] = mapped_column(String(200))
+    from_version: Mapped[int] = mapped_column(BigInteger)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
 class ServiceSubscriber(TenantEntity):

@@ -16,7 +16,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,6 +70,30 @@ class VersionView:
     names: dict[str, ref_names.RefName] = field(default_factory=dict)
 
 
+class Saved(Protocol):
+    """A saved copy of a CI: a version (`CiVersion`) or a baseline's copy (S7b)."""
+
+    @property
+    def version(self) -> int:
+        """The CI version it holds."""
+        ...
+
+    @property
+    def saved_at(self) -> datetime:
+        """When it was saved."""
+        ...
+
+    @property
+    def saved_by(self) -> uuid.UUID | None:
+        """Who saved it."""
+        ...
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        """Its fields, custom values and relationships."""
+        ...
+
+
 @dataclass(frozen=True)
 class Comparison:
     """What changed from one version to another."""
@@ -79,6 +103,8 @@ class Comparison:
     attributes: list[rel.AttributeChange]
     added: list[LinkView]
     removed: list[LinkView]
+    # Masked fields: changed or not, never their values (ADR-047; S7b's baselines show these).
+    masked: list[field_rules.MaskedChange] = field(default_factory=list)
 
 
 async def _visible(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> None:
@@ -205,7 +231,7 @@ async def _version(session: AsyncSession, ci_id: uuid.UUID, version: int) -> CiV
 
 
 async def _views(
-    session: AsyncSession, subject: Subject, rows: Sequence[CiVersion], keys: _Placeholders
+    session: AsyncSession, subject: Subject, rows: Sequence[Saved], keys: _Placeholders
 ) -> list[VersionView]:
     others = [i for row in rows for link in _links(row.snapshot) if (i := _ci_id(link))]
     infos = await node_infos(session, subject, others)
@@ -263,6 +289,13 @@ async def compare(
     await _visible(session, subject, ci_id)
     old = await _version(session, ci_id, from_version)
     new = await _version(session, ci_id, to_version)
+    return await compare_saved(session, subject, old, new)
+
+
+async def compare_saved(
+    session: AsyncSession, subject: Subject, old: Saved, new: Saved
+) -> Comparison:
+    """Two saved copies of one CI the caller has checked the reader may see now."""
     keys = _Placeholders()
     before, after = await _views(session, subject, [old, new], keys)
     added_raw, removed_raw = rel.compare_links(_links(old.snapshot), _links(new.snapshot))
@@ -275,4 +308,22 @@ async def compare(
         attributes=rel.compare_attributes(before.fields, after.fields, _compared(before, after)),
         added=_link_views(added_raw, infos, keys),
         removed=_link_views(removed_raw, infos, keys),
+        masked=await _masked(session, subject, old.snapshot, new.snapshot),
+    )
+
+
+def _custom_of(snapshot: Mapping[str, Any]) -> Mapping[str, Any]:
+    held = snapshot.get("custom")
+    return held if isinstance(held, Mapping) else {}
+
+
+async def _masked(
+    session: AsyncSession,
+    subject: Subject,
+    old: Mapping[str, Any],
+    new: Mapping[str, Any],
+) -> list[field_rules.MaskedChange]:
+    reader = await _reader(session, subject)
+    return field_rules.masked_changes(
+        _custom_of(old), _custom_of(new), reader.unseen.masked, reader.live
     )

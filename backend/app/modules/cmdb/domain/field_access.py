@@ -70,3 +70,28 @@ def dropped(custom: Mapping[str, Any], kept: Iterable[str], known: Iterable[str]
     """
     keep, live = set(kept), set(known)
     return sorted(k for k, v in custom.items() if v is not None and k in live and k not in keep)
+
+
+@dataclass(frozen=True)
+class MaskedChange:
+    """A masked field between two saved copies: whether it changed, never what it holds."""
+
+    field: str  # `custom.<key>`
+    changed: bool
+
+
+def masked_changes(
+    old: Mapping[str, Any] | None,
+    new: Mapping[str, Any] | None,
+    masked: frozenset[str],
+    live: Iterable[str],
+) -> list[MaskedChange]:
+    """Each masked custom field either side holds (and still exists), changed or not (ADR-047).
+
+    `old` and `new` are the two copies' custom values (keys without `custom.`); `masked` is the
+    reader's masked fields as `custom.<key>`. A value is compared whole, so "changed" says only
+    that it differs: never which way, nor any part of either value.
+    """
+    before, after, alive = old or {}, new or {}, set(live)
+    keys = sorted(k for k in {*before, *after} if k in alive and f"{CUSTOM}{k}" in masked)
+    return [MaskedChange(f"{CUSTOM}{k}", before.get(k) != after.get(k)) for k in keys]
