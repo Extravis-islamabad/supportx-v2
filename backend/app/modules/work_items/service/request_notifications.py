@@ -453,7 +453,8 @@ async def _waiting_context(session: AsyncSession, envelope: EventEnvelope) -> Re
     """The request's technician, or its group without one, while it is open (REQ-SR-053 AC1).
 
     Never the requester. The engine's own access check keeps it to people who may view the
-    request; the group is the existing group-members kind with its cap. The node is never named:
+    request; the group is all its members, as the ready-to-fulfil notice tells them (uncapped,
+    like it; a shared cap for both is a polish item). The node is never named:
     only its wait kind, labelled (rule d).
     """
     payload = envelope.payload
