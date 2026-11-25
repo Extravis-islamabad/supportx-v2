@@ -46,7 +46,7 @@ __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
 pytestmark = [pytest.mark.db, MODULE_LOOP]
 
 BASE = "/monitoring/connections"
-TOKEN = "monetx-t0ken-0123456789abcdef"
+TOKEN = f"fake-monetx-{uuid.uuid4().hex}"  # a stand-in's value, made per run
 TABLES = (
     "monitoring_connections",
     "monitoring_topology_runs",
