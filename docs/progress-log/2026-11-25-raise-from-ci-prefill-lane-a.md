@@ -1,4 +1,4 @@
-# 2026-11-25 — Raise from a CI: `?ci=` on the create forms (lane A)
+### 2026-11-25 — Raise from a CI: `?ci=` on the create forms (lane A)
 
 For lane B's WP-053 S5c Raise menu (rule 8: lane A's create pages). A new incident, request or
 change opened with `?ci=<id>` links that CI:
