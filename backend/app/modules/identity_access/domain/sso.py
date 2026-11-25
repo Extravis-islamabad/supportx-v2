@@ -151,6 +151,7 @@ def check_url(value: str, field_name: str) -> Problem | None:
 
 
 ALIAS_MAX = 60
+_TOKEN = re.compile(r"[0-9a-f]{6,12}")  # secrets.token_hex(3) today; leaves the slug room
 
 
 def alias_for(slug: str, token: str) -> str:
@@ -160,6 +161,9 @@ def alias_for(slug: str, token: str) -> str:
     with a long slug never share an alias, nor its group attributes (lane C's #632 note). An
     alias already stored on a set-up keeps its value; this only shapes new ones.
     """
+    if not _TOKEN.fullmatch(token):  # lane C's #634 note: never a cut that leaves no slug
+        msg = "an SSO alias token is 6 to 12 lowercase hex characters"
+        raise ValueError(msg)
     room = ALIAS_MAX - len("sx-") - len("-") - len(token)
     return f"sx-{slug[:room].rstrip('-')}-{token}"
 
