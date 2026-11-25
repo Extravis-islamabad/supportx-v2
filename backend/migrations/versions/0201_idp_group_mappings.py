@@ -164,13 +164,17 @@ def upgrade() -> None:
         ),
     )  # fmt: skip
     # One live mapping per (source, external group, target): one index per target kind.
-    for target in ("role_id", "group_id"):
+    # The conditions are literals (no SQL built by formatting, sx.sql-format).
+    for target, live in (
+        ("role_id", "deleted_at IS NULL AND role_id IS NOT NULL"),
+        ("group_id", "deleted_at IS NULL AND group_id IS NOT NULL"),
+    ):
         op.create_index(
             f"uq_{MAPPINGS}_{target}",
             MAPPINGS,
             ["tenant_id", "source_kind", "source_id", "external_group_id", target],
             unique=True,
-            postgresql_where=sa.text(f"deleted_at IS NULL AND {target} IS NOT NULL"),
+            postgresql_where=sa.text(live),
         )
     op.create_index(
         f"ix_{MAPPINGS}_tenant_source", MAPPINGS, ["tenant_id", "source_kind", "source_id"]
