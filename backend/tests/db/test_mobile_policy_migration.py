@@ -17,7 +17,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0201"  # 0206's down revision
+BEFORE = "0205"  # 0206's down revision
 
 
 async def _tenant_with_settings(url: str) -> uuid.UUID:

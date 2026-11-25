@@ -17,7 +17,7 @@ columns: a tenant that switched the app off would allow it again, so it refuses 
 has `mobile_allowed` off (business tables force RLS: counted per tenant, as 0023 does).
 
 Revision ID: 0206
-Revises: 0201 (main's head while building; re-pointed at its queue turn)
+Revises: 0205 (main's head at its queue turn)
 Created: 2026-11-25
 """
 
@@ -28,7 +28,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0206"
-down_revision: str | None = "0201"  # main's head while building; re-pointed at its queue turn
+down_revision: str | None = "0205"  # main's head at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
