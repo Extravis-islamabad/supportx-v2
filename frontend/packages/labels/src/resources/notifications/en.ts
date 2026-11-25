@@ -190,6 +190,7 @@ export const en = {
   'notification_event.service_request.received': 'Request received: acknowledgement',
   'notification_event.service_request.rejected': 'Request rejected',
   'notification_event.service_request.withdrawn': 'Request withdrawn',
+  'notification_event.service_request.workflow_waiting': "Request's workflow is waiting",
   'notification_event.sign_in_secret.expiring': 'A sign-in certificate or secret is running out',
   'notification_event.support_grant.ended': 'Vendor support access ended',
   'notification_event.support_grant.extended': 'Vendor support access extended',
@@ -908,6 +909,12 @@ export const en = {
     '{{ record.display_id }} was withdrawn: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.workflow_waiting.body':
+    'Hello {{ recipient.name }},\n\nThe workflow of {{ record.display_id }} "{{ record.title }}" is {{ wait.kind }}. Open the request to see what it needs.',
+  'notification_template.service_request.workflow_waiting.in_app':
+    '{{ record.display_id }}: {{ wait.kind }}',
+  'notification_template.service_request.workflow_waiting.subject':
+    'Waiting: {{ record.display_id }} {{ record.title }}',
   'notification_template.sign_in_secret.expiring.body':
     'Hello {{ recipient.name }},\n\nThe {{ notice.item }} of the single sign-on "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). When it runs out, people cannot sign in through it. Renew it at the identity provider and update it in Sign-in and security: {{ record.link }}',
   'notification_template.sign_in_secret.expiring.in_app':
@@ -1039,6 +1046,7 @@ export const en = {
   'notification_variable.unavailable.person': 'Unassigned › Person',
   'notification_variable.unavailable.reason': 'Unassigned › Why',
   'notification_variable.verified_domain.domain': 'Domain › Name',
+  'notification_variable.wait.kind': 'Workflow › What it waits for',
   'notification_variable.warranty.ends_on': 'Warranty › Ends on',
   'notification_variable.window.start': 'Window start',
   'notifications.banner.no_mail_one':

@@ -8,7 +8,7 @@ events. Automation never reads work item tables itself (CLAUDE.md rule e).
 import dataclasses
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,7 @@ from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.audit_subtype import status_category
 from app.modules.work_items.service.rule_assignment import place_person
 from app.shared.events import EventEnvelope
-from app.shared.history import Change, record_changes
+from app.shared.history import Change, Source, record_changes
 
 _RECORD_EVENTS = {
     "work_items.work_item.created": automation.TriggerEvent.CREATED,
@@ -217,6 +217,35 @@ async def _record_migration(
     )
 
 
+async def _record_stop(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    ref: Mapping[str, Any],
+    reason: str,
+    source: str,
+) -> None:
+    """A person stopped a workflow run on the record: one history line, with their reason.
+
+    The stop's own source (ui or api) with the person as the actor (the session's), and the
+    workflow by its name, never its ID (lane C's #636 review); `automation_ref` keeps the IDs.
+    """
+    record = await session.get(WorkItem, record_id)
+    if record is None:
+        return
+    await record_changes(
+        session,
+        record_type=items.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=[Change("workflow_stopped", None, str(ref.get("workflow_name") or ""))],
+        source=cast("Source", source),
+        reason=reason,
+        automation_ref=dict(ref),
+        subtype=record.type,
+    )
+
+
 def _known_templates(wtype: WorkItemType) -> automation.TemplateCheck:
     async def check(session: AsyncSession, ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
         if not ids:
@@ -295,6 +324,7 @@ def register_triggers() -> None:
                     _ask_approval if wtype.code in workflow_approvals.APPROVAL_TYPES else None
                 ),
                 record_migration=_record_migration,  # REQ-WF-021 AC2
+                record_stop=_record_stop,  # REQ-SR-054 AC1
                 known_templates=_known_templates(wtype),  # REQ-WF-010, -027
             )
         )

@@ -79,6 +79,24 @@ class ServiceRequestReadyToFulfil(_WorkItemEvent):
     group_id: uuid.UUID | None
 
 
+class ServiceRequestWorkflowWaiting(DomainEvent):
+    """A request's workflow began waiting at one node (WP-047a S5 follow-up; REQ-SR-053 AC1).
+
+    One per started wait, each with its own event ID, so the notification engine's per-event
+    idempotency tells the technician (or the group) once per wait (lane B's design). IDs and
+    codes only: the node's ID never reaches a person, its wait kind is labelled.
+    """
+
+    event_type: ClassVar[str] = "work_items.service_request.workflow_waiting"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    instance_id: uuid.UUID
+    node_id: str
+    wait_kind: str  # field, date, task, approval or event (automation's WaitKind codes)
+
+
 class WorkItemStageChanged(_WorkItemEvent):
     """A staged record entered another stage (ADR-041 §6), with the status move that did it.
 
@@ -782,6 +800,7 @@ class WorkItemDraftChanged(DomainEvent):
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemDraftChanged,
     ServiceRequestReadyToFulfil,
+    ServiceRequestWorkflowWaiting,
     WorkItemAssetLinkChanged,
     WorkItemAssigneeUnavailable,
     WorkItemCreated,

@@ -49,6 +49,8 @@ TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid
 MigrationRecorder = Callable[
     [AsyncSession, uuid.UUID, Mapping[str, Any], int, int], Awaitable[None]
 ]
+# The record, the workflow's history ref, and why it was stopped (REQ-SR-054; WP-047a S5).
+StopRecorder = Callable[[AsyncSession, uuid.UUID, Mapping[str, Any], str, str], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,8 @@ class RecordType:
     ask_approval: "ApprovalAsker | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
     record_migration: "MigrationRecorder | None" = None
+    # A person stopped a run: the record's history says so, with the reason (REQ-SR-054 AC1).
+    record_stop: "StopRecorder | None" = None
     # Which of these IDs are the type's templates, here (a workflow's start templates).
     known_templates: "TemplateCheck | None" = None
     # The trigger events this type offers (WP-053 S5d, lane C's shape): a trigger naming another

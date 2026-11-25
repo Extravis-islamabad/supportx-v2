@@ -195,6 +195,7 @@ export const ur: LabelResource = {
   'notification_event.service_request.received': 'درخواست موصول: تصدیق',
   'notification_event.service_request.rejected': 'درخواست نامنظور',
   'notification_event.service_request.withdrawn': 'درخواست واپس لی گئی',
+  'notification_event.service_request.workflow_waiting': 'درخواست کا ورک فلو انتظار میں ہے',
   'notification_event.sign_in_secret.expiring':
     'سائن اِن کا سرٹیفکیٹ یا خفیہ کلید ختم ہونے والی ہے',
   'notification_event.support_grant.ended': 'وینڈر سپورٹ رسائی ختم ہوئی',
@@ -913,6 +914,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} واپس لی گئی: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'واپس لی گئی: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.workflow_waiting.body':
+    'ہیلو {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کا ورک فلو {{ wait.kind }}۔ یہ دیکھنے کے لیے کہ اسے کیا چاہیے، درخواست کھولیں۔',
+  'notification_template.service_request.workflow_waiting.in_app':
+    '{{ record.display_id }}: {{ wait.kind }}',
+  'notification_template.service_request.workflow_waiting.subject':
+    'انتظار میں: {{ record.display_id }} {{ record.title }}',
   'notification_template.sign_in_secret.expiring.body':
     'السلام علیکم {{ recipient.name }}،\n\nسنگل سائن آن "{{ record.title }}" کی {{ notice.item }} {{ notice.left }} ({{ notice.expires }})۔ ختم ہونے پر لوگ اس کے ذریعے سائن اِن نہیں کر سکیں گے۔ شناخت فراہم کنندہ سے اس کی تجدید کریں اور سائن اِن اور سیکیورٹی میں اپ ڈیٹ کریں: {{ record.link }}',
   'notification_template.sign_in_secret.expiring.in_app':
@@ -1043,6 +1050,7 @@ export const ur: LabelResource = {
   'notification_variable.unavailable.person': 'غیر تفویض › فرد',
   'notification_variable.unavailable.reason': 'غیر تفویض › وجہ',
   'notification_variable.verified_domain.domain': 'ڈومین › نام',
+  'notification_variable.wait.kind': 'ورک فلو › کس کا انتظار ہے',
   'notification_variable.warranty.ends_on': 'وارنٹی › ختم ہونے کی تاریخ',
   'notification_variable.window.start': 'وقت کا آغاز',
   'notifications.banner.no_mail_one':

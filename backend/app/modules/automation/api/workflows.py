@@ -59,6 +59,7 @@ from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, list_query, paginate
 from app.shared.api.ratelimit import rate_limit
+from app.shared.history import source_of
 
 # Every workflow route counts against its own budget (audit #14; architecture.md §10).
 router = APIRouter(
@@ -867,6 +868,7 @@ async def stop_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: Run,
     note: StopNote,
+    request: Request,
 ) -> InstanceOut:
     """Its log and tasks stay; the record goes on through its life cycle (REQ-WF-026, SR-054).
 
@@ -876,7 +878,7 @@ async def stop_instance(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     reason = body.reason.strip()
     note.details = {"reason": reason}
     stopped = await workflow_runtime.stop(
-        session, instance_id, reason=reason, expected_version=version
+        session, instance_id, reason=reason, expected_version=version, source=source_of(request)
     )
     set_etag(response, stopped.version)
     return _instance(stopped)

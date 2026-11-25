@@ -192,6 +192,7 @@ export const ar: LabelResource = {
   'notification_event.service_request.received': 'استلام الطلب: إشعار',
   'notification_event.service_request.rejected': 'رفض الطلب',
   'notification_event.service_request.withdrawn': 'سحب الطلب',
+  'notification_event.service_request.workflow_waiting': 'سير عمل الطلب بالانتظار',
   'notification_event.sign_in_secret.expiring': 'شهادة أو سر لتسجيل الدخول على وشك الانتهاء',
   'notification_event.support_grant.ended': 'انتهى وصول دعم المورّد',
   'notification_event.support_grant.extended': 'مُدّد وصول دعم المورّد',
@@ -905,6 +906,12 @@ export const ar: LabelResource = {
     'سُحب {{ record.display_id }}: {{ record.title }}',
   'notification_template.service_request.withdrawn.subject':
     'تم السحب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.workflow_waiting.body':
+    'مرحبًا {{ recipient.name }}،\n\nسير عمل {{ record.display_id }} «{{ record.title }}» {{ wait.kind }}. افتح الطلب لترى ما يحتاجه.',
+  'notification_template.service_request.workflow_waiting.in_app':
+    '{{ record.display_id }}: {{ wait.kind }}',
+  'notification_template.service_request.workflow_waiting.subject':
+    'بالانتظار: {{ record.display_id }} {{ record.title }}',
   'notification_template.sign_in_secret.expiring.body':
     'مرحبًا {{ recipient.name }}،\n\nصلاحية {{ notice.item }} لتسجيل الدخول الموحّد "{{ record.title }}" {{ notice.left }} ({{ notice.expires }}). عند انتهائها لن يتمكن المستخدمون من تسجيل الدخول عبره. جدّدها لدى مزوّد الهوية وحدّثها في تسجيل الدخول والأمان: {{ record.link }}',
   'notification_template.sign_in_secret.expiring.in_app':
@@ -1031,6 +1038,7 @@ export const ar: LabelResource = {
   'notification_variable.unavailable.person': 'غير مُسند › الشخص',
   'notification_variable.unavailable.reason': 'غير مُسند › السبب',
   'notification_variable.verified_domain.domain': 'النطاق › الاسم',
+  'notification_variable.wait.kind': 'سير العمل › ما ينتظره',
   'notification_variable.warranty.ends_on': 'الضمان › ينتهي في',
   'notification_variable.window.start': 'بداية النافذة',
   'notifications.banner.no_mail_few':

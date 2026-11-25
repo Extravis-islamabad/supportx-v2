@@ -42,6 +42,7 @@ from app.modules.automation.domain.interpreter import (
     advance,
 )
 from app.modules.automation.domain.rules import JsonValue
+from app.modules.automation.domain.waits import kind_of, waits_started
 from app.modules.automation.domain.workflows import Definition, TimeBasis, parse
 from app.modules.automation.events import (
     WorkflowFunctionRequested,
@@ -150,6 +151,24 @@ async def _subject(session: AsyncSession, workflow: Workflow) -> Subject | None:
     if workflow.service_identity_id is None:
         return None
     return await subject_for(session, workflow.tenant_id, workflow.service_identity_id)
+
+
+async def wait_kind(session: AsyncSession, instance_id: uuid.UUID, node_id: str) -> str | None:
+    """What a run's node waits for (a WaitKind code), from the run's own version (S5 follow-up).
+
+    For another module's notice (REQ-SR-053 AC1): codes only, never the node's name.
+    """
+    instance = await session.get(WorkflowInstance, instance_id)
+    if instance is None:
+        return None
+    version = await session.get(
+        WorkflowVersion, (instance.tenant_id, instance.workflow_id, instance.version_number)
+    )
+    if version is None:
+        return None
+    node = next((n for n in _definition(version).nodes if n.id == node_id), None)
+    kind = kind_of(node) if node is not None else None
+    return kind.value if kind is not None else None
 
 
 async def workflow_problem(
@@ -511,6 +530,7 @@ async def _save(  # noqa: PLR0913 - the instance and everything a run produced, 
             record_id=instance.record_id,
             status=state.status.value,
             version=instance.version,
+            waits_started=waits_started(steps),
         ),
         aggregate_id=instance.id,
         aggregate_version=instance.version,
@@ -548,15 +568,20 @@ def _refused(error: operations.OperationRefused) -> Conflict:
     return Conflict(code=error.code, params=dict(error.params))
 
 
-async def stop(
+async def stop(  # noqa: PLR0913 - the instance, its reason, version, clock and source
     session: AsyncSession,
     instance_id: uuid.UUID,
     *,
     reason: str,
     expected_version: int | None,
     now: datetime | None = None,
+    source: str = "workflow",
 ) -> WorkflowInstance:
-    """Stop a running or waiting instance with its reason; its log stays (REQ-WF-026 AC1)."""
+    """Stop a running or waiting instance with its reason; its log stays (REQ-WF-026 AC1).
+
+    `source`: where the stop came from (the stop route passes `ui` or `api`: a person stopped
+    it, lane C's #636 review); the record's history says so, with the person as the actor.
+    """
     moment = now or datetime.now(UTC)
     instance, definition = await _locked(session, instance_id, expected_version)
     state = load(instance.state, instance.status, instance.failure)
@@ -570,6 +595,15 @@ async def stop(
     kind = registered(instance.record_type)
     if kind is not None and kind.close_workflow is not None:
         await kind.close_workflow(session, instance.record_id, instance.id)
+    if kind is not None and kind.record_stop is not None:  # REQ-SR-054 AC1: with its reason
+        flow = await session.get(Workflow, instance.workflow_id)
+        ref = {
+            "workflow_id": str(instance.workflow_id),
+            "instance_id": str(instance.id),
+            # Its name, as the record's history shows it: never the raw ID (rule d).
+            "workflow_name": flow.name if flow is not None else "",
+        }
+        await kind.record_stop(session, instance.record_id, ref, reason, source)
     return instance
 
 

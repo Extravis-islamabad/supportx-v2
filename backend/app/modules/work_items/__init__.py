@@ -110,6 +110,7 @@ from app.modules.work_items.service import (
     task_notifications,
     task_reminders,
     view_audit,
+    workflow_waits,
 )
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.approvals import APPROVER_LEFT, inactive_approvers_schedule
@@ -323,6 +324,7 @@ module = ModuleSpec(
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
         view_audit.VIEW_AUDIT,  # D-176: shared views naming a restricted field go private
+        workflow_waits.WORKFLOW_WAITS,  # WP-047a S5 follow-up (REQ-SR-053 AC1)
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Flex, Form, Skeleton, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import {
@@ -67,6 +67,11 @@ export function TaskPage() {
     { covers: [portalTaskKeys.detail(id)] },
   );
   // Not yours, closed or given to someone else (404); any other failure is reported (lane C).
+  // Reported once per failure, never on every render (lane C's #636 nit); a 404 is an answer.
+  const failure = found.error;
+  useEffect(() => {
+    if (failure && !(failure instanceof ApiError && failure.status === 404)) reportError(failure);
+  }, [failure]);
   if (found.error instanceof ApiError && found.error.status === 404) {
     return (
       <Flex vertical gap={16} style={FORM_COLUMN}>
@@ -75,7 +80,31 @@ export function TaskPage() {
       </Flex>
     );
   }
-  if (found.error) reportError(found.error);
+  if (found.error) {
+    // Any other failure (a server error, the network): say so and offer to try again, never a
+    // skeleton forever (lane C's #630 note); it is reported once, by the effect above.
+    return (
+      <Flex vertical gap={16} style={FORM_COLUMN}>
+        <Alert
+          type="warning"
+          showIcon
+          message={t('portal.tasks.load_failed')}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                void found.refetch();
+              }}
+              data-testid="portal-task-retry"
+            >
+              {t('portal.tasks.retry')}
+            </Button>
+          }
+        />
+        <Link to="/tasks">{t('portal.tasks.back')}</Link>
+      </Flex>
+    );
+  }
   const task = found.data;
   if (task === undefined) return <Skeleton active />;
   const fields = task.fields ?? [];

@@ -2656,6 +2656,13 @@
             "title": "Version",
             "type": "integer"
           },
+          "waits_started": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Waits Started",
+            "type": "array"
+          },
           "workflow_id": {
             "format": "uuid",
             "title": "Workflow Id",
@@ -7725,6 +7732,39 @@
           "group_id"
         ],
         "title": "ServiceRequestReadyToFulfil",
+        "type": "object"
+      }
+    },
+    "work_items.service_request.workflow_waiting": {
+      "1": {
+        "description": "A request's workflow began waiting at one node (WP-047a S5 follow-up; REQ-SR-053 AC1).\n\nOne per started wait, each with its own event ID, so the notification engine's per-event\nidempotency tells the technician (or the group) once per wait (lane B's design). IDs and\ncodes only: the node's ID never reaches a person, its wait kind is labelled.",
+        "properties": {
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "wait_kind": {
+            "title": "Wait Kind",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "instance_id",
+          "node_id",
+          "wait_kind"
+        ],
+        "title": "ServiceRequestWorkflowWaiting",
         "type": "object"
       }
     },

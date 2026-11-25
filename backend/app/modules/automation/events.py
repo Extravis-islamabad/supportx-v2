@@ -88,6 +88,9 @@ class WorkflowInstanceChanged(DomainEvent):
     record_id: uuid.UUID
     status: Literal["running", "waiting", "failed", "finished", "cancelled"]
     version: int
+    # WP-047a S5 follow-up (REQ-SR-053 AC1; lane B's condition 1): the nodes whose wait began in
+    # this save, from its steps; empty when nothing started waiting. Optional: older events.
+    waits_started: list[str] = Field(default_factory=list)
 
 
 class WorkflowJobProgressed(DomainEvent):

@@ -1835,7 +1835,9 @@ export const ur: LabelResource = {
   'portal.tasks.handover_by_desk': 'سروس ڈیسک اثاثہ حوالے کرتے وقت یہ کام مکمل کرتا ہے۔',
   'portal.tasks.intro':
     'وہ کام جو کسی درخواست کو آپ سے درکار ہیں۔ ہر کام صرف وہی دکھاتا ہے جو اسے چاہیے۔',
+  'portal.tasks.load_failed': 'یہ کام ابھی لوڈ نہیں ہو سکا۔',
   'portal.tasks.none': 'اس وقت آپ کے لیے کوئی کام نہیں۔',
+  'portal.tasks.retry': 'دوبارہ کوشش کریں',
   'portal.tasks.start': 'شروع کریں',
   'portal.tasks.title': 'آپ کے کام',
   'portal_reach.all': 'سب',
@@ -3003,6 +3005,7 @@ export const ur: LabelResource = {
   'work_item.field.template_id': 'سانچہ',
   'work_item.field.urgency': 'فوریت',
   'work_item.field.workaround': 'عارضی حل',
+  'work_item.field.workflow_stopped': 'ورک فلو روک دیا گیا',
   'work_item.field.workflow_version': 'ورک فلو ورژن',
   'work_item.field.worklog': 'ورک لاگ',
   'work_item.history.changed': '{{who}} نے {{field}} کو {{old}} سے {{new}} میں بدلا',

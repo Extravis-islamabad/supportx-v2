@@ -2,8 +2,8 @@
 
 from datetime import UTC, datetime
 
-from app.modules.automation.domain.interpreter import Token, TokenState
-from app.modules.automation.domain.waits import WaitKind, waits_of
+from app.modules.automation.domain.interpreter import Step, Token, TokenState
+from app.modules.automation.domain.waits import WaitKind, waits_of, waits_started
 from app.modules.automation.domain.workflows import Definition, Node, NodeType
 
 AT = datetime(2026, 11, 25, 9, 0, tzinfo=UTC)
@@ -71,3 +71,26 @@ def test_running_done_and_unknown_nodes_wait_for_nothing() -> None:
         FLOW,
     )
     assert waits == []
+
+
+def _step(node: str, result: str, **detail: object) -> Step:
+    return Step(node, node, NodeType.WAIT, result, AT, dict(detail))
+
+
+def test_waits_started_counts_the_transition_only() -> None:
+    """Lane B's condition 1: entering starts a wait; staying, leaving or retrying never does."""
+    entered = [_step("w_field", "waiting"), _step("ask", "command", kind="open_approval")]
+    assert waits_started(entered) == ["w_field", "ask"]
+    assert waits_started([]) == []  # a re-save, or an unrelated edit while waiting
+    assert waits_started([_step("w_field", "next")]) == []  # leaving by its output
+    retried = [_step("call", "command", kind="webhook")]  # a retry of an outside call
+    assert waits_started(retried) == []
+    tasks = [_step("tasks", "command", kind="open_tasks")]
+    assert waits_started(tasks) == ["tasks"]
+
+
+def test_a_loop_back_to_the_same_wait_starts_it_again_once_per_save() -> None:
+    looped = [_step("w_field", "next"), _step("w_field", "waiting")]
+    assert waits_started(looped) == ["w_field"]
+    twice = [_step("w_field", "waiting"), _step("w_field", "waiting")]  # two tokens, one node
+    assert waits_started(twice) == ["w_field"]
