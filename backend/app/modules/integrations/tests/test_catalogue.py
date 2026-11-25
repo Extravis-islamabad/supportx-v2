@@ -134,6 +134,7 @@ def test_a_set_up_override_replaces_only_the_right_and_a_typo_is_caught() -> Non
     """Lane A's S6 conditions: an unknown right stops start-up; no entry keeps the default."""
     before = dict(catalogue._SET_UP_OVERRIDES)  # noqa: SLF001 - restored below
     try:
+        catalogue._SET_UP_OVERRIDES.clear()  # noqa: SLF001
         catalogue.register_set_up_permission(ConnectorCategory.MONITORING, "monitoring.manag")
         assert catalogue.manage_permission(ConnectorCategory.MONITORING) == "monitoring.manag"
         assert catalogue.unknown_overrides(frozenset({"monitoring.manage"})) == ["monitoring.manag"]
@@ -141,6 +142,29 @@ def test_a_set_up_override_replaces_only_the_right_and_a_typo_is_caught() -> Non
         assert catalogue.manage_permission(ConnectorCategory.IDENTITY) == (
             "integrations.manage_identity"
         )
+    finally:
+        catalogue._SET_UP_OVERRIDES.clear()  # noqa: SLF001
+        catalogue._SET_UP_OVERRIDES.update(before)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("category", [ConnectorCategory.EMAIL, ConnectorCategory.IDENTITY])
+def test_integrations_own_categories_never_move_to_another_right(
+    category: ConnectorCategory,
+) -> None:
+    with pytest.raises(ValueError, match="integrations' own right"):
+        catalogue.register_set_up_permission(category, "monitoring.manage")
+    assert category not in catalogue._SET_UP_OVERRIDES  # noqa: SLF001
+
+
+def test_a_second_module_cannot_take_a_registered_category() -> None:
+    before = dict(catalogue._SET_UP_OVERRIDES)  # noqa: SLF001 - restored below
+    try:
+        catalogue._SET_UP_OVERRIDES.clear()  # noqa: SLF001
+        catalogue.register_set_up_permission(ConnectorCategory.MONITORING, "monitoring.manage")
+        catalogue.register_set_up_permission(ConnectorCategory.MONITORING, "monitoring.manage")
+        with pytest.raises(ValueError, match="already"):
+            catalogue.register_set_up_permission(ConnectorCategory.MONITORING, "other.manage")
+        assert catalogue.manage_permission(ConnectorCategory.MONITORING) == "monitoring.manage"
     finally:
         catalogue._SET_UP_OVERRIDES.clear()  # noqa: SLF001
         catalogue._SET_UP_OVERRIDES.update(before)  # noqa: SLF001

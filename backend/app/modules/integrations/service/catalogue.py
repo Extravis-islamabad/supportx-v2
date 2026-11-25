@@ -45,10 +45,23 @@ MAILBOX = CONNECTOR_KIND
 # owns this map; the owning module registers its entry at import. The override only replaces the
 # right, never the check: a category with no entry keeps `integrations.manage_<category>`.
 _SET_UP_OVERRIDES: dict[ConnectorCategory, str] = {}
+# Integrations' own categories: their set-up never moves onto another module's right (lane A).
+_OWN_CATEGORIES = frozenset({ConnectorCategory.EMAIL, ConnectorCategory.IDENTITY})
 
 
 def register_set_up_permission(category: ConnectorCategory, permission: str) -> None:
-    """The right that sets up `category`'s connectors (checked at start-up, `check_overrides`)."""
+    """The right that sets up `category`'s connectors (checked at start-up).
+
+    Refused for integrations' own categories, and for a category already given another right
+    (the same right again is a no-op, so a re-import is harmless).
+    """
+    if category in _OWN_CATEGORIES:
+        msg = f"{category.value} connectors are set up through integrations' own right"
+        raise ValueError(msg)
+    current = _SET_UP_OVERRIDES.get(category)
+    if current is not None and current != permission:
+        msg = f"{category.value} set-up is already {current!r}"
+        raise ValueError(msg)
     _SET_UP_OVERRIDES[category] = permission
 
 
