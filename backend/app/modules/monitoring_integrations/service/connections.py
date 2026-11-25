@@ -277,7 +277,9 @@ async def client_for(
     session: AsyncSession, settings: Settings, row: MonitoringConnection
 ) -> MonetXClient:
     """The connection's client, or `MonitoringUnavailableError(NO_SECRET)` without a token."""
-    token = await integrations.read_connector_secret(session, settings, row.secret_ref)
+    token = await integrations.read_connector_secret(
+        session, settings, row.secret_ref, owner_kind=OWNER_KIND, owner_id=row.id
+    )
     if token is None:
         raise MonitoringUnavailableError(NO_SECRET)
     return MonetXClient(_FACTORY[0](row, token, settings))

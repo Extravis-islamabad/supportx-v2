@@ -40,6 +40,7 @@ from app.shared.files.keyring import KeyRing
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
 from tests.db.test_files_api import audit_actions
 from tests.db.test_incidents_api import Org, World
+from tests.db.test_users_api import seed_users
 from tests.monetx_fake import FakeMonetX
 
 __all__ = ["module_world", "shared_world"]  # the fixtures, re-used
@@ -484,3 +485,121 @@ async def test_a_change_of_health_emits_the_state_code_only(
     assert emitted, "a change of health is an event"
     for data in emitted:  # IDs and the state code, nothing MonetX said beyond it
         assert set(data) <= {"event_id", "ci_id", "state", "occurred_at", "tenant_id"}, data
+
+
+# --- the public secret store is owner-scoped (lane A's and lane C's S6 reviews) --------------
+
+
+async def test_another_owners_secret_never_opens_even_by_its_reference(
+    world: World, monetx: FakeMonetX
+) -> None:
+    """A mailbox's secret, read through the public store by its known ref: nothing."""
+    del monetx
+    from app.modules import integrations  # noqa: PLC0415 - the public store under test
+    from app.modules.integrations.service import secrets as own_secrets  # noqa: PLC0415
+    from app.modules.integrations.service.connections import key_ring  # noqa: PLC0415
+
+    connection = (await _add(world, world.a)).json()
+    settings = world.app.state.settings
+    ring = key_ring(settings)
+    assert ring is not None
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
+        mailbox = uuid.uuid4()
+        mailbox_ref = await own_secrets.put_owned(
+            session,
+            ring,
+            owner_kind=own_secrets.OWNER_MAILBOX,
+            owner_id=mailbox,
+            role="client_secret",
+            secret_type="client_secret",
+            value=f"mailbox-{uuid.uuid4().hex}",
+        )
+        connection_id = uuid.UUID(connection["id"])
+        # The mailbox's ref, asked for as monitoring's: nothing opens, nothing is described.
+        assert (
+            await integrations.read_connector_secret(
+                session, settings, mailbox_ref,
+                owner_kind="monitoring_connection", owner_id=connection_id,
+            )
+            is None
+        )  # fmt: skip
+        assert (
+            await integrations.connector_secret_info(
+                session, mailbox_ref, owner_kind="monitoring_connection", owner_id=connection_id
+            )
+            is None
+        )
+        # Integrations' own kinds are refused outright, on every call.
+        for call in (
+            integrations.store_connector_secret(
+                session, settings, owner_kind=own_secrets.OWNER_MAILBOX, owner_id=mailbox,
+                role="client_secret", secret_type="client_secret", value="x",
+            ),
+            integrations.forget_connector_secrets(
+                session, owner_kind=own_secrets.OWNER_MAILBOX, owner_id=mailbox
+            ),
+            integrations.read_connector_secret(
+                session, settings, mailbox_ref, owner_kind=own_secrets.OWNER_MAILBOX,
+                owner_id=mailbox,
+            ),
+        ):  # fmt: skip
+            with pytest.raises(ValueError, match="not an external connector"):
+                await call
+        # The mailbox's secret is still there and still its own.
+        assert await own_secrets.read_owned(session, ring, mailbox_ref) is not None
+
+
+# --- set-up goes through monitoring.manage, not a connector right (the coordinator's Q2) -----
+
+
+async def _given_only(world: World, user: uuid.UUID, permissions: list[str]) -> None:
+    created = await world.call(
+        "POST", "/roles", world.a, world.a.admin,
+        json={
+            "name": f"Monitoring set-up {uuid.uuid4().hex[:6]}",
+            "permissions": [{"permission": p, "scope": "all"} for p in permissions],
+        },
+    )  # fmt: skip
+    assert created.status_code == 201, created.text
+    assigned = await world.call(
+        "PUT", f"/users/{user}/roles/{created.json()['id']}", world.a, world.a.admin
+    )
+    assert assigned.status_code in {200, 204}, assigned.text
+
+
+async def _add_as(world: World, person: uuid.UUID) -> httpx.Response:
+    return await world.call(
+        "POST", BASE, world.a, person,
+        json={"name": f"MonetX {uuid.uuid4().hex[:6]}", "base_url": "https://monetx.example.com",
+              "token": TOKEN},
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+    )  # fmt: skip
+
+
+def _monetx(catalogue: list[dict[str, Any]]) -> dict[str, Any]:
+    (kind,) = [k for k in catalogue if k["code"] == "monetx"]
+    return kind
+
+
+async def test_a_connector_admin_without_monitoring_manage_cannot_set_monetx_up(
+    world: World, monetx: FakeMonetX
+) -> None:
+    del monetx
+    person = world.a.tech_b
+    await _given_only(world, person, ["integrations.manage_email", "integrations.manage_identity"])
+    seen = await world.call("GET", "/integrations/catalogue", world.a, person)
+    assert seen.status_code == 200, seen.text
+    kind = _monetx(seen.json())
+    assert (kind["can_manage"], kind["manage_reason"]) == (False, "no_permission")
+    assert (await _add_as(world, person)).status_code == 403
+
+
+async def test_monitoring_manage_sets_monetx_up(world: World, monetx: FakeMonetX) -> None:
+    del monetx
+    [person] = await seed_users(world.db, world.a.tenant, [{"user_type": "technician"}])
+    await _given_only(world, person, ["monitoring.manage", "integrations.view"])
+    seen = await world.call("GET", "/integrations/catalogue", world.a, person)
+    assert seen.status_code == 200, seen.text
+    assert _monetx(seen.json())["can_manage"] is True
+    added = await _add_as(world, person)
+    assert added.status_code == 201, added.text

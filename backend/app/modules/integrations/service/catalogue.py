@@ -40,9 +40,30 @@ VIEW = "integrations.view"
 MAILBOX = CONNECTOR_KIND
 
 
+# A category whose connectors another module owns sets up through that module's own right
+# (WP-053 S6: monitoring through `monitoring.manage`; the coordinator, 2026-11-25). Integrations
+# owns this map; the owning module registers its entry at import. The override only replaces the
+# right, never the check: a category with no entry keeps `integrations.manage_<category>`.
+_SET_UP_OVERRIDES: dict[ConnectorCategory, str] = {}
+
+
+def register_set_up_permission(category: ConnectorCategory, permission: str) -> None:
+    """The right that sets up `category`'s connectors (checked at start-up, `check_overrides`)."""
+    _SET_UP_OVERRIDES[category] = permission
+
+
 def manage_permission(category: ConnectorCategory) -> str:
-    """The set-up permission of one category (REQ-INT-013): `integrations.manage_<category>`."""
-    return f"integrations.manage_{category.value}"
+    """The set-up permission of one category (REQ-INT-013).
+
+    `integrations.manage_<category>`, or the owning module's right for a category it registered
+    (WP-053 S6).
+    """
+    return _SET_UP_OVERRIDES.get(category, f"integrations.manage_{category.value}")
+
+
+def unknown_overrides(known: frozenset[str]) -> list[str]:
+    """Overrides naming a right no module registers (a typo must stop start-up, lane A)."""
+    return sorted(p for p in _SET_UP_OVERRIDES.values() if p not in known)
 
 
 def set_up_keys(category: ConnectorCategory) -> tuple[str, ...]:

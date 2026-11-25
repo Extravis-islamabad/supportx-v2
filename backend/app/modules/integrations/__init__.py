@@ -10,6 +10,8 @@ Public interface for other modules: the connector secrets store (`store_connecto
 monitoring_integrations' MonetX token).
 """
 
+from fastapi import FastAPI
+
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.integrations.api.block_rules import router as block_rules_router
@@ -29,6 +31,7 @@ from app.modules.integrations.service import (
     person_mentions,
     runs,
 )
+from app.modules.integrations.service.catalogue import register_set_up_permission
 from app.modules.integrations.service.directory_sync import sync_schedule
 from app.modules.integrations.service.fetching import fetch_schedule
 from app.modules.integrations.service.ldap_directories import LDAP_FEDERATION_APPLY
@@ -36,7 +39,8 @@ from app.modules.integrations.service.ldap_people import ldap_people_schedule
 from app.modules.integrations.service.mailboxes import LEGACY_MANAGE, MANAGE
 from app.modules.integrations.service.realtime import ROUTES
 from app.modules.integrations.service.secret_store import (
-    SecretInfo,
+    EXTERNAL_OWNER_KINDS,
+    ConnectorSecretInfo,
     connector_secret_info,
     forget_connector_secrets,
     read_connector_secret,
@@ -55,7 +59,20 @@ connector_notifications.register()  # failing and recovered connectors (WP-040)
 person_data.register()
 person_mentions.register()
 
+
+async def _check_set_up_overrides(app: FastAPI) -> None:
+    """A set-up override naming no registered right stops start-up (lane A's S6 condition a)."""
+    known = frozenset(
+        permission.key for spec in app.state.modules.modules for permission in spec.permissions
+    )
+    unknown = catalogue.unknown_overrides(known)
+    if unknown:
+        msg = f"connector set-up overrides name unknown rights: {', '.join(unknown)}"
+        raise RuntimeError(msg)
+
+
 module = ModuleSpec(
+    on_startup=[_check_set_up_overrides],
     name="integrations",
     routers=[
         router,
@@ -92,10 +109,12 @@ module = ModuleSpec(
 )
 
 __all__ = [
-    "SecretInfo",
+    "EXTERNAL_OWNER_KINDS",
+    "ConnectorSecretInfo",
     "connector_secret_info",
     "forget_connector_secrets",
     "module",
     "read_connector_secret",
+    "register_set_up_permission",
     "store_connector_secret",
 ]

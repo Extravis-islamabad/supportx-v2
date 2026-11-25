@@ -11,6 +11,7 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
+from app.modules import integrations
 from app.modules.monitoring_integrations.api.routes import ROUTERS
 from app.modules.monitoring_integrations.events import EVENTS
 from app.modules.monitoring_integrations.service import catalogue
@@ -18,9 +19,13 @@ from app.modules.monitoring_integrations.service.connections import FEATURE, MAN
 from app.modules.monitoring_integrations.service.health import ensure_cache, refresh_schedule
 from app.modules.monitoring_integrations.service.realtime import ROUTES
 from app.modules.monitoring_integrations.service.topology import topology_schedule
+from app.shared.connectors.ports import ConnectorCategory
 from app.shared.schedules import ScheduleSpec
 
 catalogue.register()  # MonetX in the integrations catalogue (a `monitoring` kind)
+# Monitoring connectors are set up through this module's own right, not integrations' (the
+# coordinator's Q2 ruling, 2026-11-25; integrations' override map, lane A's WP-055).
+integrations.register_set_up_permission(ConnectorCategory.MONITORING, MANAGE)
 
 
 async def _startup(app: FastAPI) -> None:

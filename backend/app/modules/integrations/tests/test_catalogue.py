@@ -128,3 +128,19 @@ def test_a_mailbox_state_maps_to_a_catalogue_status(
     state: str, enabled: bool, status: ConnectorStatus
 ) -> None:
     assert connector_status(state, enabled=enabled) == status
+
+
+def test_a_set_up_override_replaces_only_the_right_and_a_typo_is_caught() -> None:
+    """Lane A's S6 conditions: an unknown right stops start-up; no entry keeps the default."""
+    before = dict(catalogue._SET_UP_OVERRIDES)  # noqa: SLF001 - restored below
+    try:
+        catalogue.register_set_up_permission(ConnectorCategory.MONITORING, "monitoring.manag")
+        assert catalogue.manage_permission(ConnectorCategory.MONITORING) == "monitoring.manag"
+        assert catalogue.unknown_overrides(frozenset({"monitoring.manage"})) == ["monitoring.manag"]
+        # A category nobody overrides keeps integrations' own key.
+        assert catalogue.manage_permission(ConnectorCategory.IDENTITY) == (
+            "integrations.manage_identity"
+        )
+    finally:
+        catalogue._SET_UP_OVERRIDES.clear()  # noqa: SLF001
+        catalogue._SET_UP_OVERRIDES.update(before)  # noqa: SLF001
