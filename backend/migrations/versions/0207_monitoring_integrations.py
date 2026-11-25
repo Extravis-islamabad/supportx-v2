@@ -13,7 +13,7 @@ All tenant-scoped with RLS; soft delete for connections, none for the others (ro
 owns). Reversible; no data step.
 
 Revision ID: 0207
-Revises: 0204
+Revises: 0205
 Created: 2026-11-25
 """
 
