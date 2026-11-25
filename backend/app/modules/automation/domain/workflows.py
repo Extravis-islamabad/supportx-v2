@@ -116,6 +116,8 @@ class ApprovalRule(StrEnum):
 
 
 MAX_APPROVERS = 50  # people, groups and roles named by one approval node
+# WP-047a S4 (REQ-SR-044; lane C's bounds): an approval node's optional timeout, in hours.
+APPROVAL_TIMEOUT_MIN, APPROVAL_TIMEOUT_MAX = 1, 720
 MAX_NODE_TASKS = 20  # one task node's checklist (a single task is a checklist of one)
 TASK_TITLE_MAX = 200  # a task's title (work_items' own limit)
 MAX_DUE_DAYS = 365  # a task node's due date: working days on the record's calendar
@@ -507,8 +509,8 @@ def _uuid_list(value: Any) -> bool:  # noqa: ANN401 - untrusted JSON
     return True
 
 
-def _approvers_problem(approvers: Any, roles_known: frozenset[str]) -> Problem | None:  # noqa: ANN401 - untrusted JSON
-    """What is wrong with an approval node's approvers, or None."""
+def approvers_problem(approvers: Any, roles_known: frozenset[str]) -> Problem | None:  # noqa: ANN401 - untrusted JSON
+    """What is wrong with an approval's approvers (a node's, or a trigger's ask), or None."""
     if not isinstance(approvers, dict):
         return ("", "approval_without_approvers", {})
     users, groups, roles = (approvers.get(k, []) for k in ("user_ids", "group_ids", "roles"))
@@ -531,12 +533,30 @@ def _check_approval(
     """Who decides and how (REQ-WF-014): named people, groups or the record's roles."""
     if not facts.approvals:
         return [("approval_not_offered", {"record_type": facts.record_type})]
-    problem = _approvers_problem(config.get("approvers"), facts.roles)
+    problem = approvers_problem(config.get("approvers"), facts.roles)
     if problem is not None:
         return [(problem[1], problem[2])]
     if config.get("rule", ApprovalRule.ANY.value) not in {r.value for r in ApprovalRule}:
         return [("invalid_value", {"field": "rule"})]
+    hours = config.get("timeout_hours")
+    if hours is not None and (
+        isinstance(hours, bool)
+        or not isinstance(hours, int)
+        or not APPROVAL_TIMEOUT_MIN <= hours <= APPROVAL_TIMEOUT_MAX
+    ):
+        return [
+            (
+                "approval_timeout_out_of_range",
+                {"min": APPROVAL_TIMEOUT_MIN, "max": APPROVAL_TIMEOUT_MAX},
+            )
+        ]
     return []
+
+
+def _approval_outputs(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """Approved, rejected and error; and `timed_out` with a timeout (WP-047a S4, REQ-SR-044)."""
+    timed = ("timed_out",) if config.get("timeout_hours") is not None else ()
+    return ("approved", "rejected", *timed, "error")
 
 
 def _check_tasks(
@@ -795,7 +815,7 @@ REGISTRY: Mapping[NodeType, NodeSpec] = {
     NodeType.APPROVAL: NodeSpec(
         NodeType.APPROVAL,
         Category.PEOPLE,
-        _fixed("approved", "rejected", "error"),
+        _approval_outputs,  # `timed_out` is never optional: set a timeout, wire its branch
         lambda _c: frozenset({"error"}),
         _check_approval,
     ),

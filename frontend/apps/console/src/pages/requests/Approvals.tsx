@@ -27,6 +27,7 @@ const TONE: Record<Approval['state'], Tone> = {
   not_needed: 'info',
   skipped: 'info', // WP-047a S2a: the stage's condition did not hold
   replaced: 'info', // WP-047a S2b: a technician asked someone else (REQ-SR-042)
+  expired: 'info', // WP-047a S4: a workflow or trigger level's timeout passed (REQ-SR-044)
 };
 
 type Condition = Record<string, unknown>;

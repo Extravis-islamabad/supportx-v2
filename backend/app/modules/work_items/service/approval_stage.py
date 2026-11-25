@@ -133,9 +133,14 @@ async def after_submission(  # noqa: PLR0913 - the request and its context, expl
     source: Source,
     holders: Holders | None = None,
     wtype: WorkItemType | None = None,
+    waiting: bool = False,
 ) -> None:
-    """A new request from an item: its approval stage, or its fulfilment plan when none."""
-    if item is None:
+    """A new request from an item: its approval stage, or its fulfilment plan when none.
+
+    `waiting` (WP-047a S4, REQ-SR-017 AC3): made from mail with required answers missing, so
+    nothing starts yet; `answers_completed` runs this once they are given.
+    """
+    if item is None or waiting:
         return
     # Imported here: the stages service reaches the assets and CMDB ports (WP-047a S2a).
     from app.modules.work_items.service import request_stages  # noqa: PLC0415 - see above

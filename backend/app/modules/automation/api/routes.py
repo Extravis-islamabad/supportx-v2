@@ -18,7 +18,7 @@ from app.core.errors import NotFound, PermissionDenied, ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.assignment import AssignMethod, Availability
 from app.modules.automation.domain.rules import ActionMode, FieldKind, RuleEvent, RuleState
-from app.modules.automation.domain.triggers import Relative, TriggerEvent
+from app.modules.automation.domain.triggers import Relative, TriggerActionKind, TriggerEvent
 from app.modules.automation.infra.models import (
     AssignmentSettings,
     AutomationTrigger,
@@ -34,6 +34,7 @@ from app.modules.automation.service import (
     transitions,
     triggers,
 )
+from app.modules.automation.service.registry import offered_actions
 from app.modules.automation.service.registry import record_type as registered_type
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -94,6 +95,9 @@ class TriggerEventsOut(BaseModel):
     """The trigger events a record type offers (WP-053 S5d): the editor lists only these."""
 
     offered: list[TriggerEvent] = Field(description="In a stable order.")
+    offered_actions: list[TriggerActionKind] = Field(
+        description="The actions its triggers may take (WP-047a S4); any other is refused."
+    )
 
 
 @router.get("/trigger-events", summary="Trigger events a record type offers")
@@ -103,7 +107,10 @@ async def list_trigger_events(subject: View, record_type: RecordType) -> Trigger
     kind = registered_type(record_type)
     if kind is None:
         raise NotFound(code="unknown_record_type")
-    return TriggerEventsOut(offered=sorted(kind.offered_events, key=lambda e: e.value))
+    return TriggerEventsOut(
+        offered=sorted(kind.offered_events, key=lambda e: e.value),
+        offered_actions=offered_actions(kind),
+    )
 
 
 # --- business rules ----------------------------------------------------------------------------
@@ -693,8 +700,18 @@ async def list_runs(
 # --- triggers (WP-029 part 2) ------------------------------------------------------------------
 
 
+class ApprovalApproversIO(BaseModel):
+    """Who an approval asks: named people, groups (each member) and the record's roles."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    roles: list[str] = Field(default_factory=list, max_length=20)
+
+
 class TriggerActionIO(BaseModel):
-    """A trigger's action: `set` a field, add a private `note` or `start_workflow`.
+    """A trigger's action: `set` a field, add a private `note`, `start_workflow` or ask.
 
     `set` fills empty or overwrites and `note` is private (REQ-RUL-010); `start_workflow`
     starts a workflow on the record and is a trigger's only (WP-048b).
@@ -702,13 +719,20 @@ class TriggerActionIO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["set", "note", "start_workflow"]
+    kind: Literal["set", "note", "start_workflow", "start_approval"]
     field: str | None = Field(default=None, max_length=80)
     value: Any = None
     mode: ActionMode = ActionMode.FILL_EMPTY
     text: str | None = Field(default=None, max_length=10000, description="The note (note only).")
     workflow_id: uuid.UUID | None = Field(
         default=None, description="The workflow to start (start_workflow only)."
+    )
+    # WP-047a S4 (REQ-SR-044): an ad hoc ask of named approvers (start_approval only).
+    approvers: ApprovalApproversIO | None = Field(
+        default=None, description="Who is asked (start_approval only): people, groups, roles."
+    )
+    rule: Literal["any", "all", "majority"] | None = Field(
+        default=None, description="How they decide (start_approval only); any by default."
     )
 
 

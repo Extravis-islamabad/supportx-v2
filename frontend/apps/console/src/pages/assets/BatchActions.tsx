@@ -51,11 +51,14 @@ const TEXT_MAX = 200;
 /** The job's progress, live: the person's channel says when it moved on. */
 function useBulkJobLive(jobId: string | undefined) {
   const queryClient = useQueryClient();
-  usePersonalChannel((message) => {
-    if (jobId === undefined || message.type !== ASSET_BULK_PROGRESS) return;
-    if (!message.ids.includes(jobId)) return;
-    void queryClient.invalidateQueries({ queryKey: assetBatchKeys.bulkJob(jobId) });
-  });
+  usePersonalChannel(
+    (message) => {
+      if (jobId === undefined || message.type !== ASSET_BULK_PROGRESS) return;
+      if (!message.ids.includes(jobId)) return;
+      void queryClient.invalidateQueries({ queryKey: assetBatchKeys.bulkJob(jobId) });
+    },
+    { covers: jobId === undefined ? [] : [assetBatchKeys.bulkJob(jobId)] }, // [] before a job
+  );
   return useAssetBulkJob(jobId);
 }
 

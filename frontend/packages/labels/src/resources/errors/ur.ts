@@ -46,6 +46,7 @@ export const ur: LabelResource = {
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
   'errors.approval_delegation_not_found': 'یہ تفویض اب موجود نہیں۔',
+  'errors.approval_expired': 'اس منظوری کی میعاد فیصلے سے پہلے ختم ہو گئی۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
   'errors.approval_not_running':
     '{{display_id}} پر کوئی منظوری زیرِ انتظار نہیں، اس لیے منظور کنندگان اب نہیں بدلے جا سکتے۔',
@@ -431,6 +432,8 @@ export const ur: LabelResource = {
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'errors.field.catalog_item_not_requestable':
+    'ایسی شائع شدہ سروس آئٹم منتخب کریں جس کی لوگ درخواست کر سکیں۔',
   'errors.field.catalog_too_deep': 'کیٹلاگ کیٹیگریز کے زیادہ سے زیادہ چار درجے ہو سکتے ہیں۔',
   'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
   'errors.field.category_loop':
@@ -1250,6 +1253,7 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.request_not_awaiting_answers': 'یہ درخواست اب جوابات کی منتظر نہیں ہے۔',
   'errors.request_too_slow':
     'اس میں بہت زیادہ وقت لگا، اس لیے اسے روک دیا گیا۔ محدود تلاش یا فلٹر آزمائیں، یا بعد میں دوبارہ کوشش کریں۔',
   'errors.requester_action_closed':

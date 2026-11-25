@@ -1887,6 +1887,44 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
     - requester edits of answers (`requester_edit_fields`) and a console answers editor;
     - delegation for change and release approvals;
     - delegation in the portal for requester-only approvers.
+- [~] **S4, channels (0203; REQ-SR-017, -038, -039, -043, -044; plan
+  `~/Extravis/plans/wp-047a-s4-plan-lane-a.md`, approved 2026-11-25; lane B blocks the 017 link
+  and the 038 reply decisions, lane C the mail paths, 043's filtering and 044 in automation):**
+  draft #627.
+  - REQ-SR-017 (Essentials): a mailbox can make service requests of one catalog item
+    (`creates = service_request`, `catalog_item_id`); the item is checked again for every mail
+    as the requester would raise it, and an item no longer requestable holds the mail (never an
+    incident instead). No answers come from free mail text: required ones missing make the
+    request wait (`awaiting_requester`, approval status `awaiting_answers`, no approval yet).
+    The requester is told: with the portal page that asks only the missing questions, or (a
+    requester made from mail cannot sign in, lane B) with no link and how to get access. Saving
+    the answers submits the request as any other. A mail command `item:` is a follow-up.
+  - REQ-SR-038 (Essentials): a reply to the approval mail approves or rejects only when it
+    answers that mail, the trusted server vouched for the sender (stricter than the spec, the
+    coordinator's Q2), the sender is the approver (or the delegate it went to), the approval was
+    pending when the mail was sent, and its first line is a clear decision word in English,
+    Arabic or Urdu (no AI at V1). Anything else changes nothing and the sender is told why, with
+    the app as the way to decide; no new no-sign-in link is ever minted. Every reply is audited.
+  - REQ-SR-039: mobile decides on the same routes; push stays WP-M6.
+  - REQ-SR-043 (Essentials): an approver sees the questions meant for approvers (it was the
+    requester's set) and the public conversation, never a private note; this supersedes the
+    QA10-P2-06 rule (the coordinator, 2026-11-25).
+  - REQ-SR-044 (Professional): a workflow approval node may time out (1-720 hours, through the
+    workflow timers worker): its level expires (links revoked), the node takes `timed_out`, and a
+    decision after that is refused (`approval_expired`); a decision that got there first wins.
+    A trigger may ask for an approval (`start_approval`): an ad hoc ask under the rule's
+    identity that never moves the request, and none while one is pending (the coordinator's
+    option a; decision-driven next steps use a one-node workflow through `start_workflow`).
+  - **Spec gaps:**
+    - REQ-SR-043 AC3's "show cost to approvers" toggle is replaced by D-184: approvers always see
+      the estimate; only the requesters' toggle exists.
+    - Replies to a service request's own mails are not threaded to the request (the inbound
+      target finds incidents only), so they would make a new incident; the S4 mails never ask
+      for a reply. Threading request replies is a follow-up.
+  - **Follow-ups:** a console screen for service request (and problem, change, release)
+    triggers, since Admin › Automation lists incident triggers only, so `start_approval` is
+    reachable through the API today; the mail command `item:`; native-speaker checks of the new
+    Arabic and Urdu texts.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133

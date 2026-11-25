@@ -70,6 +70,15 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        // WP-047a S4 (REQ-SR-017 AC2): a request made from mail asks its missing answers.
+        path: 'service-requests/:id/complete',
+        handle: { titleKey: 'portal.complete.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/CompleteRequestPage'))
+            .CompleteRequestPage,
+        }),
+      },
+      {
         path: 'service-requests/:id',
         handle: { titleKey: 'portal.service_requests.title' },
         lazy: async () => ({

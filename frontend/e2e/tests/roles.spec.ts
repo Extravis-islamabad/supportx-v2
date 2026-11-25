@@ -91,6 +91,17 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   // portal on its next call (the server refuses it, not only the routing).
   await drawer.getByLabel(roleName).click();
   await expect(drawer.getByLabel(roleName)).not.toBeChecked();
+  const portal = new RegExp(`^${PORTAL_URL}`);
+  // First the open tab, untouched: its console session ends live, and it hands itself to the
+  // portal, whose sign-in replaces the ended session's cookie. Navigating it during that
+  // hand-off aborts the portal sign-in, and the next console load (still holding the ended
+  // session's cookie) is asked for the password, by design (REQ-SEC-029). That was the race in
+  // main's Cluster run 45478528842 (lane B's trace), so nothing navigates the tab until the
+  // hand-off is done.
+  // By itself, within a bound, and signed in there (the portal's user menu): a regression in the
+  // hand-off still fails here instead of being waited out (lane C).
+  await user.waitForURL(portal, { timeout: 45_000 });
+  await expect(user.getByTestId('user-menu')).toBeVisible({ timeout: 15_000 });
   // The long way, and correct: the open tab ends the console session live, so a load signs in
   // again through Keycloak (SSO) and the requester-only refusal sends them on to the portal. A
   // load that starts before the server has applied the removal still opens the console, so wait
@@ -98,7 +109,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   // The hand-off runs in the app after the page's `load` (/me 401 → sign-in → portal), so each
   // try waits for the portal itself; reading the URL at `load` saw the console every time while
   // the browser was on its way to the portal (nightly 43405236295's trace).
-  const portal = new RegExp(`^${PORTAL_URL}`);
+  // Then the server-side proof: a console load now goes to the portal too.
   await expect
     .poll(
       async () => {

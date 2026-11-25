@@ -483,6 +483,9 @@ export const en = {
   'audit.action.service_request.access_changed': 'Changed who can see or work on a service request',
   'audit.action.service_request.approval_decided': 'Approved or rejected a service request',
   'audit.action.service_request.approval_escalated': 'A service request approval was escalated',
+  'audit.action.service_request.approval_mail_decided': 'Decided an approval by an email reply',
+  'audit.action.service_request.approval_mail_ignored':
+    'Did not apply an email reply to an approval',
   'audit.action.service_request.approval_requested':
     'Asked named people to approve a service request',
   'audit.action.service_request.approval_restarted':

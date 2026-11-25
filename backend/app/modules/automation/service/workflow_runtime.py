@@ -346,7 +346,9 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
     )
     if outcome.ok and outcome.pending:
         return None  # waits, as a sub-flow does, until the owning module's event continues it
-    return CommandDone(command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs)
+    return CommandDone(
+        command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs, port=outcome.port
+    )
 
 
 def _child_result(child: WorkflowInstance, command: str) -> CommandDone | None:

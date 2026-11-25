@@ -285,6 +285,17 @@ async def decided_by_me(
     return [PendingApproval(a, r) for a, r in rows.all()]
 
 
+def _still_open(row: WorkItemApproval | None) -> WorkItemApproval:
+    """404 when it is not there; 409 once decided, or expired (WP-047a S4; lane C)."""
+    if row is None:
+        raise NotFound(code="approval_not_found")
+    if row.state == rules.ApprovalState.EXPIRED:
+        raise Conflict(code="approval_expired")
+    if row.state != rules.ApprovalState.PENDING:
+        raise Conflict(code="approval_closed", params={"state": row.state})
+    return row
+
+
 async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -310,10 +321,7 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         )
         .with_for_update()
     )
-    if row is None:
-        raise NotFound(code="approval_not_found")
-    if row.state != rules.ApprovalState.PENDING:
-        raise Conflict(code="approval_closed", params={"state": row.state})
+    row = _still_open(row)
     if not _may_decide(subject, wtype, row):
         raise PermissionDenied(code="not_an_approver")
     if rules.blocked_for_self(
