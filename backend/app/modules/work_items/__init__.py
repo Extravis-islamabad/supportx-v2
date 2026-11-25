@@ -62,6 +62,11 @@ from app.modules.work_items.api.portal_task_routes import router as portal_task_
 from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
+from app.modules.work_items.domain.external_problems import (
+    ExternalProblemRefused,
+    ExternalRecordRef,
+    ExternalSource,
+)
 from app.modules.work_items.domain.types import (
     CHANGE,
     INCIDENT,
@@ -127,6 +132,13 @@ from app.modules.work_items.service.closing import (
 from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.custom_values import HIDDEN_LINE as SEALED_HIDDEN_LINE
 from app.modules.work_items.service.custom_values import open_sealed_changes
+from app.modules.work_items.service.external_problems import (
+    clear_problem_kind_labels,
+    create_from_external_problem,
+    external_problem_recovered,
+    register_problem_kind_labels,
+    update_from_external_problem,
+)
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.kept_informed import KEPT_INFORMED
 from app.modules.work_items.service.person_records import records_requested_by
@@ -373,10 +385,17 @@ module = ModuleSpec(
 # Ports for other modules (WP-020f): open work on a record, and channels that tell requesters.
 __all__ = [
     "SEALED_HIDDEN_LINE",
+    # WP-053 S7a (D-050): incidents from an outside system's problems, for monitoring_integrations.
+    "ExternalProblemRefused",
+    "ExternalRecordRef",
+    "ExternalSource",
     "OpenItem",
     "OpenWorkKind",
     "RequesterReply",
     "add_requester_reply",
+    "clear_problem_kind_labels",
+    "create_from_external_problem",
+    "external_problem_recovered",
     # Display IDs and subjects of records another module already checked (lane B's asset history,
     # WP-049b S4a; the workflow overview).
     "labels_of",
@@ -384,8 +403,10 @@ __all__ = [
     "open_sealed_changes",
     "records_requested_by",
     "register_open_work",
+    "register_problem_kind_labels",
     "register_requester_channel",
     "resolution_notified",
     "unregister_open_work",
     "unregister_requester_channel",
+    "update_from_external_problem",
 ]
