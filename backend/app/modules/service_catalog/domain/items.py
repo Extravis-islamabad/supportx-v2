@@ -386,12 +386,16 @@ def stages_problems(
             found.append((f"{at}.parallel_group", "invalid_value"))
         if stage.condition is not None:
             found += condition_problems(stage.condition, fields, f"{at}.condition")
-        found += _auto_rule_problems(stage.auto_rules, fields | {REQUESTER_GROUPS}, at)
+        found += _auto_rule_problems(
+            stage.auto_rules, fields | {REQUESTER_GROUPS, ESTIMATED_COST}, at
+        )
     return found
 
 
 # WP-047a S2b (REQ-SR-033): what an automatic rule may read beyond the form, and how many.
 REQUESTER_GROUPS = "requester_groups"
+# WP-047b S1 (REQ-SR-033 AC2): "approve below a cost" reads the request's estimate (lt/lte).
+ESTIMATED_COST = "estimated_cost"
 MAX_AUTO_RULES = 5
 
 
@@ -555,6 +559,7 @@ def needs_approval(rules: ItemRules) -> bool:
 
 
 __all__ = [
+    "ESTIMATED_COST",
     "LANGUAGES",
     "MAX_AUTO_RULES",
     "REQUESTER_GROUPS",

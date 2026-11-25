@@ -400,7 +400,20 @@ INCIDENT_FIELDS: Mapping[str, FilterField] = {
         WorkItem.major_declared_at, FieldType.DATETIME, sortable=True, simple=False
     ),
 }
+# WP-047b S1 (REQ-CAT-021 AC2): a request's estimate and its frozen charge, for the charge-back
+# report by department and item (money: withheld from reports without view_costs, D-184).
+SERVICE_REQUEST_FIELDS: Mapping[str, FilterField] = {
+    "catalog_item_id": FilterField(WorkItem.catalog_item_id, FieldType.UUID, simple=False),
+    "estimated_cost": FilterField(WorkItem.estimated_cost, FieldType.DECIMAL, simple=False),
+    "charged_amount": FilterField(WorkItem.charged_amount, FieldType.DECIMAL, simple=False),
+    "charge_department_id": FilterField(
+        WorkItem.charge_department_id, FieldType.UUID, simple=False
+    ),
+    "charge_cost_centre": FilterField(WorkItem.charge_cost_centre, FieldType.STRING, simple=False),
+    "charged_at": FilterField(WorkItem.charged_at, FieldType.DATETIME, sortable=True, simple=False),
+}
 _TYPE_FIELDS: Mapping[WorkItemTypeCode, Mapping[str, FilterField]] = {
+    WorkItemTypeCode.SERVICE_REQUEST: SERVICE_REQUEST_FIELDS,
     WorkItemTypeCode.INCIDENT: INCIDENT_FIELDS,
     WorkItemTypeCode.PROBLEM: PROBLEM_FIELDS,
     WorkItemTypeCode.CHANGE: CHANGE_FIELDS,

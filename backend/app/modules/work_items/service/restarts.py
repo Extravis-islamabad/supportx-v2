@@ -255,6 +255,7 @@ async def change_answers(  # noqa: PLR0913 - the request, its new values and con
         answers=merged,
         quantity=quantity,
         source=source,
+        item=item,  # WP-047b S1: the estimate follows the new answers (D-184)
     )
     keys = await check(
         session,

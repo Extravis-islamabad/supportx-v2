@@ -179,6 +179,7 @@ from app.modules.work_items.service import (
     automation,
     change_conflicts,
     change_types,
+    charge_back,
     closing,
     custom_values,
     followers,
@@ -1946,10 +1947,43 @@ def require_writable(subject: Subject, wtype: WorkItemType, changed: Sequence[st
         raise PermissionDenied(code="field_read_only", params={"field": locked[0]})
 
 
+ESTIMATE_FIELDS = frozenset({"estimated_cost", "estimate_period"})
+CHARGE_FIELDS = frozenset(
+    {"charged_amount", "charge_department_id", "charge_cost_centre", "charged_at"}
+)
+
+
+async def _hidden_money(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> frozenset[str]:
+    """A request's money withheld from this subject (WP-047b S1; D-184).
+
+    The estimate shows to `view_costs` and the request's approvers; the frozen charge-back to
+    `view_costs` only. Anyone else reads them as withheld.
+    """
+    if await _may(session, subject, wtype, "view_costs", record_id):
+        return frozenset()
+    approver = await session.scalar(
+        select(WorkItemApproval.id)
+        .where(
+            WorkItemApproval.work_item_id == record_id,
+            WorkItemApproval.deleted_at.is_(None),
+            or_(
+                WorkItemApproval.approver_id == subject.user_id,
+                WorkItemApproval.on_behalf_of_id == subject.user_id,
+            ),
+        )
+        .limit(1)
+    )
+    return CHARGE_FIELDS if approver is not None else CHARGE_FIELDS | ESTIMATE_FIELDS
+
+
 async def hidden_fields(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> frozenset[str]:
-    """Fields of the record the subject may not read (the root cause, D-140 Q7)."""
+    """Fields of the record the subject may not read (the root cause, D-140 Q7; money, D-184)."""
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST:
+        return await _hidden_money(session, subject, wtype, record_id)
     if wtype.code is not WorkItemTypeCode.PROBLEM:
         return frozenset()
     hidden: set[str] = set()
@@ -2354,6 +2388,8 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
     extra: Sequence[Change] = (),
     rule: str = "assignment",
 ) -> None:
+    # WP-047b S1 (REQ-CAT-021 AC1): a request fulfilled for the first time freezes its charge.
+    await charge_back.freeze_on_fulfilment(session, record)
     after = _snapshot(record, STAMP_FIELDS)
     await record_changes(
         session,
@@ -2807,6 +2843,21 @@ async def _check_request_details(
         await licensing.require_feature(subject.tenant_id, REQUEST_STAGES_FEATURE)
 
 
+def estimate_columns(
+    item: service_catalog.RequestItem, answers: Mapping[str, Any], quantity: int | None
+) -> dict[str, Any]:
+    """The request's estimate from its item, snapshotted now (WP-047b S1; D-184, REQ-SR-014).
+
+    (The price + the chosen options' prices) times the quantity, in base currency (D-164).
+    Taken at submission and when the answers or quantity change, never on later item edits.
+    """
+    amount = service_catalog.estimate_cost(item.price, item.option_prices, answers, quantity)
+    return {
+        "estimated_cost": amount,
+        "estimate_period": item.price_period if amount is not None else None,
+    }
+
+
 async def _delivery_columns(  # noqa: PLR0913 - the request, its moment and its placement
     session: AsyncSession,
     item: service_catalog.RequestItem | None,
@@ -2827,6 +2878,7 @@ async def _delivery_columns(  # noqa: PLR0913 - the request, its moment and its 
     return {
         "quantity": values.get("quantity"),
         "needed_by": values.get("needed_by"),
+        **estimate_columns(item, values.get("answers") or {}, values.get("quantity")),
         "expected_delivery_at": await sla.delivery_at(
             session,
             WorkItemTypeCode.SERVICE_REQUEST.value,
@@ -5900,6 +5952,7 @@ async def save_request_answers(  # noqa: PLR0913 - the request, its new values a
     answers: Mapping[str, Any],
     quantity: int | None,
     source: Source,
+    item: service_catalog.RequestItem | None = None,
 ) -> WorkItem:
     """Save a request's changed answers and quantity (WP-047a S3b; REQ-SR-041), the caller checked.
 
@@ -5912,6 +5965,9 @@ async def save_request_answers(  # noqa: PLR0913 - the request, its new values a
         changes["answers"] = dict(answers)
     if quantity is not None and quantity != record.quantity:
         changes["quantity"] = quantity
+    if changes and item is not None:  # WP-047b S1 (D-184): the estimate follows, no history line
+        fresh = estimate_columns(item, answers, changes.get("quantity", record.quantity))
+        changes |= {k: v for k, v in fresh.items() if getattr(record, k) != v}
     if not changes:
         if record.version != expected_version:
             raise await _conflict(session, _stale(record, expected_version), record.id)
