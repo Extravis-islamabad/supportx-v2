@@ -647,6 +647,11 @@ async def switch_provider(
     return _view(row)
 
 
+def following_claim(settings: dict[str, Any] | None) -> str | None:
+    """The claim a set-up follows groups from, or None (the sign-in read, WP-057 S5c-1b)."""
+    return _groups_claim(settings)
+
+
 def _groups_claim(settings: dict[str, Any] | None) -> str | None:
     """The claim a set-up follows groups from, or None when following is off (S5c).
 

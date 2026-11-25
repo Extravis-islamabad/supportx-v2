@@ -33,6 +33,7 @@ from app.modules.identity_access.infra.fetch import FetchError
 from app.modules.identity_access.infra.keycloak_admin import (
     Credential,
     IdentityAdminRefused,
+    IdentityAdminUnavailable,
     KeycloakUser,
     LoginEvent,
     Organization,
@@ -66,6 +67,9 @@ class FakeAdmin:
     # S5c: the order of mapper changes, group clears and deletes (lane C's #632 review).
     steps: list[tuple[str, str, bool]] = field(default_factory=list)
     attributes: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    # S5c-1b: each sign-in's read-and-clear of a provider's group attributes (user, names).
+    took: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    fail_take: bool = False  # S5c-1b: the admin API failing at the read-and-clear
     events: list[LoginEvent] = field(default_factory=list)
     logged_out: list[str] = field(default_factory=list)
 
@@ -246,6 +250,14 @@ class FakeAdmin:
 
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]:
         return self.attributes.get(user_id, {})
+
+    async def take_attributes(self, user_id: str, names: tuple[str, ...]) -> dict[str, list[str]]:
+        if self.fail_take:
+            raise IdentityAdminUnavailable
+        mine = self.attributes.get(user_id, {})
+        held = {n: mine.pop(n) for n in names if n in mine}
+        self.took.append((user_id, names))
+        return held
 
     async def login_events(
         self, types: list[str], since_ms: int, user_id: str | None = None

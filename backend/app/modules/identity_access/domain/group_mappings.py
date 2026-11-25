@@ -116,6 +116,8 @@ def overage(values: Iterable[str]) -> bool:
 # --- a sign-in's groups (WP-057 S5c-1b; lane B's real-KC transport, the plan's "1b read") ------
 
 IDP_GROUPS_UNVERIFIED = "idp_groups_unverified"  # read nothing to trust: no change
+# The admin API failed at the read or clear, or the follow failed: the sign-in is refused.
+IDP_GROUPS_UNAVAILABLE = "idp_groups_unavailable"
 
 
 @dataclass(frozen=True)

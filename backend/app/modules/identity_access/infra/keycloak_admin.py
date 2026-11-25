@@ -119,6 +119,9 @@ class IdentityAdmin(Protocol):
     async def logout_user(self, user_id: str) -> None: ...  # noqa: D102
 
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]: ...  # noqa: D102
+    async def take_attributes(  # noqa: D102
+        self, user_id: str, names: tuple[str, ...]
+    ) -> dict[str, list[str]]: ...
 
     async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
 
@@ -591,6 +594,25 @@ class KeycloakAdmin:
             str(k): [str(v) for v in values]
             for k, values in (found.get("attributes") or {}).items()
         }
+
+    async def take_attributes(self, user_id: str, names: tuple[str, ...]) -> dict[str, list[str]]:
+        """Read these attributes of a person, then clear them; what they held (WP-057 S5c-1b).
+
+        A sign-in's groups are this sign-in's only once read and cleared: the next brokered
+        sign-in writes them again (FORCE), with its own `seen` marker. The person is read in full
+        and written back without them (a partial write would replace every other attribute).
+        Nothing to clear: no write. Any admin-API failure raises, and the caller refuses the
+        sign-in (lane B's condition 4).
+        """
+        found = await self._json("GET", f"/users/{user_id}")
+        if found is None:
+            return {}
+        attributes = dict(found.get("attributes") or {})
+        held = {n: [str(v) for v in attributes[n]] for n in names if n in attributes}
+        if held:
+            kept = {k: v for k, v in attributes.items() if k not in names}
+            await self._call("PUT", f"/users/{user_id}", json={**found, "attributes": kept})
+        return held
 
     async def find_user(self, email: str) -> KeycloakUser | None:
         """The realm user with this email (exact), or None."""
