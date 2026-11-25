@@ -636,12 +636,31 @@ async def remove_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid
 
 
 async def unmanage(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
-    """A mapping went with "keep": the role stays, now hand-made (WP-057 S5c, Q2)."""
-    await session.execute(
-        update(UserRole)
+    """A mapping went with "keep": the role stays, now hand-made (WP-057 S5c, Q2).
+
+    The link table is insert/delete for the app (no UPDATE grant), so the row is put back
+    hand-made with its original creation, in this transaction, with no role event: the person
+    holds the role throughout.
+    """
+    row = await session.scalar(
+        delete(UserRole)
         .where(UserRole.user_id == user_id, UserRole.role_id == role_id)
-        .values(managed=False)
+        .returning(UserRole)
     )
+    if row is None:
+        return
+    session.expunge(row)
+    session.add(
+        UserRole(
+            tenant_id=row.tenant_id,
+            user_id=user_id,
+            role_id=role_id,
+            created_at=row.created_at,
+            created_by=row.created_by,
+            managed=False,
+        )
+    )
+    await session.flush()
 
 
 async def tenant_admin_holders(session: AsyncSession) -> set[uuid.UUID]:

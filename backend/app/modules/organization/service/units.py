@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import Select, delete, func, select, update
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -273,14 +273,32 @@ async def remove_member(
 async def unmanage_member(
     session: AsyncSession, kind: Kind, unit_id: uuid.UUID, user_id: uuid.UUID
 ) -> None:
-    """A group mapping went with "keep" (WP-057 S5c): the membership stays, now hand-made."""
+    """A group mapping went with "keep" (WP-057 S5c): the membership stays, now hand-made.
+
+    The link table is insert/delete for the app (no UPDATE grant): the row is put back hand-made
+    with its original creation, in this transaction, with no membership event.
+    """
     if kind != "group":
         return
-    await session.execute(
-        update(GroupMember)
+    row = await session.scalar(
+        delete(GroupMember)
         .where(GroupMember.group_id == unit_id, GroupMember.user_id == user_id)
-        .values(managed=False)
+        .returning(GroupMember)
     )
+    if row is None:
+        return
+    session.expunge(row)
+    session.add(
+        GroupMember(
+            tenant_id=row.tenant_id,
+            group_id=unit_id,
+            user_id=user_id,
+            created_at=row.created_at,
+            created_by=row.created_by,
+            managed=False,
+        )
+    )
+    await session.flush()
 
 
 async def _membership_event(

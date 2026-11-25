@@ -22,7 +22,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0199"  # 0201's down revision when written
+BEFORE = "0203"  # 0201's down revision
 
 
 async def _seed(url: str) -> dict[str, Any]:

@@ -25,7 +25,7 @@ REQ-SEC-014; lane B blocks it, with conditions in ~/Extravis/plans/wp-057-s5c-pl
   source.
 
 Revision ID: 0201
-Revises: 0199
+Revises: 0203
 Created: 2026-11-24
 """
 
@@ -34,11 +34,10 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from app.shared.db.rls import APP_ROLE
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0201"
-down_revision: str | None = "0199"  # main's head when written; re-pointed at its queue turn
+down_revision: str | None = "0203"  # main's head; re-pointed at its queue turn
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -223,9 +222,6 @@ def upgrade() -> None:
             table,
             sa.Column("managed", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         )
-        # Removing a mapping with "keep" turns its access hand-made: the app updates this one
-        # column and nothing else of either link table (they stay insert/delete otherwise).
-        op.execute(f"GRANT UPDATE (managed) ON {table} TO {APP_ROLE}")
     # The tenant's opt-in: a mapping may give tenant admin or another never_via_idp right (lane
     # B's condition 4; off by default, turned on with a recent sign-in, audited).
     op.add_column(
@@ -257,7 +253,6 @@ def downgrade() -> None:
     ):
         op.drop_column("access_settings", column)
     for table in ("group_members", "user_roles"):
-        op.execute(f"REVOKE UPDATE (managed) ON {table} FROM {APP_ROLE}")
         op.drop_column(table, "managed")
     op.drop_table(SOURCES)
     op.drop_table(MAPPINGS)
