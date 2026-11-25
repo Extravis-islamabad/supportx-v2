@@ -1284,6 +1284,7 @@ export const en = {
   'event_type.work_items.reminder.due': 'Personal reminder due',
   'event_type.work_items.reply_templates.changed': 'Reply templates changed',
   'event_type.work_items.service_request.ready_to_fulfil': 'Request ready to fulfil',
+  'event_type.work_items.service_request.workflow_waiting': 'Request workflow waiting',
   'event_type.work_items.settings.changed': 'Record settings changed',
   'event_type.work_items.task.assigned': 'Task given to someone',
   'event_type.work_items.task.reminder_due': 'Task reminder due',

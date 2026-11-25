@@ -1810,7 +1810,9 @@ export const en = {
   'portal.tasks.handover_by_desk':
     'The service desk completes this task when it hands the asset over.',
   'portal.tasks.intro': 'Tasks a request needs from you. Each shows only what the task needs.',
+  'portal.tasks.load_failed': 'This task could not be loaded just now.',
   'portal.tasks.none': 'No tasks for you right now.',
+  'portal.tasks.retry': 'Try again',
   'portal.tasks.start': 'Start',
   'portal.tasks.title': 'Your tasks',
   'portal_reach.all': 'Everyone',
@@ -2965,6 +2967,7 @@ export const en = {
   'work_item.field.template_id': 'Template',
   'work_item.field.urgency': 'Urgency',
   'work_item.field.workaround': 'Workaround',
+  'work_item.field.workflow_stopped': 'Workflow stopped',
   'work_item.field.workflow_version': 'Workflow version',
   'work_item.field.worklog': 'Worklog',
   'work_item.history.changed': '{{who}} changed {{field}} from {{old}} to {{new}}',

@@ -75,7 +75,32 @@ export function TaskPage() {
       </Flex>
     );
   }
-  if (found.error) reportError(found.error);
+  if (found.error) {
+    // Any other failure (a server error, the network): say so and offer to try again, never a
+    // skeleton forever (lane C's #630 note), and report it.
+    reportError(found.error);
+    return (
+      <Flex vertical gap={16} style={FORM_COLUMN}>
+        <Alert
+          type="warning"
+          showIcon
+          message={t('portal.tasks.load_failed')}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                void found.refetch();
+              }}
+              data-testid="portal-task-retry"
+            >
+              {t('portal.tasks.retry')}
+            </Button>
+          }
+        />
+        <Link to="/tasks">{t('portal.tasks.back')}</Link>
+      </Flex>
+    );
+  }
   const task = found.data;
   if (task === undefined) return <Skeleton active />;
   const fields = task.fields ?? [];

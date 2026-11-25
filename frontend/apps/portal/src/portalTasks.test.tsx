@@ -128,6 +128,9 @@ describe('portal: your tasks', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 50)); // the failed fetch settles
     expect(screen.queryByText('This task is no longer yours, or it is already closed.')).toBeNull();
+    // It says so and offers to try again, never a loading placeholder forever (lane C's note).
+    expect(await screen.findByTestId('portal-task-retry')).toBeTruthy();
+    expect(screen.getByText('This task could not be loaded just now.')).toBeTruthy();
   });
 
   it('a hand-over task is completed by the desk, never from the portal', async () => {
