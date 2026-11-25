@@ -288,6 +288,8 @@ export const ar: LabelResource = {
   'form_density.comfortable': 'مريح',
   'form_density.compact': 'مضغوط',
   'form_density.title': 'تخطيط النموذج',
+  'group_mapping_source.directory': 'الدليل',
+  'group_mapping_source.sso': 'تسجيل الدخول الموحد',
   'identity.settings.people_edit_contact': 'يمكن للأشخاص تغيير أرقام هواتفهم بأنفسهم',
   'identity.settings.people_edit_contact_help':
     'في حسابي، في البوابة ووحدة التحكم. تبقى الأرقام التي يحتفظ بها الدليل للقراءة فقط.',
@@ -683,6 +685,9 @@ export const ar: LabelResource = {
   'permission.api_keys.manage': 'إدارة مفاتيح API',
   'permission.api_keys.manage.description':
     'إنشاء مفاتيح API لهويات الخدمة، ورؤية كل المفاتيح وإبطالها.',
+  'permission.assets.delete': 'حذف الأصول (نقلها إلى سلة المهملات)',
+  'permission.assets.delete.description':
+    'نقل الأصول إلى سلة المهملات. لم تعد إدارة الأصول تشمل ذلك، ولا يملكه دعم المورّد أبدًا.',
   'permission.assets.edit_disposed': 'تغيير الأصول المتخلَّص منها',
   'permission.assets.edit_disposed.description':
     'تغيير أصل بعد التخلّص منه، مع ذكر السبب في كل مرة.',
@@ -1073,6 +1078,9 @@ export const ar: LabelResource = {
   'permission.requests.edit_due_dates': 'تعيين مواعيد استحقاق الطلبات يدويًا',
   'permission.requests.edit_due_dates.description':
     'تعيين موعد استحقاق الاستجابة أو التنفيذ لطلب خدمة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
+  'permission.requests.manage_delegations': 'إدارة تفويضات الموافقة للآخرين',
+  'permission.requests.manage_delegations.description':
+    'تعيين تفويض موافقة لشخص آخر أو تغييره أو إنهاؤه. يمكن لأي شخص إدارة تفويضه.',
   'permission.requests.manage_followers': 'إدارة متابعي الطلبات',
   'permission.requests.manage_followers.description':
     'إضافة أشخاص آخرين كمتابعين لطلبات الخدمة وإزالتهم.',
@@ -1687,6 +1695,7 @@ export const ar: LabelResource = {
   'security_flag.console_idle_long': 'تبقى جلسات وحدة التحكم مفتوحة أكثر من ساعة دون نشاط.',
   'security_flag.console_open_network': 'يمكن الوصول إلى وحدة التحكم من أي عنوان شبكة.',
   'security_flag.console_session_long': 'تدوم جلسات وحدة التحكم أكثر من يوم عمل.',
+  'security_flag.directory_access_stale': 'أدلة تمنح صلاحيات ولم تُزامَن منذ أكثر من يوم',
   'security_flag.fields_still_moving': 'حقول حساسة ما زال تشفيرها أو فك تشفيرها جاريًا: {{count}}',
   'security_flag.keys_never_expire': 'يمكن إنشاء مفاتيح API دون تاريخ انتهاء.',
   'security_flag.keys_out_of_policy': 'مفاتيح API خارج سياسة المفاتيح: {{count}}',

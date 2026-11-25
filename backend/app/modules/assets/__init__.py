@@ -63,7 +63,7 @@ from app.modules.assets.service.assets import (
     count_managed_assets,
 )
 from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs
-from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
+from app.modules.assets.service.catalogue import CONFIGURE, DELETE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.consumables import (
     DraftPurchaseRequests,
     register_draft_purchase_requests,
@@ -129,6 +129,9 @@ _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
 PERMISSIONS = (
     PermissionSpec(VIEW, FEATURE, ALL_SCOPES),
     PermissionSpec(MANAGE, FEATURE, _NOT_OWN),
+    # D-185: the trash is its own right, the asset manager's by default (0202 copies it to every
+    # role that held assets.manage, so nobody lost it); never vendor support.
+    PermissionSpec(DELETE, FEATURE, _NOT_OWN, defaults=(("asset_manager", "all"),)),
     PermissionSpec(REINSTATE, FEATURE, _NOT_OWN),
     # Changing a disposed asset (REQ-AST-017 AC3): admins only by default (coordinator, 2026-11-06).
     PermissionSpec(EDIT_DISPOSED, FEATURE, _NOT_OWN),

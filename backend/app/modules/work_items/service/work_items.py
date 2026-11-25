@@ -108,6 +108,7 @@ from app.modules.work_items.domain.lifecycle import (
     PauseClock,
     ReasonList,
     ReasonMode,
+    ServiceRequestStatus,
     StatusCategory,
     TransitionDef,
     WorkItemAction,
@@ -132,6 +133,7 @@ from app.modules.work_items.domain.stages import (
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    SERVICE_REQUEST,
     STANDARD_LIFECYCLE,
     TYPES,
     Channel,
@@ -209,6 +211,9 @@ from app.shared.history import (
 from app.shared.ids import new_id
 from app.shared.reporting.names import names_resolver
 from app.shared.richtext import is_blank, sanitize_html
+
+# An unanswered required question (the catalogue's answer check; REQ-SR-017 lets mail wait).
+REQUIRED = "required"
 
 RECORD_TYPE = followers.RECORD_TYPE
 OPEN_CATEGORIES = (StatusCategory.OPEN, StatusCategory.PAUSED)
@@ -2681,6 +2686,19 @@ def _item_priority(
     return started.priority, PrioritySource.CATALOG_ITEM
 
 
+def _answers_waiting(
+    item: service_catalog.RequestItem | None, *, answers_later: bool
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """The item's answer problems to refuse, and the required ones left to the requester.
+
+    Only mail sets `answers_later` (REQ-SR-017): an unanswered required question then waits;
+    every other problem (a wrong value, an unknown question) is still refused.
+    """
+    found = [] if item is None else list(item.answer_problems)
+    missing = [p for p in found if p[1] == REQUIRED] if answers_later else []
+    return [p for p in found if p not in missing], missing
+
+
 def _item_columns(
     item: service_catalog.RequestItem | None, values: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -2925,8 +2943,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     holders: PermissionHolders,
     channel: Channel | None = None,
     entry_group_id: uuid.UUID | None = None,
+    answers_later: bool = False,
 ) -> WorkItemView:
     """A new record in the life cycle's first status (or `assigned` when a technician is set).
+
+    `answers_later` (WP-047a S4, REQ-SR-017 AC2/AC3; mail only): a service request whose required
+    answers are missing is still made, waiting for the requester with its approval not started
+    (`awaiting_answers`); every other answer problem is refused as usual.
 
     `channel` and `entry_group_id` are for entry points (e-mail WP-024, the portal WP-028),
     never a client: the channel the record came in by (e-mail is otherwise reserved), and that
@@ -2965,7 +2988,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     item = await _request_item(session, subject, wtype, values)
     await _check_request_details(subject, item, values)
     started = _started(item, cat)
-    problems += [] if item is None else list(item.answer_problems)
+    item_problems, missing = _answers_waiting(item, answers_later=answers_later)
+    problems += item_problems
     problems += await _person_answer_problems(session, item, values)
     problems += [
         p
@@ -3011,6 +3035,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         group_id,
         technician_id,
     )
+    # REQ-SR-017 AC2: a request from mail missing required answers waits for the requester.
+    initial = DefaultStatus.AWAITING_REQUESTER.value if missing else initial
     channel_given = channel
     # Raised in the portal reads as the portal, never "API" (QA10-P4-40).
     by_source = {"ui": Channel.PHONE, "portal": Channel.PORTAL}
@@ -3101,7 +3127,11 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             if "lifecycle_version" in stage_columns
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
-        **_item_columns(item, values),
+        # REQ-SR-017: a request waiting for answers says so, over the item's own status.
+        **{
+            **_item_columns(item, values),
+            **({"approval_status": ApprovalStatus.AWAITING_ANSWERS.value} if missing else {}),
+        },
         **delivery,
         custom=new_custom.stored,
         custom_text=await _custom_text(session, wtype, new_custom.stored),
@@ -3185,7 +3215,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         aggregate_version=record.version,
     )
     await approval_stage.after_submission(  # REQ-SR-021
-        session, record, item, source=source, holders=holders, wtype=wtype
+        session,
+        record,
+        item,
+        source=source,
+        holders=holders,
+        wtype=wtype,
+        waiting=bool(missing),  # REQ-SR-017 AC3: approval starts once the answers are complete
     )
     if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
         # Imported here: the task service builds on this module (WP-046a S1).
@@ -3533,6 +3569,23 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and before.get(
+        "on_behalf_of_id"
+    ) != after.get("on_behalf_of_id"):
+        # WP-047a S3b (REQ-SR-041): a new requested-for person may restart the approval.
+        from app.modules.work_items.service import restarts  # noqa: PLC0415 - it imports this
+
+        was = before.get("on_behalf_of_id")
+        await restarts.check(
+            session,
+            wtype,
+            updated,
+            before_answers=updated.answers or {},
+            before_quantity=updated.quantity,
+            before_for=None if was is None else uuid.UUID(str(was)),
+            source=source,
+            facts=facts or AUDIT_WORKER,
+        )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
         return await _handed_away(session, subject, wtype, updated)
@@ -5839,6 +5892,111 @@ async def set_status(  # noqa: PLR0913 - the move, its version and its record, e
     return updated
 
 
+async def save_request_answers(  # noqa: PLR0913 - the request, its new values and context, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    *,
+    expected_version: int,
+    answers: Mapping[str, Any],
+    quantity: int | None,
+    source: Source,
+) -> WorkItem:
+    """Save a request's changed answers and quantity (WP-047a S3b; REQ-SR-041), the caller checked.
+
+    One versioned save (5g, If-Match), a history line per changed answer key and the quantity,
+    and the record's update event (screens refresh live).
+    """
+    before = dict(record.answers or {})
+    changes: dict[str, Any] = {}
+    if dict(answers) != before:
+        changes["answers"] = dict(answers)
+    if quantity is not None and quantity != record.quantity:
+        changes["quantity"] = quantity
+    if not changes:
+        if record.version != expected_version:
+            raise await _conflict(session, _stale(record, expected_version), record.id)
+        return record
+    old_quantity = record.quantity
+    updated = await _update(session, record, expected_version, changes)
+    lines = [
+        Change(f"answers.{key}", _json(before.get(key)), _json(answers.get(key)))
+        for key in sorted(set(before) | set(answers))
+        if before.get(key) != answers.get(key)
+    ]
+    if "quantity" in changes:
+        lines.append(Change("quantity", old_quantity, quantity))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changes),
+            audience_before=_audience(updated),
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def back_to_approval(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    approval_round: int,
+    source: Source,
+) -> WorkItem:
+    """A request's approval restarts (WP-047a S3b; REQ-SR-041 AC1): back to awaiting approval.
+
+    A system move: "awaiting approval" is entered only by the system, and no person's action
+    leads there, so the status and its clock change as for any move, with the approval status
+    back to pending, under the record's version (5g).
+    """
+    target = ServiceRequestStatus.AWAITING_APPROVAL.value
+    old_approval = record.approval_status
+    changes: dict[str, Any] = {
+        "approval_status": ApprovalStatus.PENDING.value,
+        "approval_round": approval_round,  # the next round: the rows it opens count there
+    }
+    if record.status != target:
+        changes |= await _status_change(
+            session,
+            wtype,
+            record,
+            WorkItemAction.RESTART_APPROVAL,
+            target=target,
+            reason_code=None,
+            reason_text=None,
+        )
+    before = _snapshot(record, STAMP_FIELDS)
+    updated = await _update(session, record, record.version, changes)
+    await _record_status(
+        session,
+        before,
+        updated,
+        WorkItemAction.RESTART_APPROVAL,
+        source=source,
+        reason=None,
+        automatic=True,
+        extra=[Change("approval_status", old_approval, ApprovalStatus.PENDING.value)],
+        rule="approval_restart",
+    )
+    return updated
+
+
 async def decided_move(  # noqa: PLR0913 - the move and what the approval decided, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -6908,3 +7066,73 @@ async def apply_sla_from_creation(
         aggregate_version=updated.version,
     )
     return True
+
+
+async def answers_completed(  # noqa: PLR0913 - the request, its answers and their context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record: WorkItem,
+    answers: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> WorkItem:
+    """The missing answers of a request made from mail; then it is submitted (WP-047a S4).
+
+    REQ-SR-017 AC2/AC3: only a request waiting for answers (`awaiting_answers`), only by its
+    requester or the person it is for. The answers are checked as the requester's (every required
+    one now, as on the portal form). Then the request is submitted as any other: its approval
+    status and first status from the item, and its approval stage or fulfilment plan
+    (`approval_stage.after_submission`). One versioned save for the answers, then the move.
+    """
+    if record.approval_status != ApprovalStatus.AWAITING_ANSWERS.value:
+        raise Conflict(code="request_not_awaiting_answers")
+    if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
+        raise PermissionDenied(params={"permission": "requests.create", "reason": "not_requester"})
+    if record.catalog_item_id is None:  # pragma: no cover - awaiting answers implies an item
+        raise Conflict(code="request_not_awaiting_answers")
+    merged = {**dict(record.answers or {}), **dict(answers)}
+    values = {"catalog_item_id": str(record.catalog_item_id), "answers": merged}
+    item = await _request_item(session, subject, SERVICE_REQUEST, values)
+    problems = [] if item is None else list(item.answer_problems)
+    problems += await _person_answer_problems(session, item, values)
+    if problems:
+        raise await _value_errors(session, SERVICE_REQUEST, problems)
+    cat = await config.load(session, SERVICE_REQUEST)
+    started = _started(item, cat)
+    columns = {k: v for k, v in _item_columns(item, values).items() if k == "approval_status"}
+    updated = await _update(session, record, expected_version, {"answers": merged, **columns})
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[
+            *(
+                Change(f"answers.{key}", None, _json(merged[key]))
+                for key in sorted(set(merged) - set(record.answers or {}))
+            ),
+            Change(
+                "approval_status",
+                ApprovalStatus.AWAITING_ANSWERS.value,
+                columns.get("approval_status"),
+            ),
+        ],
+        source=source,
+    )
+    if started is not None and started.status != updated.status:
+        updated = await set_status(
+            session,
+            SERVICE_REQUEST,
+            updated,
+            WorkItemAction.RESUME,
+            target=started.status,
+            expected_version=updated.version,
+            source=source,
+        )
+    await approval_stage.after_submission(
+        session, updated, item, source=source, holders=holders, wtype=SERVICE_REQUEST
+    )
+    return updated

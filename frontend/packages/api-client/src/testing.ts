@@ -968,6 +968,7 @@ export function fakeMailbox(
     after_fetch: 'mark_read',
     move_to: null,
     creates: 'incident',
+    catalog_item_id: null,
     group_id: null,
     unknown_senders: 'create_allowed_domains',
     allowed_domains: ['acme.test'],

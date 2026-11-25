@@ -227,16 +227,27 @@ export function ConflictsPanel({ id }: { id: string }) {
   const { format } = useDateTime();
   const queryClient = useQueryClient();
   const conflicts = useChangeConflicts(id);
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_windows_changed') {
-      void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
-    }
-  });
+  useTenantChannel(
+    (m) => {
+      // Only a window change moves conflicts; the tenant channel carries every other signal
+      // too. A catch-up's `refresh` matches no type here: `covers` has refetched them already.
+      if (m.type === 'work_items.change_windows_changed') {
+        void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
+      }
+    },
+    { covers: [changeKeys.part(id, 'conflicts')] },
+  );
   // Another change moving into (or out of) this one's time is an overlap gained or gone: the
   // changes' list channel says some change moved (lane C's review of #377).
-  useListChannel('changes', () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
-  });
+  useListChannel(
+    'changes',
+    (m) => {
+      if (m.covered !== true) {
+        void queryClient.invalidateQueries({ queryKey: changeKeys.part(id, 'conflicts') });
+      }
+    },
+    { covers: [changeKeys.part(id, 'conflicts')] },
+  );
   const items = conflicts.data?.items ?? [];
   if (items.length === 0) return null;
   const what = (c: ChangeConflict) =>

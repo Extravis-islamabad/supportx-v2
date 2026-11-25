@@ -62,16 +62,25 @@ export function CmdbPage() {
   const refresh = () => {
     refreshList(queryClient, [...queryKeys.cmdb.all, 'list']);
   };
-  useListChannel(allowed ? 'cmdb' : null, (message) => {
-    refresh();
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.types }); // the counts
-    for (const id of message.ids) refreshRecord(queryClient, queryKeys.cmdb.detail(id), message);
-  });
-  useTenantChannel((message) => {
-    if (message.type === 'refresh' || message.type === 'cmdb.config_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
-    }
-  });
+  useListChannel(
+    allowed ? 'cmdb' : null,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the list and counts
+      refresh();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.types }); // the counts
+      for (const id of message.ids) refreshRecord(queryClient, queryKeys.cmdb.detail(id), message);
+    },
+    { covers: [[...queryKeys.cmdb.all, 'list'], queryKeys.cmdb.types, queryKeys.cmdb.states] },
+  );
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'cmdb.config_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.all] },
+  );
 
   const rows = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   const typeName = useMemo(() => {

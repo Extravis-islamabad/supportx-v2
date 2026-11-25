@@ -229,5 +229,21 @@ async def test_mapping_onto_a_group_that_carries_roles_needs_those_roles_rights(
     ]
     refused = await _add(world, a.lead, name="Keeper's", group_mappings=mapping)
     assert (refused.status_code, refused.json()["code"]) == (403, "privilege_escalation")
-    allowed = await _add(world, name="Admin's", group_mappings=mapping)
-    assert allowed.status_code == 201, allowed.text
+    # WP-057 S5c (lane B's condition 4): even the admin may map onto a group carrying tenant
+    # admin only once the tenant has opted in.
+    held_back = await _add(world, name="Admin's", group_mappings=mapping)
+    assert (held_back.status_code, held_back.json()["code"]) == (
+        409,
+        "mapping_grants_privileged_access",
+    )
+    from app.core.tenancy import TenantContext  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.service import group_mappings  # noqa: PLC0415 - this test only
+
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant, a.admin)) as session:
+        await group_mappings.set_privileged_allowed(session, allowed=True)
+    try:
+        allowed = await _add(world, name="Admin's", group_mappings=mapping)
+        assert allowed.status_code == 201, allowed.text
+    finally:
+        async with world.app.state.db.tenant_session(TenantContext(a.tenant, a.admin)) as session:
+            await group_mappings.set_privileged_allowed(session, allowed=False)

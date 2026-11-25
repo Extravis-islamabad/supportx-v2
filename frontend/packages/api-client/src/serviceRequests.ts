@@ -187,6 +187,10 @@ export function useMyApprovals() {
   });
 }
 
+/** One type's approvals waiting for you (exported so screens name it in `covers`, §8.3). */
+export const typeApprovalsKey = (type: 'problems' | 'releases' | 'changes') =>
+  [type, 'my-approvals'] as const;
+
 /**
  * Problem and release approvals waiting for you (QA10-P1-08): the header drawer lists them with
  * the service requests'. Optional: a plan without the type answers with an error, and the drawer
@@ -194,7 +198,7 @@ export function useMyApprovals() {
  */
 export function useMyTypeApprovals(type: 'problems' | 'releases' | 'changes') {
   return useQuery({
-    queryKey: [type, 'my-approvals'] as const,
+    queryKey: typeApprovalsKey(type),
     meta: { silent: true },
     retry: false,
     queryFn: () =>
@@ -270,7 +274,7 @@ export function useDecideApproval() {
     },
     onSettled: (_data, _error, { recordId, type }) => {
       if (type === 'changes') {
-        void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+        void queryClient.invalidateQueries({ queryKey: typeApprovalsKey('changes') });
         return;
       }
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
@@ -637,5 +641,65 @@ export function useStopNotifyLink() {
     meta: { silent: true },
     mutationFn: ({ token, tenant }: { token: string; tenant: string | null }) =>
       call(api.POST('/api/v1/public/notify-links/stop', { body: { token, tenant } })),
+  });
+}
+
+// WP-047a S3b (REQ-SR-035): approval delegations.
+export type Delegation = components['schemas']['DelegationOut'];
+export type DelegationInput = components['schemas']['DelegationIn'];
+export type DelegationPatch = components['schemas']['DelegationPatch'];
+
+export const delegationKeys = {
+  all: ['approval-delegations'] as const,
+  list: (delegatorId: string | undefined) =>
+    ['approval-delegations', 'list', delegatorId ?? 'mine'] as const,
+};
+
+/** Your delegations (as delegator or delegate), or one person's with the right. */
+export function useDelegations(delegatorId?: string) {
+  return useQuery({
+    queryKey: delegationKeys.list(delegatorId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/approval-delegations', {
+          params: { query: delegatorId ? { delegator_id: delegatorId } : {} },
+        }),
+      ),
+  });
+}
+
+/** Set a delegation; one Idempotency-Key per form. */
+export function useCreateDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: DelegationInput; key: string }) =>
+      call(
+        api.POST('/api/v1/approval-delegations', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
+  });
+}
+
+/** End a delegation now (If-Match): what is still pending moves back. */
+export function useEndDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/approval-delegations/{delegation_id}/end', {
+          params: {
+            path: { delegation_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
   });
 }

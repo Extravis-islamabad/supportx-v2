@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import {
   useChangeSettingsChange,
   useChangeWindows,
+  changeWindowKeys,
   useCreateChangeWindow,
   useStagedSettings,
   useRemoveChangeWindow,
@@ -354,9 +355,12 @@ export function ChangeWindowsPage() {
   const remove = useRemoveChangeWindow();
   const [editing, setEditing] = useState<ChangeWindow | 'new'>();
   const manage = can('changes.manage_windows') || can('settings.manage');
-  useTenantChannel((m) => {
-    if (m.type === 'work_items.change_windows_changed') void windows.refetch();
-  });
+  useTenantChannel(
+    (m) => {
+      if (m.type === 'work_items.change_windows_changed') void windows.refetch();
+    },
+    { covers: [changeWindowKeys.all] }, // every range
+  );
   const nameOf = (w: ChangeWindow) => labelled(w.labels, locale, () => w.name);
   return (
     <Flex vertical gap={16} data-testid="change-windows">

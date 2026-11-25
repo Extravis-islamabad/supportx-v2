@@ -18,6 +18,7 @@ from fastapi.routing import APIRoute, iter_route_contexts
 
 from app.core.authorization import Scope, declared_access
 from app.core.config import Settings
+from app.core.entitlements import FEATURE_ATTR, MODULE_LEVEL, ROUTE_LEVEL
 from app.core.modules import discover_modules
 from app.main import create_app
 from app.modules.identity_access.bff.routes import current_session
@@ -88,6 +89,46 @@ def access_table(app: FastAPI) -> dict[str, str]:
     }
 
 
+# The Feature column's sources, in the order shown: the module's (or router's) feature, a single
+# route's `requires_feature`, and the licence feature of each permission the route accepts.
+PERMISSION_LEVEL = "permission"
+LEVELS = (MODULE_LEVEL, ROUTE_LEVEL, PERMISSION_LEVEL)
+
+
+def declared_features(dependant: Any) -> list[tuple[str, str]]:  # noqa: ANN401 - FastAPI Dependant
+    """(feature, level) of every entitlement guard on a route (app/core/entitlements.py)."""
+    found: list[tuple[str, str]] = []
+    for call in route_dependencies(dependant):
+        tag = getattr(call, FEATURE_ATTR, None)
+        if isinstance(tag, tuple) and len(tag) == 2 and tag[0] is not None:  # noqa: PLR2004 - (feature, level)
+            found.append((str(tag[0]), str(tag[1])))
+    return found
+
+
+def feature_table(app: FastAPI, catalogue: Catalogue) -> dict[str, str]:
+    """`METHOD path` → the Feature cell: each feature once, with the levels that name it."""
+    table: dict[str, str] = {}
+    for method, path, dependant, endpoint in api_routes(app):
+        named = declared_features(dependant)
+        access = route_access(dependant, endpoint)
+        if access.startswith(PERMISSION_PREFIX):
+            for key in access.removeprefix(PERMISSION_PREFIX).split(","):
+                spec = catalogue.get(key)
+                if spec is not None and spec.feature is not None:
+                    named.append((spec.feature, PERMISSION_LEVEL))
+        levels: dict[str, set[str]] = {}
+        for feature, level in named:
+            levels.setdefault(feature, set()).add(level)
+        table[f"{method} {path}"] = (
+            "; ".join(
+                f"`{feature}` ({', '.join(lv for lv in LEVELS if lv in levels[feature])})"
+                for feature in sorted(levels)
+            )
+            or "-"
+        )
+    return table
+
+
 def build_app() -> FastAPI:
     """The app with every module's routes; nothing connects at build time."""
     return create_app(Settings.load(env_file=None, profile="test", tracing_enabled=False))
@@ -103,7 +144,7 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|")
 
 
-def _route_rows(table: dict[str, str], catalogue: Catalogue) -> list[str]:
+def _route_rows(table: dict[str, str], catalogue: Catalogue, features: dict[str, str]) -> list[str]:
     rows = []
     for route in sorted(table, key=lambda r: (r.split(" ", 1)[1], r.split(" ", 1)[0])):
         method, path = route.split(" ", 1)
@@ -117,7 +158,8 @@ def _route_rows(table: dict[str, str], catalogue: Catalogue) -> list[str]:
             )
         else:
             shown, scopes = access, "-"
-        rows.append(f"| {method} | `{_cell(path)}` | {shown} | {scopes} |")
+        feature = _cell(features.get(route, "-"))
+        rows.append(f"| {method} | `{_cell(path)}` | {shown} | {scopes} | {feature} |")
     return rows
 
 
@@ -138,7 +180,9 @@ def _role_rows(catalogue: Catalogue) -> list[str]:
     return rows
 
 
-def render(table: dict[str, str], catalogue: Catalogue) -> str:
+def render(
+    table: dict[str, str], catalogue: Catalogue, features: dict[str, str] | None = None
+) -> str:
     """The Markdown page: routes sorted by path then method, roles by role then permission."""
     return "\n".join(
         [
@@ -160,10 +204,15 @@ def render(table: dict[str, str], catalogue: Catalogue) -> str:
             "reaches is filtered in the module's service by the scope the caller holds the",
             "permission at. The Scopes column lists the scopes each permission can be granted",
             "with, broadest first (`all`, `site`, `group`, `own`), from the permission catalogue.",
+            "The Feature column is the licence feature a tenant's plan needs for the route",
+            "(403 `entitlement_required` otherwise) and where it is declared: `module` (the",
+            "module's or router's feature), `route` (`requires_feature` on that route) or",
+            "`permission` (the feature of a permission the route accepts). A check made only",
+            "inside a service is not shown here: declare it on the route too.",
             "",
-            "| Method | Path | Access | Scopes |",
-            "|---|---|---|---|",
-            *_route_rows(table, catalogue),
+            "| Method | Path | Access | Scopes | Feature |",
+            "|---|---|---|---|---|",
+            *_route_rows(table, catalogue, features or {}),
             "",
             "## Built-in roles",
             "",
@@ -183,7 +232,9 @@ def render(table: dict[str, str], catalogue: Catalogue) -> str:
 
 def generate() -> str:
     """The page for the current code."""
-    return render(access_table(build_app()), build_catalogue())
+    app = build_app()
+    catalogue = build_catalogue()
+    return render(access_table(app), catalogue, feature_table(app, catalogue))
 
 
 def main() -> int:  # pragma: no cover - thin CLI over the tested generate

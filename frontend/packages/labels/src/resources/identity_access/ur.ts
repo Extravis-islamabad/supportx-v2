@@ -286,6 +286,8 @@ export const ur: LabelResource = {
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
+  'group_mapping_source.directory': 'ڈائریکٹری',
+  'group_mapping_source.sso': 'سنگل سائن آن',
   'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
   'identity.settings.people_edit_contact_help':
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
@@ -680,6 +682,9 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.delete': 'اثاثے حذف کریں (ردی کی ٹوکری میں منتقل کریں)',
+  'permission.assets.delete.description':
+    'اثاثے ردی کی ٹوکری میں منتقل کریں۔ اثاثوں کے انتظام میں اب یہ شامل نہیں، اور وینڈر سپورٹ کو یہ کبھی نہیں ملتا۔',
   'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
   'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
@@ -1080,6 +1085,9 @@ export const ur: LabelResource = {
   'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
   'permission.requests.edit_due_dates.description':
     'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.manage_delegations': 'دوسروں کی منظوری کی تفویضات سنبھالیں',
+  'permission.requests.manage_delegations.description':
+    'کسی اور کے لیے منظوری کی تفویض مقرر، تبدیل یا ختم کریں۔ ہر کوئی اپنی تفویض سنبھال سکتا ہے۔',
   'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
   'permission.requests.manage_followers.description':
     'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
@@ -1669,6 +1677,8 @@ export const ur: LabelResource = {
     'کنسول سیشن ایک گھنٹے سے زیادہ بغیر سرگرمی کے سائن اِن رہتے ہیں۔',
   'security_flag.console_open_network': 'کنسول کسی بھی نیٹ ورک پتے سے کھولا جا سکتا ہے۔',
   'security_flag.console_session_long': 'کنسول سیشن ایک کاروباری دن سے زیادہ چلتے ہیں۔',
+  'security_flag.directory_access_stale':
+    'ایسی ڈائریکٹریاں جو رسائی دیتی ہیں اور ایک دن سے زیادہ سے سنک نہیں ہوئیں',
   'security_flag.fields_still_moving':
     'حساس فیلڈز جن کی انکرپشن یا ڈی کرپشن ابھی جاری ہے: {{count}}',
   'security_flag.keys_never_expire': 'API کلیدیں میعاد کے بغیر بنائی جا سکتی ہیں۔',

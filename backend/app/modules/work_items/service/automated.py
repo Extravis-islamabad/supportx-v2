@@ -256,6 +256,19 @@ def _labels(wtype: WorkItemType) -> automation.RecordLabeler:
     return labels
 
 
+async def _ask_approval(
+    session: AsyncSession,
+    record_id: uuid.UUID,
+    trigger_id: uuid.UUID,
+    approvers: Mapping[str, Any],
+    rule: str,
+) -> str:
+    """A rule's ad hoc ask on the record (WP-047a S4; the coordinator's option a)."""
+    return await workflow_approvals.ask_for(
+        session, record_id, trigger_id=trigger_id, approvers=approvers, rule=rule, source="rule"
+    )
+
+
 def register_triggers() -> None:
     """Give every registered work item type its trigger hooks (module import, after types)."""
     for wtype in TYPES.values():
@@ -278,6 +291,9 @@ def register_triggers() -> None:
                 may_view=_may_view(wtype),  # a test run shows the record's facts (REQ-WF-022)
                 labels=_labels(wtype),  # the workflow overview's record names (S5a)
                 close_workflow=workflow_approvals.close_for_instance,  # REQ-WF-026
+                ask_approval=(  # WP-047a S4 (REQ-SR-044): a trigger's ad hoc ask
+                    _ask_approval if wtype.code in workflow_approvals.APPROVAL_TYPES else None
+                ),
                 record_migration=_record_migration,  # REQ-WF-021 AC2
                 known_templates=_known_templates(wtype),  # REQ-WF-010, -027
             )

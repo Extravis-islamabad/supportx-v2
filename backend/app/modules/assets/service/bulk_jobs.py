@@ -39,7 +39,7 @@ from app.modules.assets.events import AssetBulkJobProgressed
 from app.modules.assets.infra.models import Asset, AssetBulkJob
 from app.modules.assets.service import assets as records
 from app.modules.assets.service import moves, ownership
-from app.modules.assets.service.assets import MANAGE, _refuse, _require, _visible
+from app.modules.assets.service.assets import DELETE, MANAGE, _refuse, _require, _visible
 from app.modules.identity_access import Subject, subject_for
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -75,6 +75,8 @@ async def start(  # noqa: PLR0913 - the job's inputs, explicit
     Money is never set in bulk (D-157: the edit fields leave it out).
     """
     _require(subject, MANAGE)
+    if action is AssetBulkAction.DELETE:  # D-185: refused at start, never item by item
+        _require(subject, DELETE)
     ids = list(dict.fromkeys(asset_ids))
     if not ids:
         _refuse([Problem("asset_ids", "required")])

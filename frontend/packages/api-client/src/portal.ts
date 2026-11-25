@@ -235,6 +235,44 @@ export function usePortalRequest(id: string) {
   });
 }
 
+/**
+ * A request made from mail that waits for answers (WP-047a S4; REQ-SR-017 AC2): the keys of the
+ * item's required questions still unanswered. 404 when it is not yours or no longer waiting.
+ */
+export function usePortalMissingAnswers(id: string) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id), 'missing-answers'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/missing-answers', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Give the missing answers (If-Match): the request is then submitted as any other (AC3). */
+export function useCompletePortalAnswers(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ answers, version }: { answers: Record<string, unknown>; version: number }) =>
+      call(
+        api.PUT('/api/v1/portal/service-requests/{record_id}/missing-answers', {
+          params: {
+            path: { record_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+          body: { answers },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
+    },
+  });
+}
+
 /** Fulfilment progress, internal step names hidden (REQ-SR-051 AC2). */
 export function usePortalRequestSteps(id: string) {
   return useQuery({

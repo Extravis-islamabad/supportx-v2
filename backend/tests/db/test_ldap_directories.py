@@ -11,10 +11,12 @@ from typing import Any
 import pytest
 from pydantic import SecretStr
 
+from app.core.entitlements import ENTITLEMENT_GATE_STATE
 from app.core.errors import AppError, Conflict, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import FederationFailed
 from app.modules.integrations.service import directories, ldap_directories, ldap_people
+from app.modules.licensing import Feature
 from app.shared.files.keyring import KeyRing
 from tests.app_state import set_state
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
@@ -85,8 +87,12 @@ def keycloak(world: World, monkeypatch: pytest.MonkeyPatch) -> FakeKeycloak:
 
 
 @pytest.fixture
-def licensed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The add-on is on the tenant's licence (the refusal is tested with the real gate)."""
+def licensed(world: World, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The add-on is on the tenant's licence (the refusal is tested with the real gate).
+
+    Both checks see it: the service's, and the create and change routes' own (#622). The route
+    gate keeps every other rule (read-only, the router's feature); only this add-on is granted.
+    """
     asked: list[str] = []
 
     async def require(tenant_id: uuid.UUID, feature: object) -> None:
@@ -94,6 +100,16 @@ def licensed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         asked.append(str(feature))
 
     monkeypatch.setattr(ldap_directories, "require_feature", require)
+    gate = getattr(world.app.state, ENTITLEMENT_GATE_STATE, None)
+    if gate is not None:
+        check = gate.check_request
+
+        async def check_request(context: object, *, feature: str | None, **rest: Any) -> Any:  # noqa: ANN401 - the gate's headers
+            if feature == Feature.DIRECTORY_FEDERATION:
+                feature = None  # the add-on is held; the rest of the gate still applies
+            return await check(context, feature=feature, **rest)
+
+        monkeypatch.setattr(gate, "check_request", check_request)
     return asked
 
 

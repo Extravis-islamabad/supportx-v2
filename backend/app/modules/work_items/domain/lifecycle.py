@@ -64,6 +64,8 @@ class WorkItemAction(StrEnum):
     # system, service requests (WP-030, REQ-SR-004): the approval engine's final decision
     APPROVE = "approve"
     REJECT = "reject"
+    # WP-047a S3b (REQ-SR-041): system: a relevant answer changed, so approval starts again.
+    RESTART_APPROVAL = "restart_approval"
     # system, problems (WP-044b, REQ-PRB-046): merged into another problem, and its undo
     MERGE = "merge"
     UNDO_MERGE = "undo_merge"

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type {
@@ -9,6 +9,8 @@ import type {
 } from '@supportx/api-client';
 
 import { ApiError } from '@supportx/api-client';
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+import { scriptedRealtime } from '@supportx/realtime/testing';
 import { label, stripIsolates, type LabelParams } from '@supportx/labels';
 
 import { App } from '../../App';
@@ -22,6 +24,7 @@ import { plainQuantity } from './quantity';
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
+  setDefaultClientFactory(inertClientFactory);
 });
 
 const SITE = '01900000-0000-7000-8000-0000000051a1';
@@ -385,6 +388,34 @@ describe('console: bookings and loans', () => {
     });
     const [sent] = fake.find('POST', '/api/v1/assets/bookings/bk-1/handover');
     expect(sent?.headers.get('If-Match')).toBe('"1"');
+  });
+
+  it('a channel refresh (first-subscribe catch-up, §8.3) refetches the bookings', async () => {
+    // The tenant channel's handler filters on assets.bookings_changed: before `covers`, a
+    // `refresh` matched it never and was dropped (lane B's #618).
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', `/assets/${asset.id}?tab=bookings`);
+    const fake = api({
+      [`GET /api/v1/assets/${asset.id}`]: { body: asset, headers: { ETag: '"3"' } },
+      [`GET /api/v1/assets/${asset.id}/history`]: { body: { items: [], next_cursor: null } },
+      'GET /api/v1/assets/states': { body: [] },
+      'GET /api/v1/assets/bookings': { body: [booking] },
+      [`GET /api/v1/users/${BORROWER}`]: { body: { id: BORROWER, display_name: 'Sara Field' } },
+    });
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId('asset-bookings-table');
+    await waitFor(() => {
+      expect(realtime.channels().some((c) => c.endsWith(':broadcast'))).toBe(true);
+    });
+    const before = fake.find('GET', '/api/v1/assets/bookings').length;
+    act(() => {
+      realtime.publish(':broadcast', { type: 'refresh', ids: [] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/assets/bookings').length).toBeGreaterThan(before);
+    });
   });
 
   it("the asset's bookings say there are none only once they have loaded", async () => {

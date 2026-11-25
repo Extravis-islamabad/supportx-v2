@@ -84,7 +84,14 @@ class Mailbox(TenantEntity):
         ),
         CheckConstraint("security IN ('tls', 'starttls', 'none')", name="security_code"),
         CheckConstraint("after_fetch IN ('mark_read', 'move', 'delete')", name="after_fetch_code"),
-        CheckConstraint("creates IN ('incident', 'nothing')", name="creates_code"),
+        CheckConstraint(
+            "creates IN ('incident', 'service_request', 'nothing')", name="creates_code"
+        ),
+        # WP-047a S4: a request mailbox names its item; no other kind does (0203).
+        CheckConstraint(
+            "(catalog_item_id IS NOT NULL) = (creates = 'service_request')",
+            name="catalog_item_set",
+        ),
         CheckConstraint(
             "unknown_senders IN ('create', 'create_allowed_domains', 'reject')",
             name="unknown_senders_code",
@@ -126,8 +133,10 @@ class Mailbox(TenantEntity):
     folder: Mapped[str] = mapped_column(String(255), server_default="INBOX")
     after_fetch: Mapped[str] = mapped_column(String(10), server_default="mark_read")
     move_to: Mapped[str | None] = mapped_column(String(255))
-    creates: Mapped[str] = mapped_column(String(10), server_default="incident")
+    creates: Mapped[str] = mapped_column(String(20), server_default="incident")
     group_id: Mapped[uuid.UUID | None]
+    # The catalogue's item (no key across modules, rule 5e: checked through its service).
+    catalog_item_id: Mapped[uuid.UUID | None]
     unknown_senders: Mapped[str] = mapped_column(
         String(30), server_default="create_allowed_domains"
     )

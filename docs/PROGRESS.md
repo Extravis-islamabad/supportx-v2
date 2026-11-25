@@ -54,11 +54,19 @@
   unknown problem approver is refused, and raising on behalf of an unknown person is refused
   by the scope (`on_behalf_out_of_scope`; under `all_users` it used to pass the scope and be
   refused only by a later field check, a 422).
-- **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
-  WP-047a S1). Licence gates are in the services (`licensing.require_feature`, rule 5f), so
-  `docs/security/route-permissions.md` cannot say which feature a route needs. Follow-up: a
-  route-level feature declaration (a `require_feature` dependency) and a Feature column in the
-  generated map. Until then a WP's PR body lists each REQ's edition and where it is gated.
+- [x] **Licence features in the route map** (lane C's CI area; the coordinator, 2026-11-23, from
+  WP-047a S1). Done (lane C, 2026-11-24):
+  - **The Feature column** in `docs/security/route-permissions.md` names each route's licence
+    feature and where it's declared: `module` (the module's or router's), `route` (the new
+    `app.core.entitlements.requires_feature`, the same check as the router's) or `permission`.
+  - **The SIEM add and change routes** declare `siem_stream` on the route.
+  - **Still service-only, so not shown yet:**
+    - **Whole-route gates.** Their owners add `requires_feature` on the route when next in those
+      files: work_items' CI-link and asset-link routes (lane A) and integrations LDAP (lane A).
+    - **Conditional on the request** (a feature needed only for one option in the body). These
+      stay in the service by design, and the WP's PR body names them: request stages and
+      quantities, approver changes, service catalogue, the work item settings check, and the
+      personal-data log setting.
 
 ### Engineering-practices audit (#444), lane B security items
 
@@ -170,6 +178,19 @@ decisions D1-D13 (D-038).
    now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
    phases) and times the master's name lookup from the API pods, so the nightly shows whether a
    slower write is DNS or this latency.
+11. **Release note: deleting an asset is its own right (lane B, 2026-11-24, D-185, a security
+   fix):** `DELETE /assets/{asset_id}` needs `assets.delete`; `assets.manage` no longer stands in,
+   and vendor support never holds it. Migration 0202 gave `assets.delete` to every role that held
+   `assets.manage` (same scope), so existing roles keep deleting; its log counts the roles held by
+   service identities, for an admin to review. **A role made from now on needs `assets.delete`
+   ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
+   overdue-scan rule whose action is the trash need it too. An overdue rule already set to trash
+   before upgrading keeps running: review its action after the upgrade.
+12. **OpenFeature is approved but not set up (lane C, 2026-11-25; the coordinator):** D-004 lists
+   the OpenFeature SDK for release flags, but no SDK, provider or flag exists in the backend or
+   the frontend yet. WP-057 S5c-1a uses a module constant (`SSO_GROUP_MAPPINGS_READY`, deleted by
+   S5c-1b) instead. The first lane that needs a real release flag sets OpenFeature up in its own
+   PR, with lane B reviewing core.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -1851,7 +1872,72 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
   - **Follow-ups:** asking from the portal approvals page and the mobile app goes with S4
     (channels); history field names (`approval_reminder_sent`, `approval_escalated`,
     `approval_clarification`) get labels with the requests History tab.
-- [ ] **S3b, delegation and restart (0197; REQ-SR-035, -041):** next.
+- [~] **S3b, delegation and restart (0197; REQ-SR-035, -041; lane B blocks delegation):**
+  built 2026-11-24, PR after #604 merges.
+  - REQ-SR-035 (Essentials, the coordinator's condition 1): an approver names a delegate for a
+    date range (both dates, at most 90 days, one at a time, never oneself). While it is active,
+    a new request approval for them goes to the delegate (`on_behalf_of_id`), if the delegate
+    is eligible, not the request's own people and not already on the stage. A delegate's own
+    delegation is never followed. The approver can still decide, and the inbox keeps it for
+    both. A delegate's decision reads "A on behalf of B". When it ends early, or its date comes
+    (the reminder sweep), approvals still pending move back with a fresh link. Create, change
+    and end are audited, and both people are told. One's own delegation needs no right;
+    someone else's needs `requests.manage_delegations` (SDM by default, vendor support never).
+    The console has Approvals › Delegations.
+  - REQ-SR-041 (Essentials, condition 3): a question may restart approval, and so may the
+    quantity or the requested-for person (`restart_on`). `PATCH /service-requests/{id}/answers`
+    is staff-only. A marked change while approval is pending or approved, and before fulfilment
+    has started:
+    - ends this round's pending approvals with the reason in history;
+    - tells the round's approvers;
+    - revokes every link of the round;
+    - moves the request back to awaiting approval;
+    - opens round N+1 from stage 1 on the snapshot as raised.
+
+    An unmarked change does nothing, and one after fulfilment started is recorded only.
+    `work_items.approval_round` is the round the stages count.
+  - **Follow-ups:**
+    - requester edits of answers (`requester_edit_fields`) and a console answers editor;
+    - delegation for change and release approvals;
+    - delegation in the portal for requester-only approvers.
+- [~] **S4, channels (0203; REQ-SR-017, -038, -039, -043, -044; plan
+  `~/Extravis/plans/wp-047a-s4-plan-lane-a.md`, approved 2026-11-25; lane B blocks the 017 link
+  and the 038 reply decisions, lane C the mail paths, 043's filtering and 044 in automation):**
+  draft #627.
+  - REQ-SR-017 (Essentials): a mailbox can make service requests of one catalog item
+    (`creates = service_request`, `catalog_item_id`); the item is checked again for every mail
+    as the requester would raise it, and an item no longer requestable holds the mail (never an
+    incident instead). No answers come from free mail text: required ones missing make the
+    request wait (`awaiting_requester`, approval status `awaiting_answers`, no approval yet).
+    The requester is told: with the portal page that asks only the missing questions, or (a
+    requester made from mail cannot sign in, lane B) with no link and how to get access. Saving
+    the answers submits the request as any other. A mail command `item:` is a follow-up.
+  - REQ-SR-038 (Essentials): a reply to the approval mail approves or rejects only when it
+    answers that mail, the trusted server vouched for the sender (stricter than the spec, the
+    coordinator's Q2), the sender is the approver (or the delegate it went to), the approval was
+    pending when the mail was sent, and its first line is a clear decision word in English,
+    Arabic or Urdu (no AI at V1). Anything else changes nothing and the sender is told why, with
+    the app as the way to decide; no new no-sign-in link is ever minted. Every reply is audited.
+  - REQ-SR-039: mobile decides on the same routes; push stays WP-M6.
+  - REQ-SR-043 (Essentials): an approver sees the questions meant for approvers (it was the
+    requester's set) and the public conversation, never a private note; this supersedes the
+    QA10-P2-06 rule (the coordinator, 2026-11-25).
+  - REQ-SR-044 (Professional): a workflow approval node may time out (1-720 hours, through the
+    workflow timers worker): its level expires (links revoked), the node takes `timed_out`, and a
+    decision after that is refused (`approval_expired`); a decision that got there first wins.
+    A trigger may ask for an approval (`start_approval`): an ad hoc ask under the rule's
+    identity that never moves the request, and none while one is pending (the coordinator's
+    option a; decision-driven next steps use a one-node workflow through `start_workflow`).
+  - **Spec gaps:**
+    - REQ-SR-043 AC3's "show cost to approvers" toggle is replaced by D-184: approvers always see
+      the estimate; only the requesters' toggle exists.
+    - Replies to a service request's own mails are not threaded to the request (the inbound
+      target finds incidents only), so they would make a new incident; the S4 mails never ask
+      for a reply. Threading request replies is a follow-up.
+  - **Follow-ups:** a console screen for service request (and problem, change, release)
+    triggers, since Admin › Automation lists incident triggers only, so `start_approval` is
+    reachable through the API today; the mail command `item:`; native-speaker checks of the new
+    Arabic and Urdu texts.
 
 ### [ ] WP-031 — Service catalog administration (lane A, 2026-11-04; 2 sessions; #200)
 - **Plan:** ~/Desktop/wp-031-plan.md (coordinator approved, 2026-11-04). Decisions: D-133
@@ -2739,6 +2825,39 @@ price, REQ-CAT-020; 033: AC1 done, AC2 "below a cost" waits for the price), 15 t
     `useHiddenPersonLabel`, lane A's OK) and person search is refused; e-mail and phone are never
     shown. The downgrade refuses while a grant has the tick on.
 - [ ] Session 5: SIEM streaming (opt-in), system log, roles from IdP groups, DNS proof.
+  - [~] **S5c-1a (#620, migration 0201; REQ-SEC-014; lane B blocks, lane A reviews
+    integrations): roles and support groups from directory groups.** Plan
+    `~/Extravis/plans/wp-057-s5c-plan.md` (lane B's six conditions; D-186, D-187, D-188). Built:
+    - **The mappings:** `idp_group_mappings` (one external group ID onto a role or a support
+      group), `access_sources` (which mapping holds what) and `managed` on `user_roles` and
+      `group_members`. A mapping never removes hand-made access, and managed access can't be
+      removed by hand (409, AC3).
+    - **`follow()`:** one function for directory sync and, from S5c-1b, sign-in. It holds a
+      per-person lock; an incomplete list changes nothing; vendor support, service and
+      break-glass accounts are never followed; the last tenant admin is kept (audited); every
+      change is audited with its mapping.
+    - **Directory sync:** it applies a changed person's whole set of mapped groups, and an empty
+      set when they leave. **This fixes a bug: sync used to remove hand-made memberships too.**
+      The connector's `group_mappings` JSON moved to the table (the data step keeps today's
+      sync-made memberships removable); the connector API keeps its shape, plus `on_held`.
+    - **Privileged access needs the tenant opt-in:** tenant admin, or a never_via_idp right
+      (`identity.manage`, `audit.manage`, `audit.manage_holds`, `api_keys.manage`,
+      `roles.manage`, `users.manage`), directly or through a group, and adding such a role to a
+      mapped group. The opt-in needs a recent sign-in and is audited.
+    - **Removing a mapping is never silent:** holders keep their access as hand-made ("keep", the
+      default) or lose it now ("remove", behind a recent sign-in).
+    - **The API:** `/identity/group-mappings` (list, create, holders, remove, settings).
+      **SSO-source mappings** are refused as "coming soon" until S5c-1b.
+    - **A stale or switched-off directory** that gives managed access is flagged on the security
+      overview (`directory_access_stale`); the access stays.
+  - [ ] **S5c-1b (no migration):**
+    - sign-in reads the per-alias Keycloak attributes (D-187, lane B's realm PR) under the lock:
+      read, clear, then apply;
+    - freshness and overage, with `idp_groups_unverified`;
+    - IdP-managed access only in that IdP's sessions (D-188), with the cache key per source;
+    - real-Keycloak cross-tenant tests;
+    - the D-188 decision file;
+    - deleting `SSO_GROUP_MAPPINGS_READY`.
   - [x] **S5d (#569, migration 0189; the DNS lookup in the follow-up, D-183): REQ-SEC-010 verified
     e-mail domains, DONE.** Built:
     - adding a domain with a TXT record shown once (only its hash kept);

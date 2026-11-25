@@ -5,12 +5,14 @@ No I/O: the interpreter and the validator only.
 
 import uuid
 from dataclasses import replace
+from datetime import timedelta
 
 from app.modules.automation.domain.interpreter import (
     CommandDone,
     CommandKind,
     InstanceStatus,
     State,
+    TimerFired,
 )
 from app.modules.automation.domain.workflows import (
     REGISTRY,
@@ -21,7 +23,7 @@ from app.modules.automation.domain.workflows import (
     parse,
     validate,
 )
-from app.modules.automation.tests.test_interpreter_domain import node, step
+from app.modules.automation.tests.test_interpreter_domain import NOW, node, step
 from app.modules.automation.tests.test_workflow_s2_domain import flow
 from app.modules.automation.tests.test_workflows_domain import FACTS, link
 from app.modules.automation.tests.test_workflows_domain import node as raw_node
@@ -105,6 +107,77 @@ def test_an_approval_names_who_decides_and_how() -> None:
     assert _problems({"approvers": {"user_ids": [PERSON]}}, FACTS) == {
         ("node:a", "approval_not_offered")
     }
+
+
+# --- the approval timeout (WP-047a S4; REQ-SR-044) ------------------------------------------------
+
+
+def _timed_flow() -> Definition:
+    return flow(
+        [
+            node("s", "start"),
+            node("ok", "approval", approvers={"user_ids": [PERSON]}, timeout_hours=24),
+            node("yes", "end"),
+            node("no", "end"),
+            node("late", "end"),
+            node("err", "end"),
+        ],
+        [
+            ("s", "next", "ok"),
+            ("ok", "approved", "yes"),
+            ("ok", "rejected", "no"),
+            ("ok", "timed_out", "late"),
+            ("ok", "error", "err"),
+        ],
+        [],
+    )
+
+
+def test_req_sr_044_an_approval_with_a_timeout_expires_into_timed_out() -> None:
+    definition = _timed_flow()
+    started = step(definition, State.start(definition))
+    [opened] = started.commands
+    assert opened.kind == CommandKind.OPEN_APPROVAL
+    assert started.wake_at == NOW + timedelta(hours=24)  # the waker fires it then
+    early = step(definition, started.state, event=TimerFired(), now=NOW + timedelta(hours=23))
+    assert early.commands == []  # not yet
+    due = step(definition, started.state, event=TimerFired(), now=NOW + timedelta(hours=24))
+    [expire] = due.commands
+    assert (expire.kind, expire.payload) == (CommandKind.EXPIRE_APPROVAL, {"opened": opened.id})
+    assert due.wake_at is None
+    timed = step(definition, due.state, event=CommandDone(expire.id, ok=True, port="timed_out"))
+    assert [s.result for s in timed.steps if s.node == "ok"] == ["timed_out"]
+    assert timed.state.status == InstanceStatus.FINISHED
+    # A decision that got there first is the result instead (the module reported it).
+    first = step(definition, due.state, event=CommandDone(expire.id, ok=True, port="approved"))
+    assert [s.result for s in first.steps if s.node == "ok"] == ["approved"]
+    # The opening command's late result is ignored: one outcome only.
+    late = step(definition, due.state, event=CommandDone(opened.id, ok=True, port="approved"))
+    assert late.steps == [] or all(s.node != "ok" for s in late.steps)
+
+
+def test_a_decision_before_the_timeout_cancels_it() -> None:
+    definition = _timed_flow()
+    started = step(definition, State.start(definition))
+    [opened] = started.commands
+    decided = step(
+        definition, started.state, event=CommandDone(opened.id, ok=True, port="rejected")
+    )
+    assert decided.state.status == InstanceStatus.FINISHED
+    assert decided.wake_at is None
+
+
+def test_a_timeout_adds_a_timed_out_output_that_must_be_wired_and_stays_in_bounds() -> None:
+    spec = REGISTRY[NodeType.APPROVAL]
+    assert spec.outputs({"timeout_hours": 4}) == ("approved", "rejected", "timed_out", "error")
+    assert spec.optional({"timeout_hours": 4}) == frozenset({"error"})
+    base = {"approvers": {"user_ids": [PERSON]}}
+    out = {("node:a", "approval_timeout_out_of_range")}
+    assert _problems({**base, "timeout_hours": 0}) >= out
+    assert _problems({**base, "timeout_hours": 721}) >= out
+    assert _problems({**base, "timeout_hours": True}) >= out
+    # In bounds but its branch unwired: the designer refuses the save.
+    assert _problems({**base, "timeout_hours": 24}) - out != set()
 
 
 # --- the task node (REQ-WF-015) -------------------------------------------------------------------

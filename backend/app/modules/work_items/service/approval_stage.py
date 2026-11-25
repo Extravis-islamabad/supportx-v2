@@ -18,6 +18,7 @@ from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import ApprovalChange, WorkItemApprovalChanged
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
+from app.modules.work_items.service import approval_rows
 from app.shared.events import record_event
 from app.shared.history import Source
 
@@ -114,8 +115,10 @@ async def open_stage(
             self_approval=item.self_approval,
             comments_required=item.comments_required,
         )
-        session.add(row)
         opened.append(row)
+    # WP-047a S3b: the round, and an approver away on a delegation asked through its delegate.
+    await approval_rows.prepare(session, record, opened)
+    session.add_all(opened)
     await session.flush()
     for row in opened:
         await approval_event(session, record, row, "opened")
@@ -130,9 +133,14 @@ async def after_submission(  # noqa: PLR0913 - the request and its context, expl
     source: Source,
     holders: Holders | None = None,
     wtype: WorkItemType | None = None,
+    waiting: bool = False,
 ) -> None:
-    """A new request from an item: its approval stage, or its fulfilment plan when none."""
-    if item is None:
+    """A new request from an item: its approval stage, or its fulfilment plan when none.
+
+    `waiting` (WP-047a S4, REQ-SR-017 AC3): made from mail with required answers missing, so
+    nothing starts yet; `answers_completed` runs this once they are given.
+    """
+    if item is None or waiting:
         return
     # Imported here: the stages service reaches the assets and CMDB ports (WP-047a S2a).
     from app.modules.work_items.service import request_stages  # noqa: PLC0415 - see above

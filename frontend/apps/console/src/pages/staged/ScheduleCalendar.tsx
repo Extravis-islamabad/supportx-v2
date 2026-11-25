@@ -35,6 +35,7 @@ import {
   type CalendarEntry,
   type ChangeWindow,
   type StagedPath,
+  changeWindowKeys,
 } from '@supportx/api-client';
 import { refreshQueries, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
@@ -204,7 +205,7 @@ export function ScheduleCalendar({ kind, other }: { kind: ScheduleKind; other: S
     (m) => {
       if (m.type === 'work_items.change_windows_changed') void windows.refetch();
     },
-    { covers: [['change-windows']] },
+    { covers: [changeWindowKeys.all] },
   );
   const entries: Entry[] = [
     ...(calendar.data ?? []).map((e) => ({ ...e, of: kind.type })),

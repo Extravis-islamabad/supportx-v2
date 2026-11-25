@@ -41,11 +41,14 @@ export function ChecklistLibraryTab() {
   const all = useChecklistLibraryAll('incidents');
   const change = useLibraryChange('incidents');
   const [editing, setEditing] = useState<ChecklistLibraryEntry | 'new' | null>(null);
-  useTenantChannel((event) => {
-    if (event.type === SETTINGS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: checklistKeys.library('incidents') });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.covered !== true && event.type === SETTINGS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: checklistKeys.library('incidents') });
+      }
+    },
+    { covers: [checklistKeys.library('incidents')] },
+  );
   const rows = all.data ?? [];
   return (
     <SettingsCard

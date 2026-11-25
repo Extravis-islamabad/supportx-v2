@@ -39,6 +39,7 @@ const KNOWN_PORTS = new Set([
   'error',
   'approved',
   'rejected',
+  'timed_out',
 ]);
 
 /** Whether an output has a word of its own (not a name the admin typed, not an internal code). */

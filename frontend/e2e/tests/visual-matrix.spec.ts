@@ -890,6 +890,12 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
   },
+  // WP-053 S5b: the CI's downtimes, one recorded by hand (its row, its remove and the form).
+  {
+    key: 'ci-downtimes',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=downtimes` : undefined),
+    app: 'console',
+  },
   // 0175 part 2 (lane B): one CI type's custom fields, its own and those it inherits.
   {
     key: 'cmdb-type-fields',
@@ -1613,7 +1619,19 @@ async function showcaseCi(page: Page): Promise<string | undefined> {
     data: { type_id: type, name: 'Core switch SW-01', description: 'Floor 2 network core.' },
     headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
   });
-  return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+  if (!made.ok()) return undefined;
+  const ci = ((await made.json()) as { id: string }).id;
+  // One hand-recorded downtime (WP-053 S5b), so the Downtimes tab shows a row and its remove.
+  const start = new Date(Date.now() - 3_600_000);
+  await page.request.post(`/api/v1/cmdb/cis/${ci}/downtimes`, {
+    data: {
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + 7_200_000).toISOString(),
+      description: 'Line card swap on slot 3.',
+    },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  return ci;
 }
 
 /** A business view on the showcase CI (WP-053 S2): the stack's showcase has none yet. */

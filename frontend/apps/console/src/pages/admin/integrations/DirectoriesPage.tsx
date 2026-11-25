@@ -485,11 +485,14 @@ export function DirectoriesPage() {
   const remove = useRemoveDirectory();
   const sync = useSyncDirectoryNow();
   const [editing, setEditing] = useState<Directory | null | undefined>();
-  useTenantChannel((event) => {
-    if (event.type === 'integrations.directories_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.directories.all });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.type === 'integrations.directories_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.directories.all });
+      }
+    },
+    { covers: [queryKeys.directories.all] },
+  );
   const items = directories.data ?? [];
   const removeIt = (directory: Directory) => {
     modal.confirm({

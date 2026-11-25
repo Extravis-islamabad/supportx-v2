@@ -43,6 +43,8 @@ export const en = {
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_delegation_not_found': 'This delegation no longer exists.',
+  'errors.approval_expired': 'This approval expired before it was decided.',
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_not_running':
     '{{display_id}} has no approval waiting, so its approvers can no longer be changed.',
@@ -161,6 +163,8 @@ export const en = {
   'errors.asset_stock_rule_exists': 'There is already a minimum for this and this site.',
   'errors.asset_stock_rule_not_found': 'This minimum no longer exists.',
   'errors.asset_stock_short': 'Not enough in stock: only {{available}} available.',
+  'errors.assignment_from_identity_provider':
+    "This access comes from a group mapping. It changes when the person's group changes, or when an admin removes the mapping.",
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
@@ -412,6 +416,8 @@ export const en = {
     'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
   'errors.field.asset_tag_taken': 'Asset {{asset}} already has this tag.',
   'errors.field.asset_type_not_consumable': 'Choose a consumable product type.',
+  'errors.field.assignment_from_identity_provider':
+    "This access comes from a group mapping. It changes when the person's group changes, or when an admin removes the mapping.",
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
@@ -433,6 +439,8 @@ export const en = {
   'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.field.catalog_item_not_requestable':
+    'Choose a published service item that people can request.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
   'errors.field.category_disabled': 'This category is no longer in use.',
   'errors.field.category_loop':
@@ -487,6 +495,13 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
+  'errors.field.delegate_is_delegator': "You can't delegate approvals to yourself.",
+  'errors.field.delegate_not_eligible':
+    "This person can't take approvals: they must be active and able to sign in.",
+  'errors.field.delegation_ended': "This delegation has ended and can't be changed.",
+  'errors.field.delegation_overlaps': 'Another delegation already covers these dates.',
+  'errors.field.delegation_reason_too_long': 'The reason can be at most 500 characters.',
+  'errors.field.delegation_too_long': 'A delegation can last at most 90 days.',
   'errors.field.department_not_found': 'Choose an active department.',
   'errors.field.dependency_loop': 'A task cannot wait for itself, directly or through other tasks.',
   'errors.field.desk_not_found': 'Choose an active desk.',
@@ -575,6 +590,8 @@ export const en = {
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
   'errors.field.ical_too_many_lines': 'The file has more than 20,000 lines.',
+  'errors.field.idp_group_mappings_coming_soon':
+    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
   'errors.field.incident_actual_only':
     'An incident records the downtime it caused: actual times only.',
   'errors.field.invalid_choice': 'This is not one of the allowed values.',
@@ -633,6 +650,14 @@ export const en = {
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
+  'errors.field.mapping_exists': 'That group is already mapped to this role or support group.',
+  'errors.field.mapping_grants_privileged_access':
+    'This would give administrator-level access from outside SupportX. Allow it in the group mapping settings first.',
+  'errors.field.mapping_in_use_choice_required':
+    'People hold access through this group mapping. Choose whether they keep it or lose it now.',
+  'errors.field.mapping_not_found': 'That group mapping no longer exists.',
+  'errors.field.mapping_source_not_found':
+    'That directory or single sign-on set-up no longer exists.',
   'errors.field.matrix_incomplete': 'Every impact and urgency pair needs a priority.',
   'errors.field.measure_not_available': 'This measure is not available yet.',
   'errors.field.message_required': 'Write the message in English at least.',
@@ -669,6 +694,7 @@ export const en = {
   'errors.field.offset_too_large':
     'A level can be at most 30 business days from its starting point.',
   'errors.field.one_day_required': 'Choose one day of the week.',
+  'errors.field.one_target_required': 'Choose either a role or a support group.',
   'errors.field.operator_not_allowed': 'This comparison cannot be used with this field.',
   'errors.field.order_incomplete':
     'The list changed while you were reordering. Reload and try again.',
@@ -952,6 +978,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.idp_group_mappings_coming_soon':
+    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
   'errors.incident_has_problem':
     'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
@@ -1101,6 +1129,13 @@ export const en = {
   'errors.mailbox_sign_in_not_needed': 'This mailbox does not need anyone to sign in.',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.mapping_exists': 'That group is already mapped to this role or support group.',
+  'errors.mapping_grants_privileged_access':
+    'This would give administrator-level access from outside SupportX. Allow it in the group mapping settings first.',
+  'errors.mapping_in_use_choice_required':
+    'People hold access through this group mapping. Choose whether they keep it or lose it now.',
+  'errors.mapping_not_found': 'That group mapping no longer exists.',
+  'errors.mapping_source_not_found': 'That directory or single sign-on set-up no longer exists.',
   'errors.measure_not_permitted':
     'You may not see this figure: it needs access to its data (for asset money, the right to see financials).',
   'errors.merge_undo_not_exact':
@@ -1148,6 +1183,7 @@ export const en = {
     'This link no longer works. It may have been used already, or it has expired.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
+  'errors.one_target_required': 'Choose either a role or a support group.',
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
   'errors.open_work_unconfirmed': 'Work is still open: {{items}}. Confirm to go ahead anyway.',
   'errors.order_out_of_date': 'The list changed meanwhile. Reload it and order again.',
@@ -1229,6 +1265,7 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.request_not_awaiting_answers': 'This request is no longer waiting for answers.',
   'errors.request_too_slow':
     'This took too long to finish, so it was stopped. Try a narrower search or filter, or try again later.',
   'errors.requester_action_closed':

@@ -45,11 +45,16 @@ export function ImpactTab({ ciId }: { ciId: string }) {
     for (const node of found.data?.cis ?? []) if (!node.restricted) ids.add(node.key);
     return ids;
   }, [ciId, found.data]);
-  useListChannel('cmdb', (message) => {
-    if (message.refresh === true || message.ids.some((id) => shown.has(id))) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.impactOf(ciId) });
-    }
-  });
+  useListChannel(
+    'cmdb',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched the impact
+      if (message.ids.some((id) => shown.has(id))) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.impactOf(ciId) });
+      }
+    },
+    { covers: [queryKeys.cmdb.impactOf(ciId)] },
+  );
   return (
     <Flex vertical gap={16} data-testid="ci-impact-tab">
       <Flex gap={12} wrap align="center">
