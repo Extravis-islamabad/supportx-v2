@@ -215,7 +215,10 @@ async def test_the_realtime_token_follows_the_sessions_source(world: World) -> N
 async def test_a_notice_reaches_the_managed_member_who_opens_it_only_through_sso(
     world: World,
 ) -> None:
-    """Lane B's condition 2 (option a): told as one who could act; opening it needs the sign-in."""
+    """Lane B's condition 2 (option a): told as one who could act; opening it needs the sign-in.
+
+    A technician whose only membership of the incident's group is SSO-managed.
+    """
     from app.core.errors import NotFound  # noqa: PLC0415 - this test only
     from app.modules.work_items.domain.types import INCIDENT  # noqa: PLC0415
     from app.modules.work_items.service import work_items as items  # noqa: PLC0415
@@ -224,19 +227,30 @@ async def test_a_notice_reaches_the_managed_member_who_opens_it_only_through_sso
 
     cast = await _cast(world)
     org = cast.org
-    scoped = await role(
-        world, org, f"Group view {uuid.uuid4().hex[:6]}", [("incidents.view", "group")]
-    )
+    tech = org.tech_c
+    # This fresh organisation's own seed: the technician leaves every group by hand first.
     await world.sql(
-        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
-        org.tenant, cast.person, scoped,
-    )  # fmt: skip
+        "DELETE FROM group_members WHERE tenant_id = $1 AND user_id = $2", org.tenant, tech
+    )
+    provider = (
+        await world.sql(
+            "SELECT id FROM sso_providers WHERE tenant_id = $1 AND alias = $2",
+            org.tenant,
+            cast.alias,
+        )
+    )[0]["id"]
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        await group_mappings.follow(
+            session, source_kind=SourceKind.SSO, source_id=provider,
+            user_id=tech, group_ids=frozenset({"sx-desk"}),
+        )  # fmt: skip
     item = await world.create(org, org.admin, group_id=str(org.gb), requester_id=str(org.requester))
     record = uuid.UUID(item["id"])
     async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
-        told = await SOURCE.access(session, cast.person, record)
+        told = await SOURCE.access(session, tech, record)
     assert told is RecordAccess.FULL  # the group's notice reaches them
-    strict = await _compiled(world, cast, NO_SIGN_IN)
+    techs = Cast(org, cast.alias, tech)
+    strict = await _compiled(world, techs, NO_SIGN_IN)
     async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
         with pytest.raises(NotFound):
             await items.visible_record(session, strict, INCIDENT, record)
