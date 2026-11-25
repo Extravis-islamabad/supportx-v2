@@ -1,5 +1,8 @@
-"""Group mapping rules (WP-057 S5c-1a), with no I/O."""
+"""Group mapping rules (WP-057 S5c-1a, S5c-1b), with no I/O."""
 
+import pytest
+
+from app.modules.identity_access.domain import group_mappings as gm
 from app.modules.identity_access.domain.group_mappings import (
     NEVER_VIA_IDP,
     SSO_GROUP_MAPPINGS_READY,
@@ -58,3 +61,36 @@ def test_an_overlong_or_odd_list_is_an_overage() -> None:
 
 def test_sso_mappings_ship_switched_off_until_s5c_1b() -> None:
     assert SSO_GROUP_MAPPINGS_READY is False
+
+
+# --- a sign-in's groups (WP-057 S5c-1b) ------------------------------------------------------
+
+NAMES = gm.GroupAttributeNames(
+    groups="sx_groups_a", seen="sx_groups_seen_a", overage="sx_groups_overage_a",
+    hasgroups="sx_groups_hasgroups_a",
+)  # fmt: skip
+
+
+def test_a_fresh_list_is_followed_and_an_absent_one_means_none() -> None:
+    sent = {"sx_groups_seen_a": ["1"], "sx_groups_a": ["g1", "g2"]}
+    assert gm.judge_sign_in_groups(sent, NAMES) == gm.SignInGroups(frozenset({"g1", "g2"}))
+    # G2: fresh (seen) and no overage, so an absent list is "in no group now".
+    assert gm.judge_sign_in_groups({"sx_groups_seen_a": ["1"]}, NAMES) == gm.SignInGroups(
+        frozenset()
+    )
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"sx_groups_a": ["g1"]},  # not seen: a concurrent sign-in took them, or none ran
+        {"sx_groups_seen_a": ["1"], "sx_groups_overage_a": ["src1"], "sx_groups_a": ["g1"]},
+        {"sx_groups_seen_a": ["1"], "sx_groups_hasgroups_a": ["true"]},
+        {"sx_groups_seen_a": ["1"], "sx_groups_a": ["g"] * (gm.MAX_GROUPS + 1)},
+        {"sx_groups_seen_a": ["1"], "sx_groups_a": ["x" * (gm.MAX_GROUP_ID + 1)]},
+        {"sx_groups_seen_a": ["1"], "sx_groups_a": [""]},
+    ],
+)
+def test_anything_not_proven_complete_changes_nothing(values: dict[str, list[str]]) -> None:
+    judged = gm.judge_sign_in_groups(values, NAMES)
+    assert (judged.groups, judged.reason) == (None, gm.IDP_GROUPS_UNVERIFIED)

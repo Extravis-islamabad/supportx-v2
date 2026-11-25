@@ -13,7 +13,7 @@ it; the conditions are in ~/Extravis/plans/wp-057-s5c-plan.md.
   or any role holding a right that can mint access or hide its trail (lane B's Q3).
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from enum import StrEnum
@@ -111,3 +111,52 @@ def overage(values: Iterable[str]) -> bool:
     """A list too long, or holding a value too long, to trust as complete (lane B's G2)."""
     items = list(values)
     return len(items) > MAX_GROUPS or any(len(v) > MAX_GROUP_ID or not v for v in items)
+
+
+# --- a sign-in's groups (WP-057 S5c-1b; lane B's real-KC transport, the plan's "1b read") ------
+
+IDP_GROUPS_UNVERIFIED = "idp_groups_unverified"  # read nothing to trust: no change
+
+
+@dataclass(frozen=True)
+class SignInGroups:
+    """What one brokered sign-in's group attributes say: the groups to follow, or no change.
+
+    `groups` None means no change (`reason` says why, for the sign-in log); a set, even empty,
+    is what the person's mapped access from this provider must now match.
+    """
+
+    groups: frozenset[str] | None
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class GroupAttributeNames:
+    """The per-alias user attributes the provider's importers set (lane B's realm side)."""
+
+    groups: str
+    seen: str
+    overage: str
+    hasgroups: str
+
+
+def judge_sign_in_groups(
+    values: Mapping[str, Sequence[str]], names: GroupAttributeNames
+) -> SignInGroups:
+    """A sign-in's groups, from the attributes read (and cleared) at the BFF.
+
+    - `seen` absent: nothing proves this sign-in set them (a concurrent sign-in took them, or the
+      importers never ran): no change, unverified.
+    - an overage marker or `hasgroups` with any value: the provider sent only part, or a link to
+      the list: no change, unverified (G2).
+    - a list too long or holding a value out of bounds: no change, unverified.
+    - otherwise the list as sent; absent means none (G2: fresh and no overage).
+    """
+    if not values.get(names.seen):
+        return SignInGroups(None, IDP_GROUPS_UNVERIFIED)
+    if values.get(names.overage) or values.get(names.hasgroups):
+        return SignInGroups(None, IDP_GROUPS_UNVERIFIED)
+    sent = list(values.get(names.groups) or ())
+    if overage(sent):
+        return SignInGroups(None, IDP_GROUPS_UNVERIFIED)
+    return SignInGroups(frozenset(sent))
