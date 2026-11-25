@@ -11,11 +11,14 @@ Assets first (lane B's). Condition by condition (coordinator, 2026-11-10):
 
 import json
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 import pytest
+from fastapi import APIRouter
 
+from app.core.database import TenantSession
 from app.core.tenancy import TenantContext
+from app.modules.audit.service.recording import AuditNote, audited
 from app.shared.history import Change, record_changes
 from tests.db import test_incidents_api
 from tests.db.test_assets_api import _add, _patch, _product
@@ -220,3 +223,52 @@ async def test_an_incident_delete_and_restore_are_one_entry_each(world: World) -
         item["id"],
     )
     assert [r["action"] for r in actions] == ["incident.deleted", "incident.restored"]
+
+
+# --- a route whose object is not one of its saves (lane A's #630 gap 2) ----------------------
+
+
+async def test_a_route_naming_another_object_gets_its_own_entry_and_the_save_stays_plain(
+    world: World,
+) -> None:
+    """A workflow stop names its instance but saves the record: never merged onto the record."""
+    a = world.a
+    asset = await _asset(world, a, "Saved by another object's route")
+    instance = uuid.uuid4()
+    path = f"/api/v1/_tests/stop-{uuid.uuid4().hex[:8]}"
+    router = APIRouter()
+
+    @router.post(path, status_code=204)
+    async def stop(
+        session: TenantSession,
+        note: Annotated[AuditNote, audited("automation.workflow_stopped")],
+    ) -> None:
+        note.object_type = "workflow_instance"
+        note.object_id = str(instance)
+        note.details = {"reason_code": "stopped_by_admin"}
+        await record_changes(
+            session,
+            record_type="asset",
+            record_id=uuid.UUID(asset["id"]),
+            version=2,
+            kind="updated",
+            changes=[Change("state_id", None, str(uuid.uuid4()))],
+            source="ui",
+        )
+
+    world.app.include_router(router)
+    done = await world.call("POST", path.removeprefix("/api/v1"), a, a.admin)
+    assert done.status_code == 204, done.text
+    # The asset's entry is its own move, not led by the stop.
+    last = (await _entries(world, a, asset["id"]))[-1]
+    assert last["action"] == "asset.moved"
+    assert "stopped_by_admin" not in (last["details"] or "")
+    # The stop is the instance's own entry, with its details.
+    own = await world.sql(
+        "SELECT action, details FROM audit_entries WHERE tenant_id = $1"
+        " AND object_type = 'workflow_instance' AND object_id = $2",
+        a.tenant,
+        str(instance),
+    )
+    assert [r["action"] for r in own] == ["automation.workflow_stopped"]
+    assert json.loads(own[0]["details"])["reason_code"] == "stopped_by_admin"
