@@ -15,7 +15,7 @@ from tooling import db_testing
 
 pytestmark = pytest.mark.db
 
-BEFORE = "0197"  # 0202's down revision
+BEFORE = "0203"  # 0202's down revision
 
 
 async def _tenant_with_roles(url: str) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:

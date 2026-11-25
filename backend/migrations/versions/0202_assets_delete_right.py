@@ -14,7 +14,7 @@ The downgrade removes only the copies (an `assets.delete` grant on a role that s
 own choice, never ours to drop (rule 5h).
 
 Revision ID: 0202
-Revises: 0197
+Revises: 0203
 Created: 2026-11-24
 """
 
@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0202"
-down_revision: str | None = "0197"
+down_revision: str | None = "0203"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
