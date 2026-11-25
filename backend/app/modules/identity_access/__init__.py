@@ -348,6 +348,15 @@ async def subject_for(
     group mapping gives never applies to a job, even one started in an SSO session (lane B's
     condition 4), nor to an act off-session such as an approval by mail (Q1). Only "could act"
     questions (who is told of a record) pass `ANY_SOURCE` (lane B's condition 2, option a).
+
+    Which source each entry point compiles with (lane B's #637 review):
+    - every request (routes, the realtime tokens, lists, search, AI, reports, exports read in the
+      request): the session's own, through `PolicyService.subject_for(request, context)`;
+    - `/auth/me`: the session's own (`access_source_of(session)`);
+    - notification `access()` checks (every `*_notifications` module, mail summaries):
+      `ANY_SOURCE`;
+    - everything else here (mail approvals, inbound mail, action links, bulk and import jobs,
+      workflow runs, erasure): the default, `NO_SIGN_IN`. A missed path is a denial, never a leak.
     """
     return await _worker_policy().compile(session, tenant_id, user_id, source=source)
 

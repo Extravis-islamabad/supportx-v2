@@ -182,3 +182,61 @@ async def test_a_refusal_says_the_right_comes_from_a_sign_in_group(world: World)
     assert refused.value.params["reason"] == SIGN_IN_GROUP_ONLY
     through = await _compiled(world, cast, AccessSource(AccessSourceKind.SSO, cast.alias))
     assert through.held_elsewhere == frozenset()  # nothing left out
+
+
+async def test_the_realtime_token_follows_the_sessions_source(world: World) -> None:
+    """Lane B's condition 1 for the realtime path (rule c), both ways: a password session gets
+    no channel that only an SSO-managed group grants; an SSO session through that provider does.
+    """
+    cast = await _cast(world)
+    org = cast.org
+    scoped = await role(
+        world, org, f"Group view {uuid.uuid4().hex[:6]}", [("incidents.view", "group")]
+    )
+    await world.sql(
+        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
+        org.tenant, cast.person, scoped,
+    )  # fmt: skip
+    item = await world.create(org, org.admin, group_id=str(org.gb), requester_id=str(org.requester))
+    channel = {"channel": f"t:{org.tenant}:wi:{item['id']}"}
+
+    async def token(**headers: str) -> int:
+        found = await world.call(
+            "POST", "/realtime/subscription-token", org, cast.person, json=channel,
+            headers=headers,
+        )  # fmt: skip
+        return found.status_code
+
+    assert await token() == 403  # a password (or no) sign-in: the managed membership is left out
+    assert await token(**{"x-test-sso": cast.alias}) == 200  # through this tenant's provider
+    assert await token(**{"x-test-sso": "sx-another-tenants"}) == 403  # another provider
+
+
+async def test_a_notice_reaches_the_managed_member_who_opens_it_only_through_sso(
+    world: World,
+) -> None:
+    """Lane B's condition 2 (option a): told as one who could act; opening it needs the sign-in."""
+    from app.core.errors import NotFound  # noqa: PLC0415 - this test only
+    from app.modules.work_items.domain.types import INCIDENT  # noqa: PLC0415
+    from app.modules.work_items.service import work_items as items  # noqa: PLC0415
+    from app.modules.work_items.service.notifications import SOURCE  # noqa: PLC0415
+    from app.shared.notifications.ports import RecordAccess  # noqa: PLC0415
+
+    cast = await _cast(world)
+    org = cast.org
+    scoped = await role(
+        world, org, f"Group view {uuid.uuid4().hex[:6]}", [("incidents.view", "group")]
+    )
+    await world.sql(
+        "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)",
+        org.tenant, cast.person, scoped,
+    )  # fmt: skip
+    item = await world.create(org, org.admin, group_id=str(org.gb), requester_id=str(org.requester))
+    record = uuid.UUID(item["id"])
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        told = await SOURCE.access(session, cast.person, record)
+    assert told is RecordAccess.FULL  # the group's notice reaches them
+    strict = await _compiled(world, cast, NO_SIGN_IN)
+    async with world.app.state.db.tenant_session(TenantContext(org.tenant)) as session:
+        with pytest.raises(NotFound):
+            await items.visible_record(session, strict, INCIDENT, record)
