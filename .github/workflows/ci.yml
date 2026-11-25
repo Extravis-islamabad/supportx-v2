@@ -349,10 +349,13 @@ jobs:
     # Drafts: the fast set only (see shard-weights); PRs without a backend change: see backend-paths.
     if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.draft) && needs.backend-paths.outputs.tests == 'true' }}
     runs-on: ubuntu-24.04
-    # Eight shards and a 35-minute backstop since 2026-11-10 (Haider, via the coordinator): six
-    # shards had grown to 20-25 min on slow runners and cancelled #307 three times. The backstop
-    # only stops a hung shard; the aim stays about 12 min a shard (the suite profile follows).
-    timeout-minutes: 35
+    # Eight shards since 2026-11-10 (Haider, via the coordinator): six had grown to 20-25 min on
+    # slow runners and cancelled #307 three times. The backstop only stops a hung shard; the aim
+    # stays about 12 min a shard (the suite profile follows). 50 minutes since 2026-11-25 (the
+    # coordinator: about 1.5x the p95): over the last 19 green runs every shard's median was 20-24
+    # min but its p95 30-33 min (slow runners), and #633's shard 1 was cut off at 35 min 9 s. The
+    # shards are balanced (they follow the nightly's timings), so the limit, not the split, moved.
+    timeout-minutes: 50
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
