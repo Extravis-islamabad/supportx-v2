@@ -88,6 +88,7 @@ from app.shared.ids import new_id
 
 VIEW = "assets.view"
 MANAGE = "assets.manage"
+DELETE = "assets.delete"  # D-185: the trash is its own right (catalogue.DELETE)
 EDIT_DISPOSED = "assets.edit_disposed"  # REQ-AST-017 AC3: changes a disposed asset (with a reason)
 # WP-049b s2: costs, depreciation and book value (REQ-AST-036, 037). The asset's own depreciation
 # settings are set only by those who may see its money (and manage it).
@@ -879,9 +880,12 @@ async def delete_asset(
     expected_version: int,
     source: Source,
 ) -> None:
-    """To the trash; it frees its slot, and its tag and serial stay taken (restore is safe)."""
-    _require(subject, MANAGE)
-    row = await _visible(session, subject, asset_id, permission=MANAGE)
+    """To the trash; it frees its slot, and its tag and serial stay taken (restore is safe).
+
+    D-185: `assets.delete` alone (never vendor support); assets.manage no longer stands in.
+    """
+    _require(subject, DELETE)
+    row = await _visible(session, subject, asset_id, permission=DELETE)
     if row.version != expected_version:
         raise await stale_version(
             session, row, expected_version=expected_version, record_type=RECORD_TYPE,

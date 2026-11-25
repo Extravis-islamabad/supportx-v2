@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import {
   useChangeSettingsChange,
   useChangeWindows,
+  changeWindowKeys,
   useCreateChangeWindow,
   useStagedSettings,
   useRemoveChangeWindow,
@@ -358,7 +359,7 @@ export function ChangeWindowsPage() {
     (m) => {
       if (m.type === 'work_items.change_windows_changed') void windows.refetch();
     },
-    { covers: [['change-windows']] }, // useChangeWindows' key prefix (not exported)
+    { covers: [changeWindowKeys.all] }, // every range
   );
   const nameOf = (w: ChangeWindow) => labelled(w.labels, locale, () => w.name);
   return (

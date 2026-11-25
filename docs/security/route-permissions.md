@@ -161,7 +161,7 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
 | GET | `/api/v1/assets/trash` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
 | GET | `/api/v1/assets/type-counts` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
-| DELETE | `/api/v1/assets/{asset_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}` | `assets.delete` | assets.delete: all/site/group | `assets` (module, permission) |
 | GET | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
 | PATCH | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
 | GET | `/api/v1/assets/{asset_id}/access` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
@@ -412,7 +412,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/changes/{record_id}/children` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
 | DELETE | `/api/v1/changes/{record_id}/children/{link_id}` | `changes.edit` | changes.edit: all/site/group/own | `change` (module, permission) |
 | GET | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
-| POST | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
+| POST | `/api/v1/changes/{record_id}/cis` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission); `cmdb` (route) |
 | DELETE | `/api/v1/changes/{record_id}/cis/{link_id}` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
 | GET | `/api/v1/changes/{record_id}/conflicts` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
 | GET | `/api/v1/changes/{record_id}/conversation` | `changes.view` | changes.view: all/site/group/own | `change` (module, permission) |
@@ -726,7 +726,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/incidents/{record_id}/approvals` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
 | POST | `/api/v1/incidents/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `incident` (module) |
 | GET | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
-| POST | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/assets` | `incidents.view` | incidents.view: all/site/group/own | `assets` (route); `incident` (module, permission) |
 | DELETE | `/api/v1/incidents/{record_id}/assets/{link_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
 | POST | `/api/v1/incidents/{record_id}/assign` | `incidents.assign` | incidents.assign: all/site/group/own | `incident` (module, permission) |
 | GET | `/api/v1/incidents/{record_id}/automation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
@@ -744,7 +744,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/incidents/{record_id}/children/resolve` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
 | DELETE | `/api/v1/incidents/{record_id}/children/{link_id}` | `incidents.edit` | incidents.edit: all/site/group/own | `incident` (module, permission) |
 | GET | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
-| POST | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
+| POST | `/api/v1/incidents/{record_id}/cis` | `incidents.view` | incidents.view: all/site/group/own | `cmdb` (route); `incident` (module, permission) |
 | DELETE | `/api/v1/incidents/{record_id}/cis/{link_id}` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
 | GET | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
 | POST | `/api/v1/incidents/{record_id}/conversation` | `incidents.view` | incidents.view: all/site/group/own | `incident` (module, permission) |
@@ -808,10 +808,10 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/integrations/directories/{directory_id}/groups` | `integrations.manage_identity` | integrations.manage_identity: all | - |
 | POST | `/api/v1/integrations/directories/{directory_id}/sync` | `integrations.manage_identity` | integrations.manage_identity: all | - |
 | GET | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
-| POST | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| POST | `/api/v1/integrations/ldap-directories` | `integrations.manage_identity` | integrations.manage_identity: all | `directory_federation` (route) |
 | DELETE | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
 | GET | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
-| PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | - |
+| PUT | `/api/v1/integrations/ldap-directories/{directory_id}` | `integrations.manage_identity` | integrations.manage_identity: all | `directory_federation` (route) |
 | GET | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
 | POST | `/api/v1/integrations/mail-block-rules` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
 | DELETE | `/api/v1/integrations/mail-block-rules/{rule_id}` | `integrations.manage_email` or `mailboxes.manage` | integrations.manage_email: all; mailboxes.manage: all | - |
@@ -1059,7 +1059,7 @@ inside a service is not shown here: declare it on the route too.
 | DELETE | `/api/v1/problems/{record_id}/checklists/{checklist_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
 | POST | `/api/v1/problems/{record_id}/checklists/{checklist_id}/items` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
 | GET | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
-| POST | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
+| POST | `/api/v1/problems/{record_id}/cis` | `problems.view` | problems.view: all/site/group/own | `cmdb` (route); `problem` (module, permission) |
 | DELETE | `/api/v1/problems/{record_id}/cis/{link_id}` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
 | GET | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
 | POST | `/api/v1/problems/{record_id}/conversation` | `problems.view` | problems.view: all/site/group/own | `problem` (module, permission) |
@@ -1228,7 +1228,7 @@ inside a service is not shown here: declare it on the route too.
 | DELETE | `/api/v1/releases/{record_id}/checklists/{checklist_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
 | POST | `/api/v1/releases/{record_id}/checklists/{checklist_id}/items` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
 | GET | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
-| POST | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
+| POST | `/api/v1/releases/{record_id}/cis` | `releases.view` | releases.view: all/site/group/own | `cmdb` (route); `release` (module, permission) |
 | DELETE | `/api/v1/releases/{record_id}/cis/{link_id}` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
 | GET | `/api/v1/releases/{record_id}/conflicts` | `releases.view` | releases.view: all/site/group/own | `release` (module, permission) |
 | POST | `/api/v1/releases/{record_id}/conflicts/acks` | `releases.edit` | releases.edit: all/site/group/own | `release` (module, permission) |
@@ -1419,7 +1419,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/decision` | signed_in | - | `service_request` (module) |
 | POST | `/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace` | `requests.modify_approvers` | requests.modify_approvers: all/site/group/own | `service_request` (module, permission) |
 | GET | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
-| POST | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/assets` | `requests.view` | requests.view: all/site/group/own | `assets` (route); `service_request` (module, permission) |
 | DELETE | `/api/v1/service-requests/{record_id}/assets/{link_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
 | POST | `/api/v1/service-requests/{record_id}/assign` | `requests.assign` | requests.assign: all/site/group | `service_request` (module, permission) |
 | GET | `/api/v1/service-requests/{record_id}/automation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
@@ -1431,7 +1431,7 @@ inside a service is not shown here: declare it on the route too.
 | DELETE | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
 | POST | `/api/v1/service-requests/{record_id}/checklists/{checklist_id}/items` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
 | GET | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
-| POST | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
+| POST | `/api/v1/service-requests/{record_id}/cis` | `requests.view` | requests.view: all/site/group/own | `cmdb` (route); `service_request` (module, permission) |
 | DELETE | `/api/v1/service-requests/{record_id}/cis/{link_id}` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
 | GET | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
 | POST | `/api/v1/service-requests/{record_id}/conversation` | `requests.view` | requests.view: all/site/group/own | `service_request` (module, permission) |
@@ -1532,6 +1532,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 
 | Role | Permission | Technicians see their groups | Technicians see everything |
 |---|---|---|---|
+| asset_manager | `assets.delete` | all | all |
 | asset_manager | `assets.manage` | all | all |
 | asset_manager | `assets.view` | all | all |
 | asset_manager | `assets.view_financials` | all | all |
@@ -2027,6 +2028,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `announcements.publish` | all | all |
 | tenant_admin | `announcements.view` | all | all |
 | tenant_admin | `api_keys.manage` | all | all |
+| tenant_admin | `assets.delete` | all | all |
 | tenant_admin | `assets.edit_disposed` | all | all |
 | tenant_admin | `assets.manage` | all | all |
 | tenant_admin | `assets.reinstate` | all | all |

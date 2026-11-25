@@ -13,7 +13,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
@@ -273,6 +273,26 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       for (const timer of timers.values()) clearTimeout(timer);
     };
   }, []);
+  // Everything this page shows of the record (its detail key holds approvals, assets,
+  // announcements and the cancellation request; its history key the SLA and automation).
+  // Built once per record (lane C's #617 nit).
+  const recordCovers = useMemo(
+    () => [
+      queryKeys.incidents.detail(item.id),
+      [...queryKeys.incidents.all, 'history', item.id],
+      queryKeys.incidents.conversation(item.id),
+      queryKeys.incidents.followers(item.id),
+      queryKeys.incidents.tasks(item.id),
+      queryKeys.incidents.worklogs(item.id),
+      queryKeys.incidents.timeAnalysis(item.id),
+      queryKeys.incidents.links(item.id),
+      checklistKeys.of('incidents', item.id),
+      timerKeys.record('incidents', item.id),
+      queryKeys.files.record('incident', item.id),
+      queryKeys.ai.summary('incident', item.id),
+    ],
+    [item.id],
+  );
   const viewers = useRecordChannel(
     'wi',
     item.id,
@@ -368,22 +388,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       setChangedBy(others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone'));
     },
     {
-      // Everything this page shows of the record (its detail key holds approvals, assets,
-      // announcements and the cancellation request; its history key the SLA and automation).
-      covers: [
-        queryKeys.incidents.detail(item.id),
-        [...queryKeys.incidents.all, 'history', item.id],
-        queryKeys.incidents.conversation(item.id),
-        queryKeys.incidents.followers(item.id),
-        queryKeys.incidents.tasks(item.id),
-        queryKeys.incidents.worklogs(item.id),
-        queryKeys.incidents.timeAnalysis(item.id),
-        queryKeys.incidents.links(item.id),
-        checklistKeys.of('incidents', item.id),
-        timerKeys.record('incidents', item.id),
-        queryKeys.files.record('incident', item.id),
-        queryKeys.ai.summary('incident', item.id),
-      ],
+      covers: recordCovers,
     },
   );
   useEffect(() => {

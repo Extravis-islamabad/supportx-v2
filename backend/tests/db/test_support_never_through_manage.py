@@ -113,12 +113,8 @@ async def test_reproduce_support_writing_through_manage(world: World) -> None:  
     assert all(s in {403, 404} for s in cmdb_writes.values()), (sorted(held), found)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="assets.manage still lets vendor support delete an asset: the product owner's "
-    "decision (an assets.delete right, or assets.manage never) is pending (D-173 finding).",
-)
 async def test_support_never_deletes_an_asset(world: World) -> None:  # noqa: F811
+    """D-185: deleting an asset is its own right (`assets.delete`), never vendor support's."""
     _, support = await _support_user(
         world, access="view_and_change", change_reason="Fix the asset import on AST-3"
     )
