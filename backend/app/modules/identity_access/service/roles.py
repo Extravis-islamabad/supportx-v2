@@ -88,6 +88,11 @@ def _tenant(session: AsyncSession) -> uuid.UUID:
     return context.tenant_id
 
 
+# A hand removal of a role or membership a group mapping gave (WP-057 S5c AC3; organization's
+# remove_member uses the same code).
+FROM_IDENTITY_PROVIDER = "assignment_from_identity_provider"
+
+
 def _refresh(session: AsyncSession, policy: PolicyService) -> None:
     """Compiled permissions of the tenant go stale once this transaction commits."""
     del policy  # registered as the process's access invalidator at startup
@@ -470,6 +475,13 @@ async def update_role(  # noqa: PLR0913 - keyword-only role fields
             session, role_id
         ):
             raise _refuse_for_service()
+        # WP-057 S5c (lane B's #620 review): a role a mapping gives, directly or through a group,
+        # never gains a never_via_idp right without the tenant's opt-in.
+        from app.modules.identity_access.service import group_mappings  # noqa: PLC0415 - it imports this module
+
+        await group_mappings.guard_role_rights(
+            session, role_id, role.key, {g.permission for g in clean}
+        )
     role = await RoleRepository(session).update(
         role_id, expected_version=expected_version, changes=changes
     )
@@ -551,7 +563,14 @@ async def _assignable(
     return role
 
 
-async def _assign(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+async def _assign(
+    session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID, *, managed: bool = False
+) -> bool:
+    """Insert the role (idempotent).
+
+    `managed`: given by a group mapping (WP-057 S5c). A role already held stays as it is, so a
+    hand-made one never becomes managed.
+    """
     context = session.info[SESSION_TENANT_KEY]
     try:
         result = await session.execute(
@@ -561,6 +580,7 @@ async def _assign(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID)
                 user_id=user_id,
                 role_id=role_id,
                 created_by=context.user_id,
+                managed=managed,
             )
             .on_conflict_do_nothing()
             .returning(UserRole.role_id)
@@ -591,6 +611,61 @@ async def _remove(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID)
             aggregate_id=user_id,
         )
     return removed
+
+
+async def assign_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+    """A group mapping gives the role (WP-057 S5c `follow`): managed if newly held."""
+    return await _assign(session, user_id, role_id, managed=True)
+
+
+async def remove_mapped(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+    """A group mapping takes the role back: only a managed one, never a hand-made one."""
+    result = await session.execute(
+        delete(UserRole)
+        .where(UserRole.user_id == user_id, UserRole.role_id == role_id, UserRole.managed)
+        .returning(UserRole.role_id)
+    )
+    removed = result.first() is not None
+    if removed:
+        await record_event(
+            session,
+            UserRoleChanged(user_id=user_id, role_id=role_id, change="removed"),
+            aggregate_id=user_id,
+        )
+    return removed
+
+
+async def unmanage(session: AsyncSession, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
+    """A mapping went with "keep": the role stays, now hand-made (WP-057 S5c, Q2).
+
+    The link table is insert/delete for the app (no UPDATE grant), so the row is put back
+    hand-made with its original creation, in this transaction, with no role event: the person
+    holds the role throughout.
+    """
+    row = await session.scalar(
+        delete(UserRole)
+        .where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+        .returning(UserRole)
+    )
+    if row is None:
+        return
+    session.expunge(row)
+    session.add(
+        UserRole(
+            tenant_id=row.tenant_id,
+            user_id=user_id,
+            role_id=role_id,
+            created_at=row.created_at,
+            created_by=row.created_by,
+            managed=False,
+        )
+    )
+    await session.flush()
+
+
+async def tenant_admin_holders(session: AsyncSession) -> set[uuid.UUID]:
+    """Active people holding tenant admin now, directly or through an active group (WP-042)."""
+    return await _tenant_admin_holders(session)
 
 
 async def assign_role(  # noqa: PLR0913 - the request, the two IDs and which route asks
@@ -631,8 +706,17 @@ async def remove_role(
     user_id: uuid.UUID,
     role_id: uuid.UUID,
 ) -> bool:
-    """Take the role away (idempotent). The last tenant admin keeps theirs."""
+    """Take the role away (idempotent). The last tenant admin keeps theirs.
+
+    A role a group mapping gave is never taken away by hand (409, WP-057 S5c AC3): it goes when
+    the person leaves the mapped group, or when an admin turns the mapping off.
+    """
     role = await _assignable(session, policy, subject, role_id)
+    managed = await session.scalar(
+        select(UserRole.managed).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+    )
+    if managed:
+        raise Conflict(code=FROM_IDENTITY_PROVIDER)
     if role.key == TENANT_ADMIN:
         # Two admins removing each other at once must not leave the tenant without one.
         lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
@@ -695,8 +779,15 @@ async def add_group_role(
     group_id: uuid.UUID,
     role_id: uuid.UUID,
 ) -> bool:
-    """A support group carries the role: its members hold it (idempotent; no escalation)."""
+    """A support group carries the role: its members hold it (idempotent; no escalation).
+
+    WP-057 S5c (lane B's condition 4): a privileged role on a group a mapping targets would let
+    an identity provider or a directory give it, so that needs the tenant's opt-in too.
+    """
     await _assignable(session, policy, subject, role_id)
+    from app.modules.identity_access.service import group_mappings  # noqa: PLC0415 - the module imports this one
+
+    await group_mappings.guard_group_role(session, policy.catalogue, group_id, role_id)
     # Its service identity members would hold it too (lane B, WP-048b).
     role = await RoleRepository(session).get(role_id)
     detail = await _detail(session, policy.catalogue, role)
@@ -786,6 +877,14 @@ async def check_group_grantable(
     carried = await session.scalars(select(GroupRole.role_id).where(GroupRole.group_id == group_id))
     for role_id in list(carried):
         await _assignable(session, _POLICY[0], subject, role_id)
+
+
+def running_catalogue() -> Catalogue:
+    """The started policy service's permission catalogue (callers outside a route, WP-057 S5c)."""
+    if not _POLICY:
+        msg = "the permission catalogue is read before the policy service started"
+        raise RuntimeError(msg)
+    return _POLICY[0].catalogue
 
 
 SUPPORT_NO_ROLES = "vendor_support_roles_from_grant"

@@ -18,8 +18,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
+from app.core.entitlements import requires_feature
 from app.modules import cmdb
 from app.modules.identity_access import Subject
+from app.modules.licensing import Feature
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.infra.models import WorkItemCi
 from app.modules.work_items.service import ci_links as service
@@ -99,6 +101,8 @@ def add_ci_routes(router: APIRouter, wtype: WorkItemType) -> None:
         summary="Link CIs to a record",
         status_code=status.HTTP_201_CREATED,
         response_model=WorkItemCisOut,
+        # The route's own licence check (lane C's #619 Feature column); the service keeps its.
+        dependencies=[requires_feature(Feature.CMDB)],
     )
     async def link_cis(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,

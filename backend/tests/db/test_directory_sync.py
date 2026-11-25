@@ -15,6 +15,7 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy import TextClause, text
 
+from app.core.errors import ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.service import connections, directories, directory_sync
@@ -476,3 +477,99 @@ async def test_a_person_frozen_by_a_running_erasure_stays_disabled(
     )
     assert (tried.status_code, tried.json()["code"]) == (409, "person_erasure_in_progress")
     assert (await _person(world, directory_id, dora))["status"] == "disabled"
+
+
+async def _update(
+    world: World,
+    directory_id: uuid.UUID,
+    **values: Any,  # noqa: ANN401 - JSON
+) -> directories.DirectoryView:
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant, world.a.admin)) as s:
+        current = await directories.get_directory(s, directory_id)
+        return await directories.update_directory(
+            s,
+            world.app.state.settings,
+            directory_id,
+            DIRECTORY | values,
+            expected_version=current.row.version,
+            credential=None,
+            by=await world.app.state.policy.subject(world.a.tenant, world.a.admin, s),
+            on_held=values.get("on_held"),
+        )
+
+
+async def test_a_hand_made_membership_survives_a_sync_and_a_sync_made_one_goes(
+    world: World, fake: FakeDirectory
+) -> None:
+    """WP-057 S5c-1a (the bug it fixes; lane A's test): sync removes only what a mapping gave."""
+    ada = fake.add_user(**_ada())
+    bob = fake.add_user(displayName="Bob", mail="bob@alpha.test")
+    finance = fake.add_group("Finance", [ada, bob])
+    team = await unit(world, world.a, "groups", "Finance team, kept", [])
+    directory_id = await _create(
+        world, fake,
+        group_mappings=[{"external_id": finance, "name": "Finance", "group_id": str(team)}],
+    )  # fmt: skip
+    await _sync(world, directory_id)
+    bob_id = (await _person(world, directory_id, bob))["id"]
+    ada_id = (await _person(world, directory_id, ada))["id"]
+    # Bob was in the SupportX group before by hand: an admin's choice, not the mapping's.
+    await world.sql(
+        "UPDATE group_members SET managed = false WHERE group_id = $1 AND user_id = $2",
+        team, bob_id,
+    )  # fmt: skip
+    fake.set_members(finance, [])  # both leave the directory group
+    await _sync(world, directory_id)
+    left = {r["user_id"] for r in await world.sql(
+        "SELECT user_id FROM group_members WHERE group_id = $1", team
+    )}  # fmt: skip
+    assert left == {bob_id}  # hand-made kept; Ada's sync-made membership removed
+    assert ada_id not in left
+
+
+async def test_a_mapping_made_through_the_connector_is_listed_and_a_deleted_one_stops(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Lane A's test: the connector API reads and writes the mappings table, shape unchanged."""
+    ada = fake.add_user(**_ada())
+    finance = fake.add_group("Finance", [ada])
+    team = await unit(world, world.a, "groups", "Finance team, listed", [])
+    mapping = [{"external_id": finance, "name": "Finance", "group_id": str(team)}]
+    directory_id = await _create(world, fake, group_mappings=mapping)
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant, world.a.admin)) as s:
+        view = await directories.get_directory(s, directory_id)
+    assert view.group_mappings == mapping  # listed back, in the old shape
+    await _sync(world, directory_id)
+    assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team)
+
+    # Deleting it while Ada holds access through it needs a choice, never silent.
+    with pytest.raises(ValidationFailed):
+        await _update(world, directory_id, group_mappings=[])
+    view = await _update(world, directory_id, group_mappings=[], on_held="remove")
+    assert view.group_mappings == []
+    assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team) == []
+    # A new member of the directory group no longer reaches the SupportX group.
+    cy = fake.add_user(displayName="Cy", mail="cy@alpha.test")
+    fake.set_members(finance, [ada, cy])
+    await _sync(world, directory_id)
+    assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team) == []
+
+
+async def test_a_new_mapping_reaches_people_already_in_the_directory_group(
+    world: World, fake: FakeDirectory
+) -> None:
+    """Lane A's #620 point: a changed mapping set reads everyone again, and every person follows."""
+    ada = fake.add_user(**_ada())
+    finance = fake.add_group("Finance", [ada])
+    team = await unit(world, world.a, "groups", "Finance team, added later", [])
+    directory_id = await _create(world, fake)  # no mapping yet
+    await _sync(world, directory_id)
+    assert await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team) == []
+    await _update(
+        world,
+        directory_id,
+        group_mappings=[{"external_id": finance, "name": "Finance", "group_id": str(team)}],
+    )
+    await _sync(world, directory_id)  # Ada was in Finance all along: never "joined" this run
+    members = await world.sql("SELECT user_id FROM group_members WHERE group_id = $1", team)
+    assert [m["user_id"] for m in members] == [(await _person(world, directory_id, ada))["id"]]
