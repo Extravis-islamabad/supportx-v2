@@ -298,6 +298,7 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/catalog/categories/{category_id}` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
 | POST | `/api/v1/catalog/items` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/catalog/items/names` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items/popular` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/catalog/items/search` | signed_in | - | `service_request` (module) |
 | DELETE | `/api/v1/catalog/items/{item_id}` | signed_in | - | `service_request` (module) |
