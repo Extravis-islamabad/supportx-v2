@@ -43,6 +43,10 @@ RECENT_AUTH_ROUTES: tuple[str, ...] = (
     "POST /api/v1/identity/domains",
     "POST /api/v1/identity/domains/{domain_id}/verify",
     "DELETE /api/v1/identity/domains/{domain_id}",
+    # WP-057 S5c-1a: group mappings give access from outside SupportX.
+    "POST /api/v1/identity/group-mappings",
+    "DELETE /api/v1/identity/group-mappings/{mapping_id}",
+    "PUT /api/v1/identity/group-mappings/settings",
     # Where audit and sign-in entries stream, and its signing secret (WP-057 S5a).
     "POST /api/v1/audit/siem/destinations",
     "PATCH /api/v1/audit/siem/destinations/{destination_id}",

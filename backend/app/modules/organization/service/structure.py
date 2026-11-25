@@ -780,7 +780,7 @@ async def leave_groups(
 ) -> None:
     """Take a person out of these support groups (reactivation keeps only confirmed ones)."""
     for group_id in group_ids:
-        await units.remove_member(session, "group", group_id, user_id)
+        await units.remove_member(session, "group", group_id, user_id, via="system")
 
 
 # --- removing -------------------------------------------------------------------------------------

@@ -184,19 +184,25 @@ def unregister_member_guard(guard: MemberGuard) -> None:
 SYSTEM_PATH = object()
 
 
-async def add_member(
+async def add_member(  # noqa: PLR0913 - the unit, the person, who adds and how, explicit
     session: AsyncSession,
     kind: Kind,
     unit_id: uuid.UUID,
     user_id: uuid.UUID,
     *,
     by: object,
+    managed: bool = False,
 ) -> bool:
     """Add a user (idempotent: False if already a member). 404 for an unknown user or unit.
 
     `by`: the person adding (their subject), checked by the registered guards for groups, or
     `SYSTEM_PATH` for directory sync, whose group mappings were checked when made.
+    `managed` (groups only; WP-057 S5c): made by a group mapping (identity_access's `follow`).
+    An existing membership is left as it is, so a hand-made one never becomes managed.
     """
+    if managed and (kind != "group" or by is not SYSTEM_PATH):
+        msg = "only a group mapping (SYSTEM_PATH) adds a managed group membership"
+        raise ValueError(msg)
     await _require_unit(session, kind, unit_id)
     if kind == "group" and by is not SYSTEM_PATH:
         for guard in _MEMBER_GUARDS:
@@ -210,6 +216,7 @@ async def add_member(
             user_id=user_id,
             created_by=context.user_id,
             **{unit.member_unit_column: unit_id},
+            **({"managed": True} if managed else {}),
         )
         .on_conflict_do_nothing()
     )
@@ -224,23 +231,74 @@ async def add_member(
     return added
 
 
+# Who removes a membership (WP-057 S5c): a person by hand, a group mapping, or the system (erasure,
+# reactivation). A hand removal never takes a mapping's membership away (409); a mapping never
+# takes a hand-made one away; the system removes either.
+RemovedVia = Literal["hand", "mapping", "system"]
+FROM_IDENTITY_PROVIDER = "assignment_from_identity_provider"
+
+
 async def remove_member(
-    session: AsyncSession, kind: Kind, unit_id: uuid.UUID, user_id: uuid.UUID
+    session: AsyncSession,
+    kind: Kind,
+    unit_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    via: RemovedVia = "hand",
 ) -> bool:
-    """Remove a user (idempotent: False if they were not a member)."""
+    """Remove a user (idempotent: False if they were not a member, or not one `via` may remove).
+
+    409 `assignment_from_identity_provider` for a hand removal of a mapped group membership.
+    """
     await _require_unit(session, kind, unit_id)
     unit = UNITS[kind]
     column = getattr(unit.member, unit.member_unit_column)
-    result = await session.execute(
-        delete(unit.member)
-        .where(column == unit_id, unit.member.user_id == user_id)
-        .returning(unit.member.user_id)
-    )
+    where = [column == unit_id, unit.member.user_id == user_id]
+    if kind == "group" and via != "system":
+        managed = await session.scalar(select(GroupMember.managed).where(*where))
+        if managed is None:
+            return False
+        if managed and via == "hand":
+            raise Conflict(code=FROM_IDENTITY_PROVIDER)
+        if not managed and via == "mapping":
+            return False  # hand-made: a mapping never removes it
+    result = await session.execute(delete(unit.member).where(*where).returning(unit.member.user_id))
     removed = result.first() is not None
     if removed:
         await _membership_event(session, kind, unit_id, user_id, "removed")
         access_changed(session)
     return removed
+
+
+async def unmanage_member(
+    session: AsyncSession, kind: Kind, unit_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    """A group mapping went with "keep" (WP-057 S5c): the membership stays, now hand-made.
+
+    The link table is insert/delete for the app (no UPDATE grant): the row is put back hand-made
+    with its original creation, in this transaction, with no membership event.
+    """
+    if kind != "group":
+        return
+    row = await session.scalar(
+        delete(GroupMember)
+        .where(GroupMember.group_id == unit_id, GroupMember.user_id == user_id)
+        .returning(GroupMember)
+    )
+    if row is None:
+        return
+    session.expunge(row)
+    session.add(
+        GroupMember(
+            tenant_id=row.tenant_id,
+            group_id=unit_id,
+            user_id=user_id,
+            created_at=row.created_at,
+            created_by=row.created_by,
+            managed=False,
+        )
+    )
+    await session.flush()
 
 
 async def _membership_event(

@@ -50,6 +50,7 @@ from app.modules.identity_access.api.cost_rates import router as cost_rates_rout
 from app.modules.identity_access.api.erasure import erasures_router
 from app.modules.identity_access.api.erasure import people_router as privacy_router
 from app.modules.identity_access.api.field_access import router as field_access_router
+from app.modules.identity_access.api.group_mappings import router as group_mappings_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.invite_links import public_router as invite_links_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
@@ -70,6 +71,7 @@ from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.quick import router as quick_router
 from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
+from app.modules.identity_access.domain.group_mappings import SourceKind as GroupSourceKind
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.mentions import (
     MentionMatchKind,
@@ -158,6 +160,29 @@ from app.modules.identity_access.service.field_access import (
     register_field_catalogue,
     register_rule_listener,
     restricted_fields,
+)
+from app.modules.identity_access.service.group_mappings import (
+    create_mapping as create_group_mapping,
+)
+from app.modules.identity_access.service.group_mappings import (
+    follow as follow_groups,
+)
+from app.modules.identity_access.service.group_mappings import (
+    holders as group_mapping_holders,
+)
+from app.modules.identity_access.service.group_mappings import (
+    list_mappings as list_group_mappings,
+)
+from app.modules.identity_access.service.group_mappings import (
+    mapped_external_groups,
+    register_group_source,
+    register_source_freshness,
+)
+from app.modules.identity_access.service.group_mappings import (
+    remove_mapping as remove_group_mapping,
+)
+from app.modules.identity_access.service.group_mappings import (
+    rename_mapping as rename_group_mapping,
 )
 from app.modules.identity_access.service.keycloak_logout import KEYCLOAK_SESSION_END
 from app.modules.identity_access.service.legal_hold import person_held
@@ -484,6 +509,7 @@ module = ModuleSpec(
         security_overview_router,  # WP-057 S4d: the security overview
         verified_domains_router,  # WP-057 S5d: verified e-mail domains (REQ-SEC-010)
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
+        group_mappings_router,  # WP-057 S5c: roles and groups from external groups
         resource_access_router,  # ADR-053: fine-grained access to assets and CIs
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)
@@ -579,6 +605,7 @@ __all__ = [
     "FederationFailed",
     "FederationNotInstalled",
     "FieldRule",
+    "GroupSourceKind",
     "LeaverOutcome",
     "MailRecipient",
     "Mention",
@@ -614,6 +641,7 @@ __all__ = [
     "cost_rate",
     "count_matches",
     "count_matches_html",
+    "create_group_mapping",
     "create_requester_from_mail",
     "create_service_identity",
     "direct_reports",
@@ -622,9 +650,13 @@ __all__ = [
     "display_names",
     "federated_users",
     "federation_installed",
+    "follow_groups",
     "get_policy",
+    "group_mapping_holders",
     "legal_hold",
+    "list_group_mappings",
     "mail_recipients",
+    "mapped_external_groups",
     "module",
     "names_masked",
     "notifiable_people",
@@ -639,15 +671,19 @@ __all__ = [
     "register_access_criteria",
     "register_duties",
     "register_field_catalogue",
+    "register_group_source",
     "register_holdings",
     "register_mentions",
     "register_outside_view",
     "register_person_data",
     "register_rule_listener",
     "register_seal_counter",
+    "register_source_freshness",
     "release_from_directory",
+    "remove_group_mapping",
     "remove_ldap_federation",
     "remove_service_identity_role",
+    "rename_group_mapping",
     "require",
     "restricted_fields",
     "role_names",
