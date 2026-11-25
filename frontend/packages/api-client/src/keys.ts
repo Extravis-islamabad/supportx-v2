@@ -164,6 +164,8 @@ export const queryKeys = {
     neighbours: (id: string, query: NeighboursQuery) => ['cmdb', 'neighbours', id, query] as const,
     subscribers: (id: string) => ['cmdb', 'subscribers', id] as const,
     downtimes: (id: string) => ['cmdb', 'downtimes', id] as const,
+    // Its linked work items, per type and each type's pages (S5c, the Associations tab).
+    linked: (id: string) => ['cmdb', 'linked', id] as const,
     impactOf: (id: string) => ['cmdb', 'impact', id] as const,
     impact: (id: string, direction: string, depth: number) =>
       ['cmdb', 'impact', id, direction, depth] as const,
