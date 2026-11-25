@@ -426,7 +426,12 @@ async def _assigned(
         return
     await record_event(
         session,
-        WorkItemTaskAssigned(work_item_id=record.id, task_id=task.id, owner_id=task.owner_id),
+        WorkItemTaskAssigned(
+            work_item_id=record.id,
+            task_id=task.id,
+            owner_id=task.owner_id,
+            previous_owner_id=before,
+        ),
         aggregate_id=record.id,
         aggregate_version=record.version,
     )

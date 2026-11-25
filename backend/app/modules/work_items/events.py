@@ -677,6 +677,9 @@ class WorkItemTaskAssigned(DomainEvent):
     work_item_id: uuid.UUID
     task_id: uuid.UUID
     owner_id: uuid.UUID
+    # WP-047a S5: who held it before (None: nobody), so their own task lists refresh live too
+    # (a task-only owner's portal list loses it). Optional: older events carry none.
+    previous_owner_id: uuid.UUID | None = None
 
 
 class WorkItemTaskReminderDue(DomainEvent):
