@@ -396,7 +396,13 @@ async def test_editions_conditions_on_essentials_the_rest_professional(world: Wo
     (admin,) = await seed_users(world.db, tenant, [{"user_type": "technician"}])
     await assign_system_role(world.db.admin_url, tenant, admin, "tenant_admin")
     org = Org(tenant, admin, admin, admin, admin, admin, admin, admin)
-    base: dict[str, Any] = {"questions": [REMOTE], "names": {"en": "Laptop"}}
+    group = await world.call("POST", "/organization/groups", org, admin, json={"name": "Desk"})
+    assert group.status_code == 201, group.text
+    base: dict[str, Any] = {
+        "questions": [REMOTE],
+        "names": {"en": "Laptop"},
+        "group_id": group.json()["id"],
+    }
     when = {"field": "remote", "op": "eq", "value": "yes"}
     professional = {
         "REQ-SR-047": [step("A", key="a"), step("B", key="b", waits_for=["a"])],

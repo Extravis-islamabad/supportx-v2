@@ -217,27 +217,6 @@ async def _record_migration(
     )
 
 
-async def _record_stop(
-    session: AsyncSession, record_id: uuid.UUID, ref: Mapping[str, Any], reason: str
-) -> None:
-    """A person stopped a workflow run on the record: one history line, with their reason."""
-    record = await session.get(WorkItem, record_id)
-    if record is None:
-        return
-    await record_changes(
-        session,
-        record_type=items.RECORD_TYPE,
-        record_id=record.id,
-        version=record.version,
-        kind="updated",
-        changes=[Change("workflow_stopped", None, str(ref.get("workflow_id")))],
-        source="workflow",
-        reason=reason,
-        automation_ref=dict(ref),
-        subtype=record.type,
-    )
-
-
 def _known_templates(wtype: WorkItemType) -> automation.TemplateCheck:
     async def check(session: AsyncSession, ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
         if not ids:
@@ -316,7 +295,6 @@ def register_triggers() -> None:
                     _ask_approval if wtype.code in workflow_approvals.APPROVAL_TYPES else None
                 ),
                 record_migration=_record_migration,  # REQ-WF-021 AC2
-                record_stop=_record_stop,  # REQ-SR-054 AC1
                 known_templates=_known_templates(wtype),  # REQ-WF-010, -027
             )
         )

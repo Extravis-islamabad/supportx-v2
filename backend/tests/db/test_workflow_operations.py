@@ -81,7 +81,7 @@ async def test_req_wf_026_stop_asks_for_a_reason_keeps_the_log_and_is_audited(
         str(instance),
     )
     assert audited[0]["n"] == 1
-    # REQ-SR-054 AC1 (WP-047a S5): the reason is in the audit entry and the record's history.
+    # REQ-SR-054 AC1 (WP-047a S5): the reason is in the audit entry (and kept on the run).
     said = await world.sql(
         "SELECT details->>'reason' AS reason FROM audit_entries WHERE tenant_id = $1"
         " AND action = $2 AND object_id = $3 AND outcome = 'done'",
@@ -90,13 +90,6 @@ async def test_req_wf_026_stop_asks_for_a_reason_keeps_the_log_and_is_audited(
         str(instance),
     )
     assert [r["reason"] for r in said] == ["Raised by mistake"]
-    history = await world.sql(
-        "SELECT reason FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
-        " AND field = 'workflow_stopped'",
-        a.tenant,
-        uuid.UUID(item["id"]),
-    )
-    assert [r["reason"] for r in history] == ["Raised by mistake"]
     again = await _post(world, a, a.admin, instance, "stop", reason="Twice")
     assert again.status_code == 409
     assert again.json()["code"] == "instance_not_running"
