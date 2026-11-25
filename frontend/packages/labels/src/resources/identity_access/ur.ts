@@ -1219,6 +1219,9 @@ export const ur: LabelResource = {
   'profile.identity': 'نام، ای میل اور زبان آپ کے سائن اِن اکاؤنٹ سے آتے ہیں۔',
   'profile.replies_card': 'جوابات اور ٹائم زون',
   'profile.saved': 'آپ کی ترجیحات محفوظ ہو گئیں۔',
+  'profile.sign_in_group.note':
+    'آپ کی کچھ رسائی آپ کے سائن اِن گروپ سے آتی ہے اور صرف تب لاگو ہوتی ہے جب آپ {{provider}} سے سائن اِن کریں:',
+  'profile.sign_in_group.title': 'آپ کے سائن اِن گروپ سے رسائی',
   'profile.signature': 'جوابی دستخط',
   'profile.signature_help': 'آپ کے بھیجے گئے جوابات میں شامل کیا جاتا ہے۔',
   'profile.time_zone': 'ٹائم زون',

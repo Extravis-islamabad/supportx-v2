@@ -521,6 +521,7 @@ export {
 export {
   accountActionUrl,
   useAccountSecurity,
+  useMyAccessElsewhere,
   useEndMySession,
   useEndOtherSessions,
   useEndPersonSession,
@@ -555,6 +556,7 @@ export {
   type IdentitySettingsInput,
   type AccountAction,
   type AccountSecurity,
+  type HeldElsewhere,
   type Invitation,
   type MfaMode,
   type MfaRole,

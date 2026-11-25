@@ -1208,6 +1208,9 @@ export const ar: LabelResource = {
   'profile.identity': 'يأتي الاسم والبريد الإلكتروني واللغة من حساب تسجيل الدخول.',
   'profile.replies_card': 'الردود والمنطقة الزمنية',
   'profile.saved': 'تم حفظ تفضيلاتك.',
+  'profile.sign_in_group.note':
+    'بعض صلاحياتك تأتي من مجموعة تسجيل الدخول ولا تنطبق إلا عند تسجيل الدخول عبر {{provider}}:',
+  'profile.sign_in_group.title': 'صلاحيات من مجموعة تسجيل الدخول',
   'profile.signature': 'توقيع الردود',
   'profile.signature_help': 'يُضاف إلى الردود التي ترسلها.',
   'profile.time_zone': 'المنطقة الزمنية',

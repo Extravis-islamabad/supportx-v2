@@ -30,6 +30,8 @@ export const queryKeys = {
   version: ['system', 'version'] as const,
   access: {
     all: ['access'] as const,
+    // WP-057 S5c-1b (D-188): under `access`, so the person's `access.changed` refreshes it.
+    elsewhere: ['access', 'my-elsewhere'] as const,
     catalogue: ['access', 'catalogue'] as const,
     roles: ['access', 'roles'] as const,
     role: (id: string) => ['access', 'roles', id] as const,

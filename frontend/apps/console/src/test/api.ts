@@ -63,6 +63,8 @@ export function consoleApi({
       },
     },
     'GET /api/v1/organization/branding': { body: fakeBranding() },
+    // The profile's sign-in group note (D-188): nothing held elsewhere unless a test says otherwise.
+    'GET /api/v1/identity/my-access/elsewhere': { body: [] },
     // Availability switch in the header (WP-029): available unless a test says otherwise.
     'GET /api/v1/automation/availability': { body: [] },
     'GET /api/v1/automation/loop-stops': { body: [] },

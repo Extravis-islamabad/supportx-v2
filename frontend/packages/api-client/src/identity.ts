@@ -444,6 +444,21 @@ export function useEndPersonSession(userId: string) {
 // --- My account (REQ-SEC-028) -----------------------------------------------------------------
 
 /** How the signed-in person signs in, and their recent sign-ins. */
+/** One role or support group that applies only through another sign-in (D-188). */
+export type HeldElsewhere = components['schemas']['HeldElsewhereOut'];
+
+/**
+ * Your access that only another sign-in applies (WP-057 S5c-1b, D-188): what a sign-in group
+ * gives you that this session leaves out, with the sign-in it applies through. Live: the
+ * person's `access.changed` refreshes every `access` query.
+ */
+export function useMyAccessElsewhere() {
+  return useQuery({
+    queryKey: queryKeys.access.elsewhere,
+    queryFn: () => call(api.GET('/api/v1/identity/my-access/elsewhere')),
+  });
+}
+
 export function useAccountSecurity() {
   return useQuery({
     queryKey: queryKeys.identity.accountSecurity,

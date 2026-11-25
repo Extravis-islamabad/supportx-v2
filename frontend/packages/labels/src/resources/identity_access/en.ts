@@ -1224,6 +1224,9 @@ export const en = {
   'profile.identity': 'Name, email and language come from your sign-in account.',
   'profile.replies_card': 'Replies and time zone',
   'profile.saved': 'Your preferences were saved.',
+  'profile.sign_in_group.note':
+    'Some of your access comes from your sign-in group and only applies when you sign in with {{provider}}:',
+  'profile.sign_in_group.title': 'Access from your sign-in group',
   'profile.signature': 'Reply signature',
   'profile.signature_help': 'Added to the replies you send.',
   'profile.time_zone': 'Time zone',
