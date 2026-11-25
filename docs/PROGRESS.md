@@ -178,6 +178,14 @@ decisions D1-D13 (D-038).
    now (coordinator). The HA smoke's Valkey step records where each failed write waited (curl's
    phases) and times the master's name lookup from the API pods, so the nightly shows whether a
    slower write is DNS or this latency.
+11. **Release note: deleting an asset is its own right (lane B, 2026-11-24, D-185, a security
+   fix):** `DELETE /assets/{asset_id}` needs `assets.delete`; `assets.manage` no longer stands in,
+   and vendor support never holds it. Migration 0202 gave `assets.delete` to every role that held
+   `assets.manage` (same scope), so existing roles keep deleting; its log counts the roles held by
+   service identities, for an admin to review. **A role made from now on needs `assets.delete`
+   ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
+   overdue-scan rule whose action is the trash need it too. An overdue rule already set to trash
+   before upgrading keeps running: review its action after the upgrade.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),

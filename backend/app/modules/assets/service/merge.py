@@ -54,6 +54,7 @@ from app.modules.assets.infra.models import (
 )
 from app.modules.assets.service import valuations
 from app.modules.assets.service.assets import (
+    DELETE,
     MANAGE,
     RECORD_TYPE,
     _json,
@@ -151,6 +152,16 @@ def _fields(survivor: Asset, merged: Asset, *, money: bool) -> list[MergeField]:
     return found
 
 
+async def _may_trash(session: AsyncSession, subject: Subject, merged: Asset) -> None:
+    """A merge trashes the merged asset, so it needs assets.delete on that one too (D-185).
+
+    Lane C's #623 review: assets.manage alone (vendor support's, at "view and change") never
+    trashes.
+    """
+    _require(subject, DELETE)
+    await _visible(session, subject, merged.id, permission=DELETE)
+
+
 async def preview(
     session: AsyncSession, subject: Subject, first_id: uuid.UUID, second_id: uuid.UUID
 ) -> MergePreview:
@@ -158,6 +169,7 @@ async def preview(
     first, second = await _manageable(session, subject, first_id, second_id)
     swapped = suggest_survivor(_candidate(first), _candidate(second)) == 1
     survivor, merged = (second, first) if swapped else (first, second)
+    await _may_trash(session, subject, merged)
     return MergePreview(
         survivor=survivor,
         merged=merged,
@@ -216,6 +228,7 @@ async def merge(  # noqa: PLR0913 - the two assets, their versions, the choices 
 ) -> MergeResult:
     """Merge `merged_id` into `survivor_id` with the person's field choices (If-Match on both)."""
     survivor, merged = await _manageable(session, subject, survivor_id, merged_id)
+    await _may_trash(session, subject, merged)
     for row, expected in ((survivor, survivor_version), (merged, merged_version)):
         if row.version != expected:
             raise await stale_version(

@@ -161,7 +161,7 @@ inside a service is not shown here: declare it on the route too.
 | PATCH | `/api/v1/assets/stock-rules/{rule_id}` | `config.assets` or `settings.manage` | config.assets: all; settings.manage: all | `assets` (module, permission) |
 | GET | `/api/v1/assets/trash` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
 | GET | `/api/v1/assets/type-counts` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
-| DELETE | `/api/v1/assets/{asset_id}` | `assets.manage` | assets.manage: all/site/group | `assets` (module, permission) |
+| DELETE | `/api/v1/assets/{asset_id}` | `assets.delete` | assets.delete: all/site/group | `assets` (module, permission) |
 | GET | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
 | PATCH | `/api/v1/assets/{asset_id}` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
 | GET | `/api/v1/assets/{asset_id}/access` | `assets.view` | assets.view: all/site/group/own | `assets` (module, permission) |
@@ -1529,6 +1529,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 
 | Role | Permission | Technicians see their groups | Technicians see everything |
 |---|---|---|---|
+| asset_manager | `assets.delete` | all | all |
 | asset_manager | `assets.manage` | all | all |
 | asset_manager | `assets.view` | all | all |
 | asset_manager | `assets.view_financials` | all | all |
@@ -2024,6 +2025,7 @@ Pinned separately by app/modules/identity_access/tests/role_matrix.json.
 | tenant_admin | `announcements.publish` | all | all |
 | tenant_admin | `announcements.view` | all | all |
 | tenant_admin | `api_keys.manage` | all | all |
+| tenant_admin | `assets.delete` | all | all |
 | tenant_admin | `assets.edit_disposed` | all | all |
 | tenant_admin | `assets.manage` | all | all |
 | tenant_admin | `assets.reinstate` | all | all |
