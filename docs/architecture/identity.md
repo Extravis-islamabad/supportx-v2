@@ -40,6 +40,31 @@ console by hand.
   closes their live connection at once. Their Keycloak sessions stay, because one Keycloak user
   serves all of a person's tenants; signing in again here is refused.
 
+## The mobile app policy (REQ-SEC-047; WP-057 S6b, migration 0206)
+
+Set on Admin › Sign-in and security › Mobile app, saved on its own (If-Match on the settings'
+version, so a stale card gets 409 and never overwrites another card's save) and audited.
+
+**Enforced by the server:**
+- **Allowed** (on by default). Off: the app's sign-in is refused before anyone is provisioned or
+  any session exists, logged in the sign-in log (`mobile_not_allowed`), and the app is sent back
+  with `auth_error=mobile_not_allowed` plus `auth_message`, the organisation's own text in the
+  person's language (else the tenant's default; else none, and the app shows its label). The
+  text is plain, one line, at most 500 characters, cleaned on save and again on the way out.
+  Switching it off ends every mobile session of the tenant at once (a tenant marker checked for
+  mobile sessions only); web sessions carry on.
+- **Two-step sign-in on mobile:** someone without a second factor enrols before the app opens,
+  with no grace period.
+- **Session limits:** the mobile session's idle and absolute limits (idle 5 minutes to 24 hours,
+  absolute up to 30 days); none set, the person's web app's limits.
+
+**Enforced by the app, on the device (client-enforced):** the server states these through
+`GET /api/v1/auth/mobile/policy` (a mobile session only, policy only, no secrets) and cannot
+prove the device applied them:
+- asking for the phone's PIN or biometrics after the app was in the background longer than the
+  set time (1 to 60 minutes);
+- clearing the app's local data at sign-out (on by default).
+
 ## Single sign-on (REQ-SEC-007, REQ-SEC-008)
 
 Life cycle: **draft → tested → on ⇄ off**, removable at any time.
