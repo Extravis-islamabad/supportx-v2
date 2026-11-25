@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import NotFound, PermissionDenied
+from app.core.errors import AppError, NotFound, PermissionDenied
 from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
@@ -398,7 +398,11 @@ class AssetNotifications:
         # Tenant-wide delete only: the rule trashes across every site (lane C's #629 review).
         everywhere: set[uuid.UUID] = set()
         for user_id in deleters & configurers:
-            if deletes_everywhere(await subject_for(session, tenant, user_id)):
+            try:
+                subject = await subject_for(session, tenant, user_id)
+            except AppError:  # disabled or erased meanwhile: the others are still told
+                continue
+            if deletes_everywhere(subject):
                 everywhere.add(user_id)
         fixers = frozenset(everywhere)
         if not fixers:
