@@ -110,6 +110,14 @@ function keptDraft(unreadable: boolean): (page: Page) => Promise<void> {
 
 const STOP_TOKEN = 'S'.repeat(43);
 
+// WP-053 S4a (#574): one rule, one run, and the preview's answer, shaped as the API's schema.
+const SYNC_RULE = '01936f2a-5b1c-7000-8000-00000000c501';
+const SYNC_RUN = '01936f2a-5b1c-7000-8000-00000000c502';
+const SYNC_ASSET = '01936f2a-5b1c-7000-8000-00000000c503';
+// WP-053 S4b (#577): the duplicate a merge picks, and an import job.
+const MERGE_DUPLICATE = '01936f2a-5b1c-7000-8000-00000000c601';
+const IMPORT_JOB = '01936f2a-5b1c-7000-8000-00000000c602';
+
 /** The stop-mails page with its public calls answered in the browser; `press`: also stop. */
 function stopMails(press: boolean): (page: Page) => Promise<void> {
   return async (page) => {
@@ -882,6 +890,12 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
   },
+  // WP-053 S5b: the CI's downtimes, one recorded by hand (its row, its remove and the form).
+  {
+    key: 'ci-downtimes',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=downtimes` : undefined),
+    app: 'console',
+  },
   // 0175 part 2 (lane B): one CI type's custom fields, its own and those it inherits.
   {
     key: 'cmdb-type-fields',
@@ -908,6 +922,57 @@ export const SCREENS: Screen[] = [
     path: (r) => (r.ci ? `/cmdb/${r.ci}?tab=versions` : undefined),
     app: 'console',
     state: { name: 'compare', open: ciCompare },
+  },
+  // WP-053 S4a (lane B, #574; lane C's matrix conditions): sync rules in Admin › CMDB, the list,
+  // the editor with its preview drawer, and a run's drawer with a restricted item, a kept field,
+  // a skipped target, and totals hidden from a narrowed reader. A fresh stack has no rules, so the
+  // sync endpoints are answered here; everything else is the stack's own.
+  {
+    key: 'cmdb-sync-rules',
+    path: '/admin/cmdb/sync-rules',
+    app: 'console',
+    state: syncState('listed'),
+  },
+  {
+    key: 'cmdb-sync-rule',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('editor'),
+  },
+  {
+    key: 'cmdb-sync-rule-preview',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('preview'),
+  },
+  {
+    key: 'cmdb-sync-run',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('run'),
+  },
+  {
+    key: 'cmdb-sync-run-hidden',
+    path: `/admin/cmdb/sync-rules/${SYNC_RULE}`,
+    app: 'console',
+    state: syncState('totals-hidden'),
+  },
+  // WP-053 S4b (lane B, #577; lane C's matrix conditions): the merge drawer on the matrix's own CI
+  // with a duplicate picked and its preview, and the import drawer, empty and with a finished run
+  // that refused rows (a CI that isn't there, or the reader may not see: one reason). The merge
+  // and import endpoints are answered here; the CI and its type are the stack's own.
+  {
+    key: 'cmdb-merge',
+    path: (r) => (r.ci ? `/cmdb/${r.ci}` : undefined),
+    app: 'console',
+    state: ciMergeState(),
+  },
+  { key: 'cmdb-import', path: '/cmdb', app: 'console', state: ciImportState('upload') },
+  {
+    key: 'cmdb-import-finished',
+    path: '/cmdb',
+    app: 'console',
+    state: ciImportState('finished'),
   },
   // WP-049b s2 (lane B): the asset record's Financials (costs, depreciation, book value), its
   // notes and files, and its history with the filters (REQ-AST-036..038, 048..050).
@@ -1187,6 +1252,25 @@ export const SCREENS: Screen[] = [
     app: 'console',
     sideOnly: true,
   })),
+  // WP-057 S4c-3: vendor support. The admin's grant drawer, and the engineer's link page
+  // with no link and with a link that can't be used (one message for every failure). The
+  // banner, masked names and the one-time password need a live grant (every admin is told,
+  // Keycloak gets an account): the e2e and Vitest cover them, never the showcase tenant.
+  {
+    key: 'admin-security',
+    path: '/admin/security',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'vendor-support-grant', open: click('vendor-support-grant') },
+  },
+  { key: 'vendor-support-start', path: '/vendor-support/start', app: 'console', sideOnly: true },
+  {
+    key: 'vendor-support-start',
+    path: '/vendor-support/start#matrix-not-a-real-token',
+    app: 'console',
+    sideOnly: true,
+    state: { name: 'failed', open: click('support-start-open') },
+  },
   // ADR-047 slice c: the role editor's Field access tab, and "Who sees this" in its modal.
   {
     key: 'admin-roles-field-access',
@@ -1535,7 +1619,19 @@ async function showcaseCi(page: Page): Promise<string | undefined> {
     data: { type_id: type, name: 'Core switch SW-01', description: 'Floor 2 network core.' },
     headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
   });
-  return made.ok() ? ((await made.json()) as { id: string }).id : undefined;
+  if (!made.ok()) return undefined;
+  const ci = ((await made.json()) as { id: string }).id;
+  // One hand-recorded downtime (WP-053 S5b), so the Downtimes tab shows a row and its remove.
+  const start = new Date(Date.now() - 3_600_000);
+  await page.request.post(`/api/v1/cmdb/cis/${ci}/downtimes`, {
+    data: {
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + 7_200_000).toISOString(),
+      description: 'Line card swap on slot 3.',
+    },
+    headers: { 'Idempotency-Key': crypto.randomUUID(), 'X-CSRF-Token': csrf },
+  });
+  return ci;
 }
 
 /** A business view on the showcase CI (WP-053 S2): the stack's showcase has none yet. */
@@ -1798,6 +1894,290 @@ async function ciCompare(page: Page): Promise<void> {
     await page.unroute(compare, compared);
     await page.unroute(fields, defined);
   }
+}
+
+type SyncStateName = 'listed' | 'editor' | 'preview' | 'run' | 'totals-hidden';
+
+/**
+ * A sync rules screen with the sync endpoints answered in the browser (lane C's conditions):
+ * one route per endpoint, only the method the screen calls, anything else passed on. The rule
+ * targets the stack's own first CI type, so its name renders through the stack's labels.
+ */
+function syncState(name: SyncStateName): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  const only =
+    (method: string, json: () => unknown, headers?: Record<string, string>) => (route: Route) =>
+      route.request().method() === method
+        ? route.fulfill({ json: json(), headers })
+        : route.continue();
+  return {
+    name,
+    open: async (page) => {
+      const types = await page.request.get('/api/v1/cmdb/ci-types');
+      const typeId =
+        ((await types.json()) as { items?: { id: string }[] }).items?.[0]?.id ??
+        '01936f2a-5b1c-7000-8000-00000000c509';
+      const hidden = name === 'totals-hidden';
+      const rule = {
+        id: SYNC_RULE,
+        name: 'Laptops become workstations',
+        source_kind: 'assets',
+        filter: null,
+        target_type_id: typeId,
+        target_state_id: null,
+        field_map: { name: 'name', description: 'location', 'custom.retired_rack': 'tag' },
+        enabled: true,
+        updated_at: '2026-11-21T09:00:00Z',
+        version: 3,
+      };
+      const run = {
+        id: SYNC_RUN,
+        rule_id: SYNC_RULE,
+        trigger: 'schedule',
+        status: 'succeeded',
+        incremental: false,
+        started_at: '2026-11-21T09:00:00Z',
+        ended_at: '2026-11-21T09:00:05Z',
+        created_count: hidden ? null : 12,
+        updated_count: hidden ? null : 3,
+        kept_count: hidden ? null : 1,
+        unchanged_count: hidden ? null : 24,
+        failed_count: hidden ? null : 1,
+        failure: null,
+        // A CI field that stopped being plain since the rule was saved (lane C (a)).
+        skipped_targets: ['retired_rack'],
+        created_at: '2026-11-21T09:00:00Z',
+        version: 3,
+      };
+      const items = [
+        // A CI and an asset the reader may not see: "Not visible to you", no ID or name.
+        {
+          outcome: 'updated',
+          asset_id: null,
+          asset_label: null,
+          asset_restricted: true,
+          ci_id: null,
+          ci_label: null,
+          ci_restricted: true,
+          kept: [],
+          code: null,
+        },
+        // A value a stronger source holds (a hand edit), kept.
+        {
+          outcome: 'kept',
+          asset_id: SYNC_ASSET,
+          asset_label: 'SX-LAP-001',
+          asset_restricted: false,
+          ci_id: null,
+          ci_label: 'Finance laptop',
+          ci_restricted: false,
+          kept: ['description'],
+          code: null,
+        },
+        // A refused save, with its labelled reason.
+        {
+          outcome: 'failed',
+          asset_id: SYNC_ASSET,
+          asset_label: 'SX-LAP-002',
+          asset_restricted: false,
+          ci_id: null,
+          ci_label: null,
+          ci_restricted: false,
+          kept: [],
+          code: 'cmdb_sync_name_required',
+        },
+      ];
+      const preview = {
+        total: 40,
+        complete: true,
+        counts: { created: 36, updated: 3, kept: 1, unchanged: 0, failed: 0 },
+        items: [
+          {
+            asset_id: SYNC_ASSET,
+            asset_tag: 'SX-LAP-001',
+            asset_name: 'Finance laptop',
+            ci_id: null,
+            outcome: 'created',
+            changes: ['name', 'description'],
+            kept: [],
+          },
+        ],
+      };
+      routes.push(
+        [/\/api\/v1\/cmdb\/sync-rules(\?.*)?$/u, only('GET', () => ({ items: [rule] }))],
+        [
+          new RegExp(`/api/v1/cmdb/sync-rules/${SYNC_RULE}(\\?.*)?$`, 'u'),
+          only('GET', () => rule, { ETag: '"3"' }),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/sync-rules/${SYNC_RULE}/runs(\\?.*)?$`, 'u'),
+          only('GET', () => ({ items: [run] })),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/sync-runs/${SYNC_RUN}(\\?.*)?$`, 'u'),
+          only('GET', () => ({ ...run, items })),
+        ],
+        [/\/api\/v1\/cmdb\/sync-rules\/preview$/u, only('POST', () => preview)],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      await page.reload();
+      if (name === 'listed') {
+        await page.getByTestId(`cmdb-sync-link-${SYNC_RULE}`).waitFor({ timeout: STATE_TIMEOUT });
+        return;
+      }
+      await page.getByTestId('cmdb-sync-name').waitFor({ timeout: STATE_TIMEOUT });
+      if (name === 'preview') {
+        await page.getByTestId('cmdb-sync-preview').click({ timeout: STATE_TIMEOUT });
+        await page.getByTestId('cmdb-sync-preview-body').waitFor({ timeout: STATE_TIMEOUT });
+      } else if (name === 'run' || name === 'totals-hidden') {
+        await page.getByTestId(`cmdb-sync-run-${SYNC_RUN}`).click({ timeout: STATE_TIMEOUT });
+        await page.getByTestId('cmdb-sync-run-body').waitFor({ timeout: STATE_TIMEOUT });
+        await page
+          .getByTestId(hidden ? 'cmdb-sync-totals-hidden' : 'cmdb-sync-skipped-targets')
+          .waitFor({ timeout: STATE_TIMEOUT });
+      }
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
+}
+
+/**
+ * The merge drawer on the matrix's CI (#577): the picker offers one duplicate and the preview
+ * compares them (lane C's conditions: one route per endpoint, only GET, anything else passed
+ * on). A field the reader may not read is never in a preview at all (ADR-047), so there is none
+ * to show here.
+ */
+function ciMergeState(): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  return {
+    name: 'preview',
+    open: async (page) => {
+      const id = new URL(page.url()).pathname.split('/').pop() ?? '';
+      const found = await page.request.get(`/api/v1/cmdb/cis/${id}`);
+      const ci = (await found.json()) as Record<string, unknown> & { name: string };
+      const duplicate = {
+        ...ci,
+        id: MERGE_DUPLICATE,
+        display_id: 'CI-9001',
+        name: `${ci.name} (old)`,
+        description: 'Recorded twice by an earlier import.',
+        version: 1,
+      };
+      const get = (json: unknown) => (route: Route) =>
+        route.request().method() === 'GET' ? route.fulfill({ json }) : route.continue();
+      routes.push(
+        [/\/api\/v1\/cmdb\/cis\/picker(\?.*)?$/u, get({ items: [duplicate] })],
+        [
+          /\/api\/v1\/cmdb\/merges\/preview(\?.*)?$/u,
+          get({
+            survivor: ci,
+            merged: duplicate,
+            swapped: false,
+            fields: [
+              { field: 'name', survivor: ci.name, merged: duplicate.name, side: 'survivor' },
+              {
+                field: 'description',
+                survivor: ci.description ?? null,
+                merged: duplicate.description,
+                side: ci.description ? 'survivor' : 'merged',
+              },
+            ],
+          }),
+        ],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      const merge = page.getByTestId('ci-merge');
+      if (!(await merge.isVisible())) {
+        await page.getByTestId('ci-actions-more').click({ timeout: STATE_TIMEOUT });
+      }
+      await merge.first().click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-drawer').waitFor({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-pick').click({ timeout: STATE_TIMEOUT });
+      const list = page.locator('.ant-select-dropdown:visible');
+      await list.locator('.ant-select-item-option').first().click({ timeout: STATE_TIMEOUT });
+      await list.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-merge-fields').waitFor({ timeout: STATE_TIMEOUT });
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
+}
+
+/**
+ * The CI import drawer (#577): `upload` as it opens; `finished` after a run that added and
+ * updated CIs and refused two rows. A refused row names the field and a labelled reason, never
+ * a code, and a CI that isn't there reads exactly as one the importer may not see.
+ */
+function ciImportState(name: 'upload' | 'finished'): NonNullable<Screen['state']> {
+  const routes: [RegExp, (route: Route) => Promise<void>][] = [];
+  return {
+    name,
+    open: async (page) => {
+      await page.getByTestId('cmdb-import').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-drawer').waitFor({ timeout: STATE_TIMEOUT });
+      if (name === 'upload') return;
+      const now = new Date().toISOString();
+      const job = {
+        id: IMPORT_JOB,
+        kind: 'cis',
+        mode: 'add_update',
+        match_on: 'name',
+        type_id: null,
+        dry_run: false,
+        file_name: 'network-cis.csv',
+        file_format: 'csv',
+        status: 'done',
+        total: 42,
+        processed: 42,
+        created_count: 31,
+        updated_count: 8,
+        unchanged_count: 1,
+        failed_count: 2,
+        problems: [
+          { row: 17, field: 'display_id', code: 'not_found' },
+          { row: 29, field: 'name', code: 'row_conflict' },
+        ],
+        failure: null,
+        failure_detail: null,
+        created_at: now,
+        checked_at: now,
+        finished_at: now,
+        version: 6,
+      };
+      routes.push(
+        [
+          /\/api\/v1\/cmdb\/imports(\?.*)?$/u,
+          (route) =>
+            route.request().method() === 'POST'
+              ? route.fulfill({ status: 201, json: { ...job, status: 'queued' } })
+              : route.continue(),
+        ],
+        [
+          new RegExp(`/api/v1/cmdb/imports/${IMPORT_JOB}(\\?.*)?$`, 'u'),
+          (route) =>
+            route.request().method() === 'GET' ? route.fulfill({ json: job }) : route.continue(),
+        ],
+      );
+      for (const [url, answer] of routes) await page.route(url, answer);
+      await page.getByTestId('ci-import-type').click({ timeout: STATE_TIMEOUT });
+      const list = page.locator('.ant-select-dropdown:visible');
+      await list.locator('.ant-select-item-option').first().click({ timeout: STATE_TIMEOUT });
+      await list.waitFor({ state: 'hidden', timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-file').setInputFiles({
+        name: 'network-cis.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('name,description\nCore switch SW-02,Floor 3 network core\n'),
+      });
+      await page.getByTestId('ci-import-check').click({ timeout: STATE_TIMEOUT });
+      await page.getByTestId('ci-import-problems').waitFor({ timeout: STATE_TIMEOUT });
+    },
+    close: async (page) => {
+      for (const [url, answer] of routes.splice(0)) await page.unroute(url, answer);
+    },
+  };
 }
 
 /**

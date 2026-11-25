@@ -4,14 +4,32 @@ import { Button, Flex, Input, Select, Space } from 'antd';
 import type { RuleFieldOut, TriggerActionIO } from '@supportx/api-client';
 import { lengthLimit, useLabel } from '@supportx/ui';
 
+import { ApprovalForm } from '../workflows/MoreNodeForms';
 import { ValueInput } from './fields';
 import { emptyAction, fieldOptions, useFieldName } from './rules';
 
 const NOTE_MAX = 5000;
 
+type Kind = TriggerActionIO['kind'];
+
+/** A new action of `kind`, with nothing chosen yet. */
+function freshAction(kind: Kind): TriggerActionIO {
+  if (kind === 'set') return emptyAction();
+  if (kind === 'start_approval') {
+    return {
+      kind,
+      mode: 'fill_empty',
+      approvers: { user_ids: [], group_ids: [], roles: [] },
+      rule: 'any',
+    };
+  }
+  return { kind, text: '', mode: 'fill_empty' };
+}
+
 /**
  * Actions that run after a change is committed (REQ-RUL-010, REQ-WF-003 "after"), in order:
- * set a field, or add a private note. Notifications, tasks and webhooks join with their WPs.
+ * set a field, or add a private note; a trigger may also ask for an approval (WP-047a S4,
+ * REQ-SR-044). Notifications, tasks and webhooks join with their WPs.
  */
 export function AfterActions({
   fields,
@@ -19,6 +37,8 @@ export function AfterActions({
   onChange,
   testId,
   invalid = () => false,
+  kinds = ['set', 'note'],
+  recordType = 'incident',
 }: {
   fields: RuleFieldOut[];
   actions: TriggerActionIO[];
@@ -26,6 +46,13 @@ export function AfterActions({
   testId: string;
   /** Whether action `index` has a problem from the server (marked, QA WP-029 BUG-03). */
   invalid?: (index: number) => boolean;
+  /**
+   * The action kinds offered (WP-053 S5d: a CI has no notes). A trigger's only kinds
+   * (`start_approval`) are never offered to a transition's "after" actions.
+   */
+  kinds?: readonly Kind[];
+  /** The record type, for the approvers its records offer (its roles). */
+  recordType?: string;
 }) {
   const t = useLabel();
   const name = useFieldName();
@@ -47,13 +74,11 @@ export function AfterActions({
               aria-label={t('automation.action_kind')}
               status={status}
               value={action.kind}
-              onChange={(kind: TriggerActionIO['kind']) => {
-                update(
-                  index,
-                  kind === 'set' ? emptyAction() : { kind, text: '', mode: 'fill_empty' },
-                );
+              onChange={(kind: Kind) => {
+                update(index, freshAction(kind));
               }}
-              options={(['set', 'note'] as const).map((k) => ({
+              // A saved kind no longer offered stays readable, never a raw code.
+              options={(kinds.includes(action.kind) ? kinds : [...kinds, action.kind]).map((k) => ({
                 value: k,
                 label: t(`trigger_action_kind.${k}`),
               }))}
@@ -101,7 +126,24 @@ export function AfterActions({
                   data-testid={`${id}-mode`}
                 />
               </>
-            ) : (
+            ) : action.kind === 'start_approval' ? (
+              <div style={{ flex: '1 1 100%' }} data-testid={`${id}-approval`}>
+                <ApprovalForm
+                  config={{ approvers: action.approvers ?? undefined, rule: action.rule }}
+                  onChange={(next) => {
+                    update(index, {
+                      ...action,
+                      approvers: next.approvers as TriggerActionIO['approvers'],
+                      rule: next.rule as TriggerActionIO['rule'],
+                    });
+                  }}
+                  recordType={recordType}
+                  variables={[]}
+                  readOnly={false}
+                  timeout={false}
+                />
+              </div>
+            ) : action.kind === 'note' ? (
               <Input.TextArea
                 rows={2}
                 style={{ flex: 1, minWidth: 260 }}
@@ -113,7 +155,7 @@ export function AfterActions({
                 aria-label={t('automation.note_text')}
                 data-testid={`${id}-text`}
               />
-            )}
+            ) : null}
             <Button
               aria-label={t('automation.action_remove')}
               onClick={() => {

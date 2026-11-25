@@ -68,10 +68,8 @@ from app.modules.identity_access.infra.models import (
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
-from app.modules.identity_access.service.masking import (
-    contacts_masked,
-    refuse_masked_person_search,
-)
+from app.modules.identity_access.service.masking import shown_name
+from app.modules.identity_access.service.person_search import person_match
 from app.modules.identity_access.service.resource_access import resource_access_of
 from app.modules.identity_access.service.resource_access import (
     rules_predicate as resource_rules_predicate,
@@ -79,15 +77,9 @@ from app.modules.identity_access.service.resource_access import (
 from app.modules.organization import active_groups, heads_department, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
 from app.shared.clock import system_clock
-from app.shared.search import ENGINE, SearchDocument
 
 log = get_logger(__name__)
 
-# Where people's searchable text lives (migration 0020): name and email words, and the name's
-# trigrams for typos. Every people search uses it: the directory, pickers, assignees.
-PEOPLE = SearchDocument(
-    vector=User.__table__.c.search_vector, short_text=User.__table__.c.search_name
-)
 
 SUBJECT_STATE = "authz_subject"
 MemberLookup = Callable[
@@ -669,6 +661,7 @@ class PolicyService:
                     SupportGrant.id,
                     SupportGrant.access,
                     SupportGrant.unmask_personal,
+                    SupportGrant.mask_names,
                     SupportGrant.state,
                     SupportGrant.starts_at,
                     SupportGrant.ends_at,
@@ -708,7 +701,11 @@ class PolicyService:
         if given or subject.is_tenant_admin:
             msg = f"a support subject holds what its level never allows: {given}"
             raise AssertionError(msg)
-        return replace(subject, support_grant_id=grant.id, mask_contacts=not grant.unmask_personal)
+        # D-180: e-mail and phone are always withheld from support; names only on the grant's
+        # tick (0188). unmask_personal now governs the other personal fields alone (above).
+        return replace(
+            subject, support_grant_id=grant.id, mask_contacts=True, mask_names=grant.mask_names
+        )
 
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""
@@ -777,17 +774,17 @@ class PolicyService:
         )
         order: list[Any] = [User.display_name, User.id]
         if search:
-            refuse_masked_person_search(session)  # a name typed would tell who matches (D-173)
-            found = await ENGINE.match(session, PEOPLE, search)
+            # Names only for support, refused when names are masked (D-180, person_search).
+            found = await person_match(session, search)
             if found is None:
                 return []  # typed, but nothing searchable (only punctuation): nobody matches
             # Name or email words, word forms in Arabic and Urdu, and typos (WP-027).
             query = query.where(found.predicate)
             order.insert(0, found.rank.desc())
         rows = (await session.execute(query.order_by(*order).limit(limit))).all()
-        masked = contacts_masked(session)  # the UI labels an empty name (D-173)
+        # The UI labels an empty name (D-173, D-180); an address used as a name is withheld too.
         return [
-            (row.id, "" if masked else row.display_name)
+            (row.id, shown_name(session, row.display_name))
             for row in rows
             if (await self.subject(tenant_id, row.id, session)).holds(permission)
         ]

@@ -273,7 +273,8 @@ export function useEmergencyOverride() {
   });
 }
 
-const boardKeys = {
+/** Change boards' query keys (exported so screens name them in `covers`, §8.3). */
+export const changeBoardKeys = {
   all: ['change-boards'] as const,
   one: (id: string) => ['change-boards', id] as const,
 };
@@ -281,7 +282,7 @@ const boardKeys = {
 /** The tenant's change advisory boards, in their order (WP-045b S2). */
 export function useChangeBoards() {
   return useQuery({
-    queryKey: boardKeys.all,
+    queryKey: changeBoardKeys.all,
     queryFn: () => call(api.GET('/api/v1/change-boards')),
   });
 }
@@ -298,7 +299,7 @@ export function useCreateChangeBoard() {
         }),
       ),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeBoardKeys.all });
     },
   });
 }
@@ -315,7 +316,7 @@ export function useUpdateChangeBoard() {
         }),
       ),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeBoardKeys.all });
     },
   });
 }
@@ -332,7 +333,7 @@ export function useRemoveChangeBoard() {
       );
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: boardKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeBoardKeys.all });
     },
   });
 }
@@ -518,7 +519,8 @@ export const calendarKeys = {
   range: (start: string, end: string, mine: boolean) =>
     ['change-calendar', start, end, mine] as const,
 };
-const windowKeys = { all: ['change-windows'] as const };
+/** Change windows' query keys: every range sits under `all` (§8.3). */
+export const changeWindowKeys = { all: ['change-windows'] as const };
 
 /** The changes you may see planned in [start, end): windows and planned downtimes. */
 export function useChangeCalendar(start: string, end: string, mine: boolean, enabled = true) {
@@ -543,7 +545,7 @@ export function useCreateChangeWindow() {
         }),
       ),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeWindowKeys.all });
     },
   });
 }
@@ -560,7 +562,7 @@ export function useUpdateChangeWindow() {
         }),
       ),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeWindowKeys.all });
     },
   });
 }
@@ -577,7 +579,7 @@ export function useRemoveChangeWindow() {
       );
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: windowKeys.all });
+      void queryClient.invalidateQueries({ queryKey: changeWindowKeys.all });
     },
   });
 }

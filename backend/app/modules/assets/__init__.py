@@ -29,7 +29,9 @@ and `assets_of` (REQ-AST-025, for work items), the disposal guard port, `record_
 its codes (`ScanSource`, `ScanType`, `ScanResult`, `ScanFailure`): the port discovery calls for
 each scan (REQ-AST-054); (D-157) the port work items register "the requesters of my tickets
 that link this asset" with; and `LinkedRecords` with `register_linked_records` (REQ-AST-044),
-the port work items register for the asset's linked records panel.
+the port work items register for the asset's linked records panel; (WP-053 S4a) what the CMDB's
+sync rules may read: `syncable_fields`, `check_sync_filter`, `sync_page`, `sync_count` and
+`sync_assets` (service/sync_source.py).
 """
 
 from fastapi import FastAPI
@@ -53,6 +55,7 @@ from app.modules.assets.service import (
     reporting,
     type_tree,
 )
+from app.modules.assets.service.approver_owners import owners_of
 from app.modules.assets.service.assets import (
     EDIT_DISPOSED,
     VIEW_FINANCIALS,
@@ -60,7 +63,7 @@ from app.modules.assets.service.assets import (
     count_managed_assets,
 )
 from app.modules.assets.service.bulk_jobs import run_asset_bulk_jobs
-from app.modules.assets.service.catalogue import CONFIGURE, MANAGE, REINSTATE, VIEW
+from app.modules.assets.service.catalogue import CONFIGURE, DELETE, MANAGE, REINSTATE, VIEW
 from app.modules.assets.service.consumables import (
     DraftPurchaseRequests,
     register_draft_purchase_requests,
@@ -68,6 +71,7 @@ from app.modules.assets.service.consumables import (
 )
 from app.modules.assets.service.disposals import register_disposal_guard, unregister_disposal_guard
 from app.modules.assets.service.file_access import FILE_ACCESS
+from app.modules.assets.service.handover import HANDED_OVER, AssetHandover, handover_asset
 from app.modules.assets.service.imports import run_asset_imports
 from app.modules.assets.service.labels import on_label_requested
 from app.modules.assets.service.linked import (
@@ -89,6 +93,20 @@ from app.modules.assets.service.refs import (
     email_includes_assets,
 )
 from app.modules.assets.service.scans import overdue_sweep, record_scan, scan_cleanup_sweep
+from app.modules.assets.service.sync_source import (
+    SyncedAsset,
+    SyncFieldKind,
+    sync_assets,
+    sync_count,
+    sync_page,
+    syncable_fields,
+)
+from app.modules.assets.service.sync_source import (
+    check_filter as check_sync_filter,
+)
+from app.modules.assets.service.sync_source import (
+    filter_fields as sync_filter_fields,
+)
 from app.modules.assets.service.ticket_access import (
     TicketRequesters,
     register_ticket_requesters,
@@ -112,6 +130,9 @@ _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
 PERMISSIONS = (
     PermissionSpec(VIEW, FEATURE, ALL_SCOPES),
     PermissionSpec(MANAGE, FEATURE, _NOT_OWN),
+    # D-185: the trash is its own right, the asset manager's by default (0202 copies it to every
+    # role that held assets.manage, so nobody lost it); never vendor support.
+    PermissionSpec(DELETE, FEATURE, _NOT_OWN, defaults=(("asset_manager", "all"),)),
     PermissionSpec(REINSTATE, FEATURE, _NOT_OWN),
     # Changing a disposed asset (REQ-AST-017 AC3): admins only by default (coordinator, 2026-11-06).
     PermissionSpec(EDIT_DISPOSED, FEATURE, _NOT_OWN),
@@ -215,7 +236,9 @@ for _list in LIST_SPECS:
     register_list(_list)
 
 __all__ = [
+    "HANDED_OVER",
     "VISIBLE_IDS_MAX",
+    "AssetHandover",
     "AssetRef",
     "DraftPurchaseRequests",
     "LinkedRecord",
@@ -224,17 +247,27 @@ __all__ = [
     "ScanResult",
     "ScanSource",
     "ScanType",
+    "SyncFieldKind",
+    "SyncedAsset",
     "TicketRequesters",
     "asset_refs",
     "assets_of",
     "can_see",
+    "check_sync_filter",
     "email_includes_assets",
+    "handover_asset",
     "module",
+    "owners_of",
     "record_scan",
     "register_disposal_guard",
     "register_draft_purchase_requests",
     "register_linked_records",
     "register_ticket_requesters",
+    "sync_assets",
+    "sync_count",
+    "sync_filter_fields",
+    "sync_page",
+    "syncable_fields",
     "unregister_disposal_guard",
     "unregister_draft_purchase_requests",
     "unregister_linked_records",

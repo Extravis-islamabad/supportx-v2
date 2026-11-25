@@ -94,6 +94,11 @@ class MailboxFields(BaseModel):
     after_fetch: AfterFetch | None = None
     move_to: str | None = Field(default=None, max_length=255)
     creates: MailboxCreates | None = None
+    catalog_item_id: uuid.UUID | None = Field(
+        default=None,
+        description="The catalog item a request mailbox makes requests of (creates: "
+        "service_request); cleared for any other kind.",
+    )
     group_id: uuid.UUID | None = None
     unknown_senders: UnknownSenders | None = None
     allowed_domains: list[str] | None = Field(default=None, max_length=50)
@@ -182,6 +187,7 @@ class MailboxOut(BaseModel):
     after_fetch: AfterFetch
     move_to: str | None
     creates: MailboxCreates
+    catalog_item_id: uuid.UUID | None
     group_id: uuid.UUID | None
     unknown_senders: UnknownSenders
     allowed_domains: list[str]
@@ -242,6 +248,7 @@ class MailboxOut(BaseModel):
             after_fetch=AfterFetch(row.after_fetch),
             move_to=row.move_to,
             creates=MailboxCreates(row.creates),
+            catalog_item_id=row.catalog_item_id,
             group_id=row.group_id,
             unknown_senders=UnknownSenders(row.unknown_senders),
             allowed_domains=list(row.allowed_domains),

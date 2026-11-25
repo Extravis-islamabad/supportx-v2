@@ -188,7 +188,7 @@ export const en = {
   'dev_sign_in.warning':
     'For the local dev stack only, as a Showcase Company persona. Never on a real installation.',
   'domain_check.dns_check_unavailable':
-    "Automatic checking isn't available on this installation yet.",
+    "This installation has no DNS server configured, so the domain can't be checked automatically.",
   'domain_check.dns_unreachable':
     "DNS couldn't be reached from this installation. You can verify the domain by hand instead.",
   'domain_check.domain_verified_elsewhere':
@@ -266,7 +266,7 @@ export const en = {
   'field_access.no_rule': 'No rule',
   'field_access.nobody': 'Nobody',
   'field_access.record_type': 'Record type',
-  'field_access.saved': 'Field access saved',
+  'field_access.saved': 'Field access saved for {{type}}',
   'field_access.search': 'Find a field',
   'field_access.stale':
     'Someone else changed this rule meanwhile. The row now shows what is saved.',
@@ -282,6 +282,8 @@ export const en = {
   'form_density.comfortable': 'Comfortable',
   'form_density.compact': 'Compact',
   'form_density.title': 'Form layout',
+  'group_mapping_source.directory': 'Directory',
+  'group_mapping_source.sso': 'Single sign-on',
   'identity.settings.people_edit_contact': 'People may change their own phone and mobile',
   'identity.settings.people_edit_contact_help':
     'In My account, in the portal and the console. Numbers a directory keeps stay read-only.',
@@ -676,6 +678,9 @@ export const en = {
   'permission.api_keys.manage': 'Manage API keys',
   'permission.api_keys.manage.description':
     'Make API keys for service identities, and see and revoke every key.',
+  'permission.assets.delete': 'Delete assets (move them to the trash)',
+  'permission.assets.delete.description':
+    'Move assets to the trash. Managing assets no longer includes this; vendor support never has it.',
   'permission.assets.edit_disposed': 'Change disposed assets',
   'permission.assets.edit_disposed.description':
     'Change an asset after it is disposed of, giving a reason each time.',
@@ -1086,9 +1091,15 @@ export const en = {
   'permission.requests.edit_due_dates': 'Set request due dates by hand',
   'permission.requests.edit_due_dates.description':
     "Set or clear a service request's response or fulfilment due time by hand, with a reason. It then stays until cleared.",
+  'permission.requests.manage_delegations': "Manage others' approval delegations",
+  'permission.requests.manage_delegations.description':
+    'Set, change or end an approval delegation for someone else. Anyone may manage their own.',
   'permission.requests.manage_followers': 'Manage followers of requests',
   'permission.requests.manage_followers.description':
     'Add other people as followers of service requests and remove them.',
+  'permission.requests.modify_approvers': 'Change the approvers of service requests',
+  'permission.requests.modify_approvers.description':
+    'Add or replace an approver, add a stage or remind the approvers of a request waiting for approval, always with a reason.',
   'permission.requests.reopen': 'Reopen service requests',
   'permission.requests.reopen.description':
     'Reopen fulfilled or closed service requests, with a reason.',
@@ -1669,6 +1680,8 @@ export const en = {
     'Console sessions stay signed in for over an hour without activity.',
   'security_flag.console_open_network': 'The console can be reached from any network address.',
   'security_flag.console_session_long': 'Console sessions last longer than a working day.',
+  'security_flag.directory_access_stale':
+    "Directories giving access that haven't synced for over a day",
   'security_flag.fields_still_moving':
     'Sensitive fields still being encrypted or decrypted: {{count}}',
   'security_flag.keys_never_expire': 'API keys may be made without an expiry date.',
@@ -1847,6 +1860,102 @@ export const en = {
   'users.title': 'Users',
   'users.total_one': '{{count}} user',
   'users.total_other': '{{count}} users',
+  'vendor_support.access.change_help':
+    '— also works on records and desk settings; never people, sign-in, the audit or approvals.',
+  'vendor_support.access.view_help': '— reads records and settings; changes nothing.',
+  'vendor_support.activity.empty': 'Nothing yet.',
+  'vendor_support.activity.more': 'Show more',
+  'vendor_support.activity.title': 'What the engineer did',
+  'vendor_support.banner.contacts': "People's e-mail addresses and phone numbers are hidden.",
+  'vendor_support.banner.masked': "People's names and contact details are hidden.",
+  'vendor_support.banner.text': "You're signed in as Extravis support. Access ends {{time}}.",
+  'vendor_support.column.access': 'Access',
+  'vendor_support.column.ends': 'Ends',
+  'vendor_support.column.engineer': 'Engineer',
+  'vendor_support.column.state': 'State',
+  'vendor_support.column.verification': 'How the engineer was confirmed',
+  'vendor_support.empty': 'No vendor support access has been given.',
+  'vendor_support.end.action': 'End access now',
+  'vendor_support.end.confirm': "End {{name}}'s access now? Their sessions end at once.",
+  'vendor_support.end.done': 'Access ended.',
+  'vendor_support.extend.action': 'Extend',
+  'vendor_support.extend.at_ceiling': 'Access already reaches {{max}} hours in all.',
+  'vendor_support.extend.done': 'Access extended.',
+  'vendor_support.extend.label': 'Extend by',
+  'vendor_support.field.access': 'Access',
+  'vendor_support.field.change_reason': 'Why they need to change things',
+  'vendor_support.field.confirmation_note': 'How you confirmed them',
+  'vendor_support.field.confirmation_note_help':
+    'For example, the number you called and who answered.',
+  'vendor_support.field.engineer_email': "Engineer's work e-mail",
+  'vendor_support.field.engineer_email_help': 'An Extravis address. Other domains are refused.',
+  'vendor_support.field.engineer_name': "Engineer's name",
+  'vendor_support.field.hours': 'Hours',
+  'vendor_support.field.hours_help':
+    'Access ends on its own. At most {{max}} hours in all, extensions included.',
+  'vendor_support.field.ip_allowlist': 'Only from these addresses',
+  'vendor_support.field.ip_allowlist_help':
+    'Optional. IP addresses or ranges, such as 203.0.113.0/24.',
+  'vendor_support.field.mask_names': "Hide people's names too",
+  'vendor_support.field.mask_names_help':
+    "On: the engineer sees records without anyone's name. E-mail and phone are always hidden.",
+  'vendor_support.field.reason': 'Reason',
+  'vendor_support.field.ticket_ref': 'Extravis ticket reference',
+  'vendor_support.field.unmask': 'Show other personal details',
+  'vendor_support.field.unmask_help':
+    'Off: fields marked personal stay masked. Names show unless hidden below; e-mail and phone never show.',
+  'vendor_support.grant.action': 'Give access',
+  'vendor_support.grant.how_long': 'For how long',
+  'vendor_support.grant.link_sent': 'Access given. The engineer has been sent a sign-in link.',
+  'vendor_support.grant.never_on': 'Vendor support is turned off for this organisation.',
+  'vendor_support.grant.submit': 'Give access',
+  'vendor_support.grant.title': 'Give an Extravis engineer access',
+  'vendor_support.grant.verification': 'How you confirmed the engineer',
+  'vendor_support.grant.what': 'What they may do',
+  'vendor_support.grant.who': 'Who',
+  'vendor_support.grant.why': 'Why',
+  'vendor_support.hours_unit': 'hours',
+  'vendor_support.intro':
+    'Give one named Extravis engineer temporary access to help with a problem. Every tenant admin is told, and access ends on its own.',
+  'vendor_support.never.allow_confirm':
+    'Allow vendor support again? Tenant admins will be able to give access.',
+  'vendor_support.never.confirm':
+    'Never allow vendor support? Nobody will be able to give Extravis engineers access.',
+  'vendor_support.never.explain':
+    "When on, nobody can give Extravis engineers access. It can't be turned on while access is open.",
+  'vendor_support.never.label': 'Never allow vendor support',
+  'vendor_support.never.ok': 'Yes, change it',
+  'vendor_support.no': 'No',
+  'vendor_support.open_notice': 'An Extravis engineer has access now. You can end it at any time.',
+  'vendor_support.password.after': "It won't be shown again.",
+  'vendor_support.password.copied': 'Copied',
+  'vendor_support.password.copy': 'Copy',
+  'vendor_support.password.done': "I've passed it on",
+  'vendor_support.password.explain':
+    'Give this password to {{name}} on the call. It works once; they choose their own and set up a one-time code at first sign-in.',
+  'vendor_support.password.replay':
+    "This password was shown once already and can't be shown again.",
+  'vendor_support.password.title': 'Temporary password',
+  'vendor_support.person_hidden': 'Person hidden',
+  'vendor_support.resend.action': 'Send a new sign-in link',
+  'vendor_support.resend.done': 'A new link was sent. The old one no longer works.',
+  'vendor_support.start.after':
+    "Paste it straight into the sign-in. You'll choose your own password, then set up a one-time code. It won't be shown again.",
+  'vendor_support.start.failed': "This link can't be used. Ask the customer's admin for a new one.",
+  'vendor_support.start.intro':
+    'A customer gave you temporary access. Open your link to get your temporary password.',
+  'vendor_support.start.login': 'Your sign-in name',
+  'vendor_support.start.no_link': 'Open the link from your e-mail to continue.',
+  'vendor_support.start.open': 'Get my temporary password',
+  'vendor_support.start.password': 'Temporary password',
+  'vendor_support.start.rate_limited': 'Too many tries. Try again in {{seconds}} seconds.',
+  'vendor_support.start.sign_in': 'Sign in',
+  'vendor_support.start.title': 'Extravis support access',
+  'vendor_support.title': 'Vendor support',
+  'vendor_support.verification.email': 'Send the engineer a sign-in link to their work e-mail',
+  'vendor_support.verification.out_of_band': 'I confirmed the engineer by calling Extravis back',
+  'vendor_support.window': 'From – to',
+  'vendor_support.yes': 'Yes',
   'verified_domain_state.lapsed': 'No longer verified',
   'verified_domain_state.pending': 'Waiting for its record',
   'verified_domain_state.verified': 'Verified',

@@ -1602,6 +1602,36 @@
         "type": "object"
       }
     },
+    "assets.overdue_rule.trash_paused": {
+      "1": {
+        "description": "The overdue-scan rule's \"move to trash\" was paused before it trashed anything (D-185).\n\nThe person who last saved it no longer holds `assets.delete` (or never did: a rule saved\nbefore 0202), so the system never trashes in their name; the rule is switched off and the\npeople who may fix it are told. IDs only.",
+        "properties": {
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "saved_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved By"
+          }
+        },
+        "required": [
+          "rule_id",
+          "saved_by"
+        ],
+        "title": "OverdueTrashPaused",
+        "type": "object"
+      }
+    },
     "assets.product.changed": {
       "1": {
         "description": "A product was created, changed or moved to the trash (REQ-AST-005).",
@@ -2063,6 +2093,27 @@
           "changed_fields"
         ],
         "title": "AuditSettingsChanged",
+        "type": "object"
+      }
+    },
+    "audit.system_log.recorded": {
+      "1": {
+        "description": "A system log entry was written (REQ-AUD-016; WP-057 S5b). Open system logs refetch.\n\nThe severity only: never the code's params or the object.",
+        "properties": {
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity"
+        ],
+        "title": "SystemLogRecorded",
         "type": "object"
       }
     },
@@ -2865,6 +2916,99 @@
         "type": "object"
       }
     },
+    "cmdb.downtime.changed": {
+      "1": {
+        "description": "A CI's downtime was added, changed, removed, or moved state as time passed (REQ-CMDB-020).\n\n`change` is added, updated, removed or state (the sweep moved it: `state` is the new one).\n`previous_state` is the state before this write (None when added): an edit or a mirrored work\nitem can move a downtime into active too, not only the sweep (lane A, #626). Additive; older\nevents lack it. IDs and codes only; the CI's screens refetch its downtimes (§8.3), and\nautomation reads the started ones (S5d's `downtime_started`).",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "downtime_id": {
+            "format": "uuid",
+            "title": "Downtime Id",
+            "type": "string"
+          },
+          "previous_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous State"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ci_id",
+          "downtime_id",
+          "change",
+          "state",
+          "source",
+          "version"
+        ],
+        "title": "DowntimeChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.import.progressed": {
+      "1": {
+        "description": "An import of CIs or relationships moved on (WP-053 S4b): its importer's screen refreshes.\n\nIDs, a status code and counts only (rule c).",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "import_id",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "CiImportProgressed",
+        "type": "object"
+      }
+    },
     "cmdb.relationship.changed": {
       "1": {
         "description": "Relationships of one type were added to or removed from a CI (WP-053 S2).\n\nOne event per add or remove call: the source CI and every other CI it touched, all of which\ngot a new version. IDs only (rule c); open maps patch both ends or refetch (§8.3).",
@@ -2908,6 +3052,64 @@
           "other_ci_ids"
         ],
         "title": "RelationshipsChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.sync_rule.changed": {
+      "1": {
+        "description": "A sync rule was created, changed or removed (WP-053 S4a; field names only).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "action",
+          "changed_fields"
+        ],
+        "title": "SyncRuleChanged",
+        "type": "object"
+      }
+    },
+    "cmdb.sync_run.changed": {
+      "1": {
+        "description": "A sync run was queued, started or finished (WP-053 S4a; IDs and its status code only).",
+        "properties": {
+          "rule_id": {
+            "format": "uuid",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "rule_id",
+          "status"
+        ],
+        "title": "SyncRunChanged",
         "type": "object"
       }
     },
@@ -6234,6 +6436,150 @@
         "type": "object"
       }
     },
+    "work_items.approval.clarification": {
+      "1": {
+        "description": "An approver's question on a request approval was asked, answered or ended (REQ-SR-037).\n\nWP-047a S3a. `approver_id` is the person who asked. IDs and codes only: never the question\nor the answer, which their screens read through the API (the coordinator's condition 4).",
+        "properties": {
+          "addressee": {
+            "title": "Addressee",
+            "type": "string"
+          },
+          "approval_id": {
+            "format": "uuid",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "approver_id": {
+            "format": "uuid",
+            "title": "Approver Id",
+            "type": "string"
+          },
+          "change": {
+            "enum": [
+              "asked",
+              "answered",
+              "ended"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "clarification_id": {
+            "format": "uuid",
+            "title": "Clarification Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "approval_id",
+          "approver_id",
+          "clarification_id",
+          "addressee",
+          "change"
+        ],
+        "title": "WorkItemApprovalClarification",
+        "type": "object"
+      }
+    },
+    "work_items.approval.restarted": {
+      "1": {
+        "description": "A request's approval started again after a relevant change (WP-047a S3b; REQ-SR-041).\n\nThe approvers of the round that ended are told (the coordinator's condition 3). `keys` are\nthe changed answer keys (codes), never the answers themselves.",
+        "properties": {
+          "approver_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Approver Ids",
+            "type": "array"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "round",
+          "approver_ids",
+          "keys"
+        ],
+        "title": "WorkItemApprovalRestarted",
+        "type": "object"
+      }
+    },
+    "work_items.approval_delegation.changed": {
+      "1": {
+        "description": "An approval delegation was set, changed or ended (WP-047a S3b; REQ-SR-035). IDs only.\n\nBoth people are told (the coordinator's condition 1); their screens refresh.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "changed",
+              "ended",
+              "expired"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "delegate_id": {
+            "format": "uuid",
+            "title": "Delegate Id",
+            "type": "string"
+          },
+          "delegation_id": {
+            "format": "uuid",
+            "title": "Delegation Id",
+            "type": "string"
+          },
+          "delegator_id": {
+            "format": "uuid",
+            "title": "Delegator Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delegation_id",
+          "delegator_id",
+          "delegate_id",
+          "change",
+          "version"
+        ],
+        "title": "ApprovalDelegationChanged",
+        "type": "object"
+      }
+    },
     "work_items.approval_settings.changed": {
       "1": {
         "description": "The tenant's approval settings changed (the D-146 chair): open settings pages reload.",
@@ -6559,6 +6905,53 @@
         "type": "object"
       }
     },
+    "work_items.ci_link.changed": {
+      "1": {
+        "description": "A CI was linked to a record or unlinked (WP-053 S5; REQ-CMDB-019). IDs only.\n\nThe CMDB keeps the CI's Associations counters live from it (lane B); the record's screens\nrefresh its CIs. `type` lets a counter know which type changed without reading the record.",
+        "properties": {
+          "at_creation": {
+            "default": false,
+            "title": "At Creation",
+            "type": "boolean"
+          },
+          "change": {
+            "enum": [
+              "added",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "ci_id": {
+            "format": "uuid",
+            "title": "Ci Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "ci_id",
+          "change",
+          "version"
+        ],
+        "title": "WorkItemCiLinkChanged",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
@@ -6743,6 +7136,104 @@
         "type": "object"
       }
     },
+    "work_items.downtime.changed": {
+      "1": {
+        "description": "A downtime window was added, changed or removed (WP-053 S5; REQ-CMDB-020).\n\nOne row: planned or actual, its kind, its UTC times and the CIs and services it names, for\nthe CMDB's own downtime list (lane B's consumer, idempotent by event ID and version). An\nincident's actual downtime names the incident as `source_work_item_id`. No state (derived\nfrom the times) and no free text: the description stays on the record (§8 rule c).",
+        "properties": {
+          "ci_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Ci Ids",
+            "type": "array"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "downtime_id": {
+            "format": "uuid",
+            "title": "Downtime Id",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "service_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Service Ids",
+            "type": "array"
+          },
+          "source_work_item_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Work Item Id"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "downtime_id",
+          "version",
+          "phase",
+          "kind",
+          "starts_at",
+          "ends_at",
+          "ci_ids",
+          "service_ids",
+          "source_work_item_id",
+          "deleted"
+        ],
+        "title": "WorkItemDowntimeChanged",
+        "type": "object"
+      }
+    },
     "work_items.draft.changed": {
       "1": {
         "description": "A person's kept draft was saved or discarded (REQ-INC-019): their other tabs refresh.\n\nThe person and the form only, never what the draft holds (lane B's condition 7).",
@@ -6911,6 +7402,19 @@
             "format": "uuid",
             "title": "Part Id",
             "type": "string"
+          },
+          "previous_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous Owner Id"
           },
           "task_status": {
             "anyOf": [
@@ -7256,6 +7760,19 @@
             "format": "uuid",
             "title": "Owner Id",
             "type": "string"
+          },
+          "previous_owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Previous Owner Id"
           },
           "task_id": {
             "format": "uuid",

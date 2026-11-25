@@ -27,6 +27,25 @@ class ApprovalState(StrEnum):
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"  # the requester withdrew the request (REQ-SR-061)
     NOT_NEEDED = "not_needed"  # another approver decided the stage first
+    SKIPPED = "skipped"  # WP-047a S2a (REQ-SR-032): the stage's condition did not hold
+    REPLACED = "replaced"  # WP-047a S2b (REQ-SR-042 AC1): a technician named someone else
+    EXPIRED = "expired"  # WP-047a S4 (REQ-SR-044): a workflow or trigger level's timeout passed
+
+
+class SkipReason(StrEnum):
+    """Why a request stage was skipped (shown on the record with the stage's condition)."""
+
+    CONDITION_NOT_MET = "condition_not_met"
+
+
+class AutoReason(StrEnum):
+    """Why an approval was given automatically (WP-047a S2b; REQ-SR-033), shown with it.
+
+    `auto_ref` says which: the earlier stage the person approved, or the matched rule's number.
+    """
+
+    APPROVED_EARLIER = "approved_earlier"
+    RULE_MATCHED = "rule_matched"
 
 
 OPEN_STATES = frozenset({ApprovalState.PENDING})
@@ -39,6 +58,9 @@ class ApproverOrigin(StrEnum):
     MANAGER = "manager"  # the requested-for person's manager (REQ-SR-022)
     BACKUP = "backup"  # the stage's backup approver (REQ-SR-023)
     ADMINISTRATORS = "administrators"  # anyone with work_items.approve_any (REQ-SR-023)
+    # WP-047a S3a (REQ-SR-034): added after the last reminder, next to the primary, who keeps
+    # their row (036 AC2); `escalated_from_id` names the primary.
+    ESCALATED = "escalated"
 
 
 class ApprovalPurpose(StrEnum):
@@ -47,6 +69,9 @@ class ApprovalPurpose(StrEnum):
     RECORD = "record"  # the record's own approval (a request's item, a problem asked ad hoc)
     ACCEPT_WITHOUT_FIX = "accept_without_fix"  # a known error kept without a fix (REQ-PRB-050)
     WORKFLOW = "workflow"  # a workflow's approval node opened it (WP-048b S2, REQ-WF-014)
+    # WP-047a S2b (REQ-SR-042): named people asked on a service request as on an incident,
+    # apart from the item's approval; decided by its rule, it never moves the request.
+    AD_HOC = "ad_hoc"
 
 
 class RouteReason(StrEnum):
@@ -64,6 +89,11 @@ class RouteReason(StrEnum):
     # ADR-052 (the coordinator, 2026-11-14): an erased approver's pending approval is rerouted,
     # never granted; the record shows why.
     APPROVER_ERASED = "approver_erased"
+    # WP-047a S2a (condition 3): a request stage's approvers resolve to nobody.
+    NO_APPROVER = "no_approver"
+    # WP-047a S3a (the coordinator's condition 2): an escalation finds no backup, manager or
+    # group member, so it goes to the administrators, recorded.
+    NO_ESCALATION_TARGET = "no_escalation_target"
 
 
 class DecisionChannel(StrEnum):
@@ -72,6 +102,8 @@ class DecisionChannel(StrEnum):
     APP = "app"
     PORTAL = "portal"
     EMAIL_LINK = "email_link"
+    AUTOMATIC = "automatic"  # WP-047a S2b (REQ-SR-033): nobody decided; `auto_reason` says why
+    EMAIL_REPLY = "email_reply"  # WP-047a S4 (REQ-SR-038): a reply to the approval mail
 
 
 class Decision(StrEnum):

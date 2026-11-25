@@ -12,7 +12,7 @@ approval administrators, the record's own requester), so a requester-only manage
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,9 +25,10 @@ from app.modules.identity_access import Subject, user_contacts
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.change_boards import BoardChoice
+from app.modules.work_items.domain.clarifications import Addressee, ClarificationState, state_of
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.service import approvals as service
-from app.modules.work_items.service import bulk_approvals
+from app.modules.work_items.service import bulk_approvals, clarifications
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.history import CLIENT_HEADER, source_of
 
@@ -75,6 +76,41 @@ class BulkApproveOut(BaseModel):
     items: list[BulkApproveResult]
 
 
+ModifyRefused = service.ModifyRefused
+
+
+class ClarificationOut(BaseModel):
+    """An approver's question on this approval (WP-047a S3a; REQ-SR-037)."""
+
+    id: uuid.UUID
+    state: ClarificationState = Field(description="open, answered, decided or closed.")
+    addressee: Addressee = Field(description="requester or technician.")
+    asked_by: uuid.UUID
+    asked_at: datetime
+    ended_at: datetime | None
+    question: str | None = Field(
+        description="The question (sanitised HTML): for the person who asked and staff only."
+    )
+    answer: str | None = Field(
+        description="The answer (sanitised HTML): for the person who asked and staff only."
+    )
+
+    @classmethod
+    def of(cls, shown: clarifications.Shown) -> "ClarificationOut":
+        """From the service's view."""
+        row = shown.row
+        return cls(
+            id=row.id,
+            state=state_of(row.ended_how),
+            addressee=Addressee(row.addressee),
+            asked_by=row.asked_by,
+            asked_at=row.asked_at,
+            ended_at=row.ended_at,
+            question=shown.question,
+            answer=shown.answer,
+        )
+
+
 class ApprovalOut(BaseModel):
     """One approver's entry (REQ-SR-024): who, the decision, when, where and the comment."""
 
@@ -103,6 +139,30 @@ class ApprovalOut(BaseModel):
         description="An optional board member's vote: shown, never counted (WP-045b)."
     )
     state: rules.ApprovalState
+    branch: str | None = Field(
+        default=None, description="Requests: the parallel group this stage runs in (REQ-SR-030)."
+    )
+    skip_reason: rules.SkipReason | None = Field(
+        default=None, description="Requests: why the stage was skipped (REQ-SR-032)."
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None, description="A skipped stage's condition, in the form rules' terms."
+    )
+    auto_reason: rules.AutoReason | None = Field(
+        default=None,
+        description="Requests: why it was approved automatically (REQ-SR-033); `channel` is "
+        "then `automatic`.",
+    )
+    auto_ref: int | None = Field(
+        default=None,
+        description="The earlier stage the person approved, or the matched rule's number.",
+    )
+    auto_rule: dict[str, str] | None = Field(
+        default=None, description="The matched rule's name, per language."
+    )
+    auto_keys: list[str] | None = Field(
+        default=None, description="Staff only: the answer keys the matched rule read."
+    )
     decided_at: datetime | None
     decided_by: uuid.UUID | None
     channel: rules.DecisionChannel | None
@@ -111,12 +171,28 @@ class ApprovalOut(BaseModel):
     comments_required: bool
     self_approved: bool = Field(description="Decided by the requester or the person it is for.")
     can_decide: bool
+    on_behalf_of_id: uuid.UUID | None = Field(
+        default=None,
+        description="Requests: the approver a delegation routed it away from (REQ-SR-035); "
+        "they may still decide it. Decided by `decided_by` on their behalf.",
+    )
+    round: int = Field(default=1, description="Requests: the approval round (REQ-SR-041).")
+    escalated_from_id: uuid.UUID | None = Field(
+        default=None,
+        description="Requests: the approval this one was escalated from (REQ-SR-034); the "
+        "first of the two to decide settles it.",
+    )
+    clarification: ClarificationOut | None = Field(
+        default=None, description="Requests: the latest question asked on it (REQ-SR-037)."
+    )
     created_at: datetime
     version: int
 
     @classmethod
-    def of(cls, view: service.ApprovalView) -> "ApprovalOut":
-        """From the service's view."""
+    def of(
+        cls, view: service.ApprovalView, clarification: clarifications.Shown | None = None
+    ) -> "ApprovalOut":
+        """From the service's view, with its latest clarification if any."""
         row = view.row
         return cls(
             id=row.id,
@@ -130,6 +206,13 @@ class ApprovalOut(BaseModel):
             board_reason=BoardChoice(row.board_reason) if row.board_reason else None,
             advisory=row.advisory,
             state=rules.ApprovalState(row.state),
+            branch=row.branch,
+            skip_reason=rules.SkipReason(row.skip_reason) if row.skip_reason else None,
+            condition=dict(view.condition) if view.condition is not None else None,
+            auto_reason=rules.AutoReason(row.auto_reason) if row.auto_reason else None,
+            auto_ref=row.auto_ref,
+            auto_rule=dict(view.auto_rule) if view.auto_rule is not None else None,
+            auto_keys=list(view.auto_keys) if view.auto_keys is not None else None,
             decided_at=row.decided_at,
             decided_by=row.decided_by,
             channel=rules.DecisionChannel(row.channel) if row.channel else None,
@@ -138,6 +221,10 @@ class ApprovalOut(BaseModel):
             comments_required=row.comments_required,
             self_approved=view.self_approved,
             can_decide=view.can_decide,
+            on_behalf_of_id=row.on_behalf_of_id,
+            round=row.round,
+            escalated_from_id=row.escalated_from_id,
+            clarification=ClarificationOut.of(clarification) if clarification else None,
             created_at=row.created_at,
             version=row.version,
         )
@@ -169,6 +256,35 @@ class ApprovalsOut(BaseModel):
 
     items: list[ApprovalOut]
     people: dict[str, PersonOut]
+    modify_refused: ModifyRefused | None = Field(
+        default=None,
+        description="Requests: why you may not adjust the running approval (REQ-SR-042 AC2): "
+        "no_permission, out_of_scope or approval_not_running; null: you may. Other types: "
+        "always null.",
+    )
+
+
+async def approvals_out(
+    session: TenantSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> ApprovalsOut:
+    """The record's approvals as the viewer may see them, with the people's names."""
+    found = await service.list_for_record(session, subject, wtype, record_id)
+    asked = (
+        await clarifications.shown(
+            session, subject, wtype, await service.record_of(session, wtype, record_id)
+        )
+        if found
+        else {}
+    )
+    names = {
+        p for v in found for p in (v.row.approver_id, v.row.decided_by, v.row.on_behalf_of_id) if p
+    }
+    names |= {c.row.asked_by for c in asked.values()}
+    return ApprovalsOut(
+        items=[ApprovalOut.of(v, asked.get(v.row.id)) for v in found],
+        people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
+        modify_refused=await service.modify_refused(session, subject, wtype, record_id),
+    )
 
 
 class MyApprovalsOut(BaseModel):
@@ -297,12 +413,7 @@ def add_approval_routes(router: APIRouter, wtype: WorkItemType, *, withdraw: boo
         record_id: uuid.UUID, session: TenantSession, subject: SignedIn
     ) -> ApprovalsOut:
         """Every approver's entry; for those who see the record and for its approvers."""
-        found = await service.list_for_record(session, subject, wtype, record_id)
-        names = {p for v in found for p in (v.row.approver_id, v.row.decided_by) if p}
-        return ApprovalsOut(
-            items=[ApprovalOut.of(v) for v in found],
-            people=people_out(await user_contacts(session, sorted(str(n) for n in names))),
-        )
+        return await approvals_out(session, subject, wtype, record_id)
 
     Decided = Annotated[  # noqa: N806 - type alias
         AuditNote,

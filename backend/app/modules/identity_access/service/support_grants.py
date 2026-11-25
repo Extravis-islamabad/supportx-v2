@@ -39,7 +39,14 @@ from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.audit import WORKER, AuditActorType, RequestFacts, record
+from app.modules.audit import (
+    WORKER,
+    ActorEntry,
+    AuditActorType,
+    RequestFacts,
+    actor_entries,
+    record,
+)
 from app.modules.identity_access.domain import support_grants as rules
 from app.modules.identity_access.domain.network import address_of
 from app.modules.identity_access.domain.permissions import TENANT_ADMIN
@@ -61,6 +68,7 @@ from app.modules.identity_access.infra.models import (
 from app.modules.identity_access.service.directory import UserRepository
 from app.modules.identity_access.service.sso import organization_of
 from app.modules.organization import email_branding, get_current_tenant
+from app.shared.api.listing import ListQuery, PageResult
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -89,6 +97,7 @@ class GrantView:
     access: str
     change_reason: str | None
     unmask_personal: bool
+    mask_names: bool
     ip_allowlist: list[str]
     starts_at: datetime
     ends_at: datetime
@@ -109,6 +118,7 @@ def _view(row: SupportGrant) -> GrantView:
         access=row.access,
         change_reason=row.change_reason,
         unmask_personal=row.unmask_personal,
+        mask_names=row.mask_names,
         ip_allowlist=[str(n) for n in row.ip_allowlist],
         starts_at=row.starts_at,
         ends_at=row.ends_at,
@@ -142,6 +152,9 @@ async def _audit(
         details=details or {},
         actor=None if facts is not None else (AuditActorType.SYSTEM, None),
     )
+
+
+AUDIT_VIEW = "audit.view"
 
 
 async def require_tenant_admin(session: AsyncSession, subject: Subject) -> None:
@@ -181,6 +194,25 @@ async def get_grant(session: AsyncSession, subject: Subject, grant_id: uuid.UUID
     if row is None:
         raise NotFound(code="support_grant_not_found")
     return _view(row)
+
+
+async def grant_activity(
+    session: AsyncSession, subject: Subject, grant_id: uuid.UUID, query: ListQuery
+) -> tuple[list[ActorEntry], PageResult[Any]]:
+    """What the grant's support account did, newest first (WP-057 S4c-3; the coordinator's Q1).
+
+    A tenant admin who may also read the audit (`audit.view`). The account is the grant's own
+    (one per grant), so its entries are exactly the grant's; RLS keeps them to the tenant.
+    """
+    await require_tenant_admin(session, subject)
+    if not subject.holds(AUDIT_VIEW):
+        raise PermissionDenied(params={"permission": AUDIT_VIEW, "reason": "no_permission"})
+    row = await session.get(SupportGrant, grant_id)
+    if row is None:
+        raise NotFound(code="support_grant_not_found")
+    if row.support_user_id is None:  # the account was never made: nothing was done
+        return [], PageResult(rows=[], next_cursor=None, has_more=False, estimated_total=0)
+    return await actor_entries(session, row.support_user_id, query)
 
 
 async def open_grants(session: AsyncSession) -> int:
@@ -549,7 +581,8 @@ async def _mail_link(
     tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
     brand = await email_branding(session, settings, tenant_id, "en")
     query = "" if settings.tenant_base_domain else f"?t={quote(brand.tenant_slug)}"
-    link = f"{brand.console_url}{SUPPORT_PAGE}{query}#{token}"
+    # The branded console URL ends with "/" (email_branding); the page path starts with one.
+    link = f"{brand.console_url.rstrip('/')}{SUPPORT_PAGE}{query}#{token}"
     short = rules.mail_subject_id(row.id)
     tenant = await get_current_tenant(session)
     expires = row.link_expires_at.strftime("%d %b %Y, %H:%M UTC") if row.link_expires_at else ""
@@ -630,6 +663,7 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
         if request.access is rules.Access.VIEW_AND_CHANGE
         else None,
         unmask_personal=request.unmask_personal,
+        mask_names=request.mask_names,
         ip_allowlist=networks,
         starts_at=starts_at,
         ends_at=ends_at,
@@ -645,17 +679,23 @@ async def create_grant(  # noqa: PLR0913 - the request, its context and the acco
     session.add(row)
     await session.flush()
     organization = await organization_of(session, admin)
-    # A generated login and no address (D-177 fallback): the shared realm allows one account per
-    # address, so the engineer's real address stays on the grant, where SupportX's mail uses it.
+    # A generated login and its own .invalid address, verified, with both names (D-177; lane B's
+    # conditions on #566): the profile is complete, so a fresh realm never asks the engineer to
+    # fill it in. The engineer's real address stays on the grant, where SupportX's mail uses it.
+    first_name, last_name = rules.support_names(row.engineer_name, grant_id)
     account = await admin.create_user(
-        email=None,
+        email=rules.support_address(grant_id),
+        email_verified=True,
         username=login,
-        first_name=row.engineer_name[:100],
-        last_name="",
+        first_name=first_name,
+        last_name=last_name,
         locale="en",
     )
     password: str | None = None
     try:
+        # No account-console role (the realm's default roles), so it can never change its own
+        # profile or address; SupportX's sign-in needs no realm role (lane B's condition 3).
+        await admin.drop_default_roles(account)
         await admin.add_member(organization.id, account)
         # Keycloak makes the engineer choose their own password and enrol TOTP before any session.
         await admin.require_actions(account, list(rules.FIRST_SIGN_IN_ACTIONS))
@@ -798,6 +838,7 @@ class _Facts:
     networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
     until: datetime
     unmask_personal: bool = False
+    mask_names: bool = True  # D-180: fails closed when unknown
 
 
 # In process only, keyed (tenant, user): a revoke ends the sessions through the store marker at
@@ -835,6 +876,7 @@ async def _facts(
             tuple(ipaddress.ip_network(str(n), strict=False) for n in row.ip_allowlist),
             until,
             row.unmask_personal,
+            row.mask_names,
         )
     _cache[(tenant_id, user_id)] = facts
     return facts
@@ -965,6 +1007,15 @@ def judged_grant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[uuid.UUID | 
     if facts is None:
         return None, False
     return facts.grant_id, facts.unmask_personal
+
+
+def judged_names_masked(tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether the grant `request_refusal` just admitted the account under masks names (D-180).
+
+    Fails closed: with the facts gone, names are masked. Memory only, like `judged_grant`.
+    """
+    facts = _cache.get((tenant_id, user_id))
+    return True if facts is None else facts.mask_names
 
 
 BROKERED = "support_sign_in_brokered"

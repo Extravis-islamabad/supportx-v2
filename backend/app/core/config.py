@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     # is always above report_background_timeout_seconds, so no report is cut short by them.
     db_connect_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     db_command_timeout_seconds: float = Field(default=120.0, gt=0, le=3600)
+    # The API's request path only (the HA smoke's failover): PostgreSQL itself cancels a request
+    # transaction's statement after this (`request_too_slow`), and the API's own connections
+    # give up REQUEST_BACKSTOP_SECONDS later on a server that stopped answering
+    # (`database_unavailable`). Workers, jobs and reports keep db_command_timeout_seconds.
+    db_request_statement_timeout_seconds: float = Field(default=15.0, gt=0, le=600)
 
     # Reporting (WP-035, ADR-033). Reports run as supportx_app switched to the read-only
     # supportx_report role, on their own small pool so a burst of reports can never take the

@@ -79,12 +79,19 @@ export function ErasurePage() {
     { silent: true },
   );
   const me = useSession().data?.user.id;
-  useListChannel(allowed ? 'person_erasures' : null, (message) => {
-    if (message.type !== 'person_erasures.changed' || id === undefined) return;
-    if (!message.ids.includes(id)) return;
-    void queryClient.invalidateQueries({ queryKey: erasureKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: erasureKeys.mentions(id) });
-  });
+  useListChannel(
+    allowed ? 'person_erasures' : null,
+    (message) => {
+      if (message.type !== 'person_erasures.changed' || id === undefined) return;
+      if (!message.ids.includes(id)) return;
+      void queryClient.invalidateQueries({ queryKey: erasureKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: erasureKeys.mentions(id) });
+    },
+    {
+      // No id in the route: nothing is shown, so nothing to catch up.
+      covers: id === undefined ? [] : [erasureKeys.detail(id), erasureKeys.mentions(id)],
+    },
+  );
   usePageCrumbs([
     { label: t('people_erasure.title'), path: '/admin/erasures' },
     { label: t('people_erasure.record_type') },

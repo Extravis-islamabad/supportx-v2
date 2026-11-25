@@ -45,6 +45,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { usePersonalAppearance } from './personalAppearance';
 import { EventDeliveryBanner } from './EventDeliveryBanner';
+import { SupportBanner } from './SupportBanner';
 import { NotificationBell } from './notifications/NotificationBell';
 import { RemindersDrawer } from './pages/incidents/RemindersDrawer';
 import { ApprovalsDrawer } from './pages/requests/ApprovalsDrawer';
@@ -80,46 +81,62 @@ export function ConsoleLayout() {
   // Incident settings changed by an admin anywhere (WP-020c): every open form, list and record
   // reloads its pick lists, labels and templates; nothing waits for a page refresh (§8).
   const queryClient = useQueryClient();
-  useTenantChannel((event) => {
-    // Custom fields changed (WP-026): forms, records, lists and filters reload them.
-    // Sites, groups, departments or desks changed (WP-021): pickers, lists and the admin pages.
-    if (event.type === 'organization.structure_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
-      return;
-    }
-    // The service catalog changed (WP-030/031: an item, a category, the settings or the starter
-    // catalog): the admin screens, the raise page and the pickers refetch.
-    if (event.type === 'service_catalog.changed') {
-      void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
-      return;
-    }
-    // Rules, routing, auto-assignment or someone's availability changed (WP-029).
-    if (event.type === 'automation.changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
-      // A stopped loop also shows on the record's automation panel.
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'history'] });
-      return;
-    }
-    // Working calendars or holidays changed (WP-025): the SLA screens and the calendar pickers.
-    if (event.type === 'sla.setup.changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.sla.all });
-      return;
-    }
-    if (event.type === 'metadata.custom_fields_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
-      return;
-    }
-    if (event.type !== 'work_items.settings_changed') return;
-    for (const key of [
-      queryKeys.incidents.catalogue,
-      queryKeys.incidents.categories,
-      queryKeys.incidents.templates,
-      serviceRequestKeys.settings,
-    ]) {
-      void queryClient.invalidateQueries({ queryKey: key });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      // Custom fields changed (WP-026): forms, records, lists and filters reload them.
+      // Sites, groups, departments or desks changed (WP-021): pickers, lists and the admin pages.
+      if (event.type === 'organization.structure_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
+        return;
+      }
+      // The service catalog changed (WP-030/031: an item, a category, the settings or the starter
+      // catalog): the admin screens, the raise page and the pickers refetch.
+      if (event.type === 'service_catalog.changed') {
+        void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+        return;
+      }
+      // Rules, routing, auto-assignment or someone's availability changed (WP-029).
+      if (event.type === 'automation.changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
+        // A stopped loop also shows on the record's automation panel.
+        void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'history'] });
+        return;
+      }
+      // Working calendars or holidays changed (WP-025): the SLA screens and the calendar pickers.
+      if (event.type === 'sla.setup.changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sla.all });
+        return;
+      }
+      if (event.type === 'metadata.custom_fields_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
+        return;
+      }
+      if (event.type !== 'work_items.settings_changed') return;
+      for (const key of [
+        queryKeys.incidents.catalogue,
+        queryKeys.incidents.categories,
+        queryKeys.incidents.templates,
+        serviceRequestKeys.settings,
+      ]) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+    {
+      covers: [
+        queryKeys.organization.all,
+        queryKeys.access.all,
+        catalogKeys.all,
+        queryKeys.automation.all,
+        queryKeys.sla.all,
+        queryKeys.customFields.all,
+        queryKeys.incidents.catalogue,
+        queryKeys.incidents.categories,
+        queryKeys.incidents.templates,
+        serviceRequestKeys.settings,
+      ],
+    },
+  );
 
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
@@ -275,22 +292,26 @@ export function ConsoleLayout() {
         />
       )}
       banners={
-        // One notice at a time, the others behind "N more notices · View" (D-124).
-        <NoticeStack testId="shell-notices">
-          <ConnectivityBanner />
-          <EventDeliveryBanner />
-          {pathname !== '/profile' && <MfaReminder />}
-          <LicenceBanners />
-          <AuditAlertBanner />
-          <LoopBanner />
-          <FilesBanner />
-          <NotificationsBanner />
-          <TechnicianVisibilityQuestion />
-          <AnnouncementBanners
-            enabled={licence.has('incident')}
-            onOpen={(id) => void navigate(`/announcements/${id}`)}
-          />
-        </NoticeStack>
+        <>
+          {/* A vendor support session says so on every page, never behind "N more" (S4c-3). */}
+          <SupportBanner />
+          {/* One notice at a time, the others behind "N more notices · View" (D-124). */}
+          <NoticeStack testId="shell-notices">
+            <ConnectivityBanner />
+            <EventDeliveryBanner />
+            {pathname !== '/profile' && <MfaReminder />}
+            <LicenceBanners />
+            <AuditAlertBanner />
+            <LoopBanner />
+            <FilesBanner />
+            <NotificationsBanner />
+            <TechnicianVisibilityQuestion />
+            <AnnouncementBanners
+              enabled={licence.has('incident')}
+              onOpen={(id) => void navigate(`/announcements/${id}`)}
+            />
+          </NoticeStack>
+        </>
       }
     >
       <Outlet />

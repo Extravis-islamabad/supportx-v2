@@ -13,7 +13,7 @@ import {
   useStagePanel,
   type StageMove,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import {
   StageRail,
   RecordHeader,
@@ -49,6 +49,7 @@ import { ReleaseChangesPart } from './ReleaseChanges';
 import { ReleaseStagesPart } from './ReleaseStages';
 import { IncidentTasks, IncidentWorklogs } from '../incidents/IncidentParts';
 import { ReleaseProperties } from './ReleaseProperties';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 // Beside "More": the page's 4-action rule (UI pass 2; QA6-REL-01).
 const CANCELED = 'closure_canceled';
@@ -59,6 +60,7 @@ const CANCELED = 'closure_canceled';
  * role or a sub-release's progress (REQ-REL-037 AC3). Disabled moves say why (REQ-WI-010).
  */
 export function ReleasePage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { can } = useAccess();
   const { id = '' } = useParams();
@@ -78,12 +80,21 @@ export function ReleasePage() {
   ).length;
   const [moving, setMoving] = useState<StageMove>();
   const [tab, setTab] = useState('details');
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: releaseKeys.detail(id) });
-    // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(id) });
-  });
+  // Its tasks and worklogs live under the shared parts' keys (WP-058b S3).
+  const liveKeys = [
+    releaseKeys.detail(id),
+    queryKeys.incidents.tasks(id),
+    queryKeys.incidents.worklogs(id),
+  ];
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered === true) return;
+      for (const key of liveKeys) refreshQueries(queryClient, key);
+    },
+    { covers: liveKeys },
+  );
   // Once per error, not on every render (lane A's review of #219).
   useEffect(() => {
     if (record.error) reportError(record.error);
@@ -200,7 +211,7 @@ export function ReleasePage() {
           title={r.subject}
           meta={[
             <span key="people" data-testid="release-people">
-              {t('incidents.requested_by', { name: personName(r.people, r.requester_id) })}
+              {t('incidents.requested_by', { name: personName(r.people, r.requester_id, hidden) })}
             </span>,
             <span key="created">
               {t('incidents.created_on', { date: dates.format(r.created_at) })}

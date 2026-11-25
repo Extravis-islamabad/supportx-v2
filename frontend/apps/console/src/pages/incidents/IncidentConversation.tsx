@@ -87,6 +87,7 @@ import { REQUESTER_ACTION, useHistoryWords } from './historyWords';
 import { useKnowledgeTools } from './knowledgeSlot';
 import { WritingHelp } from './WritingHelp';
 import { useTypingSignal } from './typing';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
 type Draft = { kind: 'reply'; mode: ReplyMode } | { kind: 'note' };
@@ -357,9 +358,10 @@ function ComposeButtons({
 
 function DescriptionEntry({ item }: { item: Incident }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const dates = useDateTime();
   const { token } = theme.useToken();
-  const author = item.people[item.created_by ?? '']?.display_name ?? '';
+  const author = shownName(item.people[item.created_by ?? '']?.display_name, hidden);
   return (
     <Card
       size="small"
@@ -402,6 +404,7 @@ function EntryCard({
   files: StoredFile[];
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const listFormat = useListFormat();
   const { can } = useAccess();
   const canEditRecord = item.operations.find((o) => o.action === 'edit')?.allowed === true;
@@ -429,7 +432,9 @@ function EntryCard({
       },
     );
   };
-  const author = people[entry.created_by ?? '']?.display_name ?? t('conversation.someone');
+  const authorName = people[entry.created_by ?? '']?.display_name;
+  const author =
+    authorName === undefined ? t('conversation.someone') : shownName(authorName, hidden);
   const isPrivate = entry.visibility === 'private';
   const tone = entryTone(entry, mode === 'dark', token);
   const kindKey =
@@ -606,6 +611,7 @@ function Composer({
   onDone: () => void;
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const listFormat = useListFormat();
   const { message } = App.useApp();
   const { can } = useAccess();
@@ -645,16 +651,24 @@ function Composer({
   });
   // Templates changed by an admin elsewhere: reload the list while this composer is open (BUG-07).
   const queryClient = useQueryClient();
-  useTenantChannel((message) => {
-    if (message.type === 'work_items.reply_templates_changed') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered !== true && message.type === 'work_items.reply_templates_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
+      }
+    },
+    { covers: [queryKeys.incidents.replyTemplates] },
+  );
   // D-081: warn before sending a mention of someone who cannot see the incident.
   const [unseen, setUnseen] = useState<string[] | null>(null);
   const mentions: MentionSearch = (query) =>
     fetchMentionable(item.id, query, base).then((found) =>
-      found.map((p) => ({ id: p.id, label: p.display_name, email: p.email, canSee: p.can_see })),
+      found.map((p) => ({
+        id: p.id,
+        label: shownName(p.display_name, hidden),
+        email: p.email,
+        canSee: p.can_see,
+      })),
     );
   const error = add.error instanceof ApiError ? add.error : null;
   const fieldErrors = error?.status === 422 ? error.fieldErrors : [];
@@ -702,7 +716,7 @@ function Composer({
             void message.warning(
               t('conversation.mention_not_notified', {
                 names: listFormat(
-                  saved.not_notified.map((id) => saved.people[id]?.display_name ?? ''),
+                  saved.not_notified.map((id) => shownName(saved.people[id]?.display_name, hidden)),
                   'conjunction',
                 ),
               }),
@@ -1046,10 +1060,11 @@ function EventLine({
  */
 function MailNotSetUp() {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const list = useListFormat();
   const status = useMailStatus();
   if (status.data === undefined || status.data.mail_configured) return null;
-  const names = status.data.who_can_fix.map((p) => p.display_name);
+  const names = status.data.who_can_fix.map((p) => shownName(p.display_name, hidden));
   return (
     <Alert
       type="warning"

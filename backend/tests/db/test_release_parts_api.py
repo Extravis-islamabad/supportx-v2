@@ -26,6 +26,7 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from app.shared.events import EventEnvelope
 from tests.db.shared_world import MODULE_LOOP, module_world, shared_world
+from tests.db.test_cmdb_api import _ci
 from tests.db.test_incidents_api import CONSOLE, Org, World, role
 from tests.db.test_release_guards_api import release_workers, set_access
 from tests.db.test_release_templates_api import field_codes
@@ -300,11 +301,14 @@ async def test_req_rel_027_downtime_windows(world: World) -> None:
             headers={"Idempotency-Key": key, **CONSOLE},
         )
 
+    # A real business service: a downtime names only CIs one may link (WP-053 S5, #607).
+    service = await _ci(world, a, "Payroll", "business_service")
+    assert service.status_code == 201, service.text
     window = {
         "kind": "maintenance_window",
         "starts_at": "2026-11-12T22:00:00Z",
         "ends_at": "2026-11-12T23:00:00Z",
-        "service_ids": [str(uuid.uuid4())],
+        "service_ids": [service.json()["id"]],
     }
     made = await add(**window)
     assert made.status_code == 201, made.text

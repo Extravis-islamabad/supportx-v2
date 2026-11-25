@@ -68,6 +68,10 @@ class CatalogItem(TenantEntity):
         UniqueConstraint("tenant_id", "id", name="uq_catalog_items_tenant_id_id"),
         CheckConstraint("audience IN ('everyone', 'technicians')", name="audience_code"),
         CheckConstraint(
+            "max_quantity IS NULL OR (max_quantity >= 1 AND max_quantity <= 10000)",
+            name="max_quantity_range",
+        ),
+        CheckConstraint(
             "default_priority IS NULL OR default_priority IN ('p1', 'p2', 'p3', 'p4')",
             name="default_priority_code",
         ),
@@ -165,6 +169,10 @@ class CatalogItem(TenantEntity):
     technician_after_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")
     count_approval_time: Mapped[bool] = mapped_column(Boolean, server_default="false")
     auto_fulfil: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # WP-047a S1 (0193): a quantity up to this (REQ-SR-014; NULL: none asked) and a needed-by
+    # date (REQ-SR-015).
+    max_quantity: Mapped[int | None] = mapped_column(Integer)
+    asks_needed_by: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # WP-031 s1 (domain/catalog.py): life, kind, texts, search words, placement.
     status: Mapped[str] = mapped_column(String(20), server_default="draft")
     publish_at: Mapped[datetime | None]
@@ -182,6 +190,8 @@ class CatalogItem(TenantEntity):
     requesters_see_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
     starter: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-138
     extra_category_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()), server_default="{}")
+    # WP-047a S5 (0204, REQ-SR-053): the item's fulfilment workflow (service request type).
+    workflow_id: Mapped[uuid.UUID | None]
     # Columns of the table, not of the mapped object: never loaded or written by the ORM.
     search_vector: Unmapped[Any] = unmapped_column(
         TSVECTOR, Computed(SEARCH_VECTOR, persisted=True)

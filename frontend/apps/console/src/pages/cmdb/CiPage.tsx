@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Flex, List, Modal, Result, TreeSelect, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   queryKeys,
@@ -46,16 +46,19 @@ import { CustomFieldValue } from '../customFields/fields';
 import { fieldName, filled as hasValue } from '../customFields/values';
 import { useCmdbRight } from './rights';
 import { CiFields } from './CiForm';
+import { CiMergeDrawer } from './CiMergeDrawer';
 import { errorFields, patchOf, schema, valuesOf, type Values } from './form';
+import { DowntimesTab } from './DowntimesTab';
 import { ImpactTab } from './map/ImpactTab';
 import { MapTab } from './map/MapTab';
 import { useSubscribersSection } from './useSubscribersSection';
 import { VersionsTab } from './map/VersionsTab';
 import { nameOf, typeTree } from './names';
 import { refText } from './refNames';
+import { SourceLabel } from './SourceLabel';
 
 // The record's tabs (template A): its details and history, its map (WP-053 S2) and its versions.
-const TABS = ['details', 'map', 'impact', 'versions'] as const;
+const TABS = ['details', 'map', 'impact', 'downtimes', 'versions'] as const;
 type TabKey = (typeof TABS)[number];
 
 /** The CI's references, named in the properties panel (CMDB polish). */
@@ -75,17 +78,34 @@ export function CiPage() {
   const { has, isAdmin } = useLicence();
   const found = useCi(id);
   const queryClient = useQueryClient();
-  useRecordChannel('ci', id, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.history(id) });
+  const shown = [
+    queryKeys.cmdb.detail(id),
+    queryKeys.cmdb.history(id),
     // A relationship added or removed gives the CI a new version (WP-053 S2).
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.versions(id) });
+    queryKeys.cmdb.versions(id),
     // A business service's subscribers changed (0185): its own section refetches.
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.subscribers(id) });
-  });
+    queryKeys.cmdb.subscribers(id),
+    // Its downtimes changed or moved state as time passed (S5b): the tab refetches.
+    queryKeys.cmdb.downtimes(id),
+  ];
+  useRecordChannel(
+    'ci',
+    id,
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched every one
+      for (const key of shown) void queryClient.invalidateQueries({ queryKey: key });
+    },
+    { covers: shown },
+  );
   if (!has('cmdb')) return <NotInPlan titleKey="nav.cmdb" isAdmin={isAdmin} />;
   if (!can('cmdb.view')) return <NoAccess titleKey="nav.cmdb" />;
   if (found.isPending) return null;
+  // A merged CI's ID opens its survivor, when the reader may see it (REQ-CMDB-017 AC2).
+  const survivor =
+    found.error instanceof ApiError && found.error.code === 'cmdb_ci_merged'
+      ? found.error.params.survivor_id
+      : undefined;
+  if (typeof survivor === 'string') return <Navigate to={`/cmdb/${survivor}`} replace />;
   if (found.isError) return <Result status="404" title={t('errors.cmdb_ci_not_found')} />;
   // Never keyed by version: someone else's save must not throw away an open edit (lane C's
   // #524 review); the edit resolves through the ConflictDialog instead.
@@ -103,6 +123,8 @@ function CiRecord({ ci }: { ci: Ci }) {
   const states = useCiStates();
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const { can } = useAccess();
   // The CI as it read when the edit began: its version is the one the save sends (If-Match).
   const [opened, setOpened] = useState<Ci>(ci);
   const conflict = useConflict();
@@ -235,6 +257,18 @@ function CiRecord({ ci }: { ci: Ci }) {
                   },
                 ]
               : []),
+            ...(can('cmdb.manage')
+              ? [
+                  {
+                    key: 'merge',
+                    label: t('cmdb.action.merge'),
+                    testId: 'ci-merge',
+                    onClick: () => {
+                      setMerging(true);
+                    },
+                  },
+                ]
+              : []),
             ...(ci.can_delete
               ? [
                   {
@@ -274,21 +308,33 @@ function CiRecord({ ci }: { ci: Ci }) {
                   items={[
                     {
                       key: 'state',
-                      label: t('cmdb.field.state_id'),
+                      label: (
+                        <SourceLabel ci={ci} field="state_id">
+                          {t('cmdb.field.state_id')}
+                        </SourceLabel>
+                      ),
                       content:
                         stateOf === undefined ? '' : nameOf(t, locale, stateOf, 'cmdb_ci_state'),
                       filled: true,
                     },
                     {
                       key: 'impact',
-                      label: t('cmdb.field.business_impact'),
+                      label: (
+                        <SourceLabel ci={ci} field="business_impact">
+                          {t('cmdb.field.business_impact')}
+                        </SourceLabel>
+                      ),
                       content:
                         ci.business_impact === null ? '' : t(`cmdb_impact.${ci.business_impact}`),
                       filled: ci.business_impact !== null,
                     },
                     {
                       key: 'criticality',
-                      label: t('cmdb.field.criticality'),
+                      label: (
+                        <SourceLabel ci={ci} field="criticality">
+                          {t('cmdb.field.criticality')}
+                        </SourceLabel>
+                      ),
                       content: ci.criticality === null ? '' : t(`cmdb_impact.${ci.criticality}`),
                       filled: ci.criticality !== null,
                     },
@@ -307,7 +353,11 @@ function CiRecord({ ci }: { ci: Ci }) {
                           }
                         : {
                             key: name,
-                            label: t(`cmdb.field.${name}`),
+                            label: (
+                              <SourceLabel ci={ci} field={name}>
+                                {t(`cmdb.field.${name}`)}
+                              </SourceLabel>
+                            ),
                             content: id === null ? '' : <bdi>{refText(t, ci.names, id)}</bdi>,
                             filled: id !== null,
                           };
@@ -346,6 +396,11 @@ function CiRecord({ ci }: { ci: Ci }) {
             children: tab === 'impact' ? <ImpactTab ciId={ci.id} /> : null,
           },
           {
+            key: 'downtimes',
+            label: t('cmdb.tab.downtimes'),
+            children: tab === 'downtimes' ? <DowntimesTab ciId={ci.id} /> : null,
+          },
+          {
             key: 'versions',
             label: t('cmdb.tab.versions'),
             children: tab === 'versions' ? <VersionsTab ciId={ci.id} /> : null,
@@ -372,6 +427,14 @@ function CiRecord({ ci }: { ci: Ci }) {
           void save(version);
         }}
       />
+      {merging && (
+        <CiMergeDrawer
+          ci={ci}
+          onClose={() => {
+            setMerging(false);
+          }}
+        />
+      )}
       {moving && (
         <ChangeType
           ci={ci}
@@ -400,7 +463,11 @@ function CiCustomValues({ ci }: { ci: Ci }) {
       testId="ci-custom-values"
       items={shown.map((f) => ({
         key: f.key,
-        label: <bdi dir="auto">{fieldName(f, locale)}</bdi>,
+        label: (
+          <SourceLabel ci={ci} field={`custom.${f.key}`}>
+            <bdi dir="auto">{fieldName(f, locale)}</bdi>
+          </SourceLabel>
+        ),
         content: <CustomFieldValue field={f} value={ci.custom[f.key]} />,
         filled: true,
         // The shared row says "masked" itself (ADR-047), as records of other kinds do.

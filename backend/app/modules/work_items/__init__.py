@@ -31,6 +31,7 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.assets import register_linked_records, register_ticket_requesters
+from app.modules.cmdb import register_ci_links, register_open_counts
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -49,6 +50,7 @@ from app.modules.work_items.api.change_window_routes import (
 )
 from app.modules.work_items.api.change_window_routes import router as change_window_router
 from app.modules.work_items.api.checklist_routes import my_reminders_router
+from app.modules.work_items.api.delegation_routes import router as delegation_router
 from app.modules.work_items.api.draft_routes import router as draft_router
 from app.modules.work_items.api.notify_links import public_router as notify_links_router
 from app.modules.work_items.api.parts_routes import my_tasks_router, my_timers_router
@@ -56,6 +58,7 @@ from app.modules.work_items.api.portal_change_routes import router as portal_cha
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
+from app.modules.work_items.api.portal_task_routes import router as portal_task_router
 from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
@@ -71,12 +74,16 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    approval_mail,
     asset_links,
     audit_subtype,
     bulk,
     change_notifications,
     change_reminders,
     checklists,
+    ci_links,
+    clarifications,
+    delegation_notifications,
     drafts,
     field_catalogue,
     inbound_mail,
@@ -93,6 +100,7 @@ from app.modules.work_items.service import (
     reminders,
     repeat_rules,
     report_names,
+    request_approval_reminders,
     request_notifications,
     resolution,
     rule_step_notifications,
@@ -198,6 +206,10 @@ register_record_usage()
 # The asset page's linked records (REQ-AST-044, lane B's WP-049b s4a; lane A agreed, rule 8):
 # assets ask through their port, answered by this module's visible-only queries.
 register_linked_records(ASSET_LINK_PORT)
+# WP-053 S5: a CMDB merge moves the records' CI links (cmdb/service/links.py contract).
+register_ci_links(ci_links.repoint_ci_links)
+# WP-053 S5 (REQ-CMDB-009, -019): open and total linked records per CI, each type's own view.
+register_open_counts(ci_links.COUNTS_PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
@@ -222,12 +234,15 @@ change_notifications.register()  # WP-045d S3: replaces the change reply-only so
 view_audit.register()  # D-176: an owner hears their shared view was made private
 task_notifications.register()  # WP-046a S1: a task's owner hears of it (REQ-INC-076)
 reminder_notifications.register()  # WP-046a S2: personal reminders alert their owner
+delegation_notifications.register()  # WP-047a S3b: both people hear of a delegation
 # What other modules may ask about incidents (D-121, knowledge links): at import, as above.
 record_facts.register()
 # Which kind of work item a save was, for the audit log (WP-064, ADR-045): at import, as above.
 audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# WP-047a S4 (REQ-SR-038): replies to approval mail decide, as above.
+approval_mail.register()
 # D-157 (lane B; lane A reviews): the requesters of a technician's tickets that link an asset, for
 # the assets module's narrower technician write. At import, as above.
 register_ticket_requesters(asset_links.linked_requester_ids_select)
@@ -248,8 +263,10 @@ module = ModuleSpec(
         draft_router,  # REQ-INC-019: kept drafts of unsent create forms
         notify_links_router,  # WP-046a S6: stop mails to an address kept informed
         portal_request_router,  # WP-030 D9
+        portal_task_router,  # WP-047a S5: task-only owners' own tasks
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
+        delegation_router,  # WP-047a S3b (REQ-SR-035): approval delegations
         change_board_router,  # WP-045b S2
         repeat_router,  # WP-044c D16: the problem module's
         change_window_router,  # WP-045c: freeze and maintenance windows (ADR-042)
@@ -269,8 +286,10 @@ module = ModuleSpec(
         INCIDENT.feature,  # kept drafts (incident-new)
         INCIDENT.feature,  # stopping mails to people kept informed (WP-046a S6)
         SERVICE_REQUEST.feature,
+        SERVICE_REQUEST.feature,  # task-only owners' own plan tasks (WP-047a S5)
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
+        SERVICE_REQUEST.feature,  # approval delegations (WP-047a S3b): request approvals
         CHANGE.feature,  # change advisory boards
         PROBLEM.feature,  # repeat incident rules (D-140 item 5: not in Essentials)
         CHANGE.feature,  # change windows
@@ -299,6 +318,7 @@ module = ModuleSpec(
     # REQ-SR-023 AC2: a deactivated approver's pending approvals go to the fallback.
     consumers=[
         APPROVER_LEFT,
+        clarifications.ANSWERS,  # WP-047a S3a (REQ-SR-037 AC2): an answer ends the question
         KEPT_INFORMED,
         drafts.OWNER_LEFT,
         search_rebuild.FIELD_ACCESS_CHANGED,  # ADR-047 §6: search text rebuilt, closed meanwhile
@@ -330,6 +350,12 @@ module = ModuleSpec(
             "work_items__change_reminders",
             change_reminders.EVERY_SECONDS,
             change_reminders.reminders_schedule,
+        ),
+        # WP-047a S3a (REQ-SR-034): request approval reminders and escalation, each slot once.
+        ScheduleSpec(
+            "work_items__request_approval_reminders",
+            request_approval_reminders.EVERY_SECONDS,
+            request_approval_reminders.reminders_schedule,
         ),
         # WP-046a S1 (REQ-INC-073 AC2, -076): task reminders and overdue tasks, each raised once.
         ScheduleSpec(

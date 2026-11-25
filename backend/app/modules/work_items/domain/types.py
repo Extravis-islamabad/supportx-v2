@@ -325,6 +325,13 @@ FIELD_PROBLEMS = frozenset(
     {
         # REQ-AST-025: an asset that is not there or not yours to see, and the per-record cap.
         "asset_not_found",
+        # WP-053 S5 (REQ-CMDB-019, -020): a CI the person may not link, the per-record cap, and
+        # an incident's downtime is the actual one it caused.
+        "ci_not_linkable",
+        "too_many_cis",
+        "incident_actual_only",
+        # WP-047a S1 (REQ-SR-014 AC2): above the item's maximum, with the maximum.
+        "quantity_over_max",
         # WP-046a S1 (REQ-INC-073..075): task details, template tasks and dependencies.
         "dependency_loop",
         "needs_scheduled_start",

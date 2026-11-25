@@ -9,7 +9,10 @@ SupportX (D-099).
 
 Limits (REQ-SEC-035 AC1): 5 requests per address per hour, 20 per network address per hour;
 over them nothing is sent. People who sign in only through single sign-on have no password here:
-nothing is sent either.
+nothing is sent either. Nor to a vendor support account (D-177): its grant is its only way in.
+
+The route answers before the work is done (a background task after the 202), so how long the
+answer takes says nothing about the address either.
 
 An admin can instead **require a new password at the next sign-in** (`force_reset`): Keycloak's
 required action, and the person's sessions end at once, in Keycloak too (a password reset is the
@@ -28,6 +31,7 @@ from app.core.database import Database
 from app.core.errors import Conflict, NotFound
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
@@ -95,7 +99,13 @@ async def request_reset(
         person = await session.scalar(
             select(User).where(User.external_subject == account.id, User.status == "active")
         )
-        if person is None or not person.can_sign_in:
+        # A vendor support account's only way in is its grant's single-use link or the password
+        # the admin was shown (D-177; lane B's condition 7 on #566): never a reset, decided by the
+        # account's own row, not its address, and answered like any other.
+        support = person is not None and person.user_type == UserType.VENDOR_SUPPORT.value
+        if person is None or not person.can_sign_in or support:
+            if support:
+                log.info("password_reset_refused_support_account", tenant_id=tenant)
             return
         locale = person.ui_locale or person.locale
         brand = await email_branding(session, settings, uuid.UUID(tenant), locale)

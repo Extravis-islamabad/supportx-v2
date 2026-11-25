@@ -378,6 +378,18 @@ class LifecycleSink:
 # --- route dependencies ------------------------------------------------------------------------
 
 
+def _same_object(record_id: object, object_id: object) -> bool:
+    """The saved record is the route's object (lane C's #631 review).
+
+    The note's ID is the raw path string, so an upper-cased or braced UUID in the URL is still
+    the same record: compared as UUIDs when both parse, as strings otherwise.
+    """
+    try:
+        return uuid.UUID(str(record_id)) == uuid.UUID(str(object_id))
+    except ValueError:
+        return str(record_id) == str(object_id)
+
+
 def audited(
     action_code: str,
     *,
@@ -406,6 +418,8 @@ def audited(
         )
         # Saves of audited record types made by this route wait for it (LifecycleSink.saved).
         session.info[ROUTE_ACTION_KEY] = action_code
+        # The error observer reads it on a refusal: what the request named, unverified (below).
+        request.state.audit_note = note
         yield note  # an exception here propagates: refusals are logged by the error observer
         saves: list[SavedRecord] = session.info.pop(PENDING_SAVES_KEY, [])
         session.info.pop(ROUTE_ACTION_KEY, None)
@@ -415,9 +429,16 @@ def audited(
             # no second entry (WP-064, ADR-045).
             facts = RequestFacts.of(request)
             merged = group_saves(saves)
-            lead = next(
-                (i for i, m in enumerate(merged) if str(m[-1].record_id) == str(note.object_id)), 0
+            matched = next(
+                (i for i, m in enumerate(merged) if _same_object(m[-1].record_id, note.object_id)),
+                None,
             )
+            # The route names an object none of its saves is (a workflow stop names the instance
+            # but saves the request, lane A's #630): its action is that object's own entry, and
+            # the saves are plain record entries. Never merged onto another record. A route
+            # naming no object yet (a create) leads its first save, as before.
+            own_entry = matched is None and note.object_id is not None
+            lead = None if own_entry else (matched if matched is not None else 0)
             for index, saved in enumerate(merged):
                 await _write_save(
                     session,
@@ -426,7 +447,8 @@ def audited(
                     route=action_code if index == lead else None,
                     note=note if index == lead else None,
                 )
-            return
+            if not own_entry:
+                return
         if note.skip:
             return
         change_ids = recorded_change_ids(session)
@@ -526,6 +548,39 @@ def route_spec(request: Request) -> AuditRouteSpec | None:
     return None
 
 
+REQUESTED_LIST_MAX = 100  # IDs kept per list in a refused entry's `requested`
+
+
+def _is_id(value: object) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return isinstance(value, (str, uuid.UUID))
+
+
+def requested_ids(note: AuditNote | None) -> dict[str, Any]:
+    """What a refused request named, from its route's note: IDs only, never free text.
+
+    A route may fill its note from the request before its service runs (lane A's #612); on a
+    refusal those values were never checked, so they go under `requested`, and anything that is
+    not an ID (or a list of IDs) is dropped (§7.4: no free text, no values in the log).
+    """
+    if note is None:
+        return {}
+    found: dict[str, Any] = {}
+    # The canonical form, so an uppercase, braced or urn ID logs as the one a search uses.
+    for key, value in note.details.items():
+        if _is_id(value):
+            found[key] = str(uuid.UUID(str(value)))
+        elif isinstance(value, list) and value and all(_is_id(v) for v in value):
+            # A long list is capped, its full length kept beside it (lane C, #625).
+            found[key] = [str(uuid.UUID(str(v))) for v in value[:REQUESTED_LIST_MAX]]
+            if len(value) > REQUESTED_LIST_MAX:
+                found[f"{key}_count"] = len(value)
+    return found
+
+
 async def log_refusal(request: Request, status: int, code: str) -> None:
     """Error observer: write a refused/failed entry for an audited route, then check probing."""
     spec = route_spec(request)
@@ -544,7 +599,14 @@ async def log_refusal(request: Request, status: int, code: str) -> None:
             reason_code=code,
             object_type=spec.object_type,
             object_id=request.path_params.get(spec.object_param) if spec.object_param else None,
-            details={"status": status},
+            details={
+                "status": status,
+                **(
+                    {"requested": requested}
+                    if (requested := requested_ids(getattr(request.state, "audit_note", None)))
+                    else {}
+                ),
+            },
         )
         if outcome is AuditOutcome.REFUSED and context.user_id is not None:
             await _check_probing(session, context.user_id, facts)

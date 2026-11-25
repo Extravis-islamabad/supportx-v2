@@ -174,13 +174,28 @@ jobs:
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h / | tail -1
+      # The k3d binary is cached by version and checksum, and fetched with retries on a miss: a
+      # GitHub releases error (curl exit 22) failed the HA smoke in run 45266668370 (#591). The
+      # checksum is verified on every run, cached or not.
+      - &k3d-cache
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        name: k3d download (cached by version and checksum)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/k3d
+          key: k3d-${{ env.K3D_VERSION }}-${{ env.K3D_SHA256 }}
       - &install-k3d
         if: ${{ steps.changes.outputs.run != 'false' }}
         name: Install k3d (pinned, checksum-verified)
         run: |
-          curl -fsSL -o /tmp/k3d "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
-          echo "$K3D_SHA256  /tmp/k3d" | sha256sum -c -
-          sudo install -m 0755 /tmp/k3d /usr/local/bin/k3d
+          binary=~/.cache/k3d/k3d-$K3D_VERSION-linux-amd64
+          if [ ! -f "$binary" ]; then
+            mkdir -p ~/.cache/k3d
+            curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "$binary" \
+              "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
+          fi
+          echo "$K3D_SHA256  $binary" | sha256sum -c -
+          sudo install -m 0755 "$binary" /usr/local/bin/k3d
           # Browsers resolve *.localhost themselves; tools on the runner get it from /etc/hosts.
           echo "127.0.0.1 supportx.localhost" | sudo tee -a /etc/hosts
       - &cluster-up
@@ -207,7 +222,19 @@ jobs:
         run: |
           kubectl get pods -A -o wide || true
           kubectl -n supportx describe pods | tail -n 200 || true
-          for d in api relay consumers fanout keycloak centrifugo web; do
+          # Any container that restarted: the useful log is the previous instance's (a probe- or
+          # OOM-killed one), the current one has only just started (lane C, 2026-11-24).
+          kubectl -n supportx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{range .status.containerStatuses[*]}{.name}{"="}{.restartCount}{" "}{end}{"\n"}{end}' 2>/dev/null |
+            while read -r pod rest; do
+              for c in $rest; do
+                n="${c#*=}"; name="${c%%=*}"
+                if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+                  echo "== previous $pod/$name ($n restarts)"
+                  kubectl -n supportx logs "$pod" -c "$name" --previous --tail=80 || true
+                fi
+              done
+            done || true
+          for d in api relay consumers fanout indexes keycloak centrifugo web; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=100 || true
           done
           kubectl -n supportx logs -l app.kubernetes.io/component=migrate --tail=100 || true
@@ -256,6 +283,7 @@ jobs:
       # Four k3d nodes each hold their own copy of the images: the runner's disk ran out
       # (evictions at "low on resource: ephemeral-storage"). Toolchains this job never uses go.
       - *free-disk
+      - *k3d-cache
       - *install-k3d
       - name: Four-node cluster (k3s v1.36.5) and prerequisites
         if: ${{ steps.changes.outputs.run != 'false' }}
@@ -308,6 +336,18 @@ jobs:
         run: |
           kubectl get pods -A -o wide || true
           kubectl -n supportx describe pods | tail -n 200 || true
+          # Any container that restarted: the useful log is the previous instance's (a probe- or
+          # OOM-killed one), the current one has only just started (lane C, 2026-11-24).
+          kubectl -n supportx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{range .status.containerStatuses[*]}{.name}{"="}{.restartCount}{" "}{end}{"\n"}{end}' 2>/dev/null |
+            while read -r pod rest; do
+              for c in $rest; do
+                n="${c#*=}"; name="${c%%=*}"
+                if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+                  echo "== previous $pod/$name ($n restarts)"
+                  kubectl -n supportx logs "$pod" -c "$name" --previous --tail=80 || true
+                fi
+              done
+            done || true
           echo "== cluster DNS"; kubectl -n kube-system get pods -o wide -l k8s-app=kube-dns || true
           # Each sentinel's view. The password stays in the pod (REDISCLI_AUTH from its own env).
           for pod in supportx-valkey-0 supportx-valkey-1 supportx-valkey-2; do
@@ -324,7 +364,7 @@ jobs:
               echo "== $pod/$c"; kubectl -n supportx logs "$pod" -c "$c" --since=15m || true
             done
           done
-          for d in api centrifugo keycloak; do
+          for d in api centrifugo keycloak indexes; do
             echo "== $d"; kubectl -n supportx logs "deploy/supportx-$d" --all-containers --tail=80 || true
           done
           # Keycloak, every copy and its previous container: after a node loss the surviving copy
@@ -387,6 +427,7 @@ jobs:
         with:
           path: deploy/helm/supportx/charts/*.tgz
           key: helm-chart-deps-${{ hashFiles('deploy/helm/supportx/Chart.lock') }}
+      - *k3d-cache
       - *install-k3d
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend

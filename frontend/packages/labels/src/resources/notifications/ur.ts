@@ -43,9 +43,11 @@ export const ur: LabelResource = {
   'notice.sign_in_secret.item_client_secret': 'کلائنٹ کی خفیہ کلید',
   'notification.open_record': '{{id}} کھولیں',
   'notification_area.announcement': 'اعلانات',
+  'notification_area.approval_delegation': 'منظوری کی تفویضات',
   'notification_area.asset': 'اثاثے',
   'notification_area.break_glass': 'ہنگامی سائن اِن',
   'notification_area.change': 'تبدیلیاں',
+  'notification_area.cmdb_ci': 'کنفیگریشن آئٹمز',
   'notification_area.connector': 'کنیکٹرز',
   'notification_area.custom_field': 'اپنی مرضی کے خانے',
   'notification_area.incident': 'واقعات',
@@ -80,6 +82,9 @@ export const ur: LabelResource = {
   'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
   'notification_event.announcement.ended': 'آپ کا فالو کردہ اعلان ختم ہوا',
   'notification_event.announcement.updated': 'آپ کا فالو کردہ اعلان اپ ڈیٹ ہوا',
+  'notification_event.approval_delegation.changed': 'منظوری کی تفویض تبدیل کی گئی',
+  'notification_event.approval_delegation.ended': 'منظوری کی تفویض ختم ہوئی',
+  'notification_event.approval_delegation.set': 'منظوری کی تفویض مقرر کی گئی',
   'notification_event.asset.ack_disputed': 'اثاثے کے حامل نے اعتراض کیا',
   'notification_event.asset.ack_requested': 'آپ کو اثاثہ دیا گیا: براہ کرم تصدیق کریں',
   'notification_event.asset.erased_holder_items':
@@ -87,6 +92,8 @@ export const ur: LabelResource = {
   'notification_event.asset.loan_due': 'ادھار کل واپس کرنا ہے',
   'notification_event.asset.loan_overdue': 'ادھار کی مدت گزر گئی',
   'notification_event.asset.mentioned': 'اثاثے کے نوٹ میں ذکر',
+  'notification_event.asset.overdue_trash_paused':
+    'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا روک دیا گیا',
   'notification_event.asset.stock_low': 'اسٹاک کم از کم پر',
   'notification_event.asset.warranty_expiring': 'وارنٹی جلد ختم ہو رہی ہے',
   'notification_event.break_glass.signed_in': 'ایک ہنگامی منتظم نے سائن اِن کیا',
@@ -112,6 +119,7 @@ export const ur: LabelResource = {
   'notification_event.change.status_entered': 'تبدیلی ایک حالت میں داخل ہوئی',
   'notification_event.change.submitted': 'تبدیلی جمع ہوئی',
   'notification_event.change.window_reminder': 'تبدیلی کا وقت جلد شروع',
+  'notification_event.cmdb_ci.state_changed': 'کسی کنفیگریشن آئٹم کی حالت بدل گئی',
   'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
   'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
   'notification_event.custom_field.seal_paused': 'حساس فیلڈ کی قدروں کی مہر بندی رک گئی ہے',
@@ -171,9 +179,16 @@ export const ur: LabelResource = {
   'notification_event.security.new_device': 'نئے براؤزر یا آلے سے سائن اِن',
   'notification_event.security.password_changed': 'آپ کا پاس ورڈ بدل دیا گیا',
   'notification_event.service_account.needs_owner': 'سروس اکاؤنٹ کو نئے مالک کی ضرورت ہے',
+  'notification_event.service_request.answers_needed': 'ای میل سے درخواست: جوابات درکار',
+  'notification_event.service_request.answers_needed_no_access':
+    'ای میل سے درخواست: جوابات درکار، پورٹل تک رسائی نہیں',
+  'notification_event.service_request.approval_decided_by_mail': 'ای میل جواب سے منظوری کا فیصلہ',
   'notification_event.service_request.approval_fallback': 'منتظمین کی منتظر منظوری',
   'notification_event.service_request.approval_requested': 'منظوری کی درخواست',
+  'notification_event.service_request.approval_restarted': 'درخواست کی منظوری دوبارہ شروع ہوئی',
   'notification_event.service_request.approved': 'درخواست منظور',
+  'notification_event.service_request.clarification_answered':
+    'درخواست پر آپ کے سوال کا جواب آ گیا',
   'notification_event.service_request.fulfilled': 'درخواست مکمل',
   'notification_event.service_request.public_reply': 'درخواست گزار کو جواب',
   'notification_event.service_request.ready_to_fulfil': 'درخواست تکمیل کے لیے تیار',
@@ -218,8 +233,11 @@ export const ur: LabelResource = {
   'notification_recipient.cab_member': 'فیصلے کا منتظر بورڈ رکن',
   'notification_recipient.change_manager': 'تبدیلی مینیجر',
   'notification_recipient.change_owner': 'تبدیلی کا مالک',
+  'notification_recipient.ci_owner': 'کنفیگریشن آئٹم کا مالک',
   'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
   'notification_recipient.custom_field_admins': 'جو اپنی مرضی کے خانوں کا انتظام کرتے ہیں',
+  'notification_recipient.delegate': 'نائب',
+  'notification_recipient.delegator': 'تفویض کرنے والا منظوری دہندہ',
   'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
   'notification_recipient.followers': 'فالوورز',
   'notification_recipient.group': 'گروپ کے اراکین',
@@ -231,15 +249,18 @@ export const ur: LabelResource = {
   'notification_recipient.loan_creator': 'جس نے ادھار دیا',
   'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
   'notification_recipient.major_team': 'بڑے واقعات کی ٹیم',
+  'notification_recipient.managed_by_group': 'انتظامی گروپ',
   'notification_recipient.mentioned': 'جن کا ذکر ہوا',
   'notification_recipient.new_follower': 'نیا فالوور',
   'notification_recipient.new_investigator': 'شامل کیا گیا تفتیش کار',
   'notification_recipient.on_behalf_of': 'جس کے لیے ہے',
   'notification_recipient.other_tenant_admins': 'دیگر ٹیننٹ منتظمین',
   'notification_recipient.owner': 'مضمون کا مالک',
+  'notification_recipient.owner_group': 'مالک گروپ',
   'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
   'notification_recipient.requester': 'درخواست گزار',
   'notification_recipient.reviewer': 'جائزہ کار',
+  'notification_recipient.rule_fixers': 'وہ لوگ جو اثاثے حذف اور ترتیب دے سکتے ہیں',
   'notification_recipient.schedule_owner': 'شیڈول کا مالک',
   'notification_recipient.step_owner': 'قاعدے کا مالک (ورنہ اس کے منتظمین)',
   'notification_recipient.stock_watchers': 'کم از کم حد کے نامزد لوگ',
@@ -280,6 +301,22 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\nآپ کا فالو کردہ اعلان "{{ record.title }}" اپ ڈیٹ ہو گیا ہے۔',
   'notification_template.announcement.updated.in_app': 'اپ ڈیٹ: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'اپ ڈیٹ: {{ record.title }}',
+  'notification_template.approval_delegation.changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.delegator }} کی منظوریوں کی تفویض اب {{ delegation.starts_at }} سے {{ delegation.ends_at }} تک، {{ delegation.delegate }} کو ہے۔',
+  'notification_template.approval_delegation.changed.in_app':
+    '{{ delegation.delegator }} کی منظوریوں کی تفویض تبدیل ہوئی',
+  'notification_template.approval_delegation.changed.subject': 'منظوری کی تفویض تبدیل ہوئی',
+  'notification_template.approval_delegation.ended.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.delegator }} کی منظوریوں کی {{ delegation.delegate }} کو تفویض ختم ہو گئی۔ منتظر منظوریاں واپس {{ delegation.delegator }} کے پاس ہیں۔',
+  'notification_template.approval_delegation.ended.in_app':
+    '{{ delegation.delegator }} کی منظوریوں کی تفویض ختم ہوئی',
+  'notification_template.approval_delegation.ended.subject': 'منظوری کی تفویض ختم ہوئی',
+  'notification_template.approval_delegation.set.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ delegation.starts_at }} سے {{ delegation.ends_at }} تک، {{ delegation.delegator }} کی نئی درخواست منظوریاں {{ delegation.delegate }} کو جائیں گی۔ {{ delegation.delegator }} اب بھی ان کا فیصلہ کر سکتے ہیں۔',
+  'notification_template.approval_delegation.set.in_app':
+    '{{ delegation.delegator }} کی منظوریاں {{ delegation.ends_at }} تک {{ delegation.delegate }} کو',
+  'notification_template.approval_delegation.set.subject':
+    'منظوریاں {{ delegation.delegate }} کو تفویض',
   'notification_template.asset.ack_disputed.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ holder.name }} نے {{ record.display_id }} "{{ record.title }}" پر اعتراض کیا: {{ acknowledgement.comment }}',
   'notification_template.asset.ack_disputed.in_app':
@@ -312,6 +349,12 @@ export const ur: LabelResource = {
     '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
   'notification_template.asset.mentioned.subject':
     '{{ record.display_id }} پر آپ کا ذکر ہوا: {{ record.title }}',
+  'notification_template.asset.overdue_trash_paused.body':
+    'السلام علیکم {{ recipient.name }}،\nتاخیر سے اسکین کا اصول اثاثے ردی میں منتقل کرنے پر مقرر ہے، لیکن جس شخص نے اسے آخری بار محفوظ کیا وہ اب اثاثے حذف نہیں کر سکتا، اس لیے کچھ بھی ردی میں ڈالنے سے پہلے اسے بند کر دیا گیا۔ دوبارہ چالو کرنے کے لیے اثاثہ حذف کرنے کا اختیار رکھنے والا اسے پھر محفوظ کرے۔ {{ record.link }}',
+  'notification_template.asset.overdue_trash_paused.in_app':
+    'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا رکا ہوا ہے: اثاثہ حذف کرنے کا اختیار رکھنے والا اسے دوبارہ محفوظ کرے',
+  'notification_template.asset.overdue_trash_paused.subject':
+    'تاخیر سے اسکین کا اصول اثاثے ردی میں منتقل کرنے سے پہلے روک دیا گیا',
   'notification_template.asset.stock_low.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} کا اسٹاک {{ stock.quantity }} تک گر گیا ہے، جو اس کی کم از کم حد {{ stock.minimum }} کے برابر یا اس سے کم ہے۔',
   'notification_template.asset.stock_low.in_app':
@@ -459,6 +502,12 @@ export const ur: LabelResource = {
     '{{ record.display_id }} {{ window.start }} پر شروع ہوگی: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'جلد شروع: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی حالت اب {{ record.status }} ہے۔\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    '{{ record.display_id }} کی حالت اب {{ record.status }} ہے',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: حالت اب {{ record.status }}',
   'notification_template.connector.failing.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
   'notification_template.connector.failing.in_app':
@@ -780,6 +829,24 @@ export const ur: LabelResource = {
     '{{ record.title }} کو نئے مالک کی ضرورت ہے',
   'notification_template.service_account.needs_owner.subject':
     '{{ record.title }} کو نئے مالک کی ضرورت ہے',
+  'notification_template.service_request.answers_needed.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست "{{ record.title }}" بطور {{ record.display_id }} موصول ہوئی۔ آگے بڑھنے سے پہلے براہِ کرم چند سوالات کے جواب دیں: {{ record.link }}',
+  'notification_template.service_request.answers_needed.in_app':
+    '{{ record.display_id }} کو آگے بڑھنے سے پہلے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed.subject':
+    'آپ کی درخواست {{ record.display_id }} کے لیے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed_no_access.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست "{{ record.title }}" بطور {{ record.display_id }} موصول ہوئی۔ آگے بڑھنے سے پہلے اسے کچھ مزید تفصیلات درکار ہیں۔ آپ کا سروس ڈیسک آپ کے ساتھ انہیں مکمل کر سکتا ہے، یا آپ کو سیلف سروس پورٹل تک رسائی دے سکتا ہے تاکہ آپ خود جواب دے سکیں۔',
+  'notification_template.service_request.answers_needed_no_access.in_app':
+    '{{ record.display_id }} کو آگے بڑھنے سے پہلے چند جوابات درکار ہیں',
+  'notification_template.service_request.answers_needed_no_access.subject':
+    'آپ کی درخواست {{ record.display_id }} کے لیے چند جوابات درکار ہیں',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کی منظوری کا فیصلہ اس کی ای میل کے جواب سے ہوا۔ اگر آپ نے یہ جواب نہیں بھیجا تو ابھی اپنے سروس ڈیسک کو بتائیں۔',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر آپ کی منظوری کا فیصلہ کیا',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'آپ کے ای میل جواب نے {{ record.display_id }} پر منظوری کا فیصلہ کیا',
   'notification_template.service_request.approval_fallback.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} «{{ record.title }}» کا کوئی فعال منظوری دہندہ نہیں، اس لیے یہ منظوری کے منتظم کا منتظر ہے۔',
   'notification_template.service_request.approval_fallback.in_app':
@@ -792,12 +859,24 @@ export const ur: LabelResource = {
     '{{ record.display_id }} آپ کی منظوری کا منتظر ہے: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'آپ کی منظوری: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_restarted.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کا ایک جواب بدل گیا، اس لیے اس کی منظوری دوبارہ شروع ہوئی۔ آپ کی پچھلی منظوری اور اس کا لنک اب شمار نہیں؛ اگر آپ منظوری دہندہ ہیں تو آپ سے دوبارہ پوچھا جائے گا۔',
+  'notification_template.service_request.approval_restarted.in_app':
+    'تبدیلی کے بعد {{ record.display_id }} کی منظوری دوبارہ شروع ہوئی',
+  'notification_template.service_request.approval_restarted.subject':
+    'منظوری دوبارہ شروع: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approved.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» منظور ہو گئی۔ ہم اب اس پر کام کر رہے ہیں۔',
   'notification_template.service_request.approved.in_app':
     '{{ record.display_id }} منظور ہو گئی: {{ record.title }}',
   'notification_template.service_request.approved.subject':
     'منظور: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.clarification_answered.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" پر آپ کے سوال کا جواب آ گیا ہے۔ جواب پڑھنے اور فیصلہ کرنے کے لیے درخواست کھولیں۔',
+  'notification_template.service_request.clarification_answered.in_app':
+    '{{ record.display_id }} پر آپ کے سوال کا جواب آ گیا',
+  'notification_template.service_request.clarification_answered.subject':
+    'جواب آ گیا: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.fulfilled.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ کی درخواست {{ record.display_id }} «{{ record.title }}» مکمل ہو گئی۔ براہ کرم تصدیق کریں کہ آپ کو مل گئی، یا بتائیں اگر کچھ رہ گیا ہو۔',
   'notification_template.service_request.fulfilled.in_app':
@@ -914,6 +993,10 @@ export const ur: LabelResource = {
   'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
   'notification_variable.custom_field.direction': 'اپنی مرضی کا خانہ › کیا چل رہا تھا',
   'notification_variable.custom_field.name': 'اپنی مرضی کا خانہ › نام',
+  'notification_variable.delegation.delegate': 'نائب',
+  'notification_variable.delegation.delegator': 'تفویض کرنے والا منظوری دہندہ',
+  'notification_variable.delegation.ends_at': 'تفویض کا اختتام',
+  'notification_variable.delegation.starts_at': 'تفویض کا آغاز',
   'notification_variable.holder.name': 'حامل › نام',
   'notification_variable.holdings.assets': 'ہولڈنگز › اثاثے',
   'notification_variable.holdings.count': 'ہولڈنگز › تعداد',

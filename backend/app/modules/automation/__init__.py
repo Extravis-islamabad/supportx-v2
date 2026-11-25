@@ -27,7 +27,7 @@ from app.modules.automation.domain.rules import (
     RulesOutcome,
     TraceLine,
 )
-from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
+from app.modules.automation.domain.triggers import WORK_ITEM_EVENTS, People, Relative, TriggerEvent
 from app.modules.automation.events import (
     EVENTS,
     WorkflowCommandFinished,
@@ -88,6 +88,7 @@ from app.modules.automation.service.transitions import refusal as transition_ref
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.modules.automation.service.usage import register_usage_checks
 from app.modules.automation.service.workflow_events import command_finished
+from app.modules.automation.service.workflow_runtime import start_workflow, workflow_problem
 from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
@@ -169,6 +170,7 @@ module = ModuleSpec(
 
 __all__ = [
     "TRANSITION_NOT_FOR_YOU",
+    "WORK_ITEM_EVENTS",
     "Applier",
     "AssignmentChoice",
     "AssignmentResult",
@@ -210,8 +212,10 @@ __all__ = [
     "register_record_type",
     "route_record",
     "run_business_rules",
+    "start_workflow",
     "step_owner",
     "transition_audience",
     "transition_refusal",
     "transition_settings",
+    "workflow_problem",
 ]

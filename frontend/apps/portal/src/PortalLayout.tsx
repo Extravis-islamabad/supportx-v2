@@ -38,6 +38,8 @@ const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
     feature: 'service_request',
   },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
+  // WP-047a S5: fulfilment tasks given to someone outside the desk (REQ-SR-050).
+  { path: '/tasks', labelKey: 'portal.tasks.title', feature: 'service_request' },
   // WP-045d S4a: the changes a requester raised (REQ-CHG-109).
   { path: '/changes', labelKey: 'portal.changes.title', feature: 'change' },
   { path: '/catalog', labelKey: 'nav.catalog' },
@@ -72,15 +74,19 @@ export function PortalLayout() {
   // The catalog changed (WP-031: an item published or retired, a category, the settings): the
   // catalog pages refetch what the requester may see, live (§8).
   const queryClient = useQueryClient();
-  useTenantChannel((event) => {
-    if (event.type === 'service_catalog.changed') {
-      void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
-    }
-    // WP-032 D8: a portal setting changed: open portals take it at once (REQ-PRT-031 AC2).
-    if (event.type === 'work_items.portal_settings_changed') {
-      void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed both already (§8.3)
+      if (event.type === 'service_catalog.changed') {
+        void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+      }
+      // WP-032 D8: a portal setting changed: open portals take it at once (REQ-PRT-031 AC2).
+      if (event.type === 'work_items.portal_settings_changed') {
+        void queryClient.invalidateQueries({ queryKey: portalSettingsKey });
+      }
+    },
+    { covers: [catalogKeys.all, portalSettingsKey] },
+  );
   if (session === undefined || session === null) return null;
   return (
     <Layout style={{ minHeight: '100vh' }}>

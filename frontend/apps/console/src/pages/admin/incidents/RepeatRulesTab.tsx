@@ -100,11 +100,14 @@ function Rules() {
     shown: string;
   } | null>(null);
   const [problems, setProblems] = useState<Record<string, string>>({});
-  useTenantChannel((event) => {
-    if (event.type === 'work_items.problem_repeats_changed') {
-      void queryClient.invalidateQueries({ queryKey: problemKeys.repeatRules });
-    }
-  });
+  useTenantChannel(
+    (event) => {
+      if (event.covered !== true && event.type === 'work_items.problem_repeats_changed') {
+        void queryClient.invalidateQueries({ queryKey: problemKeys.repeatRules });
+      }
+    },
+    { covers: [problemKeys.repeatRules] },
+  );
   const groupName = (id: string | null) =>
     id === null
       ? t('repeat_rules.their_group')

@@ -201,3 +201,11 @@ def scheduled(verified_by: str | None, *, multi_tenant: bool) -> bool:
     that turns multi-tenant later must not keep routing hand-verified domains with no DNS proof.
     """
     return multi_tenant or verified_by != "manual"
+
+
+class DnsUnreachable(Exception):
+    """DNS could not be asked (a timeout, a refused query, no server answering)."""
+
+
+class DnsCheckUnavailable(DnsUnreachable):
+    """No resolver is configured on this host (an air-gapped install): never a network fault."""

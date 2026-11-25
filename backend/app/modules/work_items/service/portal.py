@@ -13,7 +13,7 @@ two permissions of the work-item engine, not of one type, so service requests us
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -48,6 +48,7 @@ from app.modules.work_items.domain.portal import (
     requester_fields,
     unfillable,
 )
+from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.templates import rules_from_json
 from app.modules.work_items.domain.types import (
     INCIDENT,
@@ -180,6 +181,9 @@ class PortalRecord:
     status: PortalStatus
     # The problem behind it, in the requester's words only (REQ-PRB-075, WP-044c D15).
     known_problem: KnownProblem | None = None
+    # A service request's answers to the questions its requester sees, and no others (WP-047a
+    # S1, the coordinator's condition 2): filtered here, on the server, for every portal read.
+    answers: Mapping[str, Any] = field(default_factory=dict)
 
     def values(self) -> dict[str, Any]:
         """Only the allowed fields (the allow-list, D1), plus the portal status."""
@@ -223,6 +227,15 @@ async def _shape(
     # The expected resolution time, only if the tenant shows it (REQ-INC-147, D5).
     shown = DUE_TIME if records and await _shows_due_time(session, records[0].type) else frozenset()
     causes = await _known_problems(session, [r.id for r in records])
+    item_ids = [r.catalog_item_id for r in records if r.catalog_item_id is not None]
+    theirs = await service_catalog.requester_question_keys(session, item_ids)
+    # WP-047a S4 (REQ-SR-043 AC2): an approver sees the item's approver questions, never the
+    # requester's set; a question hidden from approvers is absent (default deny).
+    approvers = (
+        await service_catalog.approver_question_keys(session, item_ids)
+        if reach is PortalReach.APPROVER
+        else {}
+    )
     out: list[PortalRecord] = []
     for record in records:
         found_reach = reach or reaches(seen_by, _facts(record))
@@ -236,9 +249,18 @@ async def _shape(
                 requester_fields(found if found is not None else rules_from_json(None)) | shown,
                 portal_status(record.status, StatusCategory(record.status_category)),
                 causes.get(record.id),
+                _answers_for(record, approvers if found_reach is PortalReach.APPROVER else theirs),
             )
         )
     return out
+
+
+def _answers_for(record: WorkItem, theirs: Mapping[uuid.UUID, frozenset[str]]) -> dict[str, Any]:
+    """The answers whose question the viewer sees (default deny: none without the item)."""
+    if record.catalog_item_id is None:
+        return {}
+    keys = theirs.get(record.catalog_item_id, frozenset())
+    return {k: v for k, v in (record.answers or {}).items() if k in keys}
 
 
 async def _known_problems(
@@ -453,9 +475,9 @@ async def conversation(
     session: AsyncSession, subject: Subject, record_id: uuid.UUID, wtype: WorkItemType = INCIDENT
 ) -> list[PublicEntry]:
     """Public entries only, oldest first (the newest CONVERSATION_MAX); private notes never."""
-    found = await get_record(session, subject, record_id, wtype)
-    if found.reach is PortalReach.APPROVER:
-        return []  # an approver sees what is asked, not the requester's talk with the desk
+    found = await get_record(session, subject, record_id, wtype)  # 404 out of reach
+    # WP-047a S4 (REQ-SR-043): an approver sees the public conversation too (what was asked and
+    # answered in the open), never a private note: the same public-only query as the requester.
     # WP-046b S2: incidents merged into this one bring their public entries (never private
     # notes); their requesters stay nameless here, so neither requester learns about the other.
     merged = (
@@ -594,3 +616,89 @@ async def planned_window(
         )
     )
     return (row.scheduled_start, row.scheduled_end) if row is not None else (None, None)
+
+
+async def request_again(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID
+) -> service_catalog.AgainForm:
+    """Request again on one of the requester's own past requests (REQ-SR-016; Essentials).
+
+    Out of reach is 404; in reach but someone else's (a department or reports reach) is 403,
+    which reveals nothing they cannot already see. The answers are the record's own,
+    then fitted to the item's form as it is now by the catalogue (`request_again`): it keeps
+    only the requester's questions and names only questions the form no longer has.
+    """
+    found = await get_record(session, subject, record_id, SERVICE_REQUEST)
+    if found.reach is not PortalReach.OWN:
+        raise PermissionDenied(params={"permission": CREATE, "reason": "no_permission"})
+    if found.record.catalog_item_id is None:
+        raise NotFound(code="catalog_item_not_found")
+    return await service_catalog.again_form(
+        session, subject, found.record.catalog_item_id, found.record.answers or {}
+    )
+
+
+# --- a request made from mail, missing answers (WP-047a S4; REQ-SR-017 AC2/AC3) ---------------
+
+
+@dataclass(frozen=True)
+class MissingAnswers:
+    """What a request made from mail still needs from its requester (keys only)."""
+
+    catalog_item_id: uuid.UUID
+    keys: tuple[str, ...]  # the requester's required questions still unanswered
+    version: int
+
+
+async def _own_waiting(session: AsyncSession, subject: Subject, record_id: uuid.UUID) -> WorkItem:
+    """The viewer's own request waiting for answers; anything else is 404 (no existence leak)."""
+    record = await session.scalar(_base(SERVICE_REQUEST).where(WorkItem.id == record_id))
+    if (
+        record is None
+        or subject.user_id not in {record.requester_id, record.on_behalf_of_id}
+        or record.approval_status != ApprovalStatus.AWAITING_ANSWERS.value
+        or record.catalog_item_id is None
+    ):
+        raise NotFound(code="work_item_not_found")
+    return record
+
+
+async def missing_answers(
+    session: AsyncSession, subject: Subject, record_id: uuid.UUID
+) -> MissingAnswers:
+    """The questions the completion page asks: only those missing (AC2)."""
+    record = await _own_waiting(session, subject, record_id)
+    assert record.catalog_item_id is not None  # noqa: S101 - checked above
+    item = await service_catalog.request_item(
+        session, subject, record.catalog_item_id, dict(record.answers or {})
+    )
+    keys = tuple(
+        at.removeprefix("answers.")
+        for at, code in item.answer_problems
+        if code == items.REQUIRED and at.startswith("answers.")
+    )
+    return MissingAnswers(record.catalog_item_id, keys, record.version)
+
+
+async def complete_answers(  # noqa: PLR0913 - the answers and their context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record_id: uuid.UUID,
+    answers: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    holders: items.PermissionHolders,
+) -> PortalRecord:
+    """Give the missing answers; the request is then submitted as any other (AC3)."""
+    record = await _own_waiting(session, subject, record_id)
+    await items.answers_completed(
+        session,
+        subject,
+        record,
+        answers,
+        expected_version=expected_version,
+        source=source,
+        holders=holders,
+    )
+    return await get_record(session, subject, record_id, SERVICE_REQUEST)

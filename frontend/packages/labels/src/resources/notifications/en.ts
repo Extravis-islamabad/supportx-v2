@@ -41,9 +41,11 @@ export const en = {
   'notice.sign_in_secret.item_client_secret': 'client secret',
   'notification.open_record': 'Open {{id}}',
   'notification_area.announcement': 'Announcements',
+  'notification_area.approval_delegation': 'Approval delegations',
   'notification_area.asset': 'Assets',
   'notification_area.break_glass': 'Emergency sign-ins',
   'notification_area.change': 'Changes',
+  'notification_area.cmdb_ci': 'Configuration items',
   'notification_area.connector': 'Connectors',
   'notification_area.custom_field': 'Custom fields',
   'notification_area.incident': 'Incidents',
@@ -78,12 +80,17 @@ export const en = {
   'notification_condition_operator.not_in': 'is not one of',
   'notification_event.announcement.ended': 'An announcement you follow ended',
   'notification_event.announcement.updated': 'An announcement you follow was updated',
+  'notification_event.approval_delegation.changed': 'An approval delegation was changed',
+  'notification_event.approval_delegation.ended': 'An approval delegation ended',
+  'notification_event.approval_delegation.set': 'An approval delegation was set',
   'notification_event.asset.ack_disputed': 'Asset disputed by its holder',
   'notification_event.asset.ack_requested': 'Asset given to you: please acknowledge',
   'notification_event.asset.erased_holder_items': 'A person being erased still holds assets',
   'notification_event.asset.loan_due': 'Loan due tomorrow',
   'notification_event.asset.loan_overdue': 'Loan overdue',
   'notification_event.asset.mentioned': 'Mentioned in an asset note',
+  'notification_event.asset.overdue_trash_paused':
+    "The overdue-scan rule's move to trash was paused",
   'notification_event.asset.stock_low': 'Stock at its minimum',
   'notification_event.asset.warranty_expiring': 'Warranty ending soon',
   'notification_event.break_glass.signed_in': 'An emergency administrator signed in',
@@ -109,6 +116,7 @@ export const en = {
   'notification_event.change.status_entered': 'Change entered a status',
   'notification_event.change.submitted': 'Change submitted',
   'notification_event.change.window_reminder': 'Change window starts soon',
+  'notification_event.cmdb_ci.state_changed': "A configuration item's state changed",
   'notification_event.connector.failing': 'Connector stopped working',
   'notification_event.connector.recovered': 'Connector works again',
   'notification_event.custom_field.seal_paused': "Sealing a sensitive field's values has paused",
@@ -166,9 +174,16 @@ export const en = {
   'notification_event.security.new_device': 'A sign-in from a new browser or device',
   'notification_event.security.password_changed': 'Your password was changed',
   'notification_event.service_account.needs_owner': 'A service account needs a new owner',
+  'notification_event.service_request.answers_needed': 'Request from email: answers needed',
+  'notification_event.service_request.answers_needed_no_access':
+    'Request from email: answers needed, no portal access',
+  'notification_event.service_request.approval_decided_by_mail': 'Approval decided by email reply',
   'notification_event.service_request.approval_fallback': 'Approval waiting for the administrators',
   'notification_event.service_request.approval_requested': 'Approval requested',
+  'notification_event.service_request.approval_restarted': "A request's approval started again",
   'notification_event.service_request.approved': 'Request approved',
+  'notification_event.service_request.clarification_answered':
+    'Your question on a request was answered',
   'notification_event.service_request.fulfilled': 'Request fulfilled',
   'notification_event.service_request.public_reply': 'Reply to the requester',
   'notification_event.service_request.ready_to_fulfil': 'Request ready to fulfil',
@@ -212,8 +227,11 @@ export const en = {
   'notification_recipient.cab_member': 'The CAB member waiting to decide',
   'notification_recipient.change_manager': 'Change manager',
   'notification_recipient.change_owner': 'Change owner',
+  'notification_recipient.ci_owner': 'Configuration item owner',
   'notification_recipient.connector_admins': 'People who set up this connector',
   'notification_recipient.custom_field_admins': 'Those who manage custom fields',
+  'notification_recipient.delegate': 'The delegate',
+  'notification_recipient.delegator': 'The approver who delegated',
   'notification_recipient.escalation_recipients': "The escalation level's recipients",
   'notification_recipient.followers': 'Followers',
   'notification_recipient.group': 'Group members',
@@ -225,15 +243,18 @@ export const en = {
   'notification_recipient.loan_creator': 'The person who made the loan',
   'notification_recipient.mail_admins': 'People who manage mailboxes',
   'notification_recipient.major_team': 'Major incident team',
+  'notification_recipient.managed_by_group': 'Managed-by group',
   'notification_recipient.mentioned': 'People mentioned',
   'notification_recipient.new_follower': 'The new follower',
   'notification_recipient.new_investigator': 'The investigator added',
   'notification_recipient.on_behalf_of': 'Person it is for',
   'notification_recipient.other_tenant_admins': 'The other tenant administrators',
   'notification_recipient.owner': 'Article owner',
+  'notification_recipient.owner_group': 'Owner group',
   'notification_recipient.previous_assignee': 'Previous technician',
   'notification_recipient.requester': 'Requester',
   'notification_recipient.reviewer': 'Reviewer',
+  'notification_recipient.rule_fixers': 'People who may delete and configure assets',
   'notification_recipient.schedule_owner': "The schedule's owner",
   'notification_recipient.step_owner': "The rule's owner (else its administrators)",
   'notification_recipient.stock_watchers': "The minimum's people",
@@ -274,6 +295,22 @@ export const en = {
     'Hello {{ recipient.name }},\n\nThe announcement "{{ record.title }}" that you follow has been updated.',
   'notification_template.announcement.updated.in_app': 'Updated: {{ record.title }}',
   'notification_template.announcement.updated.subject': 'Updated: {{ record.title }}',
+  'notification_template.approval_delegation.changed.body':
+    "Hello {{ recipient.name }},\n\nThe delegation of {{ delegation.delegator }}'s approvals now runs from {{ delegation.starts_at }} to {{ delegation.ends_at }}, to {{ delegation.delegate }}.",
+  'notification_template.approval_delegation.changed.in_app':
+    "Delegation of {{ delegation.delegator }}'s approvals changed",
+  'notification_template.approval_delegation.changed.subject': 'Approval delegation changed',
+  'notification_template.approval_delegation.ended.body':
+    "Hello {{ recipient.name }},\n\nThe delegation of {{ delegation.delegator }}'s approvals to {{ delegation.delegate }} has ended. Approvals still waiting are back with {{ delegation.delegator }}.",
+  'notification_template.approval_delegation.ended.in_app':
+    "Delegation of {{ delegation.delegator }}'s approvals ended",
+  'notification_template.approval_delegation.ended.subject': 'Approval delegation ended',
+  'notification_template.approval_delegation.set.body':
+    'Hello {{ recipient.name }},\n\nFrom {{ delegation.starts_at }} to {{ delegation.ends_at }}, new request approvals for {{ delegation.delegator }} go to {{ delegation.delegate }}. {{ delegation.delegator }} can still decide them.',
+  'notification_template.approval_delegation.set.in_app':
+    'Approvals of {{ delegation.delegator }} go to {{ delegation.delegate }} until {{ delegation.ends_at }}',
+  'notification_template.approval_delegation.set.subject':
+    'Approvals delegated to {{ delegation.delegate }}',
   'notification_template.asset.ack_disputed.body':
     'Hello {{ recipient.name }},\n\n{{ holder.name }} disputed {{ record.display_id }} "{{ record.title }}": {{ acknowledgement.comment }}',
   'notification_template.asset.ack_disputed.in_app':
@@ -306,6 +343,12 @@ export const en = {
     '{{ conversation.author }} mentioned you on {{ record.display_id }}',
   'notification_template.asset.mentioned.subject':
     'You were mentioned on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.asset.overdue_trash_paused.body':
+    'Hello {{ recipient.name }},\nThe overdue-scan rule is set to move assets to the trash, but the person who last saved it may no longer delete assets, so it was switched off before trashing anything. Someone with asset delete must save it again to turn it back on. {{ record.link }}',
+  'notification_template.asset.overdue_trash_paused.in_app':
+    "The overdue-scan rule's move to trash is paused: someone with asset delete must save it again",
+  'notification_template.asset.overdue_trash_paused.subject':
+    'The overdue-scan rule was paused before moving assets to the trash',
   'notification_template.asset.stock_low.body':
     'Hello {{ recipient.name }},\n\nStock of {{ record.title }} has fallen to {{ stock.quantity }}, at or below its minimum of {{ stock.minimum }}.',
   'notification_template.asset.stock_low.in_app':
@@ -454,6 +497,12 @@ export const en = {
     '{{ record.display_id }} starts at {{ window.start }}: {{ record.title }}',
   'notification_template.change.window_reminder.subject':
     'Starts soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.cmdb_ci.state_changed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now {{ record.status }}.\n\n{{ record.link }}',
+  'notification_template.cmdb_ci.state_changed.in_app':
+    '{{ record.display_id }} is now {{ record.status }}',
+  'notification_template.cmdb_ci.state_changed.subject':
+    '{{ record.display_id }} {{ record.title }}: now {{ record.status }}',
   'notification_template.connector.failing.body':
     'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
   'notification_template.connector.failing.in_app':
@@ -775,6 +824,24 @@ export const en = {
     '{{ record.title }} needs a new owner',
   'notification_template.service_account.needs_owner.subject':
     '{{ record.title }} needs a new owner',
+  'notification_template.service_request.answers_needed.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" as {{ record.display_id }}. Before it can go ahead, please answer a few questions: {{ record.link }}',
+  'notification_template.service_request.answers_needed.in_app':
+    '{{ record.display_id }} needs a few answers before it can go ahead',
+  'notification_template.service_request.answers_needed.subject':
+    'Your request {{ record.display_id }} needs a few answers',
+  'notification_template.service_request.answers_needed_no_access.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" as {{ record.display_id }}. It needs a few more details before it can go ahead. Your service desk can complete them with you, or give you access to the self-service portal to answer them yourself.',
+  'notification_template.service_request.answers_needed_no_access.in_app':
+    '{{ record.display_id }} needs a few answers before it can go ahead',
+  'notification_template.service_request.answers_needed_no_access.subject':
+    'Your request {{ record.display_id }} needs a few answers',
+  'notification_template.service_request.approval_decided_by_mail.body':
+    'Hello {{ recipient.name }},\n\nYour approval on {{ record.display_id }} "{{ record.title }}" was decided by a reply to its email. If you did not send that reply, tell your service desk now.',
+  'notification_template.service_request.approval_decided_by_mail.in_app':
+    'Your email reply decided your approval on {{ record.display_id }}',
+  'notification_template.service_request.approval_decided_by_mail.subject':
+    'Your email reply decided an approval on {{ record.display_id }}',
   'notification_template.service_request.approval_fallback.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has no active approver, so it waits for an approval administrator.',
   'notification_template.service_request.approval_fallback.in_app':
@@ -787,12 +854,24 @@ export const en = {
     '{{ record.display_id }} waits for your approval: {{ record.title }}',
   'notification_template.service_request.approval_requested.subject':
     'Your approval: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.approval_restarted.body':
+    'Hello {{ recipient.name }},\n\nAn answer on {{ record.display_id }} "{{ record.title }}" changed, so its approval started again. Your earlier approval and its link no longer count; you\'ll be asked again if you\'re an approver.',
+  'notification_template.service_request.approval_restarted.in_app':
+    'Approval of {{ record.display_id }} started again after a change',
+  'notification_template.service_request.approval_restarted.subject':
+    'Approval started again: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.approved.body':
     'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" was approved. We are working on it now.',
   'notification_template.service_request.approved.in_app':
     '{{ record.display_id }} was approved: {{ record.title }}',
   'notification_template.service_request.approved.subject':
     'Approved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.service_request.clarification_answered.body':
+    'Hello {{ recipient.name }},\n\nYour question on {{ record.display_id }} "{{ record.title }}" was answered. Open the request to read the answer and decide.',
+  'notification_template.service_request.clarification_answered.in_app':
+    'Your question on {{ record.display_id }} was answered',
+  'notification_template.service_request.clarification_answered.subject':
+    'Answered: {{ record.display_id }} {{ record.title }}',
   'notification_template.service_request.fulfilled.body':
     'Hello {{ recipient.name }},\n\nYour request {{ record.display_id }} "{{ record.title }}" is done. Please confirm you received it, or tell us if something is missing.',
   'notification_template.service_request.fulfilled.in_app':
@@ -910,6 +989,10 @@ export const en = {
   'notification_variable.conversation.excerpt': 'Reply or note › Text',
   'notification_variable.custom_field.direction': 'Custom field › What was running',
   'notification_variable.custom_field.name': 'Custom field › Name',
+  'notification_variable.delegation.delegate': 'Delegate',
+  'notification_variable.delegation.delegator': 'Delegating approver',
+  'notification_variable.delegation.ends_at': 'Delegation end',
+  'notification_variable.delegation.starts_at': 'Delegation start',
   'notification_variable.holder.name': 'Holder › Name',
   'notification_variable.holdings.assets': 'Holdings › Assets',
   'notification_variable.holdings.count': 'Holdings › Count',

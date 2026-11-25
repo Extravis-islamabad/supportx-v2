@@ -21,7 +21,15 @@ from app.core.config import Settings, get_settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.audit import WORKER, record
+from app.modules.audit import (
+    WORKER,
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogObject,
+    SystemLogSeverity,
+    record,
+    record_system,
+)
 from app.modules.licensing import LimitKey, check_limit
 from app.shared.events import EventEnvelope
 from app.shared.files.domain.states import FileState
@@ -89,11 +97,33 @@ async def storage_gb_used(session: AsyncSession) -> int:
 # --- worker --------------------------------------------------------------------------------------
 
 
+async def _system_log(session: AsyncSession, outcome: scanning.ScanOutcome) -> None:
+    """A blocked or unscannable file goes in the tenant's system log too (REQ-AUD-016)."""
+    codes = {
+        FileState.INFECTED: (SystemLogCode.FILES_SCAN_INFECTED, SystemLogSeverity.WARNING),
+        FileState.SCAN_FAILED: (SystemLogCode.FILES_SCAN_FAILED, SystemLogSeverity.ERROR),
+    }
+    found = codes.get(outcome.state)
+    if found is None:
+        return
+    code, severity = found
+    await record_system(
+        session,
+        SystemLogEntryIn(
+            module="files",
+            code=code,
+            severity=severity,
+            about=SystemLogObject("file", outcome.file_id),
+        ),
+    )
+
+
 async def on_file_uploaded(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """Consumer: scan a new file (and write the audit entry when it is blocked)."""
     assert session is not None  # noqa: S101 - transactional consumer
     file_id = uuid.UUID(str(envelope.payload["file_id"]))
     outcome = await scanning.scan(session, services(), file_id)
+    await _system_log(session, outcome)
     if outcome.state == FileState.INFECTED:
         _blocked.add(1)
         await record(
@@ -128,6 +158,7 @@ async def scan_sweep(database: Database, settings: Settings) -> None:
 async def _scan_one(database: Database, tenant: uuid.UUID, file_id: uuid.UUID) -> None:
     async with database.tenant_session(TenantContext(tenant)) as session:
         outcome = await scanning.scan(session, services(), file_id)
+        await _system_log(session, outcome)
         if outcome.state == FileState.INFECTED:
             _blocked.add(1)
             await record(

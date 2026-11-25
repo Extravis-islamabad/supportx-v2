@@ -38,9 +38,14 @@ export function ArchivesTab() {
   const restore = useRestoreAuditArchive();
   const [open, setOpen] = useState<AuditArchive | null>(null);
   const queryClient = useQueryClient();
-  useListChannel('audit', () => {
-    refreshList(queryClient, queryKeys.audit.archives);
-  });
+  useListChannel(
+    'audit',
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      refreshList(queryClient, queryKeys.audit.archives);
+    },
+    { covers: [queryKeys.audit.archives] },
+  );
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>

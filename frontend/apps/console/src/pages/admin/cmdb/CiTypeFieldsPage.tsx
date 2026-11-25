@@ -29,11 +29,15 @@ export function CiTypeFieldsPage() {
   const { typeId = '' } = useParams();
   const types = useCiTypes();
   const queryClient = useQueryClient();
-  useTenantChannel((message) => {
-    if (message.type === 'cmdb.config_changed' || message.type === 'refresh') {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered === true) return; // a refresh: `covers` refetched it
+      if (message.type === 'cmdb.config_changed') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cmdb.all });
+      }
+    },
+    { covers: [queryKeys.cmdb.all] },
+  );
   if (!can('cmdb.configure')) return <NoAccess titleKey="nav.admin_cmdb" />;
   const items = types.data?.items ?? [];
   const byId = new Map(items.map((x): [string, CiType] => [x.id, x]));

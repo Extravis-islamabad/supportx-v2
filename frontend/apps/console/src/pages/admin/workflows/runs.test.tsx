@@ -143,6 +143,28 @@ describe('console: workflow runs', () => {
     });
   });
 
+  it('a channel refresh (first-subscribe catch-up, §8.3) refetches the runs', async () => {
+    // The handler filters on message types: before, a `refresh` matched none and was dropped.
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    window.history.pushState({}, '', '/admin/workflows/runs');
+    const fake = api();
+    render(<App />);
+    await within(await screen.findByTestId('runs-table')).findByText('Core switch down');
+    await waitFor(() => {
+      expect(realtime.channels()).toContain(CHANNEL);
+    });
+    const before = fake.find('GET', '/api/v1/automation/workflows/instances').length;
+    act(() => {
+      realtime.publish(CHANNEL, { type: 'refresh', ids: [] });
+    });
+    await waitFor(() => {
+      expect(fake.find('GET', '/api/v1/automation/workflows/instances').length).toBeGreaterThan(
+        before,
+      );
+    });
+  });
+
   it('cancelling asks why and sends the reason', async () => {
     window.history.pushState({}, '', '/admin/workflows/runs');
     const fake = api({

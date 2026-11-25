@@ -105,6 +105,7 @@ import { ViewEditor } from './list/ViewEditor';
 import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 import { searchOf } from './searchOf';
 import { restoredStanding } from './slaWords';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -134,6 +135,7 @@ const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'acce
  */
 export function IncidentsPage() {
   const t = useLabel();
+  const hiddenPerson = useHiddenPersonLabel();
   const navigate = useNavigate();
   const dates = useDateTime();
   const { can } = useAccess();
@@ -310,29 +312,52 @@ export function IncidentsPage() {
   const groupNames = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
 
   const queryClient = useQueryClient();
+  // The lists, the views' counts and the counters: what `refreshLists` refetches.
+  const listKeys = [
+    [...queryKeys.incidents.all, 'list'],
+    queryKeys.incidents.views,
+    queryKeys.incidents.counters,
+  ] as const;
   const refreshLists = () => {
-    refreshList(queryClient, [...queryKeys.incidents.all, 'list']);
-    refreshList(queryClient, queryKeys.incidents.views);
-    refreshList(queryClient, queryKeys.incidents.counters);
+    for (const key of listKeys) refreshList(queryClient, key);
   };
-  useListChannel(allowed ? 'incidents' : null, (message) => {
-    refreshLists();
-    for (const id of message.ids) {
-      refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
-    }
-  });
+  useListChannel(
+    allowed ? 'incidents' : null,
+    (message) => {
+      if (message.covered === true) return;
+      refreshLists();
+      for (const id of message.ids) {
+        refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
+      }
+    },
+    { covers: listKeys },
+  );
   // A bulk job's batch: one refresh for the whole batch (REQ-INC-120), not one per record.
   useBulkRefresh('incident', refreshLists);
-  useTenantChannel((message) => {
-    if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
-  });
-  usePersonalChannel((message) => {
-    if (MY_COUNTS_CHANGED.has(message.type)) refreshLists();
-    if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
-    if (message.type === SETTINGS_CHANGED && message.ids.includes(settingKey)) {
-      refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
-    }
-  });
+  useTenantChannel(
+    (message) => {
+      if (message.covered !== true && message.type === VIEWS_CHANGED)
+        refreshList(queryClient, queryKeys.incidents.savedViews);
+    },
+    { covers: [queryKeys.incidents.savedViews] },
+  );
+  usePersonalChannel(
+    (message) => {
+      if (message.covered === true) return;
+      if (MY_COUNTS_CHANGED.has(message.type)) refreshLists();
+      if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
+      if (message.type === SETTINGS_CHANGED && message.ids.includes(settingKey)) {
+        refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
+      }
+    },
+    {
+      covers: [
+        ...listKeys,
+        queryKeys.incidents.savedViews,
+        queryKeys.incidents.listSetting(settingKey),
+      ],
+    },
+  );
   const listKey = JSON.stringify([view, filter ?? null, trash]);
   const selection: Selection = picked.list === listKey ? picked : { ids: [], all: false };
   const setSelection = (next: Selection) => {
@@ -386,6 +411,7 @@ export function IncidentsPage() {
     groupNames,
     locale,
     list: listFormat,
+    hiddenPerson,
   };
   const current = sortOf(sort);
   // REQ-INC-107 AC1: starred views first (yours only), then yours and those shared with you.

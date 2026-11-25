@@ -19,6 +19,7 @@ import {
   StickySaveBar,
   useAppearance,
   useLabel,
+  useMinWidth,
   lengthLimit,
 } from '@supportx/ui';
 
@@ -28,6 +29,8 @@ import { numberProblem } from '../../../numbers';
 import { Problems } from './shared';
 import { RowColourCard, ViewAuditCard } from './ListDisplayCards';
 
+const CANCEL_MODES = ['off', 'direct', 'ask'] as const;
+type CancelMode = (typeof CANCEL_MODES)[number];
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
@@ -70,7 +73,7 @@ interface General {
   mailFields: string[];
   ccFromMail: boolean;
   // WP-046b S5 (REQ-INC-148): what a requester may do after submitting.
-  cancelMode: 'off' | 'direct' | 'ask';
+  cancelMode: CancelMode;
   editFields: string[];
 }
 
@@ -107,6 +110,11 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, byField, clear } = useSettingsSave();
+  const wideEnough = useMinWidth(576); // antd's sm: below it the cancel choice is a Select
+  const cancelOptions = CANCEL_MODES.map((value) => ({
+    value,
+    label: t(`requester_cancel.${value}`),
+  }));
   // Mailboxes make incidents: the mail settings are theirs only.
   const incidents = useSettingsBase() === 'incidents';
   const saved = savedOf(catalogue);
@@ -340,18 +348,30 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               <Typography.Text strong id="settings-requester-cancel-label">
                 {t('settings.requester_cancel')}
               </Typography.Text>
-              <Segmented<'off' | 'direct' | 'ask'>
-                aria-labelledby="settings-requester-cancel-label"
-                value={draft.cancelMode}
-                onChange={(cancelMode) => {
-                  set({ cancelMode });
-                }}
-                options={(['off', 'direct', 'ask'] as const).map((value) => ({
-                  value,
-                  label: t(`requester_cancel.${value}`),
-                }))}
-                data-testid="settings-requester-cancel"
-              />
+              {/* Three long choices: 594 px as a Segmented, so a phone gets a Select with the same
+                  values, labels and order (qa-wp020c BUG-03 at 390 px; lane A's choice). */}
+              {wideEnough ? (
+                <Segmented<CancelMode>
+                  aria-labelledby="settings-requester-cancel-label"
+                  value={draft.cancelMode}
+                  onChange={(cancelMode) => {
+                    set({ cancelMode });
+                  }}
+                  options={cancelOptions}
+                  data-testid="settings-requester-cancel"
+                />
+              ) : (
+                <Select<CancelMode>
+                  aria-labelledby="settings-requester-cancel-label"
+                  value={draft.cancelMode}
+                  onChange={(cancelMode) => {
+                    set({ cancelMode });
+                  }}
+                  options={cancelOptions}
+                  style={{ width: '100%' }}
+                  data-testid="settings-requester-cancel"
+                />
+              )}
             </Flex>
             <Flex vertical gap={4}>
               <Typography.Text strong id="settings-requester-edit-label">

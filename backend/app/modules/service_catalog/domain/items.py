@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from app.shared.conditions import condition_problems
+
 LANGUAGES = ("en", "ar", "ur")
 NAME_MAX = 120
 TEXT_MAX = 2000  # a short answer
@@ -82,10 +84,35 @@ MAX_ATTACHMENTS = 10
 
 
 class ApproverKind(StrEnum):
-    """Who decides a stage (REQ-SR-022): a named person, or the requested-for person's manager."""
+    """Who decides a stage (REQ-SR-022, -031), relative to the requested-for person or named.
+
+    Each resolves to people when the stage opens; one that resolves to nobody falls back to
+    the approval administrators, recorded (REQ-SR-023; WP-047a S2 condition 3).
+    """
 
     PERSON = "person"
     REQUESTED_FOR_MANAGER = "requested_for_manager"
+    # WP-047a S2a (REQ-SR-031): Professional (`catalog`, D-133).
+    MANAGER_OF_MANAGER = "manager_of_manager"
+    DEPARTMENT_HEAD = "department_head"  # the requested-for person's department's head
+    GROUP_LEADS = "group_leads"  # the request's group's team leads (D-152)
+    GROUP = "group"  # every member of a named group who may approve
+    PERSON_ANSWER = "person_answer"  # the person a "person" question's answer names
+    ASSET_OWNER = "asset_owner"  # the holder of the asset(s) the request is about
+    CI_OWNER = "ci_owner"  # the owner of the CI(s) the request is about (person or group)
+
+
+class StageRule(StrEnum):
+    """How a stage's approvers decide it (REQ-SR-029; the level engine's rules).
+
+    "First decision" is `any` (the coordinator's Q5): the first approval approves, a rejection
+    rejects. Majority ties follow the tenant's tie rule (D-146: a tie rejects unless the chair
+    decides it).
+    """
+
+    ANY = "any"
+    ALL = "all"
+    MAJORITY = "majority"
 
 
 Problem = tuple[str, str]  # (field path, code)
@@ -106,6 +133,9 @@ class Question:
     help: Mapping[str, str] = field(default_factory=dict)
     default: Any = None
     shown_to: frozenset[QuestionAudience] = frozenset(QuestionAudience)
+    # WP-047a S3b (REQ-SR-041, Essentials): a change to this answer after submitting restarts the
+    # request's approval from its first stage.
+    restarts_approval: bool = False
 
     def as_json(self) -> dict[str, Any]:
         """For the item's JSON column."""
@@ -119,15 +149,18 @@ class Question:
             "help": dict(self.help),
             "default": self.default,
             "shown_to": sorted(a.value for a in self.shown_to),
+            **({"restarts_approval": True} if self.restarts_approval else {}),
         }
 
 
 @dataclass(frozen=True)
 class Approver:
-    """One approver of a stage."""
+    """One approver of a stage: a kind and what it names (a person, a group or a question)."""
 
     kind: ApproverKind
     person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None  # GROUP
+    question_key: str | None = None  # PERSON_ANSWER: a "person" question of the form
 
 
 @dataclass(frozen=True)
@@ -138,17 +171,111 @@ class ApprovalStage:
     backup_id: uuid.UUID | None = None  # REQ-SR-023: before the approval administrators
     comments_required: bool = False  # REQ-SR-028
     self_approval: bool = False  # REQ-SR-027: off = segregation of duties
+    # WP-047a S2a: how it is decided (REQ-SR-029), the stages it runs with (REQ-SR-030: the
+    # same group opens together), and when it applies at all (REQ-SR-032: the shared DSL over
+    # the answers and the quantity; None: always).
+    rule: StageRule = StageRule.ANY
+    parallel_group: str | None = None
+    condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): whether someone who approved an earlier stage of the same
+    # request is not asked again (None: the tenant's setting decides), and the rules that
+    # approve the stage at once when one holds.
+    auto_earlier: bool | None = None
+    auto_rules: Sequence["AutoRule"] = ()
+    # WP-047a S3a (REQ-SR-034, Essentials): where the approval goes after its last reminder.
+    escalate_to: "EscalationTarget" = field(default_factory=lambda: EscalationTarget.BACKUP)
+
+
+class EscalationTarget(StrEnum):
+    """Where a stage's pending approval goes after its last reminder (REQ-SR-034).
+
+    The primary approver keeps their approval as well (REQ-SR-036 AC2). Nobody there: the
+    approval administrators, recorded (the coordinator's S3 condition 2).
+    """
+
+    BACKUP = "backup"  # the stage's backup approver (the default)
+    APPROVER_MANAGER = "approver_manager"  # the pending approver's own manager
+    FULFILMENT_GROUP = "fulfilment_group"  # the members of the request's group
+    NONE = "none"  # reminders only
+
+
+class RestartOn(StrEnum):
+    """A request value whose change restarts approval (REQ-SR-041), beside marked questions."""
+
+    QUANTITY = "quantity"
+    REQUESTED_FOR = "requested_for"
+
+
+@dataclass(frozen=True)
+class AutoRule:
+    """A rule that approves a stage automatically (WP-047a S2b; REQ-SR-033).
+
+    Its name (per language) is what the record shows: "approved automatically: <name>". Its
+    condition is the shared DSL over the answers, the quantity and `requester_groups` (the
+    groups the requester belongs to: `eq` means "is a member of").
+    """
+
+    name: Mapping[str, str]
+    condition: Mapping[str, Any]
+
+
+class TaskFieldKind(StrEnum):
+    """What a fulfilment task's own field takes (WP-047a S4b/S5; REQ-SR-049)."""
+
+    TEXT = "text"
+    NUMBER = "number"
+    DATE = "date"
+    CHOICE = "choice"
+    PERSON = "person"
+
+
+@dataclass(frozen=True)
+class TaskField:
+    """A value the task's owner fills in, for later steps and the resolution (REQ-SR-049)."""
+
+    key: str
+    label: Mapping[str, str]
+    kind: TaskFieldKind = TaskFieldKind.TEXT
+    required: bool = False
+    options: Sequence[str] = ()  # choice only
+    # Only a field marked so reaches the requester's notices (the coordinator's Q2; off).
+    requester_visible: bool = False
+
+
+class TaskOwnerKind(StrEnum):
+    """Who a plan step's task goes to (WP-047a S5; REQ-SR-050), as S2a's approvers are named."""
+
+    PERSON = "person"  # `owner_id`
+    REQUESTED_FOR_MANAGER = "requested_for_manager"
+    PERSON_ANSWER = "person_answer"  # the person a "person" question names (`question_key`)
+
+
+class PlanStepKind(StrEnum):
+    """An ordinary task, or one that hands over an asset when completed (REQ-SR-056)."""
+
+    TASK = "task"
+    ASSET_HANDOVER = "asset_handover"
 
 
 @dataclass(frozen=True)
 class PlannedTask:
-    """One fulfilment task the plan creates (REQ-SR-046)."""
+    """One fulfilment task the plan creates (REQ-SR-046; WP-047a S5: REQ-SR-047..050, -056)."""
 
     title: Mapping[str, str]
     group_id: uuid.UUID | None = None
     owner_id: uuid.UUID | None = None
     required: bool = True  # REQ-SR-058: the last required one fulfils the request
     internal: bool = False  # REQ-SR-051 AC2: shown to requesters only as "step n of m"
+    # WP-047a S5: a key other steps wait for (REQ-SR-047), and those it waits for.
+    key: str | None = None
+    waits_for: Sequence[str] = ()
+    # REQ-SR-048: made only when this holds (the shared DSL over the answers and the quantity).
+    condition: Mapping[str, Any] | None = None
+    fields: Sequence[TaskField] = ()  # REQ-SR-049
+    # REQ-SR-050: the owner by kind; a person outside the desk gets this task alone.
+    owner_kind: TaskOwnerKind | None = None
+    question_key: str | None = None  # person_answer only
+    kind: PlanStepKind = PlanStepKind.TASK  # REQ-SR-056
 
 
 @dataclass(frozen=True)
@@ -156,12 +283,16 @@ class ItemRules:
     """What an item decides for its requests."""
 
     questions: Sequence[Question] = ()
-    approval: ApprovalStage | None = None
+    approval: ApprovalStage | None = None  # the first stage (as before WP-047a S2a)
     plan: Sequence[PlannedTask] = ()
     technician_after_approval: bool = False  # REQ-SR-008
     count_approval_time: bool = False  # REQ-SR-007: off = the clock waits for approval
     auto_fulfil: bool = True  # REQ-SR-058
     extra: Mapping[str, Any] = field(default_factory=dict)
+    # WP-047a S2a: every stage in order (`approval` is the first); empty: no approval.
+    stages: Sequence[ApprovalStage] = ()
+    # WP-047a S3b (REQ-SR-041): the request's own values whose change restarts approval.
+    restart_on: frozenset["RestartOn"] = frozenset()
 
 
 def name_problems(at: str, names: Mapping[str, str] | None, *, required: bool) -> list[Problem]:
@@ -236,6 +367,92 @@ def _help_problems(at: str, help_text: Mapping[str, str]) -> list[Problem]:
     return found
 
 
+# REQ-SR-029 AC4: requests take up to 10 stages (the coordinator's condition 4); the staged
+# record types keep their own cap (work_items `MAX_LEVELS`, 5).
+MAX_STAGES = 10
+PARALLEL_GROUP = re.compile(r"^[a-z0-9_]{1,40}$")
+_NEEDS_PERSON = frozenset({ApproverKind.PERSON})
+_NAMES_NOTHING = frozenset(
+    {
+        ApproverKind.REQUESTED_FOR_MANAGER,
+        ApproverKind.MANAGER_OF_MANAGER,
+        ApproverKind.DEPARTMENT_HEAD,
+        ApproverKind.GROUP_LEADS,
+        ApproverKind.ASSET_OWNER,
+        ApproverKind.CI_OWNER,
+    }
+)
+
+
+TODAYS_KINDS = frozenset({ApproverKind.PERSON, ApproverKind.REQUESTED_FOR_MANAGER})
+
+
+def uses_stages(stages: Sequence[ApprovalStage]) -> bool:
+    """Whether an approval uses a Professional part of S2a (`catalog`; spec editions, D-133).
+
+    Each part is gated by its own requirement's edition, all Professional:
+    REQ-SR-029 (several stages, or a rule other than `any`), REQ-SR-030 (a parallel group),
+    REQ-SR-031 (an approver kind beyond a named person and the manager), REQ-SR-032 (a
+    condition), REQ-SR-033 (automatic approval: either switch or a rule). Today's single
+    stage stays on every edition (the coordinator's condition 5).
+    """
+    multi_stage = len(stages) > 1 or any(s.rule is not StageRule.ANY for s in stages)  # 029
+    parallel = any(s.parallel_group is not None for s in stages)  # 030
+    kinds = any(a.kind not in TODAYS_KINDS for s in stages for a in s.approvers)  # 031
+    conditional = any(s.condition is not None for s in stages)  # 032
+    automatic = any(s.auto_earlier is not None or s.auto_rules for s in stages)  # 033
+    return multi_stage or parallel or kinds or conditional or automatic
+
+
+def stages_problems(
+    stages: Sequence[ApprovalStage], questions: Sequence[Question]
+) -> list[Problem]:
+    """Every stage's problems, at `approval.stages.<n>` (WP-047a S2a; REQ-SR-029..032).
+
+    At most `MAX_STAGES`; each names its approvers as its kind needs; a person answer names a
+    "person" question of this form; a condition is the shared DSL over the answers and the
+    quantity, checked exactly as form rules are (condition 4).
+    """
+    if len(stages) > MAX_STAGES:
+        return [("approval.stages", "too_many_stages")]
+    person_questions = {q.key for q in questions if q.kind is QuestionKind.PERSON}
+    fields = frozenset({*(q.key for q in questions), "quantity"})
+    found: list[Problem] = []
+    for n, stage in enumerate(stages):
+        at = f"approval.stages.{n}"
+        found += [(p.replace("approval", at, 1), c) for p, c in approval_problems(stage)]
+        for i, a in enumerate(stage.approvers):
+            here = f"{at}.approvers.{i}"
+            if a.kind is ApproverKind.GROUP and a.group_id is None:
+                found.append((f"{here}.group_id", "required"))
+            if a.kind is ApproverKind.PERSON_ANSWER and a.question_key not in person_questions:
+                found.append((f"{here}.question_key", "not_a_person_question"))
+        if stage.parallel_group is not None and not PARALLEL_GROUP.fullmatch(stage.parallel_group):
+            found.append((f"{at}.parallel_group", "invalid_value"))
+        if stage.condition is not None:
+            found += condition_problems(stage.condition, fields, f"{at}.condition")
+        found += _auto_rule_problems(stage.auto_rules, fields | {REQUESTER_GROUPS}, at)
+    return found
+
+
+# WP-047a S2b (REQ-SR-033): what an automatic rule may read beyond the form, and how many.
+REQUESTER_GROUPS = "requester_groups"
+MAX_AUTO_RULES = 5
+
+
+def _auto_rule_problems(
+    auto_rules: Sequence[AutoRule], fields: frozenset[str], at: str
+) -> list[Problem]:
+    if len(auto_rules) > MAX_AUTO_RULES:
+        return [(f"{at}.auto_rules", "too_many_rules")]
+    found: list[Problem] = []
+    for i, rule in enumerate(auto_rules):
+        here = f"{at}.auto_rules.{i}"
+        found += name_problems(f"{here}.name", rule.name, required=True)
+        found += condition_problems(rule.condition, fields, f"{here}.condition")
+    return found
+
+
 def approval_problems(stage: ApprovalStage | None) -> list[Problem]:
     """A stage names at least one approver; a person approver names the person."""
     if stage is None:
@@ -246,30 +463,123 @@ def approval_problems(stage: ApprovalStage | None) -> list[Problem]:
     if len(stage.approvers) > MAX_APPROVERS:
         found.append(("approval.approvers", "too_many_approvers"))
     for i, a in enumerate(stage.approvers):
-        if a.kind is ApproverKind.PERSON and a.person_id is None:
+        if a.kind in _NEEDS_PERSON and a.person_id is None:
             found.append((f"approval.approvers.{i}.person_id", "required"))
-        if a.kind is ApproverKind.REQUESTED_FOR_MANAGER and a.person_id is not None:
+        if a.kind is not ApproverKind.PERSON and a.person_id is not None:
             found.append((f"approval.approvers.{i}.person_id", "not_allowed"))
+        if a.kind in _NAMES_NOTHING and (a.group_id is not None or a.question_key is not None):
+            found.append((f"approval.approvers.{i}", "invalid_value"))
     return found
 
 
-def plan_problems(plan: Sequence[PlannedTask]) -> list[Problem]:
-    """Tasks have a title in English; not too many."""
+MAX_TASK_FIELDS = 10
+
+
+def plan_problems(
+    plan: Sequence[PlannedTask], questions: Sequence["Question"] = ()
+) -> list[Problem]:
+    """Tasks have a title in English; not too many; WP-047a S5's parts each checked.
+
+    Keys are unique; a step waits only for steps that exist, never in a loop (REQ-SR-047); a
+    condition reads the form (REQ-SR-048); at most `MAX_TASK_FIELDS` fields, keys unique, a
+    choice with options (REQ-SR-049); an owner by kind names what it needs (REQ-SR-050).
+    """
     found: list[Problem] = []
     if len(plan) > MAX_TASKS:
         found.append(("plan", "too_many_tasks"))
+    keys = [t.key for t in plan if t.key is not None]
+    fields = frozenset({*(q.key for q in questions), "quantity"})
+    people = {q.key for q in questions if q.kind is QuestionKind.PERSON}
     for i, task in enumerate(plan):
-        found += name_problems(f"plan.{i}.title", task.title, required=True)
+        at = f"plan.{i}"
+        found += name_problems(f"{at}.title", task.title, required=True)
+        if task.key is not None and (not _KEY.fullmatch(task.key) or keys.count(task.key) > 1):
+            found.append((f"{at}.key", "invalid_value"))
+        if task.waits_for and task.key is None:
+            found.append((f"{at}.key", "required"))
+        if any(w not in keys or w == task.key for w in task.waits_for):
+            found.append((f"{at}.waits_for", "invalid_choice"))
+        if task.condition is not None:
+            found += condition_problems(task.condition, fields, f"{at}.condition")
+        found += _task_field_problems(task.fields, at)
+        found += _task_owner_problems(task, people, at)
+    if not found and _has_cycle(plan):
+        found.append(("plan", "plan_waits_in_a_loop"))
     return found
+
+
+def _task_field_problems(fields: Sequence[TaskField], at: str) -> list[Problem]:
+    found: list[Problem] = []
+    if len(fields) > MAX_TASK_FIELDS:
+        return [(f"{at}.fields", "too_many_values")]
+    keys = [f.key for f in fields]
+    for j, one in enumerate(fields):
+        here = f"{at}.fields.{j}"
+        if not _KEY.fullmatch(one.key) or keys.count(one.key) > 1:
+            found.append((f"{here}.key", "invalid_value"))
+        found += name_problems(f"{here}.label", one.label, required=True)
+        if one.kind is TaskFieldKind.CHOICE and not one.options:
+            found.append((f"{here}.options", "required"))
+    return found
+
+
+def _task_owner_problems(task: PlannedTask, people: set[str], at: str) -> list[Problem]:
+    if task.owner_kind is TaskOwnerKind.PERSON and task.owner_id is None:
+        return [(f"{at}.owner_id", "required")]
+    if task.owner_kind is TaskOwnerKind.PERSON_ANSWER and task.question_key not in people:
+        return [(f"{at}.question_key", "not_a_person_question")]
+    return []
+
+
+def _has_cycle(plan: Sequence[PlannedTask]) -> bool:
+    """Whether the steps' `waits_for` loop back (REQ-SR-047: a plan that could never start)."""
+    edges = {t.key: tuple(t.waits_for) for t in plan if t.key is not None}
+    state: dict[str, int] = {}  # 1: on the path, 2: done
+
+    def visit(key: str) -> bool:
+        if state.get(key) == 1:
+            return True
+        if state.get(key) == 2:  # noqa: PLR2004 - the "done" mark
+            return False
+        state[key] = 1
+        looped = any(visit(w) for w in edges.get(key, ()))
+        state[key] = 2
+        return looped
+
+    return any(visit(k) for k in edges)
 
 
 def rules_problems(rules: ItemRules) -> list[Problem]:
     """Everything wrong with an item's rules, at its field."""
+    staged = len(rules.stages) > 1
+    single = [] if staged else list(rules.stages[:1])
     return (
         question_problems(rules.questions)
-        + approval_problems(rules.approval)
-        + plan_problems(rules.plan)
+        + (stages_problems(rules.stages, rules.questions) if staged else [])
+        + ([] if staged else approval_problems(rules.approval))
+        + _single_stage_problems(single, rules.questions)
+        + plan_problems(rules.plan, rules.questions)
     )
+
+
+def _single_stage_problems(
+    single: Sequence[ApprovalStage], questions: Sequence[Question]
+) -> list[Problem]:
+    """A single stage's S2a/S2b parts (kinds, condition, rules), at `approval.<field>`.
+
+    Its approvers are checked by `approval_problems`, as before S2a; only what that leaves out
+    is added here, so a single stage with a condition or a rule is checked like any stage.
+    """
+    if not single:
+        return []
+    prefix = "approval.stages.0"
+    found = stages_problems(single, questions)
+    own = set(approval_problems(single[0]))
+    return [
+        (path.replace(prefix, "approval", 1), code)
+        for path, code in found
+        if (path.replace(prefix, "approval", 1), code) not in own
+    ]
 
 
 def _value_problem(q: Question, value: Any) -> str | None:  # noqa: ANN401, C901, PLR0911 - JSON; one rule per kind
@@ -351,14 +661,19 @@ def answer_problems(
 
 def needs_approval(rules: ItemRules) -> bool:
     """Whether a new request from this item waits for approval (REQ-SR-021)."""
-    return rules.approval is not None and bool(rules.approval.approvers)
+    return any(stage.approvers for stage in rules.stages) or (
+        rules.approval is not None and bool(rules.approval.approvers)
+    )
 
 
 __all__ = [
     "LANGUAGES",
+    "MAX_AUTO_RULES",
+    "REQUESTER_GROUPS",
     "ApprovalStage",
     "Approver",
     "ApproverKind",
+    "AutoRule",
     "ItemAudience",
     "ItemRules",
     "PlannedTask",
@@ -372,3 +687,33 @@ __all__ = [
     "question_problems",
     "rules_problems",
 ]
+
+
+@dataclass(frozen=True)
+class Again:
+    """A past request's answers, as the item's form takes them now (REQ-SR-016)."""
+
+    answers: Mapping[str, Any]
+    dropped: tuple[str, ...]  # answers to questions the form no longer has (AC2)
+
+
+def request_again(questions: Sequence[Question], answers: Mapping[str, Any]) -> Again:
+    """The earlier answers for a new request of the same item (WP-047a S1, REQ-SR-016).
+
+    Kept: answers to the requester's questions the form still has. Attachments are never
+    copied (AC1): the requester adds them again. Dropped and listed (AC2): answers to questions
+    the form no longer has at all. An answer to a question the form still has but not for the
+    requester (a technician's or an approver's) is in neither list: never shown, never named.
+    The record's answers are all the requester's own today (`answer_problems` refuses any other
+    at create); a later answer by staff or an approver must be stored apart (WP-047a S4), so a
+    removed staff question can never be named here.
+    """
+    every = {q.key for q in questions}
+    current = {q.key: q for q in questions if QuestionAudience.REQUESTER in q.shown_to}
+    kept = {
+        key: value
+        for key, value in answers.items()
+        if key in current and current[key].kind is not QuestionKind.ATTACHMENT
+    }
+    dropped = tuple(sorted(key for key in answers if key not in every))
+    return Again(kept, dropped)

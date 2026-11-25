@@ -133,7 +133,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
 
 async def _start_database(app: FastAPI, settings: Settings) -> None:
     """The database, then the key check that must pass before anything reads encrypted data."""
-    app.state.db = Database.from_settings(settings)
+    # The request path: statement and client bounds (the HA smoke's failover); workers keep theirs.
+    app.state.db = Database.from_settings(settings, request_path=True)
     # A key-encryption key removed while it still wraps data keys would leave tenants' files
     # and encrypted fields unreadable: refuse to start, naming only key IDs (ADR-050).
     await check_key_wraps(app.state.db, settings)

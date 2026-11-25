@@ -12,6 +12,7 @@ import pytest
 
 from app.modules.announcements.domain.announcement import PUBLISH_PROBLEMS
 from app.modules.announcements.service.announcements import NO_PERMISSION, NOT_FROM_STATUS
+from app.modules.assets.service.scans import TRASH_NEEDS_ALL
 from app.modules.automation.service.transitions import NOT_FOR_YOU, NOT_OFFERED
 from tests.test_error_labels import label_keys
 
@@ -21,7 +22,14 @@ _SOD_CODE = re.compile(r"SodRule\(\"([a-z_]+)\"")
 
 
 def reason_codes() -> set[str]:
-    codes = {*PUBLISH_PROBLEMS, NO_PERMISSION, NOT_FROM_STATUS, NOT_OFFERED, NOT_FOR_YOU}
+    codes = {
+        *PUBLISH_PROBLEMS,
+        NO_PERMISSION,
+        NOT_FROM_STATUS,
+        NOT_OFFERED,
+        NOT_FOR_YOU,
+        TRASH_NEEDS_ALL,  # assets: a trash rule needs tenant-wide delete (D-185, #629)
+    }
     for source in APP_DIR.rglob("*.py"):
         if "tests" in source.parts:
             continue

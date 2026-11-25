@@ -175,7 +175,42 @@ export const portalRequestKeys = {
   all: ['portal', 'service-requests'] as const,
   list: (state: PortalState | undefined) => ['portal', 'service-requests', 'list', state] as const,
   detail: (id: string) => ['portal', 'service-requests', 'detail', id] as const,
+  conversation: (id: string) => ['portal', 'service-requests', 'conversation', id] as const,
 };
+
+/**
+ * A request's public conversation (WP-047a S3a; REQ-SR-037 AC1): an approver's question to the
+ * requester shows here, and the requester answers with a reply.
+ */
+export function usePortalRequestConversation(id: string) {
+  return useQuery({
+    queryKey: portalRequestKeys.conversation(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/conversation', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+  });
+}
+
+/** The requester's public reply on their own request. */
+export function usePortalRequestReply(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      call(
+        api.POST('/api/v1/portal/service-requests/{record_id}/replies', {
+          params: { path: { record_id: id } },
+          body: { body },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.conversation(id) });
+    },
+  });
+}
 
 /** The requester's own service requests (WP-030 D9, REQ-SR-062). */
 export function usePortalRequests(state: PortalState | undefined) {
@@ -200,6 +235,90 @@ export function usePortalRequest(id: string) {
   });
 }
 
+/**
+ * A request made from mail that waits for answers (WP-047a S4; REQ-SR-017 AC2): the keys of the
+ * item's required questions still unanswered. 404 when it is not yours or no longer waiting.
+ */
+export function usePortalMissingAnswers(id: string) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id), 'missing-answers'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/missing-answers', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Give the missing answers (If-Match): the request is then submitted as any other (AC3). */
+export function useCompletePortalAnswers(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ answers, version }: { answers: Record<string, unknown>; version: number }) =>
+      call(
+        api.PUT('/api/v1/portal/service-requests/{record_id}/missing-answers', {
+          params: {
+            path: { record_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+          body: { answers },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: portalRequestKeys.all });
+    },
+  });
+}
+
+export type PortalTask = components['schemas']['PortalTaskOut'];
+export type PortalTaskChange = components['schemas']['PortalTaskPatch'];
+
+/** The portal's own tasks (WP-047a S5): the key the personal channel refreshes. */
+export const portalTaskKeys = {
+  all: ['portal', 'tasks'] as const,
+  detail: (id: string) => ['portal', 'tasks', 'detail', id] as const,
+};
+
+/** Your open tasks from a request's plan, each alone (REQ-SR-050; condition 1). */
+export function usePortalTasks() {
+  return useQuery({
+    queryKey: portalTaskKeys.all,
+    queryFn: () => call(api.GET('/api/v1/portal/tasks')),
+  });
+}
+
+/** One of your tasks: not found once it is closed or given to someone else. */
+export function usePortalTask(id: string) {
+  return useQuery({
+    queryKey: portalTaskKeys.detail(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/portal/tasks/{task_id}', { params: { path: { task_id: id } } })),
+    enabled: id !== '',
+    retry: false,
+  });
+}
+
+/** Start or complete one of your tasks, or fill in its fields (If-Match). */
+export function useUpdatePortalTask(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ change, version }: { change: PortalTaskChange; version: number }) =>
+      call(
+        api.PATCH('/api/v1/portal/tasks/{task_id}', {
+          params: { path: { task_id: id }, header: { 'If-Match': `"${String(version)}"` } },
+          body: change,
+        }),
+      ),
+    onSuccess: (task) => {
+      queryClient.setQueryData(portalTaskKeys.detail(id), task);
+      void queryClient.invalidateQueries({ queryKey: portalTaskKeys.all });
+    },
+  });
+}
+
 /** Fulfilment progress, internal step names hidden (REQ-SR-051 AC2). */
 export function usePortalRequestSteps(id: string) {
   return useQuery({
@@ -211,6 +330,25 @@ export function usePortalRequestSteps(id: string) {
         }),
       ),
     enabled: id !== '',
+  });
+}
+
+/**
+ * "Request again" (WP-047a S1; REQ-SR-016): the item of one of your past requests, with its
+ * earlier answers fitted to the form as it is now, and those it dropped. Read once per visit.
+ */
+export function usePortalRequestAgain(id: string | null) {
+  return useQuery({
+    queryKey: [...portalRequestKeys.detail(id ?? ''), 'again'] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/portal/service-requests/{record_id}/request-again', {
+          params: { path: { record_id: id ?? '' } },
+        }),
+      ),
+    enabled: id !== null && id !== '',
+    retry: false,
+    staleTime: Infinity,
   });
 }
 

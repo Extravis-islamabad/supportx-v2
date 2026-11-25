@@ -43,6 +43,7 @@ import {
 
 import { personName } from '../incidents/labels';
 import { PriorityTag } from '../incidents/tags';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 type AnalysisName =
   'root_cause' | 'symptoms' | 'workaround' | 'review_summary' | 'review_lessons' | 'review_actions';
@@ -63,6 +64,7 @@ function AnalysisField({
   canEdit: boolean;
   reload: () => Promise<unknown>;
 }) {
+  const hiddenPerson = useHiddenPersonLabel();
   const t = useLabel();
   const { message } = App.useApp();
   const me = useSession().data?.user.id ?? null;
@@ -184,7 +186,7 @@ function AnalysisField({
           {last.changed_by === null
             ? t('problems.analysis.changed_system', { date: format(last.changed_at) })
             : t('problems.analysis.changed', {
-                name: personName(item.people, last.changed_by),
+                name: personName(item.people, last.changed_by, hiddenPerson),
                 date: format(last.changed_at),
               })}
         </Typography.Text>

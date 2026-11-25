@@ -28,6 +28,7 @@ import {
 import { incidentView, useIncidentFieldName } from './conflict';
 import { labelled } from './labels';
 import { GroupPicker, TechnicianPicker } from './pickers';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 /**
  * Assign or reassign (REQ-INC-053/055). The technician list shows only the chosen group's
@@ -85,6 +86,7 @@ function AssignBody({
   preset?: { groupId?: string | null; technicianId?: string | null };
 }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -190,7 +192,7 @@ function AssignBody({
       ? null
       : {
           id: item.technician_id,
-          name: item.people[item.technician_id]?.display_name ?? '',
+          name: shownName(item.people[item.technician_id]?.display_name, hidden),
           email: item.people[item.technician_id]?.email ?? '',
         };
   const nameOf = (id: string | null | undefined) =>

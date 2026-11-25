@@ -122,6 +122,13 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        // WP-047a S3b (REQ-SR-035): approval delegations (the delegation notices link here).
+        path: 'approvals/delegations',
+        lazy: async () => ({
+          Component: (await import('./pages/requests/DelegationsPage')).DelegationsPage,
+        }),
+      },
+      {
         // WP-046a S1 (REQ-INC-076): your open tasks on every type.
         path: 'my-tasks',
         lazy: async () => ({
@@ -511,6 +518,19 @@ export const routes: RouteObject[] = [
             path: 'cmdb',
             lazy: async () => ({
               Component: (await import('./pages/admin/cmdb/CmdbAdminPage')).CmdbAdminPage,
+            }),
+          },
+          {
+            // WP-053 S4a: sync rules from assets (template A) and one rule (template B).
+            path: 'cmdb/sync-rules',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/SyncRulesPage')).SyncRulesPage,
+            }),
+          },
+          {
+            path: 'cmdb/sync-rules/:ruleId',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/cmdb/SyncRulePage')).SyncRulePage,
             }),
           },
           {

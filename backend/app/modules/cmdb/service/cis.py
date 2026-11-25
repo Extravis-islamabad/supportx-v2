@@ -10,6 +10,12 @@ checks them against the CI's type (`metadata.clean(type_id=…)`), history names
 `custom.<key>`, and ADR-047 rules hide, mask or lock them per role on every read and write. A
 type change that would drop values outside the new type's fields needs
 `confirm_dropped_fields`; history then names the dropped fields, never their values.
+
+Attribute sources (S4a, REQ-CMDB-016): every save stamps the attributes it changed with their
+source and time (`sources`): a person's save `hand`, a sync rule's `asset_sync`. A stamp is
+never shown for a field the reader may not read (hidden, masked or sealed). The sync identity
+writes through `sync_create` and `sync_update`, the same save path with no person's scope or
+read-only rules (a system write, ADR-047 §8).
 """
 
 import uuid
@@ -24,9 +30,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import assets, metadata
 from app.modules.cmdb.domain import field_access as field_rules
+from app.modules.cmdb.domain import sources as attribute_sources
 from app.modules.cmdb.domain import types as domain
+from app.modules.cmdb.domain.sources import AttributeSource, Stamp
 from app.modules.cmdb.events import CiCreated, CiDeleted, CiRestored, CiUpdated
-from app.modules.cmdb.infra.models import Ci, CiState, CiType
+from app.modules.cmdb.infra.models import Ci, CiAlias, CiState, CiType
 from app.modules.cmdb.service import ref_names
 from app.modules.cmdb.service.catalogue import (
     ADD,
@@ -86,6 +94,14 @@ EDITABLE = (
     "criticality",
 )
 SNAPSHOT = ("type_id", *EDITABLE, "asset_id", "source")
+# Where a value came from when no save has stamped it yet (a CI from before 0191): its CI's own
+# origin, so a sync never overwrites what a person typed before sources existed.
+ORIGIN_SOURCE = {
+    domain.CiSource.MANUAL.value: AttributeSource.HAND,
+    domain.CiSource.ASSET_SYNC.value: AttributeSource.ASSET_SYNC,
+    domain.CiSource.IMPORT.value: AttributeSource.IMPORT,
+    domain.CiSource.MONETX.value: AttributeSource.MONETX,
+}
 
 CI_FIELDS = ResourceFields(
     name="cis",
@@ -145,10 +161,20 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+# Rights `cmdb.manage` never stands in for: deleting (and so restoring) a CI is its own decision,
+# for every role (a role with manage but without delete may not delete; D-173's finding).
+NOT_COVERED_BY_MANAGE = frozenset({DELETE})
+
+
 def writer(subject: Subject, permission: str) -> str | None:
-    """The right this person writes with: the named one, else `cmdb.manage`, else none."""
+    """The right this person writes with: the named one, else `cmdb.manage`, else none.
+
+    Never `cmdb.manage` for a right in NOT_COVERED_BY_MANAGE.
+    """
     if subject.holds(permission):
         return permission
+    if permission in NOT_COVERED_BY_MANAGE:
+        return None
     return MANAGE if subject.holds(MANAGE) else None
 
 
@@ -175,6 +201,8 @@ class CiView:
     # The CI's references named for this reader (site, owner, groups, asset, person custom
     # fields), by the referenced ID; never an ID as a label (CMDB polish).
     names: dict[str, ref_names.RefName] = field(default_factory=dict)
+    # Each attribute's source and time (REQ-CMDB-016), for the fields the reader may read.
+    sources: dict[str, Stamp] = field(default_factory=dict)
 
 
 async def _may(session: AsyncSession, subject: Subject, permission: str, ci_id: uuid.UUID) -> bool:
@@ -192,6 +220,46 @@ def _unseen(subject: Subject) -> field_rules.Unseen:
     return field_rules.unseen(subject.field_access, RECORD_TYPE)
 
 
+async def sealed_fields(session: AsyncSession) -> frozenset[str]:
+    """Custom fields marked sensitive or under encryption (ADR-050): never a source shown."""
+    return frozenset(
+        f"{field_rules.CUSTOM}{m.key}"
+        for m in await metadata.field_marks(session, ENTITY, retired=True)
+        if m.sensitive or m.seal_state != metadata.PLAIN
+    )
+
+
+async def withheld(session: AsyncSession, subject: Subject) -> frozenset[str]:
+    """The attributes whose source a reader may not see: hidden, masked or sealed."""
+    return _unseen(subject).all | await sealed_fields(session)
+
+
+def effective_stamps(record: Ci) -> dict[str, Stamp]:
+    """Each attribute's stamp; a value no save has stamped counts as set by the CI's origin."""
+    found = attribute_sources.stamps(record.sources)
+    origin = ORIGIN_SOURCE.get(record.source, AttributeSource.HAND)
+    held = field_rules.flat(snapshot(record))
+    for attribute in (*EDITABLE, *(k for k in held if k.startswith(field_rules.CUSTOM))):
+        if attribute not in found and held.get(attribute) is not None:
+            found[attribute] = Stamp(origin, record.created_at)
+    return found
+
+
+def _stamp(
+    record: Ci, before: Mapping[str, Any], after: Mapping[str, Any], source: AttributeSource
+) -> dict[str, Any]:
+    """`sources` after a save: the changed attributes stamped, dropped custom values unstamped."""
+    old, new = field_rules.flat(before), field_rules.flat(after)
+    changed = [
+        k
+        for k in sorted(set(old) | set(new))
+        if (k in EDITABLE or k.startswith(field_rules.CUSTOM)) and old.get(k) != new.get(k)
+    ]
+    gone = [k for k in changed if k.startswith(field_rules.CUSTOM) and new.get(k) is None]
+    kept = attribute_sources.unstamped(record.sources, gone)
+    return attribute_sources.stamped(kept, [k for k in changed if k not in gone], source, _now())
+
+
 async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
     unseen = _unseen(subject)
     held = record.custom or {}
@@ -201,8 +269,11 @@ async def _view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
         **{name: getattr(record, name) for name in ref_names.REFERENCE_FIELDS},
         **{f"{field_rules.CUSTOM}{key}": value for key, value in custom.items()},
     }
+    hidden_sources = unseen.all | await sealed_fields(session)
+    shown = {k: v for k, v in effective_stamps(record).items() if k not in hidden_sources}
     return CiView(
         record=record,
+        sources=shown,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         can_edit=await _may(session, subject, EDIT, record.id),
         can_delete=await _may(session, subject, DELETE, record.id),
@@ -328,6 +399,10 @@ def _mask_custom(unseen: field_rules.Unseen, entries: list[HistoryEntry]) -> lis
 
 
 LINK_FIELD = "relationship"  # a relationship line's field (service/relationships.py)
+# A merge's lines (service/merge.py, S4b): the other CI by ID only ({"ci_id"}), never its name.
+MERGED_INTO = "merged_into"  # the merged CI's line
+MERGED_FROM = "merged_from"  # the survivor's line
+MERGE_LINES = frozenset({MERGED_INTO, MERGED_FROM})
 
 
 def _linked(value: object) -> str | None:
@@ -342,41 +417,45 @@ async def _mask_links(
     Otherwise the line says `restricted` with no ID (lane C's condition 2, as the map's
     placeholders).
     """
+    masked_fields = {LINK_FIELD, *MERGE_LINES}
     linked = {
         i
         for e in entries
         for c in e.changes
-        if c.field == LINK_FIELD
+        if c.field in masked_fields
         for i in (_linked(c.old), _linked(c.new))
         if i
     }
     if not linked:
         return entries
+    asked = [uuid.UUID(i) for i in linked]
     seen = {
         str(i)
         for i in await session.scalars(
-            visible_rows(subject)
-            .with_only_columns(Ci.id)
-            .where(Ci.id.in_([uuid.UUID(i) for i in linked]))
+            visible_rows(subject).with_only_columns(Ci.id).where(Ci.id.in_(asked))
+        )
+    }
+    # A merge line names a CI that may be in the trash (the merged one): seen if within reach.
+    seen_any = seen | {
+        str(i)
+        for i in await session.scalars(
+            select(Ci.id).where(Ci.id.in_(asked), scope_filter(subject, VIEW, CIS))
         )
     }
 
-    def masked(value: Any) -> Any:  # noqa: ANN401 - a history value (JSON)
+    def masked(value: Any, known: set[str]) -> Any:  # noqa: ANN401 - a history value (JSON)
         ci = _linked(value)
-        if ci is None or ci in seen:
+        if ci is None or ci in known:
             return value
         return {**value, "ci_id": None, "restricted": True}
 
-    return [
-        replace(
-            e,
-            changes=[
-                replace(c, old=masked(c.old), new=masked(c.new)) if c.field == LINK_FIELD else c
-                for c in e.changes
-            ],
-        )
-        for e in entries
-    ]
+    def shown(change: Change) -> Change:
+        if change.field not in masked_fields:
+            return change
+        known = seen if change.field == LINK_FIELD else seen_any
+        return replace(change, old=masked(change.old, known), new=masked(change.new, known))
+
+    return [replace(e, changes=[shown(c) for c in e.changes]) for e in entries]
 
 
 # --- writing --------------------------------------------------------------------------------------
@@ -403,9 +482,14 @@ def _history_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> lis
     ]
 
 
-async def _save_version(session: AsyncSession, record: Ci, subject: Subject) -> None:
-    """Append the CI as it is now, with its relationships (REQ-CMDB-024; the app may only add)."""
-    await save_version(session, record, snapshot(record), subject.user_id)
+async def _save_version(session: AsyncSession, record: Ci, subject: Subject | None) -> None:
+    """Append the CI as it is now, with its relationships (REQ-CMDB-024; the app may only add).
+
+    `subject` None: the sync identity's save (no person saved it).
+    """
+    await save_version(
+        session, record, snapshot(record), subject.user_id if subject is not None else None
+    )
 
 
 def _check_codes(values: Mapping[str, Any]) -> list[domain.Problem]:
@@ -429,6 +513,14 @@ def _check_codes(values: Mapping[str, Any]) -> list[domain.Problem]:
 
 
 async def _check_references(session: AsyncSession, values: Mapping[str, Any]) -> None:
+    if problems := await reference_problems(session, values):
+        raise invalid(problems)
+
+
+async def reference_problems(
+    session: AsyncSession, values: Mapping[str, Any]
+) -> list[domain.Problem]:
+    """The references among `values` that name nothing live (a rule's saved values too, S5d)."""
     problems: list[domain.Problem] = []
     if values.get("state_id") is not None:
         state = await session.scalar(
@@ -450,8 +542,7 @@ async def _check_references(session: AsyncSession, values: Mapping[str, Any]) ->
         session, [values["owner_user_id"]]
     ):
         problems.append(domain.Problem("owner_user_id", "not_found"))
-    if problems:
-        raise invalid(problems)
+    return problems
 
 
 async def _within_scope(
@@ -518,13 +609,13 @@ async def _custom(
     return {k: v for k, v in merged.items() if v is not None}
 
 
-def _require_writable(subject: Subject, changed: Sequence[str]) -> None:
+def _require_writable(subject: Subject | None, changed: Sequence[str]) -> None:
     """403 `field_read_only` when a person changes a custom field their roles may only read.
 
     ADR-047 §8, as work items do: a form sending a read-only value back unchanged passes, and a
     service identity's writes (a connector's) are system writes.
     """
-    if not subject.person:
+    if subject is None or not subject.person:
         return
     locked = field_rules.refused(changed, field_rules.read_only(subject.field_access, RECORD_TYPE))
     if locked:
@@ -541,13 +632,19 @@ def _changed_custom(before: Mapping[str, Any], after: Mapping[str, Any]) -> list
 
 async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     values: Mapping[str, Any],
     source: Source,
     *,
     origin: domain.CiSource = domain.CiSource.MANUAL,
     asset_id: uuid.UUID | None = None,
+    stamp_as: AttributeSource | None = None,
 ) -> Ci:
+    """A new CI. `subject` None: the sync identity (no person's scope applies).
+
+    Its set attributes are stamped `stamp_as`, else `hand` (a person's values; from-assets names
+    a CI after its asset, so its name is the asset sync's).
+    """
     problems = _check_codes(values)
     if "name" not in values:
         problems.append(domain.Problem("name", "required"))
@@ -580,8 +677,23 @@ async def _add(  # noqa: PLR0913 - every part of a new CI, explicit
         source=origin.value,
         custom=custom,
     )
+    record.sources = attribute_sources.stamped(
+        {},
+        [
+            k
+            for k, v in field_rules.flat(snapshot(record)).items()
+            if v is not None and (k in EDITABLE or k.startswith(field_rules.CUSTOM))
+        ],
+        stamp_as or AttributeSource.HAND,
+        _now(),
+    )
+    if asset_id is not None and stamp_as is None:
+        record.sources = attribute_sources.stamped(
+            record.sources, ["name"], AttributeSource.ASSET_SYNC, _now()
+        )
     await CiRepository(session).add(record)
-    await _within_scope(session, subject, ADD, record.id)
+    if subject is not None:
+        await _within_scope(session, subject, ADD, record.id)
     if custom:
         await metadata.mark_used(session, ENTITY, list(custom))
     await record_changes(
@@ -622,9 +734,19 @@ async def _writable(
     return record
 
 
+async def editable(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
+    """The CI, if the person may edit it: 404 if they can't see it, 403 if they can't edit it.
+
+    For a caller that decides what to write before calling `update` (an import's who wins):
+    the per-CI edit check comes first, so a row that ends up writing nothing still tells a
+    person nothing about a CI they may not edit (lane C's #577 re-check).
+    """
+    return await _writable(session, subject, EDIT, ci_id)
+
+
 async def _save(  # noqa: PLR0913 - the record, the version and the change, explicit
     session: AsyncSession,
-    subject: Subject,
+    subject: Subject | None,
     record: Ci,
     *,
     expected_version: int,
@@ -632,13 +754,26 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
     source: Source,
     extra: Sequence[Change] = (),
     quiet: frozenset[str] = frozenset(),
+    stamp_as: AttributeSource = AttributeSource.HAND,
+    automation_ref: Mapping[str, Any] | None = None,
+    causation_id: uuid.UUID | None = None,
 ) -> Ci:
-    """One update: version, history, snapshot, event.
+    """One update: version, history, snapshot, attribute sources, event.
+
+    `automation_ref` and `causation_id` (WP-053 S5d): a rule's change names the rule in the
+    history (ADR-026) and its event carries the run, so the rule never re-triggers itself.
 
     `extra`: history lines of the caller's own; `quiet`: fields whose values never go into the
     history (a type change's dropped custom values, named by key in `extra` instead).
+    `subject` None: the sync identity (no person's scope applies); `stamp_as`: the source the
+    changed attributes are stamped with.
     """
     before = snapshot(record)
+    if columns:
+        after = {**before, **{k: _json(v) for k, v in columns.items() if k != "custom"}}
+        if "custom" in columns:
+            after["custom"] = dict(columns["custom"] or {})
+        columns = {**columns, "sources": _stamp(record, before, after, stamp_as)}
     if not columns:
         if record.version != expected_version:
             raise await _conflict(
@@ -659,7 +794,8 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         )
     except Conflict as error:
         raise await _conflict(session, error, record.id) from error
-    await _within_scope(session, subject, EDIT, updated.id)
+    if subject is not None:
+        await _within_scope(session, subject, EDIT, updated.id)
     if "custom" in columns and updated.custom:
         await metadata.mark_used(session, ENTITY, list(updated.custom))
     changes = [
@@ -674,6 +810,7 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         kind="updated",
         changes=changes,
         source=source,
+        automation_ref=dict(automation_ref) if automation_ref is not None else None,
     )
     await _save_version(session, updated, subject)
     await record_event(
@@ -683,6 +820,7 @@ async def _save(  # noqa: PLR0913 - the record, the version and the change, expl
         ),
         aggregate_id=updated.id,
         aggregate_version=updated.version,
+        causation_id=causation_id,
     )
     return updated
 
@@ -695,8 +833,13 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    stamp_as: AttributeSource = AttributeSource.HAND,
 ) -> CiView:
-    """Change the fields sent (If-Match). Unchanged input: no new version, no event."""
+    """Change the fields sent (If-Match). Unchanged input: no new version, no event.
+
+    `stamp_as`: the source the changed attributes are stamped with (`hand` for a person's own
+    edit; an import's rows say `import`).
+    """
     record = await _writable(session, subject, EDIT, ci_id)
     draft = {k: v for k, v in values.items() if k in EDITABLE}
     if problems := _check_codes(draft):
@@ -711,7 +854,13 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
         _require_writable(subject, _changed_custom(held, custom))
         columns["custom"] = custom
     saved = await _save(
-        session, subject, record, expected_version=expected_version, columns=columns, source=source
+        session,
+        subject,
+        record,
+        expected_version=expected_version,
+        columns=columns,
+        source=source,
+        stamp_as=stamp_as,
     )
     return await _view(session, subject, saved)
 
@@ -873,15 +1022,22 @@ async def remove(
     )
 
 
-async def restore(
+async def restore(  # noqa: PLR0913 - the record, its version, the source and the warning
     session: AsyncSession,
     subject: Subject,
     ci_id: uuid.UUID,
     *,
     expected_version: int,
     source: Source,
+    confirm_merged: bool = False,
 ) -> CiView:
-    """Take out of the trash, exactly as it was (refused if its asset has a new CI since)."""
+    """Take out of the trash, exactly as it was (refused if its asset has a new CI since).
+
+    A CI merged into another (S4b) comes back only once the person has seen the warning (409
+    `cmdb_ci_restore_merged`; then `confirm_merged`). It comes back on its own: the alias ends and
+    nothing moves back (lane C (10)). The warning names the survivor only to a reader who may see
+    it.
+    """
     record = await _visible(session, subject, ci_id, trash=True)
     key = writer(subject, DELETE)
     in_scope = key is not None and await session.scalar(
@@ -898,6 +1054,22 @@ async def restore(
             ),
             record.id,
         )
+    alias: CiAlias | None = await session.scalar(
+        select(CiAlias)
+        .where(
+            CiAlias.alias_id == record.id,
+            CiAlias.restored_at.is_(None),
+            CiAlias.deleted_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if alias is not None and not confirm_merged:
+        survivor = await session.scalar(visible_rows(subject).where(Ci.id == alias.ci_id))
+        params = {"display_id": survivor.display_id} if survivor is not None else {}
+        raise Conflict(code="cmdb_ci_restore_merged", params=params)
+    if alias is not None:
+        alias.restored_at, alias.restored_by = _now(), subject.user_id
+        alias.version += 1
     if record.asset_id is not None:
         taken = await session.scalar(
             select(Ci.id).where(Ci.asset_id == record.asset_id, Ci.deleted_at.is_(None))
@@ -926,6 +1098,75 @@ async def restore(
         aggregate_version=record.version,
     )
     return await _view(session, subject, record)
+
+
+# --- the sync identity (WP-053 S4a, REQ-CMDB-015) ----------------------------------------------
+
+
+async def ci_of_asset(session: AsyncSession, asset_id: uuid.UUID) -> Ci | None:
+    """The live CI of an asset (one at most), locked for the sync's save; read as the system."""
+    found: Ci | None = await session.scalar(
+        select(Ci).where(Ci.asset_id == asset_id, Ci.deleted_at.is_(None)).with_for_update()
+    )
+    return found
+
+
+async def sync_create(
+    session: AsyncSession,
+    values: Mapping[str, Any],
+    *,
+    asset_id: uuid.UUID,
+    source: Source,
+) -> Ci:
+    """A new CI for an asset, by the sync identity: the ordinary checks, history and event.
+
+    No person's scope or read-only rules apply (a system write, ADR-047 §8); its attributes are
+    stamped `asset_sync`.
+    """
+    await ensure_defaults(session)
+    return await _add(
+        session,
+        None,
+        values,
+        source,
+        origin=domain.CiSource.ASSET_SYNC,
+        asset_id=asset_id,
+        stamp_as=AttributeSource.ASSET_SYNC,
+    )
+
+
+async def sync_update(
+    session: AsyncSession, record: Ci, changes: Mapping[str, Any], *, source: Source
+) -> Ci:
+    """Change a CI's attributes by the sync identity (core fields and `custom.<key>` values).
+
+    The same save as a person's (checks, metadata's custom rules, history, version, event), with
+    the changed attributes stamped `asset_sync`. The caller decided what wins (domain/sync.py).
+    """
+    core = {k: v for k, v in changes.items() if k in EDITABLE}
+    if problems := _check_codes(core):
+        raise invalid(problems)
+    await _check_references(session, {k: v for k, v in core.items() if v != getattr(record, k)})
+    columns: dict[str, Any] = {k: v for k, v in core.items() if getattr(record, k) != v}
+    sent = {
+        k.removeprefix(field_rules.CUSTOM): v
+        for k, v in changes.items()
+        if k.startswith(field_rules.CUSTOM)
+    }
+    if sent:
+        held = dict(record.custom or {})
+        custom = await _custom(session, sent, held, record.type_id)
+        if custom is not None and custom != held:
+            columns["custom"] = custom
+    return await _save(
+        session,
+        None,
+        record,
+        expected_version=record.version,
+        columns=columns,
+        source=source,
+        stamp_as=AttributeSource.ASSET_SYNC,
+    )
 
 
 # --- from assets (REQ-CMDB-005) -------------------------------------------------------------------
@@ -1018,8 +1259,194 @@ async def picker(
     if search and search.strip():
         text = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         term = f"%{text}%"
+        # A merged CI's display ID finds its survivor (S4b), within the reader's scope above.
+        alias = Ci.id.in_(
+            select(CiAlias.ci_id).where(
+                CiAlias.restored_at.is_(None),
+                CiAlias.deleted_at.is_(None),
+                func.lower(CiAlias.alias_display_id) == search.strip().lower(),
+            )
+        )
         rows = rows.where(
-            or_(Ci.name.ilike(term, escape="\\"), Ci.display_id.ilike(term, escape="\\"))
+            or_(Ci.name.ilike(term, escape="\\"), Ci.display_id.ilike(term, escape="\\"), alias)
         )
     rows = rows.order_by(func.lower(Ci.name), Ci.id).limit(max(1, min(limit, PICKER_MAX)))
     return list(await session.scalars(rows))
+
+
+# --- for merges (service/merge.py, S4b) -----------------------------------------------------------
+
+
+def not_found() -> NotFound:
+    """The one answer for a CI the person may not see, or that exists nowhere."""
+    return NotFound(code="cmdb_ci_not_found")
+
+
+async def get_visible(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> Ci:
+    """A live CI the person may see (404 otherwise)."""
+    return await _visible(session, subject, ci_id)
+
+
+def json_value(value: object) -> Any:  # noqa: ANN401 - a field's JSON value
+    """A field's value as history and previews show it (IDs as text)."""
+    return _json(value)
+
+
+def withheld_custom(subject: Subject) -> frozenset[str]:
+    """Custom field keys the person may not read on CIs: hidden or masked (ADR-047, ADR-050)."""
+    return frozenset(_unseen(subject).custom_keys())
+
+
+async def stale(
+    session: AsyncSession, ci_id: uuid.UUID, expected_version: int, current_version: int
+) -> Conflict:
+    """409 `version_conflict` explaining who changed what since `expected_version`."""
+    return await _conflict(
+        session,
+        Conflict(
+            code="version_conflict",
+            params={"expected_version": expected_version, "current_version": current_version},
+        ),
+        ci_id,
+    )
+
+
+async def view(session: AsyncSession, subject: Subject, record: Ci) -> CiView:
+    """The CI as the person may see it."""
+    return await _view(session, subject, record)
+
+
+async def save_merged(  # noqa: PLR0913 - the survivor, its new values and the merge's line
+    session: AsyncSession,
+    subject: Subject,
+    record: Ci,
+    *,
+    columns: Mapping[str, Any],
+    source: Source,
+    extra: Sequence[Change],
+) -> Ci:
+    """The survivor of a merge: the chosen values through the ordinary save, with the merge line.
+
+    With no value to change, the survivor still gets a version holding the "merged from" line.
+    """
+    if columns:
+        return await _save(
+            session,
+            subject,
+            record,
+            expected_version=record.version,
+            columns=columns,
+            source=source,
+            extra=extra,
+        )
+    record.version += 1
+    record.updated_at, record.updated_by = _now(), subject.user_id
+    await session.flush()
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="updated",
+        changes=list(extra),
+        source=source,
+    )
+    await _save_version(session, record, subject)
+    await record_event(
+        session,
+        CiUpdated(ci_id=record.id, type_id=record.type_id, changed_fields=[c.field for c in extra]),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
+    return record
+
+
+async def add_imported(
+    session: AsyncSession, subject: Subject, values: Mapping[str, Any], source: Source
+) -> Ci:
+    """A new CI from an import row (S4b): the ordinary create, its attributes stamped `import`."""
+    if writer(subject, ADD) is None:
+        raise _denied(ADD)
+    return await _add(
+        session,
+        subject,
+        values,
+        source,
+        origin=domain.CiSource.IMPORT,
+        stamp_as=AttributeSource.IMPORT,
+    )
+
+
+# WP-053 S5d (REQ-CMDB-023): what a rule may set on a CI. Never the type (its preview and drop
+# rules are a person's), the name, the owner person or anything custom; never a delete.
+RULE_SETTABLE = frozenset(
+    {"state_id", "business_impact", "criticality", "owner_group_id", "managed_by_group_id"}
+)
+
+
+_REFERENCES = frozenset({"state_id", "owner_group_id", "managed_by_group_id"})
+
+
+def _typed(values: Mapping[str, Any]) -> dict[str, Any]:
+    """A rule's JSON values as the columns hold them (IDs as UUIDs), so equal means unchanged."""
+    typed: dict[str, Any] = {}
+    for key, value in values.items():
+        if key in _REFERENCES and value is not None and not isinstance(value, uuid.UUID):
+            try:
+                typed[key] = uuid.UUID(str(value))
+            except ValueError:
+                raise invalid([domain.Problem(key, "not_found")]) from None
+        else:
+            typed[key] = value
+    return typed
+
+
+async def automated_update(
+    session: AsyncSession,
+    ci_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    automation_ref: Mapping[str, Any],
+    cause_id: uuid.UUID,
+) -> list[str]:
+    """A rule sets fields on a CI (the system's save path: no person's scope applies).
+
+    Only `RULE_SETTABLE` (lane C's C3): anything else is refused with `field_not_settable`,
+    even though a saved trigger can never name it. Checked as a person's edit is; stamped
+    `hand`, as the tenant's own decision a sync never overwrites. The fields that changed.
+    """
+    outside = sorted(set(values) - RULE_SETTABLE)
+    if outside:
+        raise invalid([domain.Problem(key, "field_not_settable") for key in outside])
+    record = await session.scalar(
+        select(Ci).where(Ci.id == ci_id, Ci.deleted_at.is_(None)).with_for_update()
+    )
+    if record is None:
+        return []  # deleted since the event: nothing to change
+    if problems := _check_codes(values):
+        raise invalid(problems)
+    typed = _typed(values)
+    columns = {k: v for k, v in typed.items() if getattr(record, k) != v}
+    await _check_references(session, columns)
+    if not columns:
+        return []  # the rule asked for what the CI already holds: no version, history or event
+    await _save(
+        session,
+        None,
+        record,
+        expected_version=record.version,
+        columns=columns,
+        source="rule",
+        automation_ref=automation_ref,
+        causation_id=cause_id,
+    )
+    return sorted(columns)
+
+
+async def may_edit(session: AsyncSession, subject: Subject, ci_id: uuid.UUID) -> bool:
+    """Whether the person may edit the CI (`cmdb.edit` or `cmdb.manage`, in scope; S5d)."""
+    try:
+        await _writable(session, subject, EDIT, ci_id)
+    except (NotFound, PermissionDenied):
+        return False
+    return True

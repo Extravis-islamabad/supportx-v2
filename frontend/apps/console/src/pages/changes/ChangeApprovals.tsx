@@ -26,6 +26,7 @@ import { personName } from '../incidents/labels';
 import { DecisionDialog } from '../requests/DecisionDialog';
 import { stageName } from '../staged/labels';
 import { boardName } from './labels';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const STATE_TONE = { approved: 'success', rejected: 'error', withdrawn: 'default' } as const;
 
@@ -37,6 +38,7 @@ const STATE_TONE = { approved: 'success', rejected: 'error', withdrawn: 'default
  * stage was approved, field by field, with what each change does (REQ-CHG-053).
  */
 export function ApprovalsPart({ id }: { id: string }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const { format } = useDateTime();
@@ -121,7 +123,7 @@ export function ApprovalsPart({ id }: { id: string }) {
                 <Space wrap>
                   <span>
                     {a.approver_id
-                      ? personName(people, a.approver_id)
+                      ? personName(people, a.approver_id, hidden)
                       : t('changes.approvals.administrators')}
                   </span>
                   <ToneTag
@@ -217,6 +219,7 @@ export function ApprovalsPart({ id }: { id: string }) {
  * Shown in the move dialog; it changes nothing.
  */
 export function ApprovalPreview({ id, stage }: { id: string; stage: string }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const list = useListFormat();
   const preview = useChangeApprovalPreview(id, stage, true);
@@ -224,7 +227,7 @@ export function ApprovalPreview({ id, stage }: { id: string; stage: string }) {
   if (p === undefined || p === null) return null;
   const people = (ids: string[]) =>
     list(
-      ids.map((u) => personName(p.people ?? {}, u)),
+      ids.map((u) => personName(p.people ?? {}, u, hidden)),
       'conjunction',
     );
   return (

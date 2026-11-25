@@ -23,7 +23,7 @@ from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound
-from app.modules import sla
+from app.modules import licensing, sla
 from app.modules.identity_access import Subject, user_contacts
 from app.modules.organization import existing_unit_ids
 from app.modules.service_catalog.domain.catalog import (
@@ -39,6 +39,7 @@ from app.modules.service_catalog.domain.catalog import (
     missing_translations,
     publish_problems,
     schedule_problems,
+    subject_from,
     subject_template_problems,
     text_problems,
 )
@@ -47,16 +48,26 @@ from app.modules.service_catalog.domain.items import (
     ApprovalStage,
     Approver,
     ApproverKind,
+    AutoRule,
+    EscalationTarget,
     ItemAudience,
     ItemRules,
     PlannedTask,
+    PlanStepKind,
     Question,
     QuestionAudience,
     QuestionKind,
+    RestartOn,
+    StageRule,
+    TaskField,
+    TaskFieldKind,
+    TaskOwnerKind,
     answer_problems,
     name_problems,
     needs_approval,
+    request_again,
     rules_problems,
+    uses_stages,
 )
 from app.modules.service_catalog.events import CatalogItemChanged
 from app.modules.service_catalog.infra.models import CatalogItem
@@ -79,6 +90,9 @@ PRIORITIES = frozenset({"p1", "p2", "p3", "p4"})
 # The words of a copy's name, per language (data, kept with the copy; plan D3).
 COPY_PREFIX = {"en": "Copy of", "ar": "نسخة من", "ur": "نقل:"}
 # What a write may set, as stored. `status` changes through `set_status` rules only.
+# REQ-SR-014's quantity is Professional (D-133): the licence's catalogue feature.
+CATALOG_FEATURE = "catalog"
+
 ITEM_FIELDS = (
     "category_id",
     "names",
@@ -95,6 +109,9 @@ ITEM_FIELDS = (
     "technician_after_approval",
     "count_approval_time",
     "auto_fulfil",
+    # WP-047a S1
+    "max_quantity",
+    "asks_needed_by",
     # WP-031 s1
     "kind",
     "template_id",
@@ -107,10 +124,19 @@ ITEM_FIELDS = (
     "subject_template",
     "requesters_see_approval",
     "extra_category_ids",
+    "workflow_id",  # WP-047a S5 (REQ-SR-053)
     "publish_at",
     "retire_at",
 )
-_IDS = ("category_id", "sla_policy_id", "group_id", "technician_id", "template_id", "owner_id")
+_IDS = (
+    "category_id",
+    "sla_policy_id",
+    "group_id",
+    "technician_id",
+    "template_id",
+    "owner_id",
+    "workflow_id",
+)
 
 
 class ItemRepository(Repository[CatalogItem]):
@@ -139,42 +165,104 @@ def _question(q: Mapping[str, Any]) -> Question:
         shown_to=frozenset(
             QuestionAudience(a) for a in q.get("shown_to") or list(QuestionAudience)
         ),
+        restarts_approval=bool(q.get("restarts_approval", False)),
     )
 
 
 def rules_of(item: CatalogItem) -> ItemRules:
     """The item's rules as the domain sees them (also for work_items, through the package)."""
-    approval = item.approval
-    stage = (
-        ApprovalStage(
-            approvers=tuple(
-                Approver(ApproverKind(a["kind"]), _uuid(a.get("person_id")))
-                for a in approval.get("approvers", [])
-            ),
-            backup_id=_uuid(approval.get("backup_id")),
-            comments_required=bool(approval.get("comments_required", False)),
-            self_approval=bool(approval.get("self_approval", False)),
-        )
-        if approval
-        else None
-    )
+    stages = stages_of(item.approval)
+    stage = stages[0] if stages else None
     return ItemRules(
         questions=tuple(_question(q) for q in item.questions),
         approval=stage,
-        plan=tuple(
-            PlannedTask(
-                t.get("title", {}),
-                _uuid(t.get("group_id")),
-                _uuid(t.get("owner_id")),
-                bool(t.get("required", True)),
-                bool(t.get("internal", False)),
-            )
-            for t in item.plan
-        ),
+        plan=tuple(planned_task(t) for t in item.plan),
         technician_after_approval=item.technician_after_approval,
         count_approval_time=item.count_approval_time,
         auto_fulfil=item.auto_fulfil,
+        stages=stages,
+        restart_on=restart_on_of(item.approval),
     )
+
+
+def _task_field(f: Mapping[str, Any]) -> TaskField:
+    return TaskField(
+        key=str(f.get("key", "")),
+        label=dict(f.get("label") or {}),
+        kind=TaskFieldKind(f.get("kind") or TaskFieldKind.TEXT.value),
+        required=bool(f.get("required", False)),
+        options=tuple(str(o) for o in f.get("options") or ()),
+        requester_visible=bool(f.get("requester_visible", False)),
+    )
+
+
+def planned_task(t: Mapping[str, Any]) -> PlannedTask:
+    """One stored plan step as the domain sees it (WP-047a S5 adds keys, order, fields, owner)."""
+    owner_kind = t.get("owner_kind")
+    return PlannedTask(
+        t.get("title", {}),
+        _uuid(t.get("group_id")),
+        _uuid(t.get("owner_id")),
+        bool(t.get("required", True)),
+        bool(t.get("internal", False)),
+        key=t.get("key"),
+        waits_for=tuple(str(w) for w in t.get("waits_for") or ()),
+        condition=t.get("condition"),
+        fields=tuple(_task_field(f) for f in t.get("fields") or ()),
+        owner_kind=TaskOwnerKind(owner_kind) if owner_kind else None,
+        question_key=t.get("question_key"),
+        kind=PlanStepKind(t.get("kind") or PlanStepKind.TASK.value),
+    )
+
+
+def restart_on_of(approval: Mapping[str, Any] | None) -> frozenset[RestartOn]:
+    """The request values whose change restarts approval (WP-047a S3b; REQ-SR-041)."""
+    return frozenset(
+        RestartOn(code)
+        for code in (approval or {}).get("restart_on") or []
+        if code in set(RestartOn)
+    )
+
+
+def _stage(raw: Mapping[str, Any]) -> ApprovalStage:
+    return ApprovalStage(
+        approvers=tuple(
+            Approver(
+                ApproverKind(a["kind"]),
+                _uuid(a.get("person_id")),
+                group_id=_uuid(a.get("group_id")),
+                question_key=a.get("question_key"),
+            )
+            for a in raw.get("approvers", [])
+        ),
+        backup_id=_uuid(raw.get("backup_id")),
+        comments_required=bool(raw.get("comments_required", False)),
+        self_approval=bool(raw.get("self_approval", False)),
+        rule=StageRule(raw.get("rule") or StageRule.ANY.value),
+        parallel_group=raw.get("parallel_group"),
+        condition=raw.get("condition"),
+        auto_earlier=raw.get("auto_earlier"),
+        auto_rules=tuple(
+            AutoRule(dict(r.get("name") or {}), r.get("condition") or {})
+            for r in raw.get("auto_rules") or []
+        ),
+        escalate_to=EscalationTarget(raw.get("escalate_to") or EscalationTarget.BACKUP.value),
+    )
+
+
+def stages_of(approval: Mapping[str, Any] | None) -> tuple[ApprovalStage, ...]:
+    """An item's approval stages, in order (WP-047a S2a).
+
+    Stored as `{"stages": [...]}`; an item saved before S2a keeps its one stage at the top
+    level and reads as that one stage, unchanged (no data step, the coordinator's condition 5).
+    """
+    if not approval:
+        return ()
+    # `stages: null` or `[]` (the API model's default on a single-stage body) is the single
+    # stage, as `_stored_approval` stores it.
+    if approval.get("stages"):
+        return tuple(_stage(raw) for raw in approval["stages"])
+    return (_stage(approval),)
 
 
 def _shape_problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:  # noqa: C901, PLR0912 - one rule per field, flat
@@ -212,9 +300,45 @@ def _shape_problems(values: Mapping[str, Any]) -> list[tuple[str, str]]:  # noqa
         if not isinstance(approval, Mapping):
             found.append(("approval", "invalid_value"))
         else:
-            for i, a in enumerate(approval.get("approvers") or []):
-                if not isinstance(a, Mapping) or a.get("kind") not in set(ApproverKind):
-                    found.append((f"approval.approvers.{i}.kind", "invalid_choice"))
+            found += _approval_shape(approval)
+    return found
+
+
+def _stage_shape(stage: Mapping[str, Any], at: str) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for i, a in enumerate(stage.get("approvers") or []):
+        if not isinstance(a, Mapping) or a.get("kind") not in set(ApproverKind):
+            found.append((f"{at}.approvers.{i}.kind", "invalid_choice"))
+    if stage.get("rule") is not None and stage.get("rule") not in set(StageRule):
+        found.append((f"{at}.rule", "invalid_choice"))
+    if stage.get("auto_earlier") is not None and not isinstance(stage["auto_earlier"], bool):
+        found.append((f"{at}.auto_earlier", "invalid_value"))
+    rules = stage.get("auto_rules")
+    if rules is not None and (
+        not isinstance(rules, list)
+        or not all(isinstance(r, Mapping) and isinstance(r.get("name"), Mapping) for r in rules)
+    ):
+        found.append((f"{at}.auto_rules", "invalid_value"))
+    if stage.get("escalate_to") is not None and stage["escalate_to"] not in set(EscalationTarget):
+        found.append((f"{at}.escalate_to", "invalid_choice"))  # WP-047a S3a (REQ-SR-034)
+    return found
+
+
+def _approval_shape(approval: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """The raw approval's shape before it is parsed: one stage, or a `stages` list (S2a)."""
+    restart = approval.get("restart_on")
+    if restart is not None and (
+        not isinstance(restart, list) or any(r not in set(RestartOn) for r in restart)
+    ):
+        return [("approval.restart_on", "invalid_choice")]  # WP-047a S3b
+    if approval.get("stages") is None:  # today's single stage (or `stages: null`)
+        return _stage_shape(approval, "approval")
+    stages = approval["stages"]
+    if not isinstance(stages, list) or not all(isinstance(x, Mapping) for x in stages):
+        return [("approval.stages", "invalid_value")]
+    found: list[tuple[str, str]] = []
+    for n, stage in enumerate(stages):
+        found += _stage_shape(stage, f"approval.stages.{n}")
     return found
 
 
@@ -229,12 +353,63 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "help": dict(q.get("help") or {}),
         "default": q.get("default"),
         "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
+        **({"restarts_approval": True} if q.get("restarts_approval") else {}),
     }
+
+
+def _stored_approval(approval: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rule per part, flat
+    """The approval as it is stored: one shape only (WP-047a S2a).
+
+    `{"stages": [...]}` when stages are given, else the single stage. A stage with nothing new
+    is stored exactly as before S2a (approvers with `kind` and `person_id`, the backup and the
+    two switches: the coordinator's condition 5); S2a's parts are added only when set. IDs as
+    text.
+    """
+
+    def text(value: Any) -> str | None:  # noqa: ANN401 - an ID as given (UUID or text)
+        return None if value is None else str(value)
+
+    def approver(raw: Mapping[str, Any]) -> dict[str, Any]:
+        kept: dict[str, Any] = {"kind": raw["kind"], "person_id": text(raw.get("person_id"))}
+        if raw.get("group_id") is not None:
+            kept["group_id"] = text(raw["group_id"])
+        if raw.get("question_key") is not None:
+            kept["question_key"] = raw["question_key"]
+        return kept
+
+    def stage(raw: Mapping[str, Any]) -> dict[str, Any]:
+        kept: dict[str, Any] = {
+            "approvers": [approver(a) for a in raw.get("approvers") or []],
+            "backup_id": text(raw.get("backup_id")),
+            "comments_required": bool(raw.get("comments_required", False)),
+            "self_approval": bool(raw.get("self_approval", False)),
+        }
+        if raw.get("rule") not in (None, StageRule.ANY.value):
+            kept["rule"] = str(raw["rule"])
+        for name in ("parallel_group", "condition", "auto_earlier"):
+            if raw.get(name) is not None:
+                kept[name] = raw[name]
+        if raw.get("escalate_to") not in (None, EscalationTarget.BACKUP.value):  # S3a
+            kept["escalate_to"] = str(raw["escalate_to"])
+        if raw.get("auto_rules"):  # WP-047a S2b (REQ-SR-033)
+            kept["auto_rules"] = [
+                {"name": dict(r["name"]), "condition": r["condition"]} for r in raw["auto_rules"]
+            ]
+        return kept
+
+    # WP-047a S3b (REQ-SR-041): which of the request's own values restart approval, on both shapes.
+    restart = sorted({str(c) for c in approval.get("restart_on") or []})
+    extra = {"restart_on": restart} if restart else {}
+    if approval.get("stages"):
+        return {"stages": [stage(s) for s in approval["stages"]], **extra}
+    return {**stage(approval), **extra}
 
 
 def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rule per field, flat
     """The fields as the columns keep them (IDs as text inside the JSON, HTML sanitised)."""
     out = {k: values[k] for k in ITEM_FIELDS if k in values}
+    if isinstance(out.get("approval"), Mapping):
+        out["approval"] = _stored_approval(out["approval"])
     for name in _IDS:
         if name in out:
             out[name] = _uuid(out[name])
@@ -266,37 +441,56 @@ def stored(values: Mapping[str, Any]) -> dict[str, Any]:  # noqa: C901 - one rul
                 "owner_id": None if t.get("owner_id") is None else str(t["owner_id"]),
                 "required": bool(t.get("required", True)),
                 "internal": bool(t.get("internal", False)),
+                # WP-047a S5 (REQ-SR-047..050, -056): kept only when set.
+                **{
+                    k: t[k]
+                    for k in ("key", "condition", "owner_kind", "question_key")
+                    if t.get(k) is not None
+                },
+                **({"waits_for": list(t["waits_for"])} if t.get("waits_for") else {}),
+                **({"fields": [dict(f) for f in t["fields"]]} if t.get("fields") else {}),
+                **({"kind": t["kind"]} if t.get("kind") not in (None, "task") else {}),
             }
             for t in out["plan"]
         ]
-    if out.get("approval") is not None:
-        a = out["approval"]
-        out["approval"] = {
-            "approvers": [
-                {
-                    "kind": x["kind"],
-                    "person_id": None if x.get("person_id") is None else str(x["person_id"]),
-                }
-                for x in a.get("approvers") or []
-            ],
-            "backup_id": None if a.get("backup_id") is None else str(a["backup_id"]),
-            "comments_required": bool(a.get("comments_required", False)),
-            "self_approval": bool(a.get("self_approval", False)),
-        }
     return out
 
 
 async def _group_problems(
     session: AsyncSession, item: CatalogItem, rules: ItemRules
 ) -> list[tuple[str, str]]:
+    staged = _staged_named(rules)
+    stage_groups = {at: g for at, (kind, g) in staged.items() if kind == "group"}
     wanted = {g for g in (item.group_id, *(t.group_id for t in rules.plan)) if g is not None}
+    wanted |= set(stage_groups.values())
     known = await existing_unit_ids(session, "group", sorted(wanted, key=str))
     found = [("group_id", "not_found")] if item.group_id not in {None, *known} else []
+    found += [(at, "not_found") for at, group in stage_groups.items() if group not in known]
     return found + [
         (f"plan.{i}.group_id", "not_found")
         for i, task in enumerate(rules.plan)
         if task.group_id is not None and task.group_id not in known
     ]
+
+
+def _staged_named(rules: ItemRules) -> dict[str, tuple[str, uuid.UUID]]:
+    """Every person and group the stages name, by field path (WP-047a S2a; #582 review).
+
+    Each stage's named approvers, groups and backup are checked like stage 1's, so no stage
+    can name an ID that is not this tenant's.
+    """
+    several = len(rules.stages) > 1  # one stage's people are `approval.*`, checked already
+    named: dict[str, tuple[str, uuid.UUID]] = {}
+    for n, stage in enumerate(rules.stages):
+        at = f"approval.stages.{n}" if several else "approval"
+        for i, a in enumerate(stage.approvers):
+            if a.person_id is not None and several:
+                named[f"{at}.approvers.{i}.person_id"] = ("person", a.person_id)
+            if a.group_id is not None:
+                named[f"{at}.approvers.{i}.group_id"] = ("group", a.group_id)
+        if stage.backup_id is not None and several:
+            named[f"{at}.backup_id"] = ("person", stage.backup_id)
+    return named
 
 
 def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
@@ -318,6 +512,7 @@ def _people_named(item: CatalogItem, rules: ItemRules) -> dict[str, uuid.UUID]:
         for i, task in enumerate(rules.plan)
         if task.owner_id is not None
     }
+    people |= {at: who for at, (kind, who) in _staged_named(rules).items() if kind == "person"}
     return people
 
 
@@ -341,6 +536,12 @@ async def _reference_problems(
         and await ports.entry_template(session, item.template_id) is None
     ):
         found.append(("template_id", "not_found"))
+    if item.workflow_id is not None and (
+        problem := await ports.workflow_problem(
+            session, item.workflow_id, live=item.status == "published"
+        )
+    ):
+        found.append(("workflow_id", problem))  # REQ-SR-053: a service request workflow
     found += await _group_problems(session, item, rules)
     people = _people_named(item, rules)
     known = await user_contacts(session, sorted({str(p) for p in people.values()}))
@@ -467,6 +668,22 @@ async def expected_delivery(session: AsyncSession, item: CatalogItem) -> sla.Del
     return await sla.delivery_target(session, SR_TYPE, item.sla_policy_id, item.default_priority)
 
 
+async def expected_delivery_at(session: AsyncSession, item: CatalogItem) -> datetime | None:
+    """When a request for `item` raised now should be delivered (REQ-SR-015 AC1; WP-047a S1).
+
+    The same SLA as `expected_delivery`, counted from now on its calendar (the item's group's
+    when the target uses the group calendar), as the request itself will be.
+    """
+    return await sla.delivery_at(
+        session,
+        SR_TYPE,
+        item.sla_policy_id,
+        item.default_priority,
+        datetime.now(UTC),
+        group_id=item.group_id,
+    )
+
+
 def snapshot(item: CatalogItem) -> dict[str, Any]:
     """The item's fields as field history keeps them (IDs and times as text)."""
     out: dict[str, Any] = {}
@@ -547,6 +764,149 @@ def _initial_status(values: Mapping[str, Any]) -> ItemStatus:
     return ItemStatus.PUBLISHED if values.get("enabled") is True else ItemStatus.DRAFT
 
 
+async def requester_question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions its requesters see (REQ-CAT-008; WP-047a S1).
+
+    For the portal's answers, filtered on the server: an answer is shown to its requester only
+    when its question is theirs (default deny: a removed question's answer, or a technician's or
+    an approver's, never reaches them). Read as system data: the caller already decided the
+    record is the requester's to see.
+    """
+    return await question_keys(session, item_ids, QuestionAudience.REQUESTER)
+
+
+async def approver_question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions its approvers see (WP-047a S4; REQ-SR-043 AC2).
+
+    The same default deny as the requester's: a question marked hidden from approvers, or one
+    the item no longer has, never reaches the approval page or mail.
+    """
+    return await question_keys(session, item_ids, QuestionAudience.APPROVER)
+
+
+async def question_keys(
+    session: AsyncSession, item_ids: Sequence[uuid.UUID], audience: QuestionAudience
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Per item, the keys of the questions `audience` sees (a question names none: everyone)."""
+    if not item_ids:
+        return {}
+    rows = await session.execute(
+        select(CatalogItem.id, CatalogItem.questions).where(CatalogItem.id.in_(set(item_ids)))
+    )
+    return {
+        item_id: frozenset(
+            q["key"]
+            for q in questions or []
+            if audience.value in (q.get("shown_to") or [a.value for a in QuestionAudience])
+        )
+        for item_id, questions in rows.all()
+    }
+
+
+@dataclass(frozen=True)
+class AgainForm:
+    """Request again from a past request (REQ-SR-016): the item's form with its answers.
+
+    `available` false with `reason` (a label code) when the item can no longer be requested
+    (AC3: retired, or no longer offered to this person); then nothing else is given.
+    """
+
+    item_id: uuid.UUID
+    available: bool
+    reason: str | None
+    answers: Mapping[str, Any]
+    dropped: tuple[str, ...]
+
+
+def _unavailable(item_id: uuid.UUID, reason: str) -> AgainForm:
+    return AgainForm(item_id=item_id, available=False, reason=reason, answers={}, dropped=())
+
+
+async def again_form(
+    session: AsyncSession, subject: Subject, item_id: uuid.UUID, answers: Mapping[str, Any]
+) -> AgainForm:
+    """The item as it is now (no item versions yet, the coordinator's Q8), prefilled (S1)."""
+    try:
+        view = await get_item(session, subject, item_id)
+    except NotFound:
+        row = await session.get(CatalogItem, item_id)
+        retired = row is not None and row.status == ItemStatus.RETIRED.value
+        reason = "catalog_item_retired" if retired else "catalog_item_unavailable"
+        return _unavailable(item_id, reason)
+    item = view.item
+    if item.status != ItemStatus.PUBLISHED.value or item.kind != ItemKind.SERVICE.value:
+        retired = item.status == ItemStatus.RETIRED.value
+        reason = "catalog_item_retired" if retired else "catalog_item_unavailable"
+        return _unavailable(item_id, reason)
+    again = request_again(view.rules.questions, answers)
+    return AgainForm(
+        item_id=item_id, available=True, reason=None, answers=again.answers, dropped=again.dropped
+    )
+
+
+async def templated_subject(
+    session: AsyncSession, item_id: uuid.UUID, answers: Mapping[str, Any], *, person: str
+) -> str | None:
+    """A new request's subject from its item's template, or None without one (WP-031 leftover).
+
+    Choice answers show their English words (the stored fallback language, never a code);
+    `person` is the requested-for person's name.
+    """
+    item = await session.get(CatalogItem, item_id)
+    if item is None or not item.subject_template:
+        return None
+    words = {
+        code: str(labels.get("en") or code)
+        for q in rules_of(item).questions
+        for code, labels in q.option_labels.items()
+    }
+    filled = subject_from(item.subject_template, answers, person=person, words=words)
+    return filled or None
+
+
+async def quantity_licensed(subject: Subject) -> bool:
+    """Whether the tenant's plan offers a quantity on requests (REQ-SR-014: `catalog`)."""
+    return await licensing.has_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
+async def _quantity_licensed(subject: Subject, values: Mapping[str, Any]) -> None:
+    """A quantity on an item is Professional (REQ-SR-014, D-133): `catalog`, on the server.
+
+    Turning it off (null) is always allowed, so a downgraded tenant can clear it.
+    """
+    if values.get("max_quantity") is not None:
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047a S2a: approval stages beyond today's one are Professional too; saving an item back
+    # to a single stage of today's kinds is always allowed (a downgraded tenant can simplify).
+    approval = values.get("approval")
+    if isinstance(approval, Mapping) and uses_stages(stages_of(approval)):
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+    # WP-047a S5: a plan's ordered steps, task fields, owners by kind and hand-overs, and an
+    # item's workflow, are Professional (REQ-SR-047, -049, -050, -053, -056); a step's condition
+    # is Essentials (REQ-SR-048). Clearing them is always allowed.
+    plan = values.get("plan")
+    if (isinstance(plan, list) and any(_professional_step(t) for t in plan)) or values.get(
+        "workflow_id"
+    ) is not None:
+        await licensing.require_feature(subject.tenant_id, CATALOG_FEATURE)
+
+
+def _professional_step(step: Any) -> bool:  # noqa: ANN401 - the API's plan JSON
+    if not isinstance(step, Mapping):
+        return False
+    owner = step.get("owner_kind")
+    return bool(
+        step.get("waits_for")
+        or step.get("fields")
+        or (owner not in (None, TaskOwnerKind.PERSON.value))
+        or step.get("kind") not in (None, PlanStepKind.TASK.value)
+    )
+
+
 async def create_item(
     session: AsyncSession,
     subject: Subject,
@@ -560,6 +920,7 @@ async def create_item(
     clock = clock or SystemClock()
     if problems := _shape_problems({"names": {}, **values}):
         raise invalid(problems)
+    await _quantity_licensed(subject, values)
     status = _initial_status(values)
     item = CatalogItem(
         **{
@@ -639,6 +1000,7 @@ async def update_item(  # noqa: PLR0913 - the item, its version and the change
     row = await _live(session, item_id)
     if problems := _shape_problems(values):
         raise invalid(problems)
+    await _quantity_licensed(subject, values)
     before = snapshot(row)
     wanted = {**stored(values), **_status_change(row, values, clock.now())}
     changes = {k: v for k, v in wanted.items() if getattr(row, k) != v}
@@ -678,6 +1040,9 @@ async def copy_item(
     require_manage(subject)
     row = await _live(session, item_id)
     values = {k: getattr(row, k) for k in ITEM_FIELDS}
+    # A copy is a new item: the same edition gates as saving one (lane C's #582 review), so a
+    # downgraded tenant cannot copy stages or a quantity into a new item.
+    await _quantity_licensed(subject, values)
     values |= {
         "names": copy_names(row.names, COPY_PREFIX),
         "featured": False,
@@ -731,6 +1096,46 @@ class PlanStep:
     owner_id: uuid.UUID | None
     required: bool
     internal: bool
+    # WP-047a S5 (REQ-SR-047..050, -056), as plain values for work_items' plan.
+    key: str | None = None
+    waits_for: tuple[str, ...] = ()
+    condition: Mapping[str, Any] | None = None
+    fields: tuple[Mapping[str, Any], ...] = ()  # key, label, kind, required, options, visible
+    owner_kind: str | None = None  # person | requested_for_manager | person_answer
+    question_key: str | None = None
+    kind: str = "task"  # task | asset_handover
+
+
+@dataclass(frozen=True)
+class ApproverSpec:
+    """One approver of a stage as plain values (WP-047a S2a): a kind code and what it names."""
+
+    kind: str
+    person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = None
+    question_key: str | None = None
+
+
+@dataclass(frozen=True)
+class StageSpec:
+    """One approval stage as plain values, for the request's snapshot (WP-047a S2a).
+
+    Configuration only: codes and IDs, never names or e-mail addresses (snapshot condition 1).
+    """
+
+    approvers: tuple[ApproverSpec, ...]
+    rule: str = "any"
+    backup_id: uuid.UUID | None = None
+    comments_required: bool = False
+    self_approval: bool = False
+    parallel_group: str | None = None
+    condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): the item's own "approved earlier" (None: the tenant's) and its
+    # automatic rules, each (name per language, condition).
+    auto_earlier: bool | None = None
+    auto_rules: tuple[tuple[Mapping[str, str], Mapping[str, Any]], ...] = ()
+    # WP-047a S3a (REQ-SR-034): where it goes after its last reminder (an EscalationTarget code).
+    escalate_to: str = "backup"
 
 
 @dataclass(frozen=True)
@@ -746,6 +1151,9 @@ class RequestItem:
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
+    # WP-047a S1: how many may be asked for (None: no quantity), and whether needed-by is asked.
+    max_quantity: int | None
+    asks_needed_by: bool
     answer_problems: tuple[tuple[str, str], ...]  # the answers checked against the form
     # The approval stage (WP-030 s2), as plain values for work_items' engine: each approver as
     # (manager of the requested-for person?, person id), the backup, and the stage's switches.
@@ -755,6 +1163,18 @@ class RequestItem:
     comments_required: bool = False
     plan: tuple[PlanStep, ...] = ()  # WP-030 s3: the fulfilment tasks, in order
     requesters_see_approval: bool = True  # WP-031 plan D8
+    workflow_id: uuid.UUID | None = None  # WP-047a S5 (REQ-SR-053): its fulfilment workflow
+    # WP-047a S2a: every stage in order (the single-stage fields above stay for stage 1).
+    stages: tuple[StageSpec, ...] = ()
+    # The keys of its "person" questions: each answer must name a live person of the tenant,
+    # which work_items checks on the server (lane B's and the coordinator's #582 review).
+    person_questions: tuple[str, ...] = ()
+    # Whether the stages engine runs it: the catalog's one answer (`uses_stages`), the same one
+    # that gates saving, so the save and the raise can never disagree (lane C's #582 review).
+    uses_stages: bool = False
+    # WP-047a S3b (REQ-SR-041): what restarts approval when it changes after submitting: the
+    # marked questions' keys, and `quantity` / `requested_for` when the item says so.
+    restart_keys: tuple[str, ...] = ()
 
 
 async def request_item(
@@ -787,6 +1207,8 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
         technician_after_approval=rules.technician_after_approval,
         count_approval_time=rules.count_approval_time,
         auto_fulfil=rules.auto_fulfil,
+        max_quantity=item.max_quantity,
+        asks_needed_by=item.asks_needed_by,
         answer_problems=tuple(answer_problems(rules.questions, answers)),
         approvers=tuple(
             (a.kind is ApproverKind.REQUESTED_FOR_MANAGER, a.person_id)
@@ -802,10 +1224,70 @@ def _decides(item: CatalogItem, answers: Mapping[str, Any]) -> RequestItem:
                 owner_id=t.owner_id,
                 required=t.required,
                 internal=t.internal,
+                key=t.key,
+                waits_for=tuple(t.waits_for),
+                condition=t.condition,
+                fields=tuple(
+                    {
+                        "key": f.key,
+                        "label": dict(f.label),
+                        "kind": f.kind.value,
+                        "required": f.required,
+                        "options": list(f.options),
+                        "requester_visible": f.requester_visible,
+                    }
+                    for f in t.fields
+                ),
+                owner_kind=t.owner_kind.value if t.owner_kind else None,
+                question_key=t.question_key,
+                kind=t.kind.value,
             )
             for t in rules.plan
         ),
         requesters_see_approval=item.requesters_see_approval,
+        workflow_id=item.workflow_id,
+        stages=tuple(_spec(s) for s in (rules.stages or ((stage,) if stage else ()))),
+        person_questions=tuple(q.key for q in rules.questions if q.kind is QuestionKind.PERSON),
+        uses_stages=uses_stages(rules.stages),
+        restart_keys=tuple(
+            sorted(
+                {q.key for q in rules.questions if q.restarts_approval}
+                | {r.value for r in rules.restart_on}
+            )
+        ),
+    )
+
+
+def _spec(stage: ApprovalStage) -> StageSpec:
+    return StageSpec(
+        approvers=tuple(
+            ApproverSpec(a.kind.value, a.person_id, a.group_id, a.question_key)
+            for a in stage.approvers
+        ),
+        rule=stage.rule.value,
+        backup_id=stage.backup_id,
+        comments_required=stage.comments_required,
+        self_approval=stage.self_approval,
+        parallel_group=stage.parallel_group,
+        condition=stage.condition,
+        auto_earlier=stage.auto_earlier,
+        auto_rules=tuple((dict(r.name), r.condition) for r in stage.auto_rules),
+        escalate_to=stage.escalate_to.value,
+    )
+
+
+async def item_requestable(session: AsyncSession, item_id: uuid.UUID) -> bool:
+    """Whether a request can be raised from this item now: published, a service, not deleted.
+
+    For a setting that names an item (a request mailbox, WP-047a S4): no viewer, as no person
+    saves it; whether the requester may raise it is checked when the mail arrives.
+    """
+    row = await session.get(CatalogItem, item_id)
+    return (
+        row is not None
+        and row.deleted_at is None
+        and row.status == ItemStatus.PUBLISHED.value
+        and row.kind == ItemKind.SERVICE.value
     )
 
 
@@ -819,17 +1301,33 @@ async def item_decides(session: AsyncSession, item_id: uuid.UUID) -> RequestItem
     return None if row is None else _decides(row, {})
 
 
+async def item_decides_with(
+    session: AsyncSession, item_id: uuid.UUID, answers: Mapping[str, Any]
+) -> RequestItem | None:
+    """As `item_decides`, with `answers` checked against the item's form (`answer_problems`).
+
+    WP-047a S3b (REQ-SR-041): changed answers on an existing request are checked as the raise
+    checks them, against the item as it is now (items have no versions yet, the plan's Q8).
+    """
+    row = await session.get(CatalogItem, item_id)
+    return None if row is None else _decides(row, answers)
+
+
 __all__ = [
     "MANAGE",
+    "ApproverSpec",
     "ItemView",
     "PlanStep",
     "RequestItem",
+    "StageSpec",
     "copy_item",
     "create_item",
     "delete_item",
     "facts_of",
     "get_item",
     "item_decides",
+    "item_decides_with",
+    "item_requestable",
     "list_items",
     "offered",
     "record_item_change",

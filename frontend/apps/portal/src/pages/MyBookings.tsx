@@ -190,12 +190,20 @@ export function MyBookings() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.assets.myBookings });
     }
   };
-  usePersonalChannel((event) => {
-    refresh(event.type);
-  });
-  useTenantChannel((event) => {
-    refresh(event.type);
-  });
+  // A catch-up refreshes my bookings in the hook (§8.3); what I may book is fetched when the
+  // booking dialog opens.
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true) refresh(event.type);
+    },
+    { covers: [queryKeys.assets.myBookings] },
+  );
+  useTenantChannel(
+    (event) => {
+      if (event.covered !== true) refresh(event.type);
+    },
+    { covers: [queryKeys.assets.myBookings] },
+  );
   const data = mine.data;
   if (data?.enabled !== true) return null;
   return (

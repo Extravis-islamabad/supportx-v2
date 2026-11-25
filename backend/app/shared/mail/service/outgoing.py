@@ -37,6 +37,7 @@ from app.shared.mail.domain.message import (
     OutgoingMail,
     build_mime,
     check,
+    deliverable,
     links_from_json,
     links_to_json,
 )
@@ -82,6 +83,14 @@ async def queue_mail(session: AsyncSession, settings: Settings, mail: OutgoingMa
     if not mail_configured(settings):
         raise MailNotConfigured
     check(mail)
+    if len(kept := deliverable(mail.to)) < len(mail.to):
+        # A .invalid recipient (a vendor support account's, D-177) among real ones: dropped.
+        log.info(
+            "mail_undeliverable_recipients_dropped",
+            kind=mail.kind,
+            dropped=len(mail.to) - len(kept),
+        )
+        mail = replace(mail, to=kept)
     context = session.info[SESSION_TENANT_KEY]
     mail_id = new_id()
     session.add(

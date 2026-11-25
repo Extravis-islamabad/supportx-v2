@@ -27,11 +27,16 @@ RETENTION_MAX_DAYS = 10 * 365
 READ_WINDOW_DEFAULT = 10
 REFUSAL_THRESHOLD_DEFAULT = 10
 REFUSAL_WINDOW_DEFAULT = 10
+# REQ-AUD-016 (WP-057 S5b): the system log's own retention (system_log_purge never goes under 30).
+SYSTEM_LOG_RETENTION_DEFAULT = 90
+SYSTEM_LOG_RETENTION_MIN = 30
+SYSTEM_LOG_RETENTION_MAX = 730
 LIMITS: dict[str, tuple[int, int]] = {
     "retention_days": (RETENTION_MIN_DAYS, RETENTION_MAX_DAYS),
     "read_window_minutes": (1, 1440),
     "refusal_threshold": (3, 1000),
     "refusal_window_minutes": (1, 1440),
+    "system_log_retention_days": (SYSTEM_LOG_RETENTION_MIN, SYSTEM_LOG_RETENTION_MAX),
 }
 
 if TYPE_CHECKING:
@@ -50,6 +55,7 @@ class AuditSettingsView:
     version: int
     # REQ-AUD-017: log views and exports of personal data (off until a tenant admin turns it on).
     personal_data_log: bool = False
+    system_log_retention_days: int = SYSTEM_LOG_RETENTION_DEFAULT
 
     def values(self) -> dict[str, object]:
         """The editable values, for history and the audit entry."""
@@ -60,6 +66,7 @@ class AuditSettingsView:
             "refusal_window_minutes": self.refusal_window_minutes,
             "read_categories": list(self.read_categories),
             "personal_data_log": self.personal_data_log,
+            "system_log_retention_days": self.system_log_retention_days,
         }
 
 
@@ -84,6 +91,7 @@ def _view(row: AuditSettings | None) -> AuditSettingsView:
         read_categories=tuple(sorted(row.read_categories)),
         version=row.version,
         personal_data_log=row.personal_data_log,
+        system_log_retention_days=row.system_log_retention_days,
     )
 
 
@@ -165,6 +173,7 @@ async def update_settings(
     row.refusal_window_minutes = after.refusal_window_minutes
     row.read_categories = list(after.read_categories)
     row.personal_data_log = after.personal_data_log
+    row.system_log_retention_days = after.system_log_retention_days
     row.version = after.version
     row.updated_by = context.user_id
     await session.flush()

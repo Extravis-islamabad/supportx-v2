@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 
 from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,9 +27,12 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import service_catalog
 from app.modules.identity_access import Subject, person_placement
+from app.modules.work_items.domain import approval_reminders as rules_reminders
 from app.modules.work_items.domain import approvals as rules
+from app.modules.work_items.domain import request_stages as progression
 from app.modules.work_items.domain import service_requests as sr_rules
-from app.modules.work_items.domain.lifecycle import WorkItemAction
+from app.modules.work_items.domain.clarifications import ClarificationEnd
+from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory, WorkItemAction
 from app.modules.work_items.domain.service_requests import ApprovalStatus
 from app.modules.work_items.domain.types import (
     SERVICE_REQUEST,
@@ -40,7 +44,9 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import (
     change_freeze,
+    clarification_rows,
     fulfilment,
+    request_stages,
     stage_approvals,
     workflow_approvals,
 )
@@ -63,6 +69,12 @@ class ApprovalView:
     comment: str | None
     can_decide: bool
     self_approved: bool
+    # WP-047a S2a: a skipped stage's condition, shown with it (REQ-SR-032 AC2).
+    condition: Mapping[str, Any] | None = None
+    # WP-047a S2b (REQ-SR-033): the rule that approved it automatically (its name, for anyone
+    # who sees the approval), and the answer keys it read (staff only, like the condition).
+    auto_rule: Mapping[str, str] | None = None
+    auto_keys: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -91,7 +103,9 @@ def _may_decide(subject: Subject, wtype: WorkItemType, row: WorkItemApproval) ->
         return subject.holds(APPROVE_ANY) or subject.holds(wtype.permission(APPROVE))
     if row.approver_id is None:
         return subject.holds(APPROVE_ANY)
-    return row.approver_id == subject.user_id and subject.holds(wtype.permission(APPROVE))
+    # WP-047a S3b (REQ-SR-035): the approver a delegation routed it away from may still act.
+    named = subject.user_id in {row.approver_id, row.on_behalf_of_id}
+    return named and subject.holds(wtype.permission(APPROVE))
 
 
 def _involved(subject: Subject, record: WorkItem) -> bool:
@@ -116,7 +130,26 @@ def _shown(
         ),
         self_approved=row.decided_by is not None
         and row.decided_by in {record.requester_id, requested_for(record)},
+        # The item's set-up, for staff only (lane C's #582 review): a requester sees why a
+        # stage was skipped (the labelled reason), never the item's condition itself.
+        condition=request_stages.condition_of(record, row.stage)
+        if row.skip_reason is not None and _staff(subject, wtype)
+        else None,
+        **_auto_rule_shown(subject, wtype, record, row),
     )
+
+
+def _auto_rule_shown(
+    subject: Subject, wtype: WorkItemType, record: WorkItem, row: WorkItemApproval
+) -> dict[str, Any]:
+    """The rule an automatic approval names (REQ-SR-033): its name, and for staff its keys."""
+    if row.auto_reason != rules.AutoReason.RULE_MATCHED:
+        return {}
+    rule = request_stages.auto_rule_of(record, row.stage, row.auto_ref)
+    if rule is None:
+        return {}
+    keys = tuple(progression.matched_keys(rule.condition)) if _staff(subject, wtype) else None
+    return {"auto_rule": dict(rule.name), "auto_keys": keys}
 
 
 async def _record(session: AsyncSession, wtype: WorkItemType, record_id: uuid.UUID) -> WorkItem:
@@ -160,11 +193,44 @@ async def list_for_record(
     return [_shown(subject, wtype, record, r) for r in found]
 
 
+# WP-047a S3a (REQ-SR-037): the clarification service checks and answers as deciding does.
+record_of = _record
+may_decide = _may_decide
+view_of = _shown
+
+
+ModifyRefused = Literal["no_permission", "out_of_scope", "approval_not_running"]
+
+
+async def modify_refused(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> ModifyRefused | None:
+    """Why the viewer may not adjust this request's running approval (REQ-SR-042 AC2).
+
+    None for other types, and when they may: the screen shows the actions disabled with this
+    reason, and the server refuses them on its own anyway.
+    """
+    if wtype.code is not WorkItemTypeCode.SERVICE_REQUEST:
+        return None
+    refused = await items.action_refused(session, subject, wtype, "modify_approvers", record_id)
+    if refused is not None:
+        return "out_of_scope" if refused == "out_of_scope" else "no_permission"
+    record = await _record(session, wtype, record_id)
+    running = record.approval_status == ApprovalStatus.PENDING and (
+        StatusCategory(record.status_category) not in FINAL_CATEGORIES
+    )
+    return None if running else "approval_not_running"
+
+
 async def mine(
     session: AsyncSession, subject: Subject, wtype: WorkItemType
 ) -> list[PendingApproval]:
     """The approvals waiting for the subject, oldest first (the console drawer, REQ-SR-025)."""
-    holders = [WorkItemApproval.approver_id == subject.user_id]
+    holders = [
+        WorkItemApproval.approver_id == subject.user_id,
+        # WP-047a S3b (REQ-SR-035): what a delegation routed to someone else stays in yours.
+        WorkItemApproval.on_behalf_of_id == subject.user_id,
+    ]
     if subject.holds(APPROVE_ANY):
         holders.append(WorkItemApproval.approver_id.is_(None))
     rows = await session.execute(
@@ -219,6 +285,17 @@ async def decided_by_me(
     return [PendingApproval(a, r) for a, r in rows.all()]
 
 
+def _still_open(row: WorkItemApproval | None) -> WorkItemApproval:
+    """404 when it is not there; 409 once decided, or expired (WP-047a S4; lane C)."""
+    if row is None:
+        raise NotFound(code="approval_not_found")
+    if row.state == rules.ApprovalState.EXPIRED:
+        raise Conflict(code="approval_expired")
+    if row.state != rules.ApprovalState.PENDING:
+        raise Conflict(code="approval_closed", params={"state": row.state})
+    return row
+
+
 async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -244,10 +321,7 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
         )
         .with_for_update()
     )
-    if row is None:
-        raise NotFound(code="approval_not_found")
-    if row.state != rules.ApprovalState.PENDING:
-        raise Conflict(code="approval_closed", params={"state": row.state})
+    row = _still_open(row)
     if not _may_decide(subject, wtype, row):
         raise PermissionDenied(code="not_an_approver")
     if rules.blocked_for_self(
@@ -289,6 +363,8 @@ async def decide(  # noqa: PLR0913 - the decision and its context, explicit
     await session.flush()
     await approval_event(session, record, row, "decided")
     await action_links.revoke_for(session, LINK_OBJECT, row.id)  # decided another way
+    await clarification_rows.end_open(session, record, [row.id], ClarificationEnd.DECIDED)
+    await close_family(session, record, row)  # REQ-SR-036 AC2: the first of them settles it
     await _after_vote(session, wtype, record, row, approved=approved, source=source)
     if approved:
         await session.refresh(record)
@@ -314,8 +390,14 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
     if row.record_stage is not None:  # a staged record: the level's rule decides (WP-058a s5)
         await stage_approvals.after_decision(session, wtype, record, row, source=source)
         return
-    if wtype.code is WorkItemTypeCode.INCIDENT:  # its own rule decides (WP-046b S1, REQ-INC-083)
+    if (
+        wtype.code is WorkItemTypeCode.INCIDENT  # its own rule decides (WP-046b S1, REQ-INC-083)
+        or row.purpose == rules.ApprovalPurpose.AD_HOC  # a request's ad hoc ask (REQ-SR-042)
+    ):
         await _incident_vote(session, record, row, source=source)
+        return
+    if record.approval_stages is not None and row.purpose == rules.ApprovalPurpose.RECORD:
+        await _request_stage_vote(session, wtype, record, row, source=source)  # WP-047a S2a
         return
     await _close_others(
         session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
@@ -325,6 +407,48 @@ async def _after_vote(  # noqa: PLR0913 - the vote and its context, explicit
         # A problem's approvals decide, but never move its status (WP-044b s4).
         await _problem_decided(session, record, status, purpose=row.purpose, source=source)
         return
+    await _finish(session, wtype, record, status, source=source)
+
+
+async def _request_stage_vote(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    row: WorkItemApproval,
+    *,
+    source: Source,
+) -> None:
+    """A staged request's vote: its stage's rule, then the next step or the end (REQ-SR-029)."""
+    outcome = request_stages.stage_outcome(record, await _rows(session, record.id), row.stage)
+    if outcome is rules.LevelOutcome.PENDING:
+        return
+    await _close_others(
+        session, record, row.stage, keep=row.id, state=rules.ApprovalState.NOT_NEEDED
+    )
+    if outcome is rules.LevelOutcome.REJECTED:  # REQ-SR-030 AC2: the step's others withdrawn
+        for number in request_stages.step_of(record, row.stage):
+            if number != row.stage:
+                await _close_others(
+                    session, record, number, keep=None, state=rules.ApprovalState.NOT_NEEDED
+                )
+    overall = await request_stages.advance(session, record)
+    if overall is rules.LevelOutcome.PENDING:
+        return
+    await finish_staged(
+        session, wtype, record, approved=overall is rules.LevelOutcome.APPROVED, source=source
+    )
+
+
+async def finish_staged(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    approved: bool,
+    source: Source,
+) -> None:
+    """A staged request's approval is decided: the record moves on as today (`_finish`)."""
+    status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
     await _finish(session, wtype, record, status, source=source)
 
 
@@ -352,6 +476,41 @@ async def _close_others(
     for r in others:
         await approval_event(session, record, r, "closed")
         await action_links.revoke_for(session, LINK_OBJECT, r.id)  # REQ-SR-061 AC2
+    await clarification_rows.end_open(  # WP-047a S3a: a closed approval asks nothing more
+        session, record, [r.id for r in others], ClarificationEnd.CLOSED
+    )
+
+
+async def close_family(session: AsyncSession, record: WorkItem, decided: WorkItemApproval) -> int:
+    """Close the rest of a decided row's family: its primary and the rows escalated from it.
+
+    WP-047a S3a (REQ-SR-036 AC2): an escalation keeps the primary's approval open until one of
+    them decides; that decision is the family's one vote, so the others are not needed (their
+    events sent, their links revoked). How many were closed.
+    """
+    root = rules_reminders.family_of(decided)
+    others = [
+        r
+        for r in await _rows(session, record.id)
+        if r.id != decided.id
+        and rules_reminders.family_of(r) == root
+        and r.state == rules.ApprovalState.PENDING
+    ]
+    if not others:
+        return 0
+    await session.execute(
+        update(WorkItemApproval)
+        .where(WorkItemApproval.id.in_([r.id for r in others]))
+        .values(state=rules.ApprovalState.NOT_NEEDED.value, version=WorkItemApproval.version + 1)
+        .execution_options(synchronize_session="fetch")
+    )
+    for r in others:
+        await approval_event(session, record, r, "closed")
+        await action_links.revoke_for(session, LINK_OBJECT, r.id)
+    await clarification_rows.end_open(
+        session, record, [r.id for r in others], ClarificationEnd.CLOSED
+    )
+    return len(others)
 
 
 async def withdraw_pending(session: AsyncSession, record: WorkItem) -> int:
@@ -404,6 +563,8 @@ async def _finish(
         technician_id=technician,
         source=source,
     )
+    if item is not None:
+        await items.refresh_expected_delivery(session, record, source=source)  # REQ-SR-015 AC3
     await fulfilment.start_plan(session, record, item, source=source)  # REQ-SR-021 AC1
 
 

@@ -106,6 +106,11 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         **_record_type("incidents", ("edit_closed", "undo_merge")),
         **_never("tenant_decision", "incidents.declare_major"),
         **_record_type("requests"),
+        # WP-047a S2b (REQ-SR-042): who approves a request is the tenant's own decision.
+        **_never("tenant_decision", "requests.modify_approvers"),
+        # D-185 (product owner, 2026-11-24): deleting an asset is the tenant's own decision.
+        **_never("tenant_decision", "assets.delete"),
+        **_never("tenant_decision", "requests.manage_delegations"),  # WP-047a S3b (lane B)
         **_record_type("problems", ("edit_analysis", "edit_solution", "mark_known_error")),
         "problems.view_root_cause": _V,
         **_record_type("changes", ("manage_windows",)),
@@ -135,8 +140,14 @@ SUPPORT_ACCESS: Mapping[str, Decision] = MappingProxyType(
         "cmdb.view": _V,
         "cmdb.add": _C,
         "cmdb.edit": _C,
+        # A downtime recorded on a CI by hand is an operational write, outside desk configuration
+        # (D-173; the coordinator on WP-053 S5b): never for vendor support, whatever the grant.
+        **_never("not_desk", "cmdb.record_downtime"),
         "cmdb.configure": _C,
-        "cmdb.manage": _C,
+        # Covers add, edit, delete, restore and merge: support has add and edit on their own,
+        # so manage would only add the tenant decisions (delete, restore, merge; D-173; the
+        # reproduction in tests/db/test_support_never_through_manage.py).
+        **_never("tenant_decision", "cmdb.manage"),
         **_never("tenant_decision", "cmdb.delete"),
         "assets.view": _V,
         "assets.manage": _C,

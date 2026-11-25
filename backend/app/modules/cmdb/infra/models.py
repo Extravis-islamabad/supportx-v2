@@ -11,6 +11,8 @@
 - `cmdb_settings`: one row per tenant (pickers leave end-of-life CIs out by default).
 
 S2 (0180): relationship types and their rules, relationships, business views.
+S4a (0191): each CI attribute's source and time (`cmdb_cis.sources`), which source wins
+(`cmdb_settings.source_precedence`), sync rules from assets and their runs.
 """
 
 import uuid
@@ -18,6 +20,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Computed,
@@ -28,6 +31,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
@@ -173,6 +177,9 @@ class Ci(TenantEntity):
     asset_id: Mapped[uuid.UUID | None]
     source: Mapped[str] = mapped_column(String(20), server_default="manual")
     custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    # Each attribute's source and time, {attribute: {source, at}} (REQ-CMDB-016, 0191): set by
+    # the path that wrote the value, never by a client.
+    sources: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     search_vector: Unmapped[Any] = unmapped_column(
         TSVECTOR, Computed(CI_SEARCH_VECTOR, persisted=True)
     )
@@ -205,6 +212,8 @@ class CmdbSettings(TenantKeyed, Base):
     __tablename__ = "cmdb_settings"
 
     exclude_eol_from_pickers: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Which source wins, {order, overrides} (REQ-CMDB-016, 0191); empty: the defaults.
+    source_precedence: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     version: Mapped[int] = mapped_column(default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
@@ -383,3 +392,259 @@ class ServiceSubscriber(TenantEntity):
     ci_id: Mapped[uuid.UUID]
     kind: Mapped[str] = mapped_column(String(20))
     ref_id: Mapped[uuid.UUID]
+
+
+# --- CI downtimes (WP-053 S5b, REQ-CMDB-020; migration 0198) -------------------------------------
+
+DOWNTIME_SOURCES = ("change", "release", "incident", "manual")
+DOWNTIME_STATES = ("scheduled", "active", "completed")
+DOWNTIME_PHASES = ("planned", "actual")
+
+
+class CiDowntime(TenantEntity):
+    """One downtime of one CI: from work_items (a change's, a release's, an incident's) or by hand.
+
+    A synced row is keyed by (source downtime, CI) and kept in step by `work_items.downtime.
+    changed`, never edited here; `source_version` drops a replayed or out-of-order event. Only a
+    `manual` row carries a description (a synced one shows its source record instead). `state`
+    is moved by the one-minute sweep as time passes (REQ-CMDB-020 AC1).
+    """
+
+    __tablename__ = "cmdb_ci_downtimes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_downtimes_ci",
+        ),
+        CheckConstraint(
+            "source IN ('change', 'release', 'incident', 'manual')", name="source_code"
+        ),
+        CheckConstraint("state IN ('scheduled', 'active', 'completed')", name="state_code"),
+        CheckConstraint("phase IN ('planned', 'actual')", name="phase_code"),
+        CheckConstraint("ends_at IS NULL OR ends_at > starts_at", name="ends_after_start"),
+        # A synced row names its source; a hand-recorded one never does.
+        CheckConstraint("(source = 'manual') = (source_downtime_id IS NULL)", name="source_ref"),
+        Index(
+            "uq_cmdb_ci_downtimes_source",
+            "tenant_id",
+            "source_downtime_id",
+            "ci_id",
+            unique=True,
+            postgresql_where="deleted_at IS NULL AND source_downtime_id IS NOT NULL",
+        ),
+        Index("ix_cmdb_ci_downtimes_tenant_ci", "tenant_id", "ci_id", "starts_at"),
+        Index(
+            "ix_cmdb_ci_downtimes_tenant_sweep",
+            "tenant_id",
+            "state",
+            "starts_at",
+            postgresql_where="deleted_at IS NULL AND state <> 'completed'",
+        ),
+    )
+
+    ci_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20))
+    source_work_item_id: Mapped[uuid.UUID | None]
+    source_downtime_id: Mapped[uuid.UUID | None]
+    source_version: Mapped[int | None]
+    phase: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str | None] = mapped_column(String(40))
+    starts_at: Mapped[datetime]
+    ends_at: Mapped[datetime | None]
+    description: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), server_default="scheduled")
+
+
+# --- sync rules and their runs (WP-053 S4a, migration 0191) ---------------------------------------
+
+SYNC_SOURCES = ("assets",)
+SYNC_TRIGGERS = ("schedule", "manual", "asset_changed")
+SYNC_STATUSES = ("queued", "running", "succeeded", "failed")
+
+
+class SyncRule(TenantEntity):
+    """Which assets become CIs of which type, and how their fields map (REQ-CMDB-015)."""
+
+    __tablename__ = "cmdb_sync_rules"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_cmdb_sync_rules_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "target_type_id"],
+            ["cmdb_ci_types.tenant_id", "cmdb_ci_types.id"],
+            name="fk_cmdb_sync_rules_type",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "target_state_id"],
+            ["cmdb_ci_states.tenant_id", "cmdb_ci_states.id"],
+            name="fk_cmdb_sync_rules_state",
+        ),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        CheckConstraint(_codes("source_kind", SYNC_SOURCES), name="source_kind_code"),
+        Index(
+            "uq_cmdb_sync_rules_name",
+            "tenant_id",
+            "name",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
+        ),
+        Index("ix_cmdb_sync_rules_tenant_updated", "tenant_id", "updated_at", "id"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    source_kind: Mapped[str] = mapped_column(String(20), server_default="assets")
+    # The assets it selects, in the asset list's DSL (assets' sync filter fields); None: all.
+    filter: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    target_type_id: Mapped[uuid.UUID]
+    target_state_id: Mapped[uuid.UUID | None]
+    # CI attribute → asset field (only assets' syncable fields).
+    field_map: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class SyncRun(TenantEntity):
+    """One run of a rule: its counts and a capped list of what it did per asset.
+
+    Written by the worker only (never edited through the API). An incremental run (an asset
+    changed) lists the assets to re-read in `asset_ids`; a full run reads every match.
+    """
+
+    __tablename__ = "cmdb_sync_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "rule_id"],
+            ["cmdb_sync_rules.tenant_id", "cmdb_sync_rules.id"],
+            name="fk_cmdb_sync_runs_rule",
+        ),
+        CheckConstraint(_codes("trigger", SYNC_TRIGGERS), name="trigger_code"),
+        CheckConstraint(_codes("status", SYNC_STATUSES), name="status_code"),
+        Index("ix_cmdb_sync_runs_tenant_rule", "tenant_id", "rule_id", "created_at"),
+        Index(
+            "ix_cmdb_sync_runs_tenant_open",
+            "tenant_id",
+            "created_at",
+            postgresql_where="status IN ('queued', 'running')",
+        ),
+    )
+
+    rule_id: Mapped[uuid.UUID]
+    trigger: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), server_default="queued")
+    asset_ids: Mapped[list[str] | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime | None]
+    ended_at: Mapped[datetime | None]
+    created_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    updated_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    kept_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    unchanged_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    failed_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    # At most OUTCOMES_MAX: {asset_id, ci_id, outcome, kept: [attributes], code}. IDs and codes
+    # only; names are looked up when read, through the reader's view.
+    outcomes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    # The rule's custom targets this run skipped (no longer a plain field); keys only.
+    skipped_targets: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
+    failure: Mapped[str | None] = mapped_column(String(60))
+
+
+# --- merges and imports (WP-053 S4b, migration 0192) ----------------------------------------------
+
+IMPORT_KINDS = ("cis", "relationships")
+IMPORT_MODES = ("add", "update", "add_update")
+IMPORT_MATCHES = ("display_id", "name")
+IMPORT_STATUSES = ("queued", "running", "checked", "done", "failed")
+
+
+class CiAlias(TenantEntity):
+    """One CI merged into another (REQ-CMDB-017), and the alias it leaves.
+
+    The merged CI (`alias_id`) is in the trash. Its ID and display ID find the survivor
+    (`ci_id`), but only for a reader who may see the survivor. `mapping` is the field-by-field
+    choice ([{"field", "side"}], codes only); `moved` counts what moved. A restore of the merged CI
+    ends the alias (`restored_at`); it never undoes the merge.
+    """
+
+    __tablename__ = "cmdb_ci_aliases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "alias_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_aliases_alias",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "ci_id"],
+            ["cmdb_cis.tenant_id", "cmdb_cis.id"],
+            name="fk_cmdb_ci_aliases_ci",
+        ),
+        CheckConstraint("alias_id <> ci_id", name="not_self"),
+        Index(
+            "uq_cmdb_ci_aliases_live",
+            "tenant_id",
+            "alias_id",
+            unique=True,
+            postgresql_where="restored_at IS NULL AND deleted_at IS NULL",
+        ),
+        Index("ix_cmdb_ci_aliases_tenant_ci", "tenant_id", "ci_id"),
+        Index("ix_cmdb_ci_aliases_tenant_display", "tenant_id", text("lower(alias_display_id)")),
+    )
+
+    alias_id: Mapped[uuid.UUID]
+    ci_id: Mapped[uuid.UUID]
+    alias_display_id: Mapped[str] = mapped_column(String(20))
+    mapping: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    moved: Mapped[dict[str, int]] = mapped_column(JSONB, server_default="{}")
+    restored_at: Mapped[datetime | None]
+    restored_by: Mapped[uuid.UUID | None]
+
+
+class CiImport(TenantEntity):
+    """One CSV or Excel file of CIs or relationships (REQ-CMDB-018), read in the background.
+
+    A dry run reads and checks every row inside savepoints it rolls back, so nothing changes; it
+    ends `checked`, keeping the file for the real run. The file is cleared once the real run has
+    read it. Results keep counts and per-row problems (row, column, code), never values.
+    """
+
+    __tablename__ = "cmdb_imports"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "type_id"],
+            ["cmdb_ci_types.tenant_id", "cmdb_ci_types.id"],
+            name="fk_cmdb_imports_type",
+        ),
+        CheckConstraint(_codes("kind", IMPORT_KINDS), name="kind_code"),
+        CheckConstraint(_codes("mode", IMPORT_MODES), name="mode_code"),
+        CheckConstraint(_codes("match_on", IMPORT_MATCHES), name="match_code"),
+        CheckConstraint(_codes("status", IMPORT_STATUSES), name="status_code"),
+        CheckConstraint("kind <> 'cis' OR type_id IS NOT NULL", name="cis_have_a_type"),
+        Index("ix_cmdb_imports_requested", "tenant_id", "created_by", "created_at"),
+        Index(
+            "ix_cmdb_imports_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where="status IN ('queued', 'running') AND deleted_at IS NULL",
+        ),
+    )
+
+    kind: Mapped[str] = mapped_column(String(20))
+    mode: Mapped[str] = mapped_column(String(20))
+    match_on: Mapped[str] = mapped_column(String(20))
+    type_id: Mapped[uuid.UUID | None]
+    dry_run: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    file_name: Mapped[str] = mapped_column(String(255))
+    file_format: Mapped[str] = mapped_column(String(10))
+    content: Mapped[bytes | None]
+    status: Mapped[str] = mapped_column(String(20), server_default="queued")
+    total: Mapped[int] = mapped_column(Integer, server_default="0")
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    created_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    unchanged_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # Rows that changed nothing because a stronger source set the values (S4a's who wins).
+    kept_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    failed_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # [{"row": 12, "field": "to", "code": "not_found"}, ...] (codes only, never values).
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    failure: Mapped[str | None] = mapped_column(String(50))
+    failure_detail: Mapped[str | None] = mapped_column(String(100))
+    checked_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]

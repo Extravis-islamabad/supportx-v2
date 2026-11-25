@@ -75,6 +75,7 @@ import { IncidentPicker } from './IncidentPicker';
 import { statusLabel } from './labels';
 import { UserPicker } from './pickers';
 import { TaskDetails } from './TaskDetails';
+import { shownName, useHiddenPersonLabel } from '../../maskedPeople';
 
 // Tasks, worklogs and links of an incident (WP-020e; REQ-INC-067, 072, 084). Each list follows
 // the record's channel (`work_items.part_changed`), so two windows see the same thing live.
@@ -112,13 +113,16 @@ function clearIfSent<T>(sent: T, empty: T): (current: T) => T {
 }
 
 function usePeople(ids: (string | null | undefined)[]): Map<string, string> {
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const wanted = [...new Set(ids.filter((id): id is string => typeof id === 'string'))].sort();
   const users = useUsers(
     { filter: { field: 'id', op: 'in', value: wanted }, limit: 100 },
     wanted.length > 0,
   );
   return new Map(
-    (users.data?.pages ?? []).flatMap((page) => page.items).map((u) => [u.id, u.display_name]),
+    (users.data?.pages ?? [])
+      .flatMap((page) => page.items)
+      .map((u) => [u.id, shownName(u.display_name, hidden)]),
   );
 }
 
@@ -414,9 +418,15 @@ export function IncidentTime({ item }: { item: Incident }) {
   const found = useTimeAnalysis(item.id);
   const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
-  useRecordChannel('wi', item.id, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
-  });
+  useRecordChannel(
+    'wi',
+    item.id,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.timeAnalysis(item.id) });
+    },
+    { covers: [queryKeys.incidents.timeAnalysis(item.id)] },
+  );
   const data = found.data;
   const people = usePeople((data?.by_technician ?? []).map((row) => row.key));
   if (found.isError) return <EmptyText>{t('incidents.time.failed')}</EmptyText>;
@@ -549,12 +559,15 @@ export function IncidentWorklogs({
   const queryClient = useQueryClient();
   const timer = useRecordTimer(item.id, base, canEdit);
   const timerChange = useTimerChange(item.id, base);
-  usePersonalChannel((event) => {
-    if (event.type === MY_TIMERS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: timerKeys.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === MY_TIMERS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: timerKeys.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      }
+    },
+    { covers: [timerKeys.record(base, item.id), queryKeys.incidents.worklogs(item.id)] },
+  );
   const now = useNow(30_000);
   const running = timer.data ?? null;
   const stopTimer = () => {
@@ -686,6 +699,21 @@ export function IncidentWorklogs({
                   label: t('incidents.worklogs.total_cost'),
                   children: money(found.data.total_cost) ?? NO_AMOUNT,
                 },
+                // WP-047a S5 (REQ-SR-052 AC3): the tasks' costs and the actual cost, with them.
+                ...(found.data.task_cost != null && Number(found.data.task_cost) > 0
+                  ? [
+                      {
+                        key: 'task_cost',
+                        label: t('incidents.worklogs.task_cost'),
+                        children: money(found.data.task_cost) ?? NO_AMOUNT,
+                      },
+                      {
+                        key: 'actual_cost',
+                        label: t('incidents.worklogs.actual_cost'),
+                        children: money(found.data.actual_cost) ?? NO_AMOUNT,
+                      },
+                    ]
+                  : []),
               ]
             : []),
         ]}
@@ -1135,6 +1163,7 @@ const LINK_PATHS: Record<string, string> = {
 
 export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: boolean }) {
   const t = useLabel();
+  const hidden = useHiddenPersonLabel(); // D-180: masked names read as a stand-in
   const found = useIncidentLinks(item.id);
   const change = useLinkChange(item.id);
   const children = useChildChange(item.id);
@@ -1143,9 +1172,16 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
   // The causing problem's own changes (marked a known error, retired) show here at once.
   const queryClient = useQueryClient();
   const cause = (found.data ?? []).find((l) => l.relation === 'caused_by')?.other_id ?? undefined;
-  useRecordChannel('wi', cause, () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
-  });
+  useRecordChannel(
+    'wi',
+    cause,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+    },
+    // Joins nothing (so refreshes nothing) until a causing problem is linked.
+    { covers: [queryKeys.incidents.links(item.id)] },
+  );
   const [other, setOther] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const rows = found.data ?? [];
@@ -1253,7 +1289,7 @@ export function IncidentLinks({ item, canEdit }: { item: Incident; canEdit: bool
               from={{
                 id: item.id,
                 requesterId: item.requester_id,
-                requesterName: requester?.display_name ?? '',
+                requesterName: shownName(requester?.display_name, hidden),
               }}
               testId="inc-link-other"
               ariaLabel={t('incidents.links.other')}

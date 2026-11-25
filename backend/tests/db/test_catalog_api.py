@@ -78,7 +78,11 @@ async def test_an_admin_adds_an_item_and_changes_it_with_if_match(world: World) 
     made = await add(world, a, a.admin, **laptop(a))
     assert made.status_code == 201, made.text
     item = made.json()
-    assert item["approval"]["approvers"] == [{"kind": "requested_for_manager", "person_id": None}]
+    # WP-047a S2a adds `group_id` and `question_key` (null here): new optional fields only.
+    assert item["approval"]["approvers"] == [
+        {"kind": "requested_for_manager", "person_id": None, "group_id": None, "question_key": None}
+    ]
+    assert (item["approval"]["rule"], item["approval"]["stages"]) == ("any", None)
     assert item["plan"][0]["group_id"] == str(a.ga)
     changed = await world.call(
         "PATCH",

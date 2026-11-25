@@ -187,6 +187,10 @@ export function useMyApprovals() {
   });
 }
 
+/** One type's approvals waiting for you (exported so screens name it in `covers`, §8.3). */
+export const typeApprovalsKey = (type: 'problems' | 'releases' | 'changes') =>
+  [type, 'my-approvals'] as const;
+
 /**
  * Problem and release approvals waiting for you (QA10-P1-08): the header drawer lists them with
  * the service requests'. Optional: a plan without the type answers with an error, and the drawer
@@ -194,7 +198,7 @@ export function useMyApprovals() {
  */
 export function useMyTypeApprovals(type: 'problems' | 'releases' | 'changes') {
   return useQuery({
-    queryKey: [type, 'my-approvals'] as const,
+    queryKey: typeApprovalsKey(type),
     meta: { silent: true },
     retry: false,
     queryFn: () =>
@@ -270,7 +274,7 @@ export function useDecideApproval() {
     },
     onSettled: (_data, _error, { recordId, type }) => {
       if (type === 'changes') {
-        void queryClient.invalidateQueries({ queryKey: ['changes', 'my-approvals'] });
+        void queryClient.invalidateQueries({ queryKey: typeApprovalsKey('changes') });
         return;
       }
       void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
@@ -280,6 +284,114 @@ export function useDecideApproval() {
 }
 
 /** The requester withdraws a request awaiting approval (REQ-SR-061). */
+/** One adjustment of a request's running approval (WP-047a S2b, REQ-SR-042), with its reason. */
+export type ApproverChange =
+  | { kind: 'add'; stage: number; approverId: string; reason: string }
+  | { kind: 'replace'; approvalId: string; approverId: string; reason: string }
+  | { kind: 'stage'; approverIds: string[]; rule: Approval['rule']; reason: string }
+  | { kind: 'remind'; reason: string };
+
+/**
+ * Adjust a request's running approval (REQ-SR-042), If-Match on the request's version. The
+ * answer is the request's approvals, which replace the cached list at once.
+ */
+export function useChangeApprovers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      recordId,
+      version,
+      change,
+    }: {
+      recordId: string;
+      version: number;
+      change: ApproverChange;
+    }) => {
+      const header = { 'If-Match': `"${String(version)}"` };
+      const path = { record_id: recordId };
+      switch (change.kind) {
+        case 'add':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/approvers', {
+              params: { path, header },
+              body: { stage: change.stage, approver_id: change.approverId, reason: change.reason },
+            }),
+          );
+        case 'replace':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/replace', {
+              params: { path: { ...path, approval_id: change.approvalId }, header },
+              body: { approver_id: change.approverId, reason: change.reason },
+            }),
+          );
+        case 'stage':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/stages', {
+              params: { path, header },
+              body: {
+                approver_ids: change.approverIds,
+                rule: change.rule ?? 'any',
+                reason: change.reason,
+              },
+            }),
+          );
+        case 'remind':
+          return call(
+            api.POST('/api/v1/service-requests/{record_id}/approvals/reminders', {
+              params: { path, header },
+              body: { reason: change.reason },
+            }),
+          );
+      }
+    },
+    onSuccess: (approvals, { recordId }) => {
+      queryClient.setQueryData(serviceRequestKeys.approvals(recordId), approvals);
+    },
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(recordId) });
+    },
+  });
+}
+
+/** Whom an approver's question goes to (WP-047a S3a, REQ-SR-037). */
+export type ClarificationAddressee = components['schemas']['Addressee'];
+
+/**
+ * Ask a question instead of deciding (REQ-SR-037), If-Match on the approval's version as a
+ * decision. The stage stays pending; the answer arrives on the record channel.
+ */
+export function useAskClarification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      recordId,
+      approvalId,
+      version,
+      question,
+      addressee,
+    }: {
+      recordId: string;
+      approvalId: string;
+      version: number;
+      question: string;
+      addressee: ClarificationAddressee;
+    }) =>
+      call(
+        api.POST('/api/v1/service-requests/{record_id}/approvals/{approval_id}/clarification', {
+          params: {
+            path: { record_id: recordId, approval_id: approvalId },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+          body: { question, addressee },
+        }),
+      ),
+    onSettled: (_data, _error, { recordId }) => {
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.approvals(recordId) });
+      void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.myApprovals });
+    },
+  });
+}
+
 export function useWithdrawRequest() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -529,5 +641,65 @@ export function useStopNotifyLink() {
     meta: { silent: true },
     mutationFn: ({ token, tenant }: { token: string; tenant: string | null }) =>
       call(api.POST('/api/v1/public/notify-links/stop', { body: { token, tenant } })),
+  });
+}
+
+// WP-047a S3b (REQ-SR-035): approval delegations.
+export type Delegation = components['schemas']['DelegationOut'];
+export type DelegationInput = components['schemas']['DelegationIn'];
+export type DelegationPatch = components['schemas']['DelegationPatch'];
+
+export const delegationKeys = {
+  all: ['approval-delegations'] as const,
+  list: (delegatorId: string | undefined) =>
+    ['approval-delegations', 'list', delegatorId ?? 'mine'] as const,
+};
+
+/** Your delegations (as delegator or delegate), or one person's with the right. */
+export function useDelegations(delegatorId?: string) {
+  return useQuery({
+    queryKey: delegationKeys.list(delegatorId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/approval-delegations', {
+          params: { query: delegatorId ? { delegator_id: delegatorId } : {} },
+        }),
+      ),
+  });
+}
+
+/** Set a delegation; one Idempotency-Key per form. */
+export function useCreateDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, key }: { body: DelegationInput; key: string }) =>
+      call(
+        api.POST('/api/v1/approval-delegations', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
+  });
+}
+
+/** End a delegation now (If-Match): what is still pending moves back. */
+export function useEndDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.POST('/api/v1/approval-delegations/{delegation_id}/end', {
+          params: {
+            path: { delegation_id: id },
+            header: { 'If-Match': `"${String(version)}"` },
+          },
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: delegationKeys.all });
+    },
   });
 }

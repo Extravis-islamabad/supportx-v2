@@ -136,6 +136,12 @@ async def test_a_support_sessions_write_is_audited_as_extravis_support_with_its_
     me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
     assert me.status_code == 200, me.text
     assert me.json()["user"]["user_type"] == "vendor_support"
+    # S4c-3's banner: the grant, its level and end; never the engineer's contact (condition 3).
+    support = me.json()["support"]
+    assert set(support) == {"grant_id", "access", "ends_at", "contacts_masked", "names_masked"}
+    assert (support["contacts_masked"], support["names_masked"]) == (True, False)  # D-180
+    assert (support["grant_id"], support["access"]) == (str(grant_id), "view_and_change")
+    assert "omar@extravis.com" not in me.text
     made = await bff.client.post(
         "/api/v1/incidents",
         json={"subject": "Mail is down", "requester_id": str(asker["id"])},
@@ -161,7 +167,12 @@ async def _csrf(bff: Bff) -> str:  # noqa: F811 - the reused fixture
     return str(me.json()["csrf_token"])
 
 
-async def _support_session(bff: Bff, *, unmask: bool = False) -> tuple[uuid.UUID, str, str]:  # noqa: F811 - the reused fixture
+async def _support_session(
+    bff: Bff,  # noqa: F811 - the reused fixture
+    *,
+    unmask: bool = False,
+    mask_names: bool = False,
+) -> tuple[uuid.UUID, str, str]:
     """A requester, then a support account (no role, an open view-and-change grant) signed in.
 
     Returns the requester's ID, name and e-mail.
@@ -189,23 +200,25 @@ async def _support_session(bff: Bff, *, unmask: bool = False) -> tuple[uuid.UUID
     await _sql(
         bff.db,
         "INSERT INTO support_grants (id, tenant_id, engineer_name, engineer_email, reason, access,"
-        " change_reason, unmask_personal, starts_at, ends_at, state, verification,"
+        " change_reason, unmask_personal, mask_names, starts_at, ends_at, state, verification,"
         " support_user_id) VALUES ($1, $2, 'Omar', 'omar@extravis.com', 'r', 'view_and_change',"
-        " 'fix INC-12', $4, now() - interval '1 hour', now() + interval '1 hour', 'active',"
+        " 'fix INC-12', $4, $5, now() - interval '1 hour', now() + interval '1 hour', 'active',"
         " 'email', $3)",
         uuid.uuid4(),
         a,
         row["id"],
         unmask,
+        mask_names,
     )
     assert (await bff.login(bff.user("a", email=email))).status_code == 302
     return asker["id"], asker["display_name"], asker_email
 
 
-async def test_a_masked_support_session_never_sees_peoples_names_or_addresses(
+async def test_a_support_session_sees_names_but_never_an_address(
     bff: Bff,  # noqa: F811 - the reused fixture
 ) -> None:
-    """D-173, lane B (b)-(c), (1), (5): the record, its list, history and search; staff after."""
+    """D-180 (names shown, e-mail and phone always withheld); lane B's and the coordinator's
+    search conditions: a support session's person search matches names only, in the query."""
     asker, name, address = await _support_session(bff)
     console = {"X-SupportX-Client": "console"}
     made = await bff.client.post(
@@ -223,28 +236,101 @@ async def test_a_masked_support_session_never_sees_peoples_names_or_addresses(
     ]
     for read in reads:
         assert read.status_code in {200, 404}, read.text  # a route a record type lacks: 404
-        assert name not in read.text, read.request.url
         assert address not in read.text, read.request.url
     assert reads[0].status_code == 200
-    # Searching by a person would tell who they are: refused, coded and labelled (lane B (5)).
-    picker = await bff.client.get(
-        "/api/v1/incidents/assignees", params={"search": name[:4]}, headers=console
-    )
-    assert (picker.status_code, picker.json()["code"]) == (403, "person_search_masked")
-    # The record search never matches by the requester's name or address.
-    found = await bff.client.get("/api/v1/incidents/search", params={"q": address}, headers=console)
-    assert found.status_code == 200, found.text
-    assert item not in found.text
-    # The same app, the next request a staff member's: names and addresses are back (lane B (1)).
+    assert name in reads[0].text  # names are shown by default
+    local, _, domain = address.partition("@")
+    # A person's address, its local part or its domain finds nobody; the name finds them.
+    for typed in (address, local, domain):
+        found = await bff.client.get(
+            "/api/v1/incidents/search", params={"q": typed}, headers=console
+        )
+        assert found.status_code == 200, found.text
+        assert item not in found.text, typed
+        picker = await bff.client.get(
+            "/api/v1/incidents/assignees", params={"search": typed}, headers=console
+        )
+        assert picker.status_code == 200, picker.text
+        assert address not in picker.text
+    by_name = await bff.client.get("/api/v1/incidents/search", params={"q": name}, headers=console)
+    assert by_name.status_code == 200, by_name.text
+    assert item in by_name.text
+    # The same app, the next request a staff member's: addresses are back, and found (control).
     assert (await bff.login(bff.user("a", email=address))).status_code == 302
     staff = await bff.client.get("/api/v1/incidents", headers=console)
     assert staff.status_code == 200, staff.text
+    assert address in staff.text
+    by_address = await bff.client.get(
+        "/api/v1/incidents/search", params={"q": local}, headers=console
+    )
+    assert item in by_address.text
+
+
+async def test_a_grant_that_masks_names_shows_no_name_and_finds_nobody_by_one(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """D-180 (0188): the grant's "Mask names too" tick reaches the session. The banner says so,
+    a record shows neither the requester's name nor address, and a name search finds nobody."""
+    asker, name, address = await _support_session(bff, mask_names=True)
+    console = {"X-SupportX-Client": "console"}
+    me = await bff.client.get("/api/v1/auth/me", headers=console)
+    assert me.status_code == 200, me.text
+    support = me.json()["support"]
+    assert (support["contacts_masked"], support["names_masked"]) == (True, True)
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Printer jam", "requester_id": str(asker)},
+        headers={"X-CSRF-Token": await _csrf(bff), **console},
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()["id"]
+    read = await bff.client.get(f"/api/v1/incidents/{item}", headers=console)
+    assert read.status_code == 200, read.text
+    assert name not in read.text
+    assert address not in read.text
+    by_name = await bff.client.get("/api/v1/incidents/search", params={"q": name}, headers=console)
+    assert by_name.status_code == 200, by_name.text
+    assert item not in by_name.text  # names are withheld, so a name finds nobody
+    # Control: the same app, a staff member's next request shows the name again.
+    assert (await bff.login(bff.user("a", email=address))).status_code == 302
+    staff = await bff.client.get(f"/api/v1/incidents/{item}", headers=console)
     assert name in staff.text
+
+
+async def test_a_name_that_is_an_address_is_withheld_from_support(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """Lane B's #566 review: a first sign-in without a name claim stores the e-mail as the
+    name; support never sees it as a name, nor finds the person by it; staff see it as before."""
+    asker, _name, address = await _support_session(bff)
+    await _sql(bff.db, "UPDATE users SET display_name = email WHERE id = $1", asker)
+    console = {"X-SupportX-Client": "console"}
+    made = await bff.client.post(
+        "/api/v1/incidents",
+        json={"subject": "Printer jam", "requester_id": str(asker)},
+        headers={"X-CSRF-Token": await _csrf(bff), **console},
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()["id"]
+    for path in (f"/api/v1/incidents/{item}", "/api/v1/incidents"):
+        read = await bff.client.get(path, headers=console)
+        assert read.status_code == 200, read.text
+        assert address not in read.text, path
+    for typed in (address, address.partition("@")[0]):
+        found = await bff.client.get(
+            "/api/v1/incidents/search", params={"q": typed}, headers=console
+        )
+        assert item not in found.text, typed
+    assert (await bff.login(bff.user("a", email=address))).status_code == 302
+    staff = await bff.client.get(f"/api/v1/incidents/{item}", headers=console)
     assert address in staff.text
 
 
-async def test_an_unmasking_grant_shows_names(bff: Bff) -> None:  # noqa: F811 - the reused fixture
-    asker, name, _address = await _support_session(bff, unmask=True)
+async def test_an_unmasking_grant_still_never_shows_an_address(
+    bff: Bff,  # noqa: F811 - the reused fixture
+) -> None:
+    """D-180: unmask_personal no longer reaches e-mail or phone (lane B (4))."""
+    asker, name, address = await _support_session(bff, unmask=True)
     made = await bff.client.post(
         "/api/v1/incidents",
         json={"subject": "Printer jam", "requester_id": str(asker)},
@@ -254,6 +340,7 @@ async def test_an_unmasking_grant_shows_names(bff: Bff) -> None:  # noqa: F811 -
     read = await bff.client.get("/api/v1/incidents", headers={"X-SupportX-Client": "console"})
     assert read.status_code == 200, read.text
     assert name in read.text
+    assert address not in read.text
 
 
 async def test_a_support_session_with_no_grant_to_name_is_refused(

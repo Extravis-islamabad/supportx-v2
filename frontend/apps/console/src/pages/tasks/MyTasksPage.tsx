@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, Flex, List, Tag, Typography } from 'antd';
 import { Link } from 'react-router';
 
-import { useAllMyTasks } from '@supportx/api-client';
+import { myTasksKey, useAllMyTasks } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
 import { EmptyText, reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
@@ -25,11 +25,14 @@ export function MyTasksPage() {
   const { format } = useDateTime();
   const queryClient = useQueryClient();
   const found = useAllMyTasks();
-  usePersonalChannel((event) => {
-    if (event.type === 'work_items.my_tasks_changed' || event.type === 'work_items.changed') {
-      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.type === 'work_items.my_tasks_changed' || event.type === 'work_items.changed') {
+        void queryClient.invalidateQueries({ queryKey: myTasksKey });
+      }
+    },
+    { covers: [myTasksKey] },
+  ); // useAllMyTasks' key
   if (found.error) reportError(found.error);
   const rows = found.data ?? [];
   return (

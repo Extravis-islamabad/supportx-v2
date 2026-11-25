@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import {
+  queryKeys,
   serviceRequestKeys,
   useCatalogItem,
   useApprovals,
@@ -20,7 +21,7 @@ import {
   type ServiceRequest,
   type ReplyMode,
 } from '@supportx/api-client';
-import { useRecordChannel } from '@supportx/realtime';
+import { refreshQueries, useRecordChannel } from '@supportx/realtime';
 import {
   EmptyText,
   ActionBar,
@@ -41,7 +42,7 @@ import {
   Tabs,
 } from '@supportx/ui';
 
-import { RecordWorkflows } from '../workflows/RecordWorkflows';
+import { RecordWorkflows, WorkflowWaitingBanner } from '../workflows/RecordWorkflows';
 import { IncidentConversation, type Typing } from '../incidents/IncidentConversation';
 import { labelled, personName } from '../incidents/labels';
 import { PriorityTag, SlaTag, StatusTag } from '../incidents/tags';
@@ -55,6 +56,7 @@ import { IncidentSla } from '../incidents/IncidentSla';
 import { itemName } from './items';
 import { RecordAssets } from '../incidents/RecordAssets';
 import { ConvertDialog, MovedBanner } from '../incidents/MergeConvert';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const NO_TYPING: Typing = {};
 
@@ -70,9 +72,31 @@ export function RequestPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const record = useServiceRequest(id);
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered === true) return;
+      refreshQueries(queryClient, serviceRequestKeys.detail(id));
+      // WP-047a S5 (REQ-SR-052 AC3): the worklog totals and the actual cost follow a task or
+      // a worklog change; that panel keeps the shared parts key.
+      if (m.type === 'work_items.part_changed') {
+        refreshQueries(queryClient, queryKeys.incidents.worklogs(id));
+      }
+    },
+    {
+      // Its SLA, approvals and tasks sit under the detail key; the shared conversation and
+      // worklog panels keep their own (no id: nothing joined or shown).
+      covers:
+        id === ''
+          ? []
+          : [
+              serviceRequestKeys.detail(id),
+              queryKeys.incidents.conversation(id),
+              queryKeys.incidents.worklogs(id),
+            ],
+    },
+  );
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (
@@ -116,6 +140,7 @@ function ApprovalsSummary({ recordId }: { recordId: string }) {
 }
 
 function RequestRecord({ r }: { r: ServiceRequest }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const answerWords = useAnswerWords();
   const { locale } = useAppearance();
@@ -232,7 +257,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
             }
             meta={[
               <span key="by">
-                {t('requests.requested_by', { name: personName(r.people, r.requester_id) })}
+                {t('requests.requested_by', { name: personName(r.people, r.requester_id, hidden) })}
               </span>,
               <span key="created">
                 {t('incidents.created_on', { date: dates.format(r.created_at) })}
@@ -305,12 +330,14 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   <div data-testid="sr-details">
                     <PropertyRow label={t('requests.requester')}>
                       <Tooltip title={r.people[r.requester_id]?.email}>
-                        <bdi data-testid="sr-requester">{personName(r.people, r.requester_id)}</bdi>
+                        <bdi data-testid="sr-requester">
+                          {personName(r.people, r.requester_id, hidden)}
+                        </bdi>
                       </Tooltip>
                     </PropertyRow>
                     {r.on_behalf_of_id !== null && (
                       <PropertyRow label={t('work_item.field.on_behalf_of_id')}>
-                        <bdi>{personName(r.people, r.on_behalf_of_id)}</bdi>
+                        <bdi>{personName(r.people, r.on_behalf_of_id, hidden)}</bdi>
                       </PropertyRow>
                     )}
                     {siteName !== undefined && (
@@ -335,7 +362,7 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                           {t('incidents.unassigned')}
                         </Typography.Text>
                       ) : (
-                        <bdi>{personName(r.people, r.technician_id)}</bdi>
+                        <bdi>{personName(r.people, r.technician_id, hidden)}</bdi>
                       )}
                     </PropertyRow>
                     <PropertyRow label={t('incidents.col.updated')}>
@@ -387,6 +414,8 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
           />
         }
       >
+        {/* WP-047a S5 (REQ-SR-053 AC1): what the request's workflow waits for. */}
+        <WorkflowWaitingBanner recordType="service_request" recordId={r.id} />
         <Tabs
           data-testid="sr-tabs"
           destroyOnHidden
@@ -417,6 +446,28 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
               label: <span data-testid="sr-tab-details">{t('requests.item_details')}</span>,
               children: (
                 <Descriptions size="small" column={1} data-testid="sr-answers">
+                  {/* WP-047a S1: how many, when needed, when expected (REQ-SR-014, -015). */}
+                  {r.quantity != null && (
+                    <Descriptions.Item label={t('work_item.field.quantity')}>
+                      <span data-testid="sr-quantity">{r.quantity}</span>
+                    </Descriptions.Item>
+                  )}
+                  {r.expected_delivery_at != null && (
+                    <Descriptions.Item label={t('work_item.field.expected_delivery_at')}>
+                      <span data-testid="sr-expected">{dates.format(r.expected_delivery_at)}</span>
+                    </Descriptions.Item>
+                  )}
+                  {r.needed_by != null && (
+                    <Descriptions.Item label={t('work_item.field.needed_by')}>
+                      <span data-testid="sr-needed-by">{dates.format(r.needed_by)}</span>
+                      {r.needed_earlier && (
+                        <Typography.Text type="warning" data-testid="sr-needed-earlier">
+                          {' '}
+                          · {t('requests.needed_earlier')}
+                        </Typography.Text>
+                      )}
+                    </Descriptions.Item>
+                  )}
                   {questions.map((q) => (
                     <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
                       {answerWords(q, r.answers?.[q.key]) || (
@@ -434,7 +485,13 @@ function RequestRecord({ r }: { r: ServiceRequest }) {
                   {
                     key: 'approvals',
                     label: <span data-testid="sr-tab-approvals">{t('requests.approvals')}</span>,
-                    children: <ApprovalsPanel recordId={r.id} />,
+                    children: (
+                      <ApprovalsPanel
+                        recordId={r.id}
+                        questions={questions}
+                        hasTechnician={r.technician_id != null}
+                      />
+                    ),
                   },
                 ]
               : []),

@@ -7,6 +7,7 @@ it is assigned to at creation.
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 from app.modules.work_items.domain.lifecycle import DefaultStatus, ServiceRequestStatus
@@ -66,6 +67,9 @@ class ApprovalStatus(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
+    # WP-047a S4 (REQ-SR-017 AC2/AC3): made from mail with required answers missing; approval
+    # starts only once the requester (or the desk) has given them.
+    AWAITING_ANSWERS = "awaiting_answers"
 
 
 @dataclass(frozen=True)
@@ -135,3 +139,8 @@ __all__ = [
     "may_raise_for",
     "start",
 ]
+
+
+def needed_earlier(needed_by: datetime | None, expected: datetime | None) -> bool:
+    """Needed before it can be delivered (REQ-SR-015 AC2): read from the two dates, never kept."""
+    return needed_by is not None and expected is not None and needed_by < expected

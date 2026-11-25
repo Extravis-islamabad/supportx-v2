@@ -6,6 +6,8 @@ import { Link, useNavigate, useParams } from 'react-router';
 
 import {
   problemKeys,
+  queryKeys,
+  timerKeys,
   useCopyProblem,
   useInvestigatorChange,
   useInvestigators,
@@ -58,6 +60,7 @@ import { MessageRequestersDialog } from './MessageRequesters';
 import { ProblemApprovals, RequestApprovalDialog } from './ProblemApprovals';
 import { useActionReason } from '../incidents/actionReason';
 import { AssignDialog } from '../incidents/assign';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 // The guided analysis steps in order (REQ-PRB-025, Appendix A); closed ends them.
 const GUIDED = [
@@ -165,14 +168,34 @@ export function ProblemPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const record = useProblem(id);
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: problemKeys.links(id) });
-    void queryClient.invalidateQueries({ queryKey: problemKeys.investigators(id) });
-    // A linked or resolved incident moves the figures and the timeline (REQ-PRB-032 AC2).
-    void queryClient.invalidateQueries({ queryKey: problemKeys.impact(id) });
-    void queryClient.invalidateQueries({ queryKey: problemKeys.evidence(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered === true) return;
+      void queryClient.invalidateQueries({ queryKey: problemKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: problemKeys.links(id) });
+      void queryClient.invalidateQueries({ queryKey: problemKeys.investigators(id) });
+      // A linked or resolved incident moves the figures and the timeline (REQ-PRB-032 AC2).
+      void queryClient.invalidateQueries({ queryKey: problemKeys.impact(id) });
+      void queryClient.invalidateQueries({ queryKey: problemKeys.evidence(id) });
+    },
+    {
+      // Everything the page shows of it: the detail key holds links, investigators, impact,
+      // evidence, approvals and follow-up; tasks, worklogs and history use the incidents' keys.
+      // No id: the hook joins nothing, so there is nothing to catch up.
+      covers:
+        id === ''
+          ? []
+          : [
+              problemKeys.detail(id),
+              queryKeys.incidents.tasks(id),
+              queryKeys.incidents.worklogs(id),
+              [...queryKeys.incidents.all, 'history', id],
+              timerKeys.record('problems', id),
+            ],
+    },
+  );
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (
@@ -207,6 +230,7 @@ function ProblemView({
   dates: ReturnType<typeof useDateTime>;
   reload: () => Promise<unknown>;
 }) {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { can } = useAccess();
   const catalogue = useProblemCatalogue();
@@ -326,7 +350,9 @@ function ProblemView({
             }
             meta={[
               <span key="by">
-                {t('problems.reported_by', { name: personName(item.people, item.requester_id) })}
+                {t('problems.reported_by', {
+                  name: personName(item.people, item.requester_id, hidden),
+                })}
               </span>,
               <span key="created">
                 {t('incidents.created_on', { date: dates.format(item.created_at) })}
@@ -367,7 +393,7 @@ function ProblemView({
                       {
                         key: 'owner',
                         label: t('problems.owner'),
-                        content: personName(item.people, item.technician_id),
+                        content: personName(item.people, item.technician_id, hidden),
                         filled: item.technician_id !== null,
                       },
                       {

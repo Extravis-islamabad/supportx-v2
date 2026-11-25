@@ -101,6 +101,11 @@ class Placement:
     active: bool = True  # an active, not deleted person (lane B review, #182)
     can_sign_in: bool = True
 
+    @property
+    def vendor_support(self) -> bool:
+        """A vendor support account (D-173): never a delegate, never the tenant's voice."""
+        return self.user_type == SUPPORT_USER_TYPE
+
 
 @dataclass(frozen=True)
 class Reactivation:
@@ -626,13 +631,19 @@ def _end_after_commit(
     after_commit(session, end)
 
 
+NOBODY = Placement(None, None, active=False, can_sign_in=False)  # see person_placement
+
+
 async def person_placement(session: AsyncSession, user_id: uuid.UUID | None) -> Placement:
     """The person's site and department (a record they request takes them as defaults).
 
     The department's site is used when the person has a department but no site of their own.
+    No person, or an ID with no row this session can see (a random ID, or another tenant's user,
+    which RLS hides), fails closed: not active and unable to sign in, so no caller can treat a
+    stranger as a live person (lane B's and the coordinator's #582 follow-up).
     """
     if user_id is None:
-        return Placement(None, None)
+        return NOBODY
     row = (
         await session.execute(
             select(
@@ -648,7 +659,7 @@ async def person_placement(session: AsyncSession, user_id: uuid.UUID | None) -> 
         )
     ).one_or_none()
     if row is None:
-        return Placement(None, None)
+        return NOBODY
     site_id = row.site_id
     if site_id is None and row.department_id is not None:
         site_id = await department_site(session, row.department_id)

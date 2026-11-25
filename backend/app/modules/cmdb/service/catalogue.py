@@ -32,6 +32,8 @@ ADD = "cmdb.add"
 EDIT = "cmdb.edit"
 DELETE = "cmdb.delete"
 CONFIGURE = "cmdb.configure"
+# Record a downtime on a CI by hand (WP-053 S5b, REQ-CMDB-020); synced ones come from their record.
+RECORD_DOWNTIME = "cmdb.record_downtime"
 # Reserved before S1 (identity_access) and still granted to the asset manager: it covers every
 # CI write (add, edit, delete), so a role that holds it keeps working with no data step.
 MANAGE = "cmdb.manage"

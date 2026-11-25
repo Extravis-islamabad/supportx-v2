@@ -10,7 +10,7 @@ import {
   useReleases,
   type ReleaseListItem,
 } from '@supportx/api-client';
-import { useListChannel } from '@supportx/realtime';
+import { refreshQueries, useListChannel } from '@supportx/realtime';
 import {
   CellText,
   useAppearance,
@@ -37,6 +37,7 @@ import { StatusTag } from '../incidents/tags';
 import { EMERGENCY_PATH, listValueName, stageName } from './labels';
 import { useOwnList } from './lists';
 import { ReleaseBulkRole } from './ReleaseBulkRole';
+import { useHiddenPersonLabel, shownName } from '../../maskedPeople';
 
 // Quick views of the list (the engine's built-in views; "all" sends none).
 const SUBJECT_MIN = 180; // the subject stays readable however narrow it is dragged
@@ -100,6 +101,7 @@ function searchFilter(text: string): string | undefined {
  * can reach.
  */
 export function ReleasesPage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -146,9 +148,13 @@ export function ReleasesPage() {
     include_total: true,
   });
   usePageCrumbs([{ label: t('nav.releases') }]); // the tab's title too (QA6-REL-04)
-  useListChannel('releases', () => {
-    void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
-  });
+  useListChannel(
+    'releases',
+    (m) => {
+      if (m.covered !== true) refreshQueries(queryClient, [...releaseKeys.all, 'list']);
+    },
+    { covers: [[...releaseKeys.all, 'list']] },
+  );
   useBulkRefresh('release', () => {
     void queryClient.invalidateQueries({ queryKey: [...releaseKeys.all, 'list'] });
   });
@@ -165,7 +171,7 @@ export function ReleasesPage() {
   const facts = list.data?.releases ?? {};
   const people = list.data?.people ?? {};
   const personName = (id: string | null | undefined) =>
-    id ? (people[id]?.display_name ?? '') : '';
+    id ? shownName(people[id]?.display_name, hidden) : '';
   const typeName = (code: string | null | undefined) =>
     listValueName(
       t,

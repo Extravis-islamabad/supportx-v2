@@ -10,9 +10,12 @@ export const MY_REMINDERS_CHANGED = 'work_items.my_reminders_changed';
 /** Your reminders refetch when your personal channel says one changed. */
 export function useRemindersLive() {
   const queryClient = useQueryClient();
-  usePersonalChannel((event) => {
-    if (event.type === MY_REMINDERS_CHANGED) {
-      void queryClient.invalidateQueries({ queryKey: ['reminders'] });
-    }
-  });
+  usePersonalChannel(
+    (event) => {
+      if (event.covered !== true && event.type === MY_REMINDERS_CHANGED) {
+        void queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      }
+    },
+    { covers: [['reminders']] },
+  );
 }

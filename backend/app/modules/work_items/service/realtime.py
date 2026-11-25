@@ -48,7 +48,7 @@ from app.modules.work_items.infra.models import (
     WorkItemTask,
     WorkItemTimer,
 )
-from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.access import MANAGE_DELEGATIONS, RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
     ChannelAccess,
@@ -131,8 +131,13 @@ async def _portal_channel(request: ChannelRequest) -> ChannelAccess | None:
     return ChannelAccess(presence=False)
 
 
+# WP-047a S3b (REQ-SR-035; lane C's #612 review): someone else's delegations, for those who
+# manage them (they are on neither person's own channel). IDs only.
+DELEGATIONS_LIST = LiveList("delegations", MANAGE_DELEGATIONS)
+
 CHANNELS = [
     *(lst.spec() for lst in LISTS.values()),
+    DELEGATIONS_LIST.spec(),
     ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
     ChannelSpec(kind=PORTAL_KIND, authorize=_portal_channel),
 ]
@@ -525,6 +530,37 @@ async def _approval_settings_changed(
     )
 
 
+DELEGATIONS_CHANGED = "work_items.delegations_changed"
+
+
+async def _delegation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A delegation was set, changed or ended (WP-047a S3b): both people's open pages refetch.
+
+    IDs and the version only, on each person's own channel; the page reads through the API.
+    """
+    del session
+    payload = envelope.payload
+    ids = (str(payload["delegation_id"]),)
+    people = {_uuid(payload.get("delegator_id")), _uuid(payload.get("delegate_id"))}
+    return RealtimeEffects(
+        publications=[
+            *(
+                Publication(
+                    personal(envelope.tenant_id, person),
+                    DELEGATIONS_CHANGED,
+                    ids=ids,
+                    version=int(payload["version"]),
+                )
+                for person in people
+                if person is not None
+            ),
+            *DELEGATIONS_LIST.publications(
+                envelope.tenant_id, DELEGATIONS_CHANGED, uuid.UUID(ids[0])
+            ),
+        ]
+    )
+
+
 async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user's list settings changed: their other windows reload them."""
     del session
@@ -648,15 +684,18 @@ async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
         owner = await session.scalar(
             select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
         )
-        if owner is not None:
-            publications.append(
-                Publication(
-                    personal(envelope.tenant_id, owner),
-                    MY_TASKS_CHANGED,
-                    ids=(str(part_id),),
-                    actor_id=_actor(envelope),
-                )
+        # The owner now, and the one a hand-off took it from (lane C's #630 review): both
+        # people's own task lists ("Your tasks", My tasks, an open task page) refresh live.
+        before = _uuid(payload.get("previous_owner_id"))
+        publications.extend(
+            Publication(
+                personal(envelope.tenant_id, person),
+                MY_TASKS_CHANGED,
+                ids=(str(part_id),),
+                actor_id=_actor(envelope),
             )
+            for person in dict.fromkeys(p for p in (owner, before) if p is not None)
+        )
     return RealtimeEffects(publications=publications)
 
 
@@ -707,6 +746,24 @@ async def _draft_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+async def _task_reassigned(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """The previous owner's "My tasks" (console and portal) drop the task: IDs only."""
+    del session
+    before = _uuid(envelope.payload.get("previous_owner_id"))
+    if before is None:
+        return RealtimeEffects(publications=[])
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, before),
+                MY_TASKS_CHANGED,
+                ids=(str(envelope.payload["task_id"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(("work_items.draft.changed",), _draft_changed),
     RealtimeRoute(
@@ -724,6 +781,8 @@ ROUTES = [
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(("work_items.portal_settings.changed",), _portal_settings_changed),
     RealtimeRoute(("work_items.approval_settings.changed",), _approval_settings_changed),
+    # WP-047a S3b (REQ-SR-035): the Delegations page, live for both people.
+    RealtimeRoute(("work_items.approval_delegation.changed",), _delegation_changed),
     RealtimeRoute(("work_items.change_board.changed",), _change_board_changed),
     RealtimeRoute(("work_items.change_window.changed",), _change_window_changed),
     RealtimeRoute(
@@ -741,8 +800,13 @@ ROUTES = [
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
     RealtimeRoute(("work_items.part.changed",), _part_changed),
+    # WP-047a S5: a task moved to someone else leaves the previous owner's task lists.
+    RealtimeRoute(("work_items.task.assigned",), _task_reassigned),
     RealtimeRoute(("work_items.asset_link.changed",), _asset_link_changed),
-    RealtimeRoute(("work_items.approval.changed",), _approval_changed),
+    # WP-047a S3a (REQ-SR-037): a question asked or answered refreshes the same screens.
+    RealtimeRoute(
+        ("work_items.approval.changed", "work_items.approval.clarification"), _approval_changed
+    ),
     RealtimeRoute(
         ("work_items.problem_repeat.detected", "work_items.problem_repeat.changed"),
         _repeats_changed,

@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   changeKeys,
+  queryKeys,
   useChange,
   useChangeDetails,
   useStagedApprovals,
@@ -50,6 +51,7 @@ import { ChangeScheduleTab } from './ChangeSchedule';
 import { EmergencyOverrideDialog } from './EmergencyOverride';
 import { DetailsPart, PlanPart, RiskPart, RolesPart, SchedulePart } from './ChangeParts';
 import { EMERGENCY_PATH, riskTone } from './labels';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 const NO_TYPING: Typing = {};
 
@@ -85,6 +87,7 @@ type Tab = (typeof TABS)[number];
  * a role or a risk assessment shows at once.
  */
 export function ChangePage() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -106,9 +109,27 @@ export function ChangePage() {
   const [moving, setMoving] = useState<StageMove>();
   const [overriding, setOverriding] = useState(false);
   const { can } = useAccess();
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered !== true)
+        void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
+    },
+    {
+      // Everything the page shows: its parts sit under the detail key, but the shared
+      // conversation, history and files panels keep their own (no id: nothing joined or shown).
+      covers:
+        id === ''
+          ? []
+          : [
+              changeKeys.detail(id),
+              queryKeys.incidents.conversation(id),
+              [...queryKeys.incidents.all, 'history', id],
+              queryKeys.files.record('change', id),
+            ],
+    },
+  );
   useEffect(() => {
     if (record.error) reportError(record.error);
   }, [record.error]);
@@ -308,7 +329,7 @@ export function ChangePage() {
           title={c.subject}
           meta={[
             <span key="people" data-testid="change-people">
-              {t('incidents.requested_by', { name: personName(c.people, c.requester_id) })}
+              {t('incidents.requested_by', { name: personName(c.people, c.requester_id, hidden) })}
             </span>,
             <span key="created">
               {t('incidents.created_on', { date: dates.format(c.created_at) })}

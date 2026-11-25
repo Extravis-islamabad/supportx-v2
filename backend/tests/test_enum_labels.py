@@ -18,6 +18,11 @@ from tests.test_error_labels import label_keys
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # WP-047a S5 (REQ-SR-049, -050, -056): fulfilment plan steps.
+    "PlanStepKind": "plan_step_kind",
+    "TaskFieldKind": "task_field_kind",
+    "TaskOwnerKind": "task_owner_kind",
+    "WaitKind": "workflow_wait_kind",
     # WP-057 S5a: SIEM destinations.
     "SiemFormat": "siem_format",
     "SiemKind": "siem_destination_kind",
@@ -29,6 +34,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "SupportGrantIn.access": "support_grant_access",
     "SupportGrantOut.access": "support_grant_access",
     "SupportGrantMadeOut.access": "support_grant_access",
+    "SupportSessionOut.access": "support_grant_access",
     "SupportGrantIn.verification": "support_grant_verification",
     "SupportGrantOut.verification": "support_grant_verification",
     "SupportGrantMadeOut.verification": "support_grant_verification",
@@ -78,10 +84,20 @@ ENUM_PREFIXES: dict[str, str] = {
     "CiImpact": "cmdb_impact",
     "CiSource": "cmdb_ci_source",
     "CiStateCategory": "cmdb_state_category",
+    # WP-053 S4a: attribute sources and sync rules.
+    "AttributeSource": "cmdb_attribute_source",
+    "SyncOutcome": "cmdb_sync_outcome",
+    "SyncRunStatus": "cmdb_sync_run_status",
+    "SyncSourceKind": "cmdb_sync_source",
+    "SyncTrigger": "cmdb_sync_trigger",
+    "SyncValueKind": "cmdb_sync_value_kind",
     "CiSkippedAsset.reason": "cmdb_skip_reason",
     "CiHistoryEntryOut.actor_type": "actor_type",
     # CMDB relationships, maps, views and versions (WP-053 S2)
     "RelationshipDirection": "cmdb_relationship_direction",
+    "CiDowntimeState": "cmdb_downtime_state",  # WP-053 S5b (0198)
+    "CiDowntimeSource": "cmdb_downtime_source",
+    "CiDowntimePhase": "cmdb_downtime_phase",
     "BusinessViewLayout": "cmdb_view_layout",
     "CiAttributeChangeOut.kind": "cmdb_compare_kind",
     # Who a business service serves (0185)
@@ -105,6 +121,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "ImportMatch": "asset_import_match",
     "ImportMode": "asset_import_mode",
     "MergeSide": "asset_merge_side",
+    # CI merges and imports (WP-053 S4b)
+    "CiMergeSide": "cmdb_merge_side",
+    "CiImportKind": "cmdb_import_kind",
+    "CiImportMode": "cmdb_import_mode",
+    "CiImportMatch": "cmdb_import_match",
+    "CiImportStatus": "cmdb_import_status",
+    "CiImportOut.file_format": "people_import_format",
     # Asset financials (WP-049b s2)
     "DepreciationChoice": "asset_depreciation",
     "CostKind": "asset_cost_kind",
@@ -264,6 +287,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "ExportFilter": "audit_export_filter",
     "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
+    "SystemLogCode": "system_log_code",
+    "SystemLogSeverity": "system_log_severity",
     "DomainState": "verified_domain_state",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",
@@ -303,6 +328,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "UserType": "user_type",
     "PersonType": "user_type",  # the types a person can be given (WP-040: never `service`)
     "SyncScope": "sync_scope",  # who a directory syncs (WP-040 session 2)
+    "SourceKind": "group_mapping_source",  # where a group mapping's groups come from (WP-057 S5c)
     "Security": "ldap_security",  # how an AD/LDAP directory is reached (WP-040, D-118)
     "Vendor": "ldap_vendor",  # which kind of directory
     "EmailFrom": "email_from",
@@ -405,6 +431,14 @@ ENUM_PREFIXES: dict[str, str] = {
     "DecisionChannel": "approval_channel",
     "RouteReason": "approval_route_reason",
     "ApproverKind": "catalog_approver_kind",
+    "StageRule": "approval_rule",  # WP-047a S2a: the level engine's codes (LevelRule)
+    "SkipReason": "approval_skip_reason",
+    "AutoReason": "approval_auto_reason",  # WP-047a S2b (REQ-SR-033)
+    # WP-047a S3a (REQ-SR-034, -037)
+    "Addressee": "approval_clarification_addressee",
+    "ClarificationState": "approval_clarification_state",
+    "EscalationTarget": "approval_escalate_to",
+    "RestartOn": "restart_on",  # WP-047a S3b (REQ-SR-041)
     # catalog administration (WP-031)
     "ItemKind": "catalog_item_kind",
     "ItemStatus": "catalog_item_status",

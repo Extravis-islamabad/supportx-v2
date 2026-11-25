@@ -18,7 +18,7 @@ status moves (REQ-INC-050); priority comes from the matrix unless set by hand wi
 """
 
 import uuid
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol, cast
@@ -39,7 +39,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules import metadata, service_catalog, sla
+from app.modules import cmdb, licensing, metadata, service_catalog, sla
 from app.modules.audit import WORKER as AUDIT_WORKER
 from app.modules.audit import AuditActorType, RequestFacts
 from app.modules.audit import record as record_audit
@@ -108,6 +108,7 @@ from app.modules.work_items.domain.lifecycle import (
     PauseClock,
     ReasonList,
     ReasonMode,
+    ServiceRequestStatus,
     StatusCategory,
     TransitionDef,
     WorkItemAction,
@@ -132,6 +133,7 @@ from app.modules.work_items.domain.stages import (
 from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
+    SERVICE_REQUEST,
     STANDARD_LIFECYCLE,
     TYPES,
     Channel,
@@ -148,6 +150,7 @@ from app.modules.work_items.events import (
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemDeleted,
+    WorkItemDowntimeChanged,
     WorkItemPartChangedV2,
     WorkItemRestored,
     WorkItemRolesChanged,
@@ -208,6 +211,9 @@ from app.shared.history import (
 from app.shared.ids import new_id
 from app.shared.reporting.names import names_resolver
 from app.shared.richtext import is_blank, sanitize_html
+
+# An unanswered required question (the catalogue's answer check; REQ-SR-017 lets mail wait).
+REQUIRED = "required"
 
 RECORD_TYPE = followers.RECORD_TYPE
 OPEN_CATEGORIES = (StatusCategory.OPEN, StatusCategory.PAUSED)
@@ -343,6 +349,11 @@ class WorkItemView:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+# REQ-SR-014's quantity is Professional (D-133).
+REQUEST_QUANTITY_FEATURE = "catalog"
+REQUEST_STAGES_FEATURE = "catalog"  # WP-047a S2a: REQ-SR-029..032 are Professional
 
 
 def _errors(problems: Sequence[tuple[str, str]], **params: Any) -> ValidationFailed:  # noqa: ANN401 - problem params
@@ -1429,6 +1440,7 @@ async def history(  # noqa: PLR0913 - paging options, explicit
             for e in entries
         ]
     entries = await _unseen_links_hidden(session, subject, entries)
+    entries = await _ci_lines_named(session, subject, entries)
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
     named = {
         value
@@ -1448,6 +1460,49 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
+
+
+CI_FIELD = "ci"  # WP-053 S5: a linked CI's history line holds its ID (service/ci_links.py)
+
+
+async def _ci_lines_named(
+    session: AsyncSession, subject: Subject, entries: list[HistoryEntry]
+) -> list[HistoryEntry]:
+    """A CI line names the CI as the reader may see it now (lane B's condition, WP-053 S5).
+
+    The line stores the CI's ID only, so a restricted CI's name never lands in a record's
+    history; here it reads "CI-12 Core switch" for someone who may see it, else masked.
+    """
+    ids = {
+        value
+        for e in entries
+        for c in e.changes
+        if c.field == CI_FIELD
+        for value in (c.old, c.new)
+        if isinstance(value, str) and _is_uuid(value)
+    }
+    if not ids:
+        return entries
+    refs = await cmdb.ci_refs(session, subject, [uuid.UUID(i) for i in sorted(ids)])
+
+    def named(value: object) -> object:
+        if not isinstance(value, str) or not _is_uuid(value):
+            return value
+        ref = refs.get(uuid.UUID(value))
+        if ref is None or ref.hidden or ref.gone or ref.display_id is None:
+            return MASKED
+        return f"{ref.display_id} {ref.name}" if ref.name else ref.display_id
+
+    return [
+        replace(
+            e,
+            changes=[
+                Change(c.field, named(c.old), named(c.new)) if c.field == CI_FIELD else c
+                for c in e.changes
+            ],
+        )
+        for e in entries
+    ]
 
 
 def _link_target(value: object) -> uuid.UUID | None:
@@ -2631,6 +2686,19 @@ def _item_priority(
     return started.priority, PrioritySource.CATALOG_ITEM
 
 
+def _answers_waiting(
+    item: service_catalog.RequestItem | None, *, answers_later: bool
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """The item's answer problems to refuse, and the required ones left to the requester.
+
+    Only mail sets `answers_later` (REQ-SR-017): an unanswered required question then waits;
+    every other problem (a wrong value, an unknown question) is still refused.
+    """
+    found = [] if item is None else list(item.answer_problems)
+    missing = [p for p in found if p[1] == REQUIRED] if answers_later else []
+    return [p for p in found if p not in missing], missing
+
+
 def _item_columns(
     item: service_catalog.RequestItem | None, values: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -2648,6 +2716,126 @@ def _item_columns(
         "approval_status": status.value,
         "sla_counts_approval": item.needs_approval and item.count_approval_time,
         "item_sla_policy_id": item.sla_policy_id,
+    }
+
+
+async def _subject_from_item(
+    session: AsyncSession, wtype: WorkItemType, values: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """A service request sent with no subject takes its item's template (WP-031 leftover).
+
+    Only when the subject is missing or blank: a subject the person typed is theirs. With no
+    template either, the subject stays missing and is refused as required, as before.
+    """
+    item_id = values.get("catalog_item_id")
+    if (
+        wtype.code is not WorkItemTypeCode.SERVICE_REQUEST
+        or not item_id
+        or str(values.get("subject") or "").strip()
+    ):
+        return values
+    person = values.get("on_behalf_of_id") or values.get("requester_id")
+    names = await user_names(session, [str(person)]) if person else {}
+    filled = await service_catalog.templated_subject(
+        session,
+        uuid.UUID(str(item_id)),
+        values.get("answers") or {},
+        person=names.get(str(person), ""),
+    )
+    return values if filled is None else {**values, "subject": filled}
+
+
+async def _person_answer_problems(
+    session: AsyncSession, item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> list[tuple[str, str]]:
+    """A "person" answer names a live, active person of this tenant (the coordinator's #582 rule).
+
+    The form only checks the shape of an ID; an ID nobody holds here (a random one, or another
+    tenant's user, which RLS hides) is the answer's field problem `user_not_found`, never a
+    server error, and the error never repeats the ID.
+    """
+    if item is None or not item.person_questions:
+        return []
+    answers = values.get("answers") or {}
+    named: dict[str, uuid.UUID] = {}
+    for key in item.person_questions:
+        try:
+            named[key] = uuid.UUID(str(answers[key]))
+        except (KeyError, ValueError):
+            continue  # unanswered, or not an ID: the form's own check says so
+    if not named:
+        return []
+    known = await active_user_ids(session, sorted(set(named.values()), key=str))
+    return [
+        (f"answers.{key}", "user_not_found") for key, person in named.items() if person not in known
+    ]
+
+
+async def _check_request_details(
+    subject: Subject, item: service_catalog.RequestItem | None, values: Mapping[str, Any]
+) -> None:
+    """A quantity and a needed-by date, only where the item asks (WP-047a S1).
+
+    REQ-SR-014: the quantity is Professional (`catalog`, D-133, checked here on the server),
+    and above the item's maximum it is the same field error as the form's. REQ-SR-015: a
+    needed-by date only when the item asks for one. Other types take neither.
+    """
+    quantity = values.get("quantity")
+    needed_by = values.get("needed_by")
+    if item is None:
+        given = [n for n, v in (("quantity", quantity), ("needed_by", needed_by)) if v is not None]
+        if given:
+            raise _errors([(name, "not_allowed") for name in given])
+        return
+    if quantity is not None:
+        await licensing.require_feature(subject.tenant_id, REQUEST_QUANTITY_FEATURE)
+        if item.max_quantity is None:
+            raise _errors([("quantity", "not_allowed")])
+        if quantity > item.max_quantity:
+            raise _errors([("quantity", "quantity_over_max")], quantity={"max": item.max_quantity})
+    if needed_by is not None and not item.asks_needed_by:
+        raise _errors([("needed_by", "not_allowed")])
+    # WP-047a S2a, a downgrade from Professional (the coordinator's case): a new request on an
+    # item still using stages is refused with the labelled entitlement reason, never run on
+    # stage 1 alone (dropping the later stages would skip approvals the item asks for). The
+    # admin reduces the item to one stage, which every edition may save; requests already in
+    # flight finish on their snapshot, which no licence check touches.
+    # Imported here: the stages service reaches the assets and CMDB ports.
+    from app.modules.work_items.service import request_stages  # noqa: PLC0415 - see above
+
+    if request_stages.staged(item):
+        await licensing.require_feature(subject.tenant_id, REQUEST_STAGES_FEATURE)
+
+
+async def _delivery_columns(  # noqa: PLR0913 - the request, its moment and its placement
+    session: AsyncSession,
+    item: service_catalog.RequestItem | None,
+    values: Mapping[str, Any],
+    now: datetime,
+    *,
+    priority: str,
+    site_id: uuid.UUID | None,
+    group_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    """A request's quantity, needed-by and expected delivery (REQ-SR-014, -015).
+
+    The expected date is the item's SLA counted on its calendar from now; worked out again
+    when approval completes (`refresh_expected_delivery`). None when no SLA applies.
+    """
+    if item is None:
+        return {}
+    return {
+        "quantity": values.get("quantity"),
+        "needed_by": values.get("needed_by"),
+        "expected_delivery_at": await sla.delivery_at(
+            session,
+            WorkItemTypeCode.SERVICE_REQUEST.value,
+            item.sla_policy_id,
+            priority,
+            now,
+            site_id=site_id,
+            group_id=group_id,
+        ),
     }
 
 
@@ -2755,8 +2943,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     holders: PermissionHolders,
     channel: Channel | None = None,
     entry_group_id: uuid.UUID | None = None,
+    answers_later: bool = False,
 ) -> WorkItemView:
     """A new record in the life cycle's first status (or `assigned` when a technician is set).
+
+    `answers_later` (WP-047a S4, REQ-SR-017 AC2/AC3; mail only): a service request whose required
+    answers are missing is still made, waiting for the requester with its approval not started
+    (`awaiting_answers`); every other answer problem is refused as usual.
 
     `channel` and `entry_group_id` are for entry points (e-mail WP-024, the portal WP-028),
     never a client: the channel the record came in by (e-mail is otherwise reserved), and that
@@ -2764,6 +2957,7 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     group (history: "routed to the group of the way it came in").
     """
     cat = await config.load(session, wtype)
+    values = await _subject_from_item(session, wtype, values)
     template = await templates.for_create(session, wtype, values.get("template_id"), subject)
     # The template's form rules first (REQ-INC-037): what they set or clear is then checked
     # like any other input, and what they refuse is reported with the other field errors.
@@ -2792,8 +2986,11 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
     # status, priority and assignment (REQ-SR-005, -008, -021); the person's own choices of
     # group and technician were checked above, the item's were checked when it was saved.
     item = await _request_item(session, subject, wtype, values)
+    await _check_request_details(subject, item, values)
     started = _started(item, cat)
-    problems += [] if item is None else list(item.answer_problems)
+    item_problems, missing = _answers_waiting(item, answers_later=answers_later)
+    problems += item_problems
+    problems += await _person_answer_problems(session, item, values)
     problems += [
         p
         for p in await templates.required_problems(
@@ -2838,6 +3035,8 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         group_id,
         technician_id,
     )
+    # REQ-SR-017 AC2: a request from mail missing required answers waits for the requester.
+    initial = DefaultStatus.AWAITING_REQUESTER.value if missing else initial
     channel_given = channel
     # Raised in the portal reads as the portal, never "API" (QA10-P4-40).
     by_source = {"ui": Channel.PHONE, "portal": Channel.PORTAL}
@@ -2877,6 +3076,15 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         started, *_first_priority(cat, cleaned, manual, automated.values)
     )
     now = _now()
+    delivery = await _delivery_columns(
+        session,
+        item,
+        values,
+        now,
+        priority=priority,
+        site_id=cleaned.get("site_id"),
+        group_id=group_id,
+    )
     number = await next_display_number(session, wtype.counter_key)
     # Sensitive values sealed under the new record's ID before it is written (WP-057 S3b-2).
     new_custom = await custom_values.seal_custom(
@@ -2919,7 +3127,12 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
             if "lifecycle_version" in stage_columns
             else {"lifecycle_version": cat.latest_version(chosen_lifecycle)}
         ),
-        **_item_columns(item, values),
+        # REQ-SR-017: a request waiting for answers says so, over the item's own status.
+        **{
+            **_item_columns(item, values),
+            **({"approval_status": ApprovalStatus.AWAITING_ANSWERS.value} if missing else {}),
+        },
+        **delivery,
         custom=new_custom.stored,
         custom_text=await _custom_text(session, wtype, new_custom.stored),
         status=initial,
@@ -3002,7 +3215,13 @@ async def create(  # noqa: C901, PLR0913, PLR0915 - the new record's inputs and 
         aggregate_version=record.version,
     )
     await approval_stage.after_submission(  # REQ-SR-021
-        session, record, item, source=source, holders=holders
+        session,
+        record,
+        item,
+        source=source,
+        holders=holders,
+        wtype=wtype,
+        waiting=bool(missing),  # REQ-SR-017 AC3: approval starts once the answers are complete
     )
     if template.tasks:  # REQ-INC-040: the template's tasks whose condition the record matches
         # Imported here: the task service builds on this module (WP-046a S1).
@@ -3350,6 +3569,23 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and before.get(
+        "on_behalf_of_id"
+    ) != after.get("on_behalf_of_id"):
+        # WP-047a S3b (REQ-SR-041): a new requested-for person may restart the approval.
+        from app.modules.work_items.service import restarts  # noqa: PLC0415 - it imports this
+
+        was = before.get("on_behalf_of_id")
+        await restarts.check(
+            session,
+            wtype,
+            updated,
+            before_answers=updated.answers or {},
+            before_quantity=updated.quantity,
+            before_for=None if was is None else uuid.UUID(str(was)),
+            source=source,
+            facts=facts or AUDIT_WORKER,
+        )
     await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
         return await _handed_away(session, subject, wtype, updated)
@@ -5179,7 +5415,7 @@ async def downtimes(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
 ) -> tuple[WorkItem, list[WorkItemDowntime]]:
     """A record's downtime windows, planned and actual, by start (REQ-REL-027)."""
-    if wtype.stages is None:
+    if not _has_downtimes(wtype):
         raise _not_found(wtype)
     record = await _visible(session, subject, wtype, record_id)
     rows = await session.scalars(
@@ -5202,12 +5438,74 @@ async def _downtime_problems(
         problems.append(("ends_at", "end_before_start"))
     if merged.get("phase") not in {"planned", "actual"}:
         problems.append(("phase", "invalid_choice"))
+    elif wtype.code is WorkItemTypeCode.INCIDENT and merged["phase"] != "actual":
+        problems.append(("phase", "incident_actual_only"))  # WP-053 S5: what it caused
     kind = merged.get("kind")
     if kind is not None:
-        cat = await config.load(session, wtype)
-        if kind not in cat.reason_codes(PickList.DOWNTIME_KIND):
+        if wtype.code is WorkItemTypeCode.INCIDENT:  # no list of its own: the shared codes
+            kinds: Collection[str] = release_rules.DOWNTIME_KINDS
+        else:
+            kinds = (await config.load(session, wtype)).reason_codes(PickList.DOWNTIME_KIND)
+        if kind not in kinds:
             problems.append(("kind", "invalid_choice"))
     return problems
+
+
+def _new_downtime(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem, phase: str
+) -> WorkItemDowntime:
+    """A new window at version 1; an incident's names the incident (WP-053 S5)."""
+    row = WorkItemDowntime(id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id)
+    session.add(row)
+    row.version = 1
+    row.phase, row.service_ids, row.ci_ids = phase, [], []
+    if wtype.code is WorkItemTypeCode.INCIDENT:
+        row.source_work_item_id = record.id  # the incident that caused it
+    return row
+
+
+def _has_downtimes(wtype: WorkItemType) -> bool:
+    """Changes and releases plan and record downtime; an incident records what it caused.
+
+    WP-053 S5 (REQ-CMDB-020 AC3): an incident's actual, unplanned downtime goes through this
+    same save, history and `work_items.downtime.changed` event, so the CMDB counts it on its CIs.
+    """
+    return wtype.stages is not None or wtype.code is WorkItemTypeCode.INCIDENT
+
+
+def _downtime_locked(wtype: WorkItemType, record: WorkItem) -> None:
+    """A closed change, or a closed or canceled incident, keeps its downtime as it was."""
+    _change_locked(wtype, record)
+    if wtype.code is WorkItemTypeCode.INCIDENT and _closed(record):
+        raise Conflict(code=RECORD_CLOSED, params={"status": record.status})
+
+
+async def _downtime_link_problems(
+    session: AsyncSession,
+    subject: Subject,
+    current: Mapping[str, Any],
+    merged: Mapping[str, Any],
+) -> list[tuple[str, str]]:
+    """The CIs and business services a save newly names must be ones the person may link.
+
+    WP-053 S5 (lane B's #607 review): business services are CIs too, and the CMDB mirrors the
+    downtime onto each, so a hidden service is refused as a hidden CI is (ADR-053).
+    """
+    found: list[tuple[str, str]] = []
+    for name in ("ci_ids", "service_ids"):
+        added = [c for c in merged.get(name) or [] if c not in (current.get(name) or [])]
+        found += await _unlinkable_cis(session, subject, added, field=name)
+    return found
+
+
+async def _unlinkable_cis(
+    session: AsyncSession, subject: Subject, ci_ids: Sequence[uuid.UUID], *, field: str
+) -> list[tuple[str, str]]:
+    """CIs (or business services) newly named on a downtime must be ones the person may link."""
+    for ci_id in ci_ids:
+        if not await cmdb.can_link(session, subject, ci_id):
+            return [(field, "ci_not_linkable")]
+    return []
 
 
 async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
@@ -5222,12 +5520,17 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     source: Source,
 ) -> WorkItemDowntime:
     """Add (no ID, version 0) or change a downtime window (its own If-Match)."""
-    if wtype.stages is None:
+    if not _has_downtimes(wtype):
         raise _not_found(wtype)
     record = await _for_action(
-        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+        session,
+        subject,
+        wtype,
+        "edit",
+        record_id,
+        stage_access=stage_service.EDIT if wtype.stages is not None else None,
     )
-    _change_locked(wtype, record)
+    _downtime_locked(wtype, record)
     row = None
     if downtime_id is not None:
         row = await session.scalar(
@@ -5243,10 +5546,12 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
         raise _stale_part(row.version if row else 0, expected_version)
     current = {n: getattr(row, n) if row else None for n in DOWNTIME_FIELDS}
     if row is None:
-        current |= {"phase": "planned", "service_ids": [], "ci_ids": []}
+        first_phase = "actual" if wtype.code is WorkItemTypeCode.INCIDENT else "planned"
+        current |= {"phase": first_phase, "service_ids": [], "ci_ids": []}
     given = {n: _clean_detail(n, v) for n, v in values.items() if n in DOWNTIME_FIELDS}
     merged = {**current, **given}
     problems = await _downtime_problems(session, wtype, merged)
+    problems += await _downtime_link_problems(session, subject, current, merged)
     if problems:
         raise _errors(problems)
     changed = {n: v for n, v in given.items() if v != current[n]}
@@ -5254,13 +5559,8 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
         return row
     await _downtime_guard(session, wtype, record, merged, adding=row is None, changed=changed)
     if row is None:
-        row = WorkItemDowntime(
-            id=new_id(), tenant_id=config.tenant_of(session), work_item_id=record.id
-        )
-        session.add(row)
-        row.version = 1
+        row = _new_downtime(session, wtype, record, str(current["phase"]))
         changed = {n: merged[n] for n in DOWNTIME_FIELDS if merged[n] not in (None, [])}
-        row.phase, row.service_ids, row.ci_ids = "planned", [], []
     else:
         row.version += 1
     for name, value in changed.items():
@@ -5275,6 +5575,7 @@ async def save_downtime(  # noqa: PLR0913 - the window and its context, explicit
     await _part_event(
         session, record, "downtime", row.id, "added" if downtime_id is None else "changed"
     )
+    await _downtime_event(session, record, row)
     return row
 
 
@@ -5305,10 +5606,17 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
     source: Source,
 ) -> None:
     """Remove a window (kept, marked removed: soft delete)."""
+    if not _has_downtimes(wtype):
+        raise _not_found(wtype)
     record = await _for_action(
-        session, subject, wtype, "edit", record_id, stage_access=stage_service.EDIT
+        session,
+        subject,
+        wtype,
+        "edit",
+        record_id,
+        stage_access=stage_service.EDIT if wtype.stages is not None else None,
     )
-    _change_locked(wtype, record)
+    _downtime_locked(wtype, record)
     row = await session.scalar(
         select(WorkItemDowntime).where(
             WorkItemDowntime.id == downtime_id,
@@ -5326,6 +5634,34 @@ async def remove_downtime(  # noqa: PLR0913 - the window and its context, explic
         session, record, [Change(f"downtime.{row.id}", "present", None)], source=source
     )
     await _part_event(session, record, "downtime", row.id, "removed")
+    await _downtime_event(session, record, row)
+
+
+async def _downtime_event(session: AsyncSession, record: WorkItem, row: WorkItemDowntime) -> None:
+    """`work_items.downtime.changed` v1 (WP-053 S5, lane B's shape): one row, IDs and times only.
+
+    No state (the CMDB derives scheduled, active and completed from the times) and no free text
+    (the description stays here).
+    """
+    await record_event(
+        session,
+        WorkItemDowntimeChanged(
+            work_item_id=record.id,
+            type=record.type,
+            downtime_id=row.id,
+            version=row.version,
+            phase=row.phase,
+            kind=row.kind,
+            starts_at=row.starts_at,
+            ends_at=row.ends_at,
+            ci_ids=list(row.ci_ids),
+            service_ids=list(row.service_ids),
+            source_work_item_id=row.source_work_item_id,
+            deleted=row.deleted_at is not None,
+        ),
+        aggregate_id=record.id,
+        aggregate_version=record.version,
+    )
 
 
 # --- the requester replies (WP-020f) --------------------------------------------------------------
@@ -5383,6 +5719,40 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         else (),
     )
     return updated
+
+
+async def refresh_expected_delivery(
+    session: AsyncSession, record: WorkItem, *, source: Source
+) -> None:
+    """A request's expected delivery, worked out again once approval completes (REQ-SR-015 AC3).
+
+    From now, on the item's SLA and calendar, as at create; saved through `set_fields`, so the
+    change is in history and its event patches every open screen live (the portal included).
+    """
+    if record.catalog_item_id is None:
+        return
+    item = await service_catalog.item_decides(session, record.catalog_item_id)
+    expected = (
+        None
+        if item is None
+        else await sla.delivery_at(
+            session,
+            WorkItemTypeCode.SERVICE_REQUEST.value,
+            item.sla_policy_id,
+            record.priority,
+            _now(),
+            site_id=record.site_id,
+            group_id=record.group_id,
+        )
+    )
+    if expected != record.expected_delivery_at:
+        await set_fields(
+            session,
+            record,
+            {"expected_delivery_at": expected},
+            expected_version=record.version,
+            source=source,
+        )
 
 
 async def set_fields(  # noqa: PLR0913 - the record, its version, the change and its reason
@@ -5518,6 +5888,111 @@ async def set_status(  # noqa: PLR0913 - the move, its version and its record, e
     updated = await _update(session, record, expected_version, changes)
     await _record_status(
         session, before, updated, action, source=source, reason=None, automatic=False, extra=extra
+    )
+    return updated
+
+
+async def save_request_answers(  # noqa: PLR0913 - the request, its new values and context, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    *,
+    expected_version: int,
+    answers: Mapping[str, Any],
+    quantity: int | None,
+    source: Source,
+) -> WorkItem:
+    """Save a request's changed answers and quantity (WP-047a S3b; REQ-SR-041), the caller checked.
+
+    One versioned save (5g, If-Match), a history line per changed answer key and the quantity,
+    and the record's update event (screens refresh live).
+    """
+    before = dict(record.answers or {})
+    changes: dict[str, Any] = {}
+    if dict(answers) != before:
+        changes["answers"] = dict(answers)
+    if quantity is not None and quantity != record.quantity:
+        changes["quantity"] = quantity
+    if not changes:
+        if record.version != expected_version:
+            raise await _conflict(session, _stale(record, expected_version), record.id)
+        return record
+    old_quantity = record.quantity
+    updated = await _update(session, record, expected_version, changes)
+    lines = [
+        Change(f"answers.{key}", _json(before.get(key)), _json(answers.get(key)))
+        for key in sorted(set(before) | set(answers))
+        if before.get(key) != answers.get(key)
+    ]
+    if "quantity" in changes:
+        lines.append(Change("quantity", old_quantity, quantity))
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=lines,
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted(changes),
+            audience_before=_audience(updated),
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return updated
+
+
+async def back_to_approval(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    approval_round: int,
+    source: Source,
+) -> WorkItem:
+    """A request's approval restarts (WP-047a S3b; REQ-SR-041 AC1): back to awaiting approval.
+
+    A system move: "awaiting approval" is entered only by the system, and no person's action
+    leads there, so the status and its clock change as for any move, with the approval status
+    back to pending, under the record's version (5g).
+    """
+    target = ServiceRequestStatus.AWAITING_APPROVAL.value
+    old_approval = record.approval_status
+    changes: dict[str, Any] = {
+        "approval_status": ApprovalStatus.PENDING.value,
+        "approval_round": approval_round,  # the next round: the rows it opens count there
+    }
+    if record.status != target:
+        changes |= await _status_change(
+            session,
+            wtype,
+            record,
+            WorkItemAction.RESTART_APPROVAL,
+            target=target,
+            reason_code=None,
+            reason_text=None,
+        )
+    before = _snapshot(record, STAMP_FIELDS)
+    updated = await _update(session, record, record.version, changes)
+    await _record_status(
+        session,
+        before,
+        updated,
+        WorkItemAction.RESTART_APPROVAL,
+        source=source,
+        reason=None,
+        automatic=True,
+        extra=[Change("approval_status", old_approval, ApprovalStatus.PENDING.value)],
+        rule="approval_restart",
     )
     return updated
 
@@ -6214,6 +6689,7 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
 
 visible_record = _visible
 record_for_action = _for_action
+action_refused = _reason_for  # None when allowed, else why (WP-047a S2b: REQ-SR-042 AC2)
 holders_of = _holders_of
 
 
@@ -6590,3 +7066,73 @@ async def apply_sla_from_creation(
         aggregate_version=updated.version,
     )
     return True
+
+
+async def answers_completed(  # noqa: PLR0913 - the request, its answers and their context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record: WorkItem,
+    answers: Mapping[str, Any],
+    *,
+    expected_version: int,
+    source: Source,
+    holders: PermissionHolders,
+) -> WorkItem:
+    """The missing answers of a request made from mail; then it is submitted (WP-047a S4).
+
+    REQ-SR-017 AC2/AC3: only a request waiting for answers (`awaiting_answers`), only by its
+    requester or the person it is for. The answers are checked as the requester's (every required
+    one now, as on the portal form). Then the request is submitted as any other: its approval
+    status and first status from the item, and its approval stage or fulfilment plan
+    (`approval_stage.after_submission`). One versioned save for the answers, then the move.
+    """
+    if record.approval_status != ApprovalStatus.AWAITING_ANSWERS.value:
+        raise Conflict(code="request_not_awaiting_answers")
+    if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
+        raise PermissionDenied(params={"permission": "requests.create", "reason": "not_requester"})
+    if record.catalog_item_id is None:  # pragma: no cover - awaiting answers implies an item
+        raise Conflict(code="request_not_awaiting_answers")
+    merged = {**dict(record.answers or {}), **dict(answers)}
+    values = {"catalog_item_id": str(record.catalog_item_id), "answers": merged}
+    item = await _request_item(session, subject, SERVICE_REQUEST, values)
+    problems = [] if item is None else list(item.answer_problems)
+    problems += await _person_answer_problems(session, item, values)
+    if problems:
+        raise await _value_errors(session, SERVICE_REQUEST, problems)
+    cat = await config.load(session, SERVICE_REQUEST)
+    started = _started(item, cat)
+    columns = {k: v for k, v in _item_columns(item, values).items() if k == "approval_status"}
+    updated = await _update(session, record, expected_version, {"answers": merged, **columns})
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[
+            *(
+                Change(f"answers.{key}", None, _json(merged[key]))
+                for key in sorted(set(merged) - set(record.answers or {}))
+            ),
+            Change(
+                "approval_status",
+                ApprovalStatus.AWAITING_ANSWERS.value,
+                columns.get("approval_status"),
+            ),
+        ],
+        source=source,
+    )
+    if started is not None and started.status != updated.status:
+        updated = await set_status(
+            session,
+            SERVICE_REQUEST,
+            updated,
+            WorkItemAction.RESUME,
+            target=started.status,
+            expected_version=updated.version,
+            source=source,
+        )
+    await approval_stage.after_submission(
+        session, updated, item, source=source, holders=holders, wtype=SERVICE_REQUEST
+    )
+    return updated

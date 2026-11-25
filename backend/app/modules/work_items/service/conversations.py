@@ -510,6 +510,75 @@ async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it 
     return entry
 
 
+async def add_system_entry(  # noqa: PLR0913 - the entry and who it is by, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    *,
+    author_id: uuid.UUID,
+    kind: EntryKind,
+    visibility: Visibility,
+    text: str,
+    mentioned: Sequence[uuid.UUID] = (),
+    source: Source,
+) -> WorkItemConversation:
+    """An entry another service writes in a person's name, from plain text (WP-047a S3a).
+
+    An approver's question (REQ-SR-037): a public reply to the requester (mailed as any reply
+    is) or a private note that mentions the technician. The caller checked who may write it;
+    this adds no permission check and moves nothing.
+    """
+    body = sanitize_html(
+        "".join(f"<p>{html.escape(line)}</p>" for line in text.splitlines() if line.strip())
+    )
+    state, reason = delivery_for(
+        kind,
+        inbound=kind == EntryKind.REPLY
+        and reply_is_inbound(author_id, {record.requester_id, record.on_behalf_of_id}, source),
+        email_channel=kind == EntryKind.REPLY and await email_channel_configured(session),
+    )
+    entry = await ConversationRepository(session).add(
+        WorkItemConversation(
+            work_item_id=record.id,
+            kind=kind,
+            visibility=visibility,
+            reply_mode=ReplyMode.REPLY if kind == EntryKind.REPLY else None,
+            body=body,
+            recipients=None,
+            delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
+            delivery_reason=reason,
+            first_response=False,
+            mentioned_ids=list(mentioned),
+            created_by=author_id,
+            updated_by=author_id,
+        )
+    )
+    await record_changes(
+        session,
+        record_type=followers.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_added",
+        changes=[Change("conversation_entry", None, _entry_code(kind, visibility))],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemConversationAdded(
+            work_item_id=record.id,
+            entry_id=entry.id,
+            kind=kind,
+            visibility=visibility,
+            delivery_state=state,
+            first_response=False,
+            mentioned_ids=list(mentioned),
+        ),
+        aggregate_id=entry.id,
+        aggregate_version=entry.version,
+    )
+    return entry
+
+
 @dataclass(frozen=True)
 class RequesterReply:
     """What a requester's reply from outside made: its entry, and a follow-up record if any.

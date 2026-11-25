@@ -72,7 +72,7 @@ async def _config(
             client=None,
             scope=SyncScope.ALL_USERS,
             scope_groups=frozenset(),
-            mapped={},
+            mapped=frozenset(),
             mapping=mapping_from_json({}),
             users_link=None,
             groups_link=None,

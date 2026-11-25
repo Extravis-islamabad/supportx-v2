@@ -204,6 +204,17 @@ export function QuestionsEditor({
                   aria-label={t('catalog_admin.form.required')}
                 />
               </Form.Item>
+              {/* WP-047a S3b (REQ-SR-041, Essentials): a changed answer restarts the approval. */}
+              <Form.Item label={t('catalog_admin.form.restarts_approval')}>
+                <Switch
+                  checked={question.restarts_approval}
+                  onChange={(restarts_approval) => {
+                    put(index, { restarts_approval });
+                  }}
+                  aria-label={t('catalog_admin.form.restarts_approval')}
+                  data-testid={`cat-question-${String(index)}-restarts`}
+                />
+              </Form.Item>
               <Form.Item label={t('catalog_admin.form.shown_to')}>
                 <Checkbox.Group
                   value={question.shown_to ?? [...AUDIENCES]}
@@ -259,6 +270,7 @@ export function QuestionsEditor({
               option_labels: {},
               help: {},
               default: null,
+              restarts_approval: false,
               shown_to: [...AUDIENCES],
             },
           ]);

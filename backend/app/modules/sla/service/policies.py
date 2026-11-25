@@ -41,7 +41,9 @@ from app.modules.sla.domain.policy import (
     TargetUnit,
     never_matching,
     target_problems,
+    target_seconds,
 )
+from app.modules.sla.domain.setup import SystemCalendar
 from app.modules.sla.events import (
     SlaPoliciesReordered,
     SlaPolicyDeleted,
@@ -55,7 +57,11 @@ from app.modules.sla.infra.models import (
     SlaSettings,
 )
 from app.modules.sla.service.access import MANAGE, VIEW, require
-from app.modules.sla.service.calendars import calendar_exists
+from app.modules.sla.service.calendars import (
+    calendar_exists,
+    calendar_for_maths,
+    system_calendar_id,
+)
 from app.modules.sla.service.registry import SlaRecordType, record_type
 from app.shared.api.filters import compile_filter
 from app.shared.db.repository import Repository
@@ -338,14 +344,13 @@ class DeliveryTarget:
     around_the_clock: bool
 
 
-async def delivery_target(
+async def _delivery_row(
     session: AsyncSession, record_type: str, policy_id: uuid.UUID | None, priority: str | None
-) -> DeliveryTarget | None:
-    """The resolution target a new record would usually get, for showing before it is raised.
+) -> SlaPolicyTarget | None:
+    """The resolution row a new record would usually get.
 
-    The given policy, or the type's fallback when none is given; its row for `priority`, else
-    its row for every priority. None when no live policy or no resolution target applies (the
-    catalogue then says nothing about delivery).
+    The given policy (else the type's fallback), its row for `priority`, else its row for
+    every priority.
     """
     query = select(SlaPolicy.id).where(
         SlaPolicy.record_type == record_type,
@@ -374,8 +379,56 @@ async def delivery_target(
     )
     if chosen is None or chosen.amount is None:
         return None
+    return chosen
+
+
+async def delivery_target(
+    session: AsyncSession, record_type: str, policy_id: uuid.UUID | None, priority: str | None
+) -> DeliveryTarget | None:
+    """The resolution target a new record would usually get, for showing before it is raised.
+
+    The given policy, or the type's fallback when none is given; its row for `priority`, else
+    its row for every priority. None when no live policy or no resolution target applies (the
+    catalogue then says nothing about delivery).
+    """
+    chosen = await _delivery_row(session, record_type, policy_id, priority)
+    if chosen is None or chosen.amount is None:
+        return None
     around = chosen.source == CalendarSource.AROUND_THE_CLOCK.value
     return DeliveryTarget(chosen.amount, chosen.unit, around)
+
+
+async def delivery_at(  # noqa: PLR0913 - the policy, the priority, the moment and the units
+    session: AsyncSession,
+    record_type: str,
+    policy_id: uuid.UUID | None,
+    priority: str | None,
+    start: datetime,
+    *,
+    site_id: uuid.UUID | None = None,
+    group_id: uuid.UUID | None = None,
+) -> datetime | None:
+    """When a record started at `start` would usually be resolved (REQ-SR-015).
+
+    The same row as `delivery_target`, counted on that row's calendar exactly as the clock
+    picks it (REQ-SLA-013: around the clock, a fixed calendar, the group's or the site's, else
+    the operating hours), so "3 business days" from a Thursday lands on the Tuesday. None when
+    no SLA applies: nothing is promised then.
+    """
+    chosen = await _delivery_row(session, record_type, policy_id, priority)
+    if chosen is None or chosen.amount is None:
+        return None
+    (row,) = target_rows([chosen])
+    if row.source is CalendarSource.AROUND_THE_CLOCK:
+        calendar_id = await system_calendar_id(session, SystemCalendar.AROUND_THE_CLOCK)
+    elif row.source is CalendarSource.FIXED and row.fixed_calendar_id is not None:
+        calendar_id = row.fixed_calendar_id
+    else:
+        site, group = await organization.unit_calendars(session, site_id, group_id)
+        chosen_id = group if row.source is CalendarSource.GROUP and group else site
+        calendar_id = chosen_id or await system_calendar_id(session, SystemCalendar.OPERATING_HOURS)
+    calendar = await calendar_for_maths(session, calendar_id)
+    return calendar.add(start.astimezone(UTC), target_seconds(row, calendar))
 
 
 async def list_policies(session: AsyncSession, subject: Subject, code: str) -> list[PolicyView]:

@@ -27,10 +27,10 @@ from app.modules.identity_access import Subject, UserType, person_placement
 from app.modules.work_items.domain import approvals as rules
 from app.modules.work_items.domain.lifecycle import FINAL_CATEGORIES, StatusCategory
 from app.modules.work_items.domain.service_requests import ApprovalStatus
-from app.modules.work_items.domain.types import PROBLEM, WorkItemType
+from app.modules.work_items.domain.types import PROBLEM, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemApproval
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.approval_stage import approval_event
+from app.modules.work_items.service.approval_stage import approval_event, requested_for
 from app.shared.history import Source
 
 MAX_APPROVERS = 10
@@ -75,12 +75,15 @@ async def request(  # noqa: PLR0913, C901 - the record, the people, the purpose,
     policy: Subjects,
     wtype: WorkItemType = PROBLEM,
     rule: rules.LevelRule | None = None,
+    action: str = "edit",
 ) -> WorkItem:
     """Ask these people to approve; the record's approval status becomes pending.
 
-    `rule` (incidents) says how they decide; none means the first decision decides.
+    `rule` (incidents, requests) says how they decide; none means the first decision decides.
+    `action`: the permission it needs on the record (`modify_approvers` on a request,
+    REQ-SR-042), where its ask is `ad_hoc`, apart from the item's own approval.
     """
-    record = await items.record_for_action(session, subject, wtype, "edit", problem_id)
+    record = await items.record_for_action(session, subject, wtype, action, problem_id)
     people = list(dict.fromkeys(approver_ids))
     if not people:
         raise items.field_errors([("approver_ids", "required")])
@@ -90,6 +93,11 @@ async def request(  # noqa: PLR0913, C901 - the record, the people, the purpose,
     # approver can actually decide, so the problem never waits on someone who cannot.
     if subject.user_id in people:
         raise items.field_errors([("approver_ids", "approver_is_requester")])
+    if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and {
+        record.requester_id,
+        requested_for(record),
+    } & set(people):  # REQ-SR-042: never the request's own people (the coordinator's cond. 3)
+        raise items.field_errors([("approver_ids", "approver_is_requester")])
     for person in people:
         if not await _eligible(session, policy, subject, person, record.id, wtype=wtype):
             raise items.field_errors(
@@ -98,7 +106,12 @@ async def request(  # noqa: PLR0913, C901 - the record, the people, the purpose,
             )
     if StatusCategory(record.status_category) in FINAL_CATEGORIES:
         raise Conflict(code="record_closed", params={"display_id": record.display_id})
-    if wtype is not PROBLEM and purpose is not rules.ApprovalPurpose.RECORD:
+    wanted = (
+        rules.ApprovalPurpose.AD_HOC
+        if wtype.code is WorkItemTypeCode.SERVICE_REQUEST
+        else rules.ApprovalPurpose.RECORD
+    )
+    if wtype is not PROBLEM and purpose is not wanted:
         raise items.field_errors([("purpose", "invalid_choice")])
     if wtype is PROBLEM and rule is not None:  # a problem's first decision decides
         raise items.field_errors([("rule", "invalid_choice")])

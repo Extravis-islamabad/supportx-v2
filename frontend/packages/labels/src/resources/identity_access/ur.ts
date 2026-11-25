@@ -192,7 +192,8 @@ export const ur: LabelResource = {
     'یہ فوری سائن اِن یہاں دستیاب نہیں۔ یہ صرف مقامی ڈیولپمنٹ اسٹیک پر make dev-quick-sign-in کے ساتھ کام کرتا ہے۔',
   'dev_sign_in.warning':
     'صرف مقامی ڈیولپمنٹ اسٹیک کے لیے، Showcase Company کے کسی کردار کے طور پر۔ کسی حقیقی انسٹالیشن پر کبھی نہیں۔',
-  'domain_check.dns_check_unavailable': 'اس انسٹالیشن پر خودکار جانچ ابھی دستیاب نہیں۔',
+  'domain_check.dns_check_unavailable':
+    'اس انسٹالیشن پر کوئی DNS سرور ترتیب نہیں دیا گیا، اس لیے ڈومین کی خودکار جانچ نہیں ہو سکتی۔',
   'domain_check.dns_unreachable':
     'اس انسٹالیشن سے DNS تک رسائی نہ ہو سکی۔ اس کے بجائے آپ ڈومین کی تصدیق ہاتھ سے کر سکتے ہیں۔',
   'domain_check.domain_verified_elsewhere': 'کسی اور ادارے نے یہ ڈومین پہلے ہی تصدیق کر لیا ہے۔',
@@ -270,7 +271,7 @@ export const ur: LabelResource = {
   'field_access.no_rule': 'کوئی قاعدہ نہیں',
   'field_access.nobody': 'کوئی نہیں',
   'field_access.record_type': 'ریکارڈ کی قسم',
-  'field_access.saved': 'فیلڈ تک رسائی محفوظ ہو گئی',
+  'field_access.saved': '{{type}} کے لیے فیلڈ تک رسائی محفوظ ہو گئی',
   'field_access.search': 'فیلڈ تلاش کریں',
   'field_access.stale': 'اس دوران کسی اور نے یہ قاعدہ بدل دیا۔ قطار اب وہی دکھاتی ہے جو محفوظ ہے۔',
   'field_access.unlicensed':
@@ -285,6 +286,8 @@ export const ur: LabelResource = {
   'form_density.comfortable': 'آرام دہ',
   'form_density.compact': 'مختصر',
   'form_density.title': 'فارم کی ترتیب',
+  'group_mapping_source.directory': 'ڈائریکٹری',
+  'group_mapping_source.sso': 'سنگل سائن آن',
   'identity.settings.people_edit_contact': 'لوگ اپنا فون اور موبائل نمبر خود بدل سکتے ہیں',
   'identity.settings.people_edit_contact_help':
     'میرا اکاؤنٹ میں، پورٹل اور کنسول دونوں میں۔ ڈائریکٹری کے رکھے نمبر صرف پڑھنے کے لیے رہتے ہیں۔',
@@ -679,6 +682,9 @@ export const ur: LabelResource = {
   'permission.api_keys.manage': 'API کلیدوں کا انتظام',
   'permission.api_keys.manage.description':
     'سروس شناختوں کے لیے API کلیدیں بنائیں، اور ہر کلید دیکھیں اور منسوخ کریں۔',
+  'permission.assets.delete': 'اثاثے حذف کریں (ردی کی ٹوکری میں منتقل کریں)',
+  'permission.assets.delete.description':
+    'اثاثے ردی کی ٹوکری میں منتقل کریں۔ اثاثوں کے انتظام میں اب یہ شامل نہیں، اور وینڈر سپورٹ کو یہ کبھی نہیں ملتا۔',
   'permission.assets.edit_disposed': 'تلف شدہ اثاثے بدلیں',
   'permission.assets.edit_disposed.description': 'تلف ہونے کے بعد اثاثہ بدلیں، ہر بار وجہ بتا کر۔',
   'permission.assets.manage': 'اثاثوں کا انتظام کریں',
@@ -1079,9 +1085,15 @@ export const ur: LabelResource = {
   'permission.requests.edit_due_dates': 'درخواستوں کی آخری تاریخ ہاتھ سے مقرر کریں',
   'permission.requests.edit_due_dates.description':
     'سروس درخواست کی جواب یا تکمیل کی آخری تاریخ وجہ کے ساتھ ہاتھ سے مقرر کریں یا مٹائیں۔ پھر وہ مٹانے تک رہتی ہے۔',
+  'permission.requests.manage_delegations': 'دوسروں کی منظوری کی تفویضات سنبھالیں',
+  'permission.requests.manage_delegations.description':
+    'کسی اور کے لیے منظوری کی تفویض مقرر، تبدیل یا ختم کریں۔ ہر کوئی اپنی تفویض سنبھال سکتا ہے۔',
   'permission.requests.manage_followers': 'درخواستوں کے فالوورز کا انتظام',
   'permission.requests.manage_followers.description':
     'دوسرے لوگوں کو سروس درخواستوں کے فالوور بنائیں اور ہٹائیں۔',
+  'permission.requests.modify_approvers': 'سروس درخواستوں کے منظور کنندگان بدلیں',
+  'permission.requests.modify_approvers.description':
+    'منظوری کی منتظر درخواست میں منظور کنندہ شامل کریں یا بدلیں، مرحلہ شامل کریں یا منظور کنندگان کو یاد دلائیں، ہمیشہ وجہ کے ساتھ۔',
   'permission.requests.reopen': 'سروس درخواستیں دوبارہ کھولیں',
   'permission.requests.reopen.description':
     'پوری شدہ یا بند سروس درخواستیں وجہ کے ساتھ دوبارہ کھولیں۔',
@@ -1665,6 +1677,8 @@ export const ur: LabelResource = {
     'کنسول سیشن ایک گھنٹے سے زیادہ بغیر سرگرمی کے سائن اِن رہتے ہیں۔',
   'security_flag.console_open_network': 'کنسول کسی بھی نیٹ ورک پتے سے کھولا جا سکتا ہے۔',
   'security_flag.console_session_long': 'کنسول سیشن ایک کاروباری دن سے زیادہ چلتے ہیں۔',
+  'security_flag.directory_access_stale':
+    'ایسی ڈائریکٹریاں جو رسائی دیتی ہیں اور ایک دن سے زیادہ سے سنک نہیں ہوئیں',
   'security_flag.fields_still_moving':
     'حساس فیلڈز جن کی انکرپشن یا ڈی کرپشن ابھی جاری ہے: {{count}}',
   'security_flag.keys_never_expire': 'API کلیدیں میعاد کے بغیر بنائی جا سکتی ہیں۔',
@@ -1843,6 +1857,105 @@ export const ur: LabelResource = {
   'users.title': 'صارفین',
   'users.total_one': '{{count}} صارف',
   'users.total_other': '{{count}} صارفین',
+  'vendor_support.access.change_help':
+    '— ریکارڈز اور ڈیسک کی ترتیبات پر بھی کام کرتا ہے؛ لوگ، سائن اِن، آڈٹ یا منظوریاں کبھی نہیں۔',
+  'vendor_support.access.view_help': '— ریکارڈ اور ترتیبات پڑھتا ہے؛ کچھ نہیں بدلتا۔',
+  'vendor_support.activity.empty': 'ابھی کچھ نہیں۔',
+  'vendor_support.activity.more': 'مزید دکھائیں',
+  'vendor_support.activity.title': 'انجینئر نے کیا کیا',
+  'vendor_support.banner.contacts': 'لوگوں کے ای میل پتے اور فون نمبر چھپے ہوئے ہیں۔',
+  'vendor_support.banner.masked': 'لوگوں کے نام اور رابطے کی تفصیلات چھپی ہیں۔',
+  'vendor_support.banner.text':
+    'آپ Extravis سپورٹ کے طور پر سائن اِن ہیں۔ رسائی {{time}} ختم ہوگی۔',
+  'vendor_support.column.access': 'رسائی',
+  'vendor_support.column.ends': 'ختم',
+  'vendor_support.column.engineer': 'انجینئر',
+  'vendor_support.column.state': 'حالت',
+  'vendor_support.column.verification': 'انجینئر کی تصدیق کیسے ہوئی',
+  'vendor_support.empty': 'وینڈر سپورٹ کو کوئی رسائی نہیں دی گئی۔',
+  'vendor_support.end.action': 'رسائی ابھی ختم کریں',
+  'vendor_support.end.confirm':
+    '{{name}} کی رسائی ابھی ختم کریں؟ ان کے سیشن فوراً ختم ہو جائیں گے۔',
+  'vendor_support.end.done': 'رسائی ختم ہو گئی۔',
+  'vendor_support.extend.action': 'توسیع کریں',
+  'vendor_support.extend.at_ceiling': 'رسائی پہلے ہی کل {{max}} گھنٹے تک پہنچ چکی ہے۔',
+  'vendor_support.extend.done': 'رسائی میں توسیع ہو گئی۔',
+  'vendor_support.extend.label': 'اتنی توسیع',
+  'vendor_support.field.access': 'رسائی',
+  'vendor_support.field.change_reason': 'انہیں تبدیلیاں کیوں کرنی ہیں',
+  'vendor_support.field.confirmation_note': 'آپ نے تصدیق کیسے کی',
+  'vendor_support.field.confirmation_note_help':
+    'مثلاً وہ نمبر جس پر آپ نے کال کی اور کس نے جواب دیا۔',
+  'vendor_support.field.engineer_email': 'انجینئر کا دفتری ای میل',
+  'vendor_support.field.engineer_email_help': 'Extravis کا پتہ۔ دوسرے ڈومین قبول نہیں ہوتے۔',
+  'vendor_support.field.engineer_name': 'انجینئر کا نام',
+  'vendor_support.field.hours': 'گھنٹے',
+  'vendor_support.field.hours_help':
+    'رسائی خود ختم ہو جاتی ہے۔ زیادہ سے زیادہ کل {{max}} گھنٹے، توسیع سمیت۔',
+  'vendor_support.field.ip_allowlist': 'صرف ان پتوں سے',
+  'vendor_support.field.ip_allowlist_help': 'اختیاری۔ IP پتے یا رینج، جیسے 203.0.113.0/24۔',
+  'vendor_support.field.mask_names': 'لوگوں کے نام بھی چھپائیں',
+  'vendor_support.field.mask_names_help':
+    'آن: انجینئر ریکارڈ کسی کے نام کے بغیر دیکھتا ہے۔ ای میل اور فون ہمیشہ چھپے رہتے ہیں۔',
+  'vendor_support.field.reason': 'وجہ',
+  'vendor_support.field.ticket_ref': 'Extravis ٹکٹ حوالہ',
+  'vendor_support.field.unmask': 'دیگر ذاتی تفصیلات دکھائیں',
+  'vendor_support.field.unmask_help':
+    'بند: ذاتی نشان زدہ فیلڈز چھپی رہتی ہیں۔ نام دکھائی دیتے ہیں جب تک نیچے نہ چھپائے جائیں؛ ای میل اور فون کبھی نہیں دکھائے جاتے۔',
+  'vendor_support.grant.action': 'رسائی دیں',
+  'vendor_support.grant.how_long': 'کتنی دیر کے لیے',
+  'vendor_support.grant.link_sent': 'رسائی دے دی گئی۔ انجینئر کو سائن اِن کا لنک بھیج دیا گیا ہے۔',
+  'vendor_support.grant.never_on': 'اس ادارے کے لیے وینڈر سپورٹ بند ہے۔',
+  'vendor_support.grant.submit': 'رسائی دیں',
+  'vendor_support.grant.title': 'Extravis انجینئر کو رسائی دیں',
+  'vendor_support.grant.verification': 'آپ نے انجینئر کی تصدیق کیسے کی',
+  'vendor_support.grant.what': 'وہ کیا کر سکتے ہیں',
+  'vendor_support.grant.who': 'کون',
+  'vendor_support.grant.why': 'کیوں',
+  'vendor_support.hours_unit': 'گھنٹے',
+  'vendor_support.intro':
+    'کسی ایک نامزد Extravis انجینئر کو کسی مسئلے میں مدد کے لیے عارضی رسائی دیں۔ ہر ٹیننٹ ایڈمن کو بتایا جاتا ہے، اور رسائی خود ختم ہو جاتی ہے۔',
+  'vendor_support.never.allow_confirm':
+    'وینڈر سپورٹ کی دوبارہ اجازت دیں؟ ٹیننٹ ایڈمن رسائی دے سکیں گے۔',
+  'vendor_support.never.confirm':
+    'وینڈر سپورٹ کی کبھی اجازت نہ دیں؟ کوئی بھی Extravis انجینئرز کو رسائی نہیں دے سکے گا۔',
+  'vendor_support.never.explain':
+    'جب یہ آن ہو تو کوئی بھی Extravis انجینئرز کو رسائی نہیں دے سکتا۔ کھلی رسائی کے دوران اسے آن نہیں کیا جا سکتا۔',
+  'vendor_support.never.label': 'وینڈر سپورٹ کی کبھی اجازت نہ دیں',
+  'vendor_support.never.ok': 'ہاں، بدل دیں',
+  'vendor_support.no': 'نہیں',
+  'vendor_support.open_notice':
+    'ایک Extravis انجینئر کے پاس ابھی رسائی ہے۔ آپ اسے کسی بھی وقت ختم کر سکتے ہیں۔',
+  'vendor_support.password.after': 'یہ دوبارہ نہیں دکھایا جائے گا۔',
+  'vendor_support.password.copied': 'کاپی ہو گیا',
+  'vendor_support.password.copy': 'کاپی کریں',
+  'vendor_support.password.done': 'میں نے دے دیا',
+  'vendor_support.password.explain':
+    'یہ پاس ورڈ کال پر {{name}} کو دیں۔ یہ ایک بار کام کرتا ہے؛ پہلے سائن اِن پر وہ اپنا پاس ورڈ چنتے ہیں اور ایک بار کا کوڈ سیٹ کرتے ہیں۔',
+  'vendor_support.password.replay':
+    'یہ پاس ورڈ ایک بار دکھایا جا چکا ہے اور دوبارہ نہیں دکھایا جا سکتا۔',
+  'vendor_support.password.title': 'عارضی پاس ورڈ',
+  'vendor_support.person_hidden': 'شخص چھپا ہوا',
+  'vendor_support.resend.action': 'نیا سائن اِن لنک بھیجیں',
+  'vendor_support.resend.done': 'نیا لنک بھیج دیا گیا۔ پرانا اب کام نہیں کرتا۔',
+  'vendor_support.start.after':
+    'اسے سیدھا سائن اِن میں پیسٹ کریں۔ آپ اپنا پاس ورڈ چنیں گے، پھر ایک بار کا کوڈ سیٹ کریں گے۔ یہ دوبارہ نہیں دکھایا جائے گا۔',
+  'vendor_support.start.failed': 'یہ لنک استعمال نہیں ہو سکتا۔ کسٹمر کے ایڈمن سے نیا لنک مانگیں۔',
+  'vendor_support.start.intro':
+    'ایک کسٹمر نے آپ کو عارضی رسائی دی ہے۔ اپنا عارضی پاس ورڈ لینے کے لیے اپنا لنک کھولیں۔',
+  'vendor_support.start.login': 'آپ کا سائن اِن نام',
+  'vendor_support.start.no_link': 'جاری رکھنے کے لیے اپنی ای میل سے لنک کھولیں۔',
+  'vendor_support.start.open': 'میرا عارضی پاس ورڈ لیں',
+  'vendor_support.start.password': 'عارضی پاس ورڈ',
+  'vendor_support.start.rate_limited': 'بہت زیادہ کوششیں۔ {{seconds}} سیکنڈ بعد دوبارہ کوشش کریں۔',
+  'vendor_support.start.sign_in': 'سائن اِن کریں',
+  'vendor_support.start.title': 'Extravis سپورٹ رسائی',
+  'vendor_support.title': 'وینڈر سپورٹ',
+  'vendor_support.verification.email': 'انجینئر کے دفتری ای میل پر سائن اِن لنک بھیجیں',
+  'vendor_support.verification.out_of_band':
+    'میں نے Extravis کو واپس کال کر کے انجینئر کی تصدیق کی',
+  'vendor_support.window': 'سے – تک',
+  'vendor_support.yes': 'ہاں',
   'verified_domain_state.lapsed': 'اب تصدیق شدہ نہیں',
   'verified_domain_state.pending': 'اس کے ریکارڈ کا انتظار',
   'verified_domain_state.verified': 'تصدیق شدہ',

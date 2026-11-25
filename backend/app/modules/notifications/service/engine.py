@@ -31,6 +31,12 @@ from app.core.config import Settings, get_settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import (
+    SystemLogCode,
+    SystemLogEntryIn,
+    SystemLogSeverity,
+    record_system_coalesced,
+)
 from app.modules.identity_access import NotifiablePerson, notifiable_people
 from app.modules.notifications.domain.rules import (
     Condition,
@@ -399,9 +405,27 @@ async def _email(  # noqa: PLR0913, PLR0917 - the delivery, its message and its 
         )
     except MailRefused as refused:
         log.warning("notification_mail_refused", code=refused.code, event_code=code)
+        await _log_refused(session, refused)
         await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.MAIL_REFUSED)
         return
     await _record(*common, DeliveryState.QUEUED, language=message.language, mail_id=mail_id)
+
+
+async def _log_refused(session: AsyncSession, refused: MailRefused) -> None:
+    """The system log hears of a refused e-mail once per reason per hour (lane A (1), REQ-AUD-016).
+
+    The refusal's code only: never the address, subject or text (lane A (2)). A savepoint that
+    never raises, so the delivery goes on exactly as before (lane A (3)).
+    """
+    await record_system_coalesced(
+        session,
+        SystemLogEntryIn(
+            module="notifications",
+            code=SystemLogCode.NOTIFICATION_MAIL_REFUSED,
+            severity=SystemLogSeverity.WARNING,
+            params={"reason": refused.code},
+        ),
+    )
 
 
 def _entry_state(state: DeliveryState, reason: str | None) -> tuple[str, str | None] | None:
@@ -835,7 +859,8 @@ async def send_waiting(session: AsyncSession, settings: Settings) -> int:
                 )
                 row.state = DeliveryState.QUEUED.value
                 sent += 1
-            except MailRefused:
+            except MailRefused as refused:
+                await _log_refused(session, refused)
                 row.state = DeliveryState.SUPPRESSED.value
                 row.reason = SuppressedReason.MAIL_REFUSED
         row.subject = row.text_body = row.html_body = None

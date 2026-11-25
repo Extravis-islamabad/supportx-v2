@@ -47,6 +47,26 @@ class TriggerEvent(StrEnum):
     # once per entry, on the status move that lands in a new stage; the stage is in conditions.
     # Notifications have their own events (lane A's change.status_entered): this runs actions.
     STAGE_ENTERED = "stage_entered"
+    # WP-053 S5d (REQ-CMDB-023): a configuration item's events. Offered by the CI record type
+    # only: never part of `WORK_ITEM_EVENTS`, so no other type offers them by accident.
+    RELATIONSHIP_ADDED = "relationship_added"
+    RELATIONSHIP_REMOVED = "relationship_removed"
+    DOWNTIME_STARTED = "downtime_started"
+
+
+# What a record type offers unless it says otherwise (WP-053 S5d, lane C's shape): today's work
+# item events, named, so a new code joins a type only when that type lists it.
+WORK_ITEM_EVENTS = frozenset(
+    {
+        TriggerEvent.CREATED,
+        TriggerEvent.UPDATED,
+        TriggerEvent.STATUS_CHANGED,
+        TriggerEvent.ASSIGNED,
+        TriggerEvent.NOTE_ADDED,
+        TriggerEvent.REQUESTER_REPLIED,
+        TriggerEvent.STAGE_ENTERED,
+    }
+)
 
 
 class TriggerActionKind(StrEnum):
@@ -55,6 +75,8 @@ class TriggerActionKind(StrEnum):
     SET = "set"
     NOTE = "note"
     START_WORKFLOW = "start_workflow"  # triggers only, never a move's "after" (WP-048b)
+    # WP-047a S4 (REQ-SR-044): an ad hoc ask of named approvers; triggers only, as above.
+    START_APPROVAL = "start_approval"
 
 
 class Relative(StrEnum):
@@ -142,12 +164,26 @@ def before_from(
     return before
 
 
-def check_trigger(values: Mapping[str, Any], fields: Mapping[str, RuleField]) -> list[Problem]:
-    """Problems of a trigger's events, conditions and actions (REQ-RUL-029)."""
+def check_trigger(
+    values: Mapping[str, Any],
+    fields: Mapping[str, RuleField],
+    offered: frozenset[TriggerEvent],
+) -> list[Problem]:
+    """Problems of a trigger's events, conditions and actions (REQ-RUL-029).
+
+    `offered` is the record type's own events (WP-053 S5d): a known event it does not offer is
+    refused by name, one problem per event in a stable order. No default, so no caller forgets.
+    """
     problems: list[Problem] = []
     events = values.get("events") or []
-    if not events or not set(events) <= {e.value for e in TriggerEvent}:
+    known = {e.value for e in TriggerEvent}
+    if not events or not isinstance(events, list) or not set(map(str, events)) <= known:
         problems.append(("events", "invalid_choice", {}))
+    else:
+        problems += [
+            ("events", "trigger_event_not_offered", {"event": event})
+            for event in sorted(set(events) - {e.value for e in offered})
+        ]
     conditions = values.get("conditions")
     if conditions is not None:
         problems += check_conditions(conditions, fields)
@@ -179,6 +215,8 @@ def check_after_actions(
     for index, action in enumerate(actions):
         if start_workflow and _kind_of(action) == TriggerActionKind.START_WORKFLOW.value:
             problems += _workflow_problems(index, action)
+        elif start_workflow and _kind_of(action) == TriggerActionKind.START_APPROVAL.value:
+            problems += _ask_problems(index, action)
         else:
             problems += _action_problems(index, action, fields, seen)
     return problems
@@ -193,6 +231,15 @@ def _workflow_problems(index: int, action: Mapping[str, Any]) -> list[Problem]:
         uuid.UUID(str(action.get("workflow_id")))
     except ValueError:
         return [(f"actions.{index}.workflow_id", "required", {})]
+    return []
+
+
+def _ask_problems(index: int, action: Mapping[str, Any]) -> list[Problem]:
+    """An ask's rule; who is asked is the service's check (it knows the type's roles)."""
+    if not isinstance(action.get("approvers"), dict):
+        return [(f"actions.{index}.approvers", "required", {})]
+    if action.get("rule", "any") not in {"any", "all", "majority"}:
+        return [(f"actions.{index}.rule", "invalid_choice", {})]
     return []
 
 

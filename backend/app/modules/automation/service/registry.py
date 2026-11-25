@@ -13,7 +13,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.automation.domain.rules import JsonValue, RuleField
-from app.modules.automation.domain.triggers import TriggerEvent
+from app.modules.automation.domain.triggers import (
+    WORK_ITEM_EVENTS,
+    TriggerActionKind,
+    TriggerEvent,
+)
 from app.modules.identity_access import Subject
 from app.shared.events import EventEnvelope
 
@@ -33,6 +37,12 @@ RecordLabeler = Callable[
 ]
 # The record and the stopped instance.
 WorkflowCloser = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[None]]
+# WP-047a S4 (REQ-SR-044): a trigger's ad hoc ask. The record, the trigger, the approvers (as an
+# approval node's: user_ids, group_ids, roles) and the rule; what came of it ("applied", or a
+# code the run log keeps: approval_pending, record_closed).
+ApprovalAsker = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID, Mapping[str, Any], str], Awaitable[str]
+]
 # The IDs among these that are live templates of the type, in the session's tenant.
 TemplateCheck = Callable[[AsyncSession, Sequence[uuid.UUID]], Awaitable[set[uuid.UUID]]]
 # The record, the workflow's history ref, and the version it left and the one it is on now.
@@ -71,10 +81,18 @@ class RecordType:
     labels: "RecordLabeler | None" = None  # the overview's record names (WP-048b S5a)
     # A stopped workflow's open parts on the record (its pending approvals) close (REQ-WF-026).
     close_workflow: "WorkflowCloser | None" = None
+    # A trigger's "start an approval" (WP-047a S4, REQ-SR-044): None when the type has none.
+    ask_approval: "ApprovalAsker | None" = None
     # A run moved to another version: the record's history says so, naming it (REQ-WF-021 AC2).
     record_migration: "MigrationRecorder | None" = None
     # Which of these IDs are the type's templates, here (a workflow's start templates).
     known_templates: "TemplateCheck | None" = None
+    # The trigger events this type offers (WP-053 S5d, lane C's shape): a trigger naming another
+    # is refused on save and never runs. Work item types keep today's seven by default.
+    offered_events: frozenset[TriggerEvent] = WORK_ITEM_EVENTS
+    # Its status is an ordinary field saved with the others (a CI's state; lane C, S5d): a save
+    # that changed it and other fields also counts for an "updated" trigger, once.
+    status_is_an_edit: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,6 +123,9 @@ class CommandResult:
     # Accepted, decided later (an approval node): the node waits; the owning module's event
     # continues it with the result (REQ-WF-014).
     pending: bool = False
+    # The node's output when the command decides it (WP-047a S4: an approval's expiry names
+    # `timed_out`, or the decision that got there first); None: the node's usual next.
+    port: str | None = None
 
 
 # (session, the workflow's subject, record, command kind, payload, automation_ref) -> result.
@@ -113,6 +134,26 @@ CommandRunner = Callable[
     [AsyncSession, Subject, uuid.UUID, str, Mapping[str, Any], Mapping[str, Any]],
     Awaitable[CommandResult],
 ]
+
+
+def offered_actions(kind: RecordType) -> list[TriggerActionKind]:
+    """The trigger actions this type offers (WP-047a S4; lane C's #627 review).
+
+    The editor lists only these, and saving refuses any other (`action_not_offered`).
+
+    A field change where it can apply one, a note where it has notes, a workflow where it runs
+    them, and an approval ask where its approvals can be decided.
+    """
+    found: list[TriggerActionKind] = []
+    if kind.apply is not None:
+        found.append(TriggerActionKind.SET)
+    if kind.add_note is not None:
+        found.append(TriggerActionKind.NOTE)
+    if kind.run_command is not None:
+        found.append(TriggerActionKind.START_WORKFLOW)
+    if kind.approval_roles is not None and kind.ask_approval is not None:
+        found.append(TriggerActionKind.START_APPROVAL)
+    return found
 
 
 @dataclass(frozen=True)
@@ -127,8 +168,16 @@ class RecordEvent:
     action: str | None = None  # the life-cycle action of a status move
 
 
-EventReader = Callable[[AsyncSession, EventEnvelope], Awaitable[RecordEvent | None]]
+# One event, as triggers see it: a record each (WP-053 S5d, lane C's (b)). Most events touch one
+# record; a CI relationship touches both ends. Empty: nothing to react to.
+EventReader = Callable[[AsyncSession, EventEnvelope], Awaitable[Sequence[RecordEvent]]]
 _READERS: dict[str, EventReader] = {}
+
+
+def each_record(found: Sequence[RecordEvent]) -> list[RecordEvent]:
+    """Each record an event touched, once, in ID order: how both consumers walk them (S5d)."""
+    once = {(h.record_type, h.record_id): h for h in found}
+    return [once[key] for key in sorted(once, key=lambda k: (k[0], str(k[1])))]
 
 
 def register_event_reader(event_types: Sequence[str], reader: EventReader) -> None:

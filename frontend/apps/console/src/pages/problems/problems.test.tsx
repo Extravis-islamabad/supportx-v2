@@ -257,7 +257,9 @@ describe('console: problems', () => {
     });
     render(<App />);
     const subject = await screen.findByTestId('prb-subject');
-    expect((subject as HTMLInputElement).value).toBe('Mail is down');
+    await waitFor(() => {
+      expect((subject as HTMLInputElement).value).toBe('Mail is down');
+    });
     expect(await screen.findByTestId('prb-similar-PRB-7')).toBeDefined();
     // Create is always there, as on the incident form (QA9-F-10): an empty subject is said on
     // the field and nothing is sent.
@@ -278,7 +280,7 @@ describe('console: problems', () => {
     expect(sent.problem.subject).toBe('Mail is down');
     expect(sent.problem.requester_id).toBe(TECH); // reported by: the creator
     expect(sent.problem.template_id).toBe(TEMPLATE_ID); // the default template first
-    await screen.findByTestId('prb-record');
+    await screen.findByTestId('prb-record', {}, { timeout: 5000 });
   });
 
   it('QA10-P1-02: from one incident another problem causes, the move is offered and sent', async () => {

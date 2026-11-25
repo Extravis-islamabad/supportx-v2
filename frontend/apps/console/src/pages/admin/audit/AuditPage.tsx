@@ -12,11 +12,13 @@ import { IntegrityTab } from './IntegrityTab';
 import { PersonalDataAccessTab } from './PersonalDataAccessTab';
 import { SiemTab } from './SiemTab';
 import { SignInsTab } from './SignInsTab';
+import { SystemLogTab } from './SystemLogTab';
 
 const TABS = [
   'log',
   'sign_ins',
   'personal_access',
+  'system_log',
   'integrity',
   'exports',
   'archives',
@@ -68,6 +70,7 @@ export function AuditPage() {
       {active === 'log' && <AuditLogTab />}
       {active === 'sign_ins' && <SignInsTab />}
       {active === 'personal_access' && <PersonalDataAccessTab />}
+      {active === 'system_log' && <SystemLogTab />}
       {active === 'integrity' && <IntegrityTab />}
       {active === 'exports' && <ExportsTab />}
       {active === 'archives' && <ArchivesTab />}

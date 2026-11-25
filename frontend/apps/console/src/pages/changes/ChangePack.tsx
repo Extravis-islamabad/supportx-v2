@@ -33,6 +33,7 @@ import { personName } from '../incidents/labels';
 import { listValueName, stageName, statusName } from '../staged/labels';
 import { ConflictsPanel } from './ChangeSchedule';
 import { riskTone } from './labels';
+import { useHiddenPersonLabel } from '../../maskedPeople';
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -52,6 +53,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
  * and direction. The app's print rules leave out the navigation and the print button.
  */
 export function ChangePack() {
+  const hidden = useHiddenPersonLabel();
   const t = useLabel();
   const { locale } = useAppearance();
   const { format } = useDateTime();
@@ -60,9 +62,15 @@ export function ChangePack() {
   const queryClient = useQueryClient();
   // Live (rule 5c, lane C's #384 review): any change to the record or its parts refetches the
   // pack; the parts' keys sit under the record's detail key.
-  useRecordChannel('wi', id === '' ? undefined : id, () => {
-    void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
-  });
+  useRecordChannel(
+    'wi',
+    id === '' ? undefined : id,
+    (m) => {
+      if (m.covered !== true)
+        void queryClient.invalidateQueries({ queryKey: changeKeys.detail(id) });
+    },
+    { covers: id === '' ? [] : [changeKeys.detail(id)] }, // no id: nothing joined or shown
+  );
   const details = useChangeDetails(id).data;
   const plan = useStagedPlan('changes', id).data ?? [];
   const schedule = useStagedSchedule('changes', id).data ?? [];
@@ -146,10 +154,12 @@ export function ChangePack() {
             {statusName(t, c.status)}
           </Descriptions.Item>
           <Descriptions.Item label={t('work_item_role.change_owner')}>
-            {c.technician_id ? personName(c.people, c.technician_id) : t('changes.pack.not_set')}
+            {c.technician_id
+              ? personName(c.people, c.technician_id, hidden)
+              : t('changes.pack.not_set')}
           </Descriptions.Item>
           <Descriptions.Item label={t('work_item.field.requester_id')}>
-            {personName(c.people, c.requester_id)}
+            {personName(c.people, c.requester_id, hidden)}
           </Descriptions.Item>
           <Descriptions.Item label={t('work_item.field.change_reason')}>
             {own('change_reason', details?.change_reason)}
@@ -268,7 +278,7 @@ export function ChangePack() {
               <li key={a.id} data-testid={`pack-approval-${a.id}`}>
                 {stageName(t, a.record_stage)} ·{' '}
                 {a.approver_id
-                  ? personName(people, a.approver_id)
+                  ? personName(people, a.approver_id, hidden)
                   : t('changes.approvals.administrators')}{' '}
                 · {t(`approval_state.${a.state}`)}
                 {a.decided_at ? ` · ${format(a.decided_at)}` : ''}

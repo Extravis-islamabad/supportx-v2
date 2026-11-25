@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import {
   ApiError,
+  useCatalogItems,
   useCreateMailbox,
   useUpdateMailbox,
   type Mailbox,
@@ -10,6 +11,8 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  textIn,
+  useAppearance,
   DateTimeField,
   Drawer,
   FormProblem,
@@ -38,7 +41,8 @@ const SECURITY: Security[] = ['tls', 'starttls', 'none'];
 /** Where Microsoft and Google send the admin back after signing in (docs/guides/mail-oauth-apps.md). */
 export const CALLBACK_PATH = '/api/v1/integrations/oauth/callback';
 const AFTER_FETCH: AfterFetch[] = ['mark_read', 'move', 'delete'];
-const CREATES: Creates[] = ['incident', 'nothing'];
+// WP-047a S4 (REQ-SR-017): a mailbox can make service requests of one catalog item.
+const CREATES: Creates[] = ['incident', 'service_request', 'nothing'];
 const UNKNOWN: UnknownSenders[] = ['create_allowed_domains', 'create', 'reject'];
 const PORTS: Record<Security, number> = { tls: 993, starttls: 143, none: 143 };
 const TRUSTED_MAX = 5;
@@ -65,6 +69,7 @@ interface Form {
   after_fetch: AfterFetch;
   move_to: string;
   creates: Creates;
+  catalog_item_id: string | null;
   unknown_senders: UnknownSenders;
   allowed_domains: string[];
   enabled: boolean;
@@ -94,6 +99,7 @@ function formFrom(saved: Mailbox | null): Form {
     after_fetch: saved?.after_fetch ?? 'mark_read',
     move_to: saved?.move_to ?? '',
     creates: saved?.creates ?? 'incident',
+    catalog_item_id: saved?.catalog_item_id ?? null,
     unknown_senders: saved?.unknown_senders ?? 'create_allowed_domains',
     allowed_domains: saved?.allowed_domains ?? [],
     enabled: saved?.enabled ?? true,
@@ -149,6 +155,12 @@ export function MailboxEditor({
   const fieldName = useMailboxFieldName();
   const editing = mailbox !== null;
   const [form, setForm] = useState<Form>(() => formFrom(mailbox));
+  // The published service items a request mailbox may name (REQ-SR-017; the server checks too).
+  const { locale } = useAppearance();
+  const items = useCatalogItems();
+  const requestItems = (items.data ?? [])
+    .filter((item) => item.kind === 'service' && item.status === 'published')
+    .map((item) => ({ value: item.id, label: textIn(item.names, locale) || item.id }));
   const [refused, setRefused] = useState<Record<string, string>>({});
   const problem = useFormProblem();
   const [key] = useState(() => crypto.randomUUID());
@@ -206,6 +218,8 @@ export function MailboxEditor({
     after_fetch: form.after_fetch,
     move_to: form.after_fetch === 'move' ? form.move_to.trim() : null,
     creates: form.creates,
+    // Only a request mailbox names an item (the server clears it for any other kind).
+    catalog_item_id: form.creates === 'service_request' ? form.catalog_item_id : null,
     unknown_senders: form.unknown_senders,
     allowed_domains: form.allowed_domains.map((d) => d.trim().toLowerCase()),
     enabled: form.enabled,
@@ -504,6 +518,23 @@ export function MailboxEditor({
           {t('mail.section.mail')}
         </Typography.Title>
         {field('creates', 'mail.field.creates', choice('creates', CREATES, 'mailbox_creates'))}
+        {form.creates === 'service_request' &&
+          field(
+            'catalog_item_id',
+            'mail.field.catalog_item',
+            <Select
+              id="mailbox-catalog_item_id"
+              showSearch
+              optionFilterProp="label"
+              value={form.catalog_item_id ?? undefined}
+              onChange={(value: string) => {
+                set({ catalog_item_id: value });
+              }}
+              options={requestItems}
+              data-testid="mailbox-catalog-item"
+            />,
+            'mail.field.catalog_item_hint',
+          )}
         {field(
           'unknown_senders',
           'mail.field.unknown_senders',

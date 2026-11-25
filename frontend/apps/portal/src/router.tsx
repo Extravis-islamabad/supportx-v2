@@ -62,11 +62,35 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        // WP-047a S5 (REQ-SR-050): the tasks a request's plan gave you, each on its own.
+        path: 'tasks',
+        handle: { titleKey: 'portal.tasks.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/MyTasksPage')).MyTasksPage,
+        }),
+      },
+      {
+        path: 'tasks/:id',
+        handle: { titleKey: 'portal.tasks.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/tasks/TaskPage')).TaskPage,
+        }),
+      },
+      {
         path: 'service-requests',
         handle: { titleKey: 'portal.service_requests.title' },
         lazy: async () => ({
           Component: (await import('./pages/service-requests/ServiceRequestsPage'))
             .ServiceRequestsPage,
+        }),
+      },
+      {
+        // WP-047a S4 (REQ-SR-017 AC2): a request made from mail asks its missing answers.
+        path: 'service-requests/:id/complete',
+        handle: { titleKey: 'portal.complete.title' },
+        lazy: async () => ({
+          Component: (await import('./pages/service-requests/CompleteRequestPage'))
+            .CompleteRequestPage,
         }),
       },
       {

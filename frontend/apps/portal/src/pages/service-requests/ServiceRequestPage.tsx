@@ -12,10 +12,11 @@ import {
   Progress,
   Result,
   Skeleton,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import {
   portalRequestKeys,
@@ -24,12 +25,13 @@ import {
   useApprovals,
   useCatalogItem,
   usePortalRequest,
+  usePortalRequestAgain,
   usePortalRequestSteps,
   useSession,
   useWithdrawRequest,
 } from '@supportx/api-client';
 import { useListFormat } from '@supportx/labels';
-import { useRecordEvents } from '@supportx/realtime';
+import { refreshQueries, useRecordEvents } from '@supportx/realtime';
 import {
   reportError,
   RichTextView,
@@ -40,6 +42,7 @@ import {
 } from '@supportx/ui';
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
+import { RequestConversation } from './RequestConversation';
 
 /**
  * One service request as its requester sees it (WP-030 D9; REQ-SR-051, -061, -062): the plain
@@ -62,15 +65,35 @@ export function ServiceRequestPage() {
   const steps = usePortalRequestSteps(id);
   const approvals = useApprovals(id);
   const item = useCatalogItem(record.data?.catalog_item_id ?? undefined);
+  // "Request again" (WP-047a S1; REQ-SR-016): one's own requests only (the server's rule too).
+  const again = usePortalRequestAgain(record.data?.reach === 'own' ? id : null);
+  const navigate = useNavigate();
   const withdraw = useWithdrawRequest();
   const [asking, setAsking] = useState(false);
   const answer = useAnswerRequest(id);
   const [notDone, setNotDone] = useState(false);
   const [why, setWhy] = useState('');
-  useRecordEvents('portal_wi', id, () => {
-    void queryClient.invalidateQueries({ queryKey: portalRequestKeys.detail(id) });
-    void queryClient.invalidateQueries({ queryKey: serviceRequestKeys.detail(id) });
-  });
+  // The detail keys hold the steps (portal) and the approvals (service request) beneath them.
+  useRecordEvents(
+    'portal_wi',
+    id,
+    (event) => {
+      if (event.covered === true) return; // the hook refreshed all three (§8.3)
+      if (event.type === 'work_items.portal_conversation_changed') {
+        refreshQueries(queryClient, portalRequestKeys.conversation(id));
+        return;
+      }
+      refreshQueries(queryClient, portalRequestKeys.detail(id));
+      refreshQueries(queryClient, serviceRequestKeys.detail(id));
+    },
+    {
+      covers: [
+        portalRequestKeys.detail(id),
+        portalRequestKeys.conversation(id),
+        serviceRequestKeys.detail(id),
+      ],
+    },
+  );
   if (record.isLoading) return <Skeleton active />;
   if (record.data === undefined) {
     return (
@@ -136,7 +159,27 @@ export function ServiceRequestPage() {
           </span>{' '}
           · <bdi>{r.subject}</bdi>
         </Typography.Title>
-        <PortalStatusTag status={r.portal_status} />
+        <Flex gap={8} align="center" wrap>
+          <PortalStatusTag status={r.portal_status} />
+          {again.data !== undefined &&
+            (again.data.available ? (
+              <Button
+                onClick={() => {
+                  void navigate(`/catalog/items/${again.data.catalog_item_id}?again=${r.id}`);
+                }}
+                data-testid="portal-request-again"
+              >
+                {t('portal.request.again')}
+              </Button>
+            ) : (
+              <Tooltip title={t(`errors.${again.data.reason ?? 'catalog_item_unavailable'}`)}>
+                {/* A disabled button gets no hover: the span carries the reason (AC3). */}
+                <span tabIndex={0} data-testid="portal-request-again-disabled">
+                  <Button disabled>{t('portal.request.again')}</Button>
+                </span>
+              </Tooltip>
+            ))}
+        </Flex>
       </Flex>
       {r.portal_status === 'resolved' && mine && (
         <Card title={t('portal.service_requests.received_title')} data-testid="portal-receipt">
@@ -273,6 +316,11 @@ export function ServiceRequestPage() {
           />
         </Card>
       )}
+      {/* WP-047a S3a (REQ-SR-037): an approver's question arrives here; a reply answers it. */}
+      <RequestConversation
+        id={id}
+        canReply={r.reach === 'own' && !['closed', 'canceled'].includes(r.portal_status)}
+      />
     </Flex>
   );
 }

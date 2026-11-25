@@ -6,9 +6,12 @@ Channels this module decides about:
     t:{tenant}:ci:{id}         one CI, for whoever may see it (with presence); a relationship
                                added or removed names `relationships` on both ends (S2)
     t:{tenant}:cmdb_view:{id}  one business view, for whoever may see its base CI (S2)
+    t:{tenant}:user:{id}       (identity_access) an import's progress, to its importer (S4b)
     t:{tenant}:broadcast       (identity_access) "the CMDB's types, states or settings changed",
                                with no names: open screens refetch them; also "the business
-                               views changed" for open view lists (S2)
+                               views changed" for open view lists (S2), and "the sync rules or
+                               runs changed" (S4a, no IDs): the sync screens refetch, and the
+                               server decides what each reader gets
 
 Payloads carry IDs, changed field names and the version only (rule c).
 """
@@ -33,6 +36,7 @@ from app.shared.realtime import (
     RealtimeEffects,
     RealtimeRoute,
     broadcast,
+    personal,
     record,
 )
 
@@ -41,9 +45,12 @@ LIST = LiveList("cmdb", VIEW)
 CHANGED = "cmdb.ci.changed"
 CONFIG_CHANGED = "cmdb.config_changed"
 RELATIONSHIPS = "relationships"  # the field a relationship change names on both CIs
+DOWNTIMES = "downtimes"  # the field a downtime change names on its CI (S5b)
 VIEW_KIND = "cmdb_view"
 VIEW_CHANGED = "cmdb.view.changed"
 VIEWS_CHANGED = "cmdb.views_changed"
+SYNC_CHANGED = "cmdb.sync_changed"
+IMPORT_PROGRESS = "cmdb.import_progress"  # S4b: an import moved on, to its importer only
 
 
 async def _record_channel(request: ChannelRequest) -> ChannelAccess | None:
@@ -124,6 +131,18 @@ async def _relationships_changed(envelope: EventEnvelope, session: AsyncSession)
     return RealtimeEffects(publications=publications)
 
 
+async def _downtimes_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A CI's downtimes changed or moved state: its record channel refetches them (§8.3)."""
+    row = await session.scalar(select(Ci).where(Ci.id == uuid.UUID(str(envelope.payload["ci_id"]))))
+    if row is None:
+        return RealtimeEffects(publications=[])
+    return RealtimeEffects(
+        publications=list(
+            _ci_publications(envelope.tenant_id, row, (DOWNTIMES,), row.version, _actor(envelope))
+        )
+    )
+
+
 async def _view_channel(request: ChannelRequest) -> ChannelAccess | None:
     try:
         view_id = uuid.UUID(request.channel.key or "")
@@ -164,6 +183,28 @@ async def _config_changed(envelope: EventEnvelope, session: AsyncSession) -> Rea
     )
 
 
+async def _sync_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A rule or a run changed: open sync screens refetch (no IDs on the tenant channel)."""
+    del session
+    return RealtimeEffects(publications=[Publication(broadcast(envelope.tenant_id), SYNC_CHANGED)])
+
+
+async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An import moved on: its importer's screens refresh (IDs only, S4b)."""
+    del session
+    payload = envelope.payload
+    person = uuid.UUID(str(payload["requested_by"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, person),
+                IMPORT_PROGRESS,
+                ids=(str(payload["import_id"]),),
+            )
+        ]
+    )
+
+
 CHANNELS = [
     LIST.spec(),
     ChannelSpec(kind=RECORD_KIND, authorize=_record_channel),
@@ -178,4 +219,7 @@ ROUTES = [
     RealtimeRoute(("cmdb.config.changed",), _config_changed),
     RealtimeRoute(("cmdb.relationship.changed",), _relationships_changed),
     RealtimeRoute(("cmdb.business_view.changed",), _view_changed),
+    RealtimeRoute(("cmdb.sync_rule.changed", "cmdb.sync_run.changed"), _sync_changed),
+    RealtimeRoute(("cmdb.import.progressed",), _import_progressed),
+    RealtimeRoute(("cmdb.downtime.changed",), _downtimes_changed),
 ]

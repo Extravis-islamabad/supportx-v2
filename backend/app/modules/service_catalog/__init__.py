@@ -7,30 +7,43 @@ Licensed with `service_request` (Essentials, catalog basics, D-133); the advance
 `catalog` (Professional).
 
 Public interface for other modules: `item_decides` (an existing request's item, for the
-approval engine), `request_item` (what an item decides for a new service request, with its
+approval engine), `requester_question_keys` (the answers a requester may see,
+WP-047a), `request_item` (what an item decides for a new service request, with its
 form's answers checked), `RequestItem`, `PlanStep`, `rules_of`, `catalog_settings` (the tenant's
-catalog settings), and the ports `register_item_usage` / `register_template_check` (work_items
+catalog settings), `REQUESTER_GROUPS` (what an automatic approval rule may read beyond the
+form, WP-047a S2b), and the ports `register_item_usage` / `register_template_check` (work_items
 answers them: it depends on the catalog, so the catalog cannot ask it directly).
 """
 
 from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.service_catalog.api.routes import router
+from app.modules.service_catalog.domain.items import REQUESTER_GROUPS
 from app.modules.service_catalog.events import EVENTS
 from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
 from app.modules.service_catalog.service import person_data
 from app.modules.service_catalog.service.catalog import (
     MANAGE,
+    AgainForm,
+    ApproverSpec,
     PlanStep,
     RequestItem,
+    StageSpec,
+    again_form,
+    approver_question_keys,
     item_decides,
+    item_decides_with,
+    item_requestable,
     request_item,
+    requester_question_keys,
     rules_of,
+    templated_subject,
 )
 from app.modules.service_catalog.service.ports import (
     register_item_usage,
     register_request_counts,
     register_template_check,
+    register_workflow_check,
 )
 from app.modules.service_catalog.service.realtime import ROUTES
 from app.modules.service_catalog.service.schedule import SCHEDULE_EVERY, run_schedule
@@ -65,14 +78,25 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "REQUESTER_GROUPS",
+    "AgainForm",
+    "ApproverSpec",
     "PlanStep",
     "RequestItem",
+    "StageSpec",
+    "again_form",
+    "approver_question_keys",
     "catalog_settings",
     "item_decides",
+    "item_decides_with",
+    "item_requestable",
     "module",
     "register_item_usage",
     "register_request_counts",
     "register_template_check",
+    "register_workflow_check",
     "request_item",
+    "requester_question_keys",
     "rules_of",
+    "templated_subject",
 ]

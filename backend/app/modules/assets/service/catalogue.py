@@ -75,6 +75,8 @@ from app.shared.ids import new_id
 
 VIEW = "assets.view"
 MANAGE = "assets.manage"
+# D-185: moving an asset to the trash is its own right; assets.manage no longer stands in.
+DELETE = "assets.delete"
 CONFIGURE = "config.assets"
 REINSTATE = "assets.reinstate"
 # The per-area right (WP-042); settings.manage still grants every area.

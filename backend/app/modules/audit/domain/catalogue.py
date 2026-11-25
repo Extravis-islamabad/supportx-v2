@@ -104,6 +104,14 @@ ACTIONS: dict[str, Action] = _actions(
     ("role.group_removed", AuditCategory.ACCESS, "identity_access"),
     ("role.field_access_changed", AuditCategory.ACCESS, "identity_access"),  # ADR-047
     ("role.resource_access_changed", AuditCategory.ACCESS, "identity_access"),  # ADR-053
+    # access that follows a person's directory or identity provider groups (WP-057 S5c)
+    ("user.role_mapped", AuditCategory.ACCESS, "identity_access"),
+    ("group.member_mapped", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.created", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.changed", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.removed", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.kept_last_admin", AuditCategory.ACCESS, "identity_access"),
+    ("idp_group_mapping.privileged_opt_in_changed", AuditCategory.ACCESS, "identity_access"),
     ("organization.settings_changed", AuditCategory.CONFIGURATION, "organization"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
     ("user.contact_changed", AuditCategory.ACCESS, "identity_access"),  # WP-028, REQ-PRT-013
@@ -307,9 +315,22 @@ ACTIONS: dict[str, Action] = _actions(
     ("cmdb.ci_state_deleted", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.settings_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.subscribers_changed", AuditCategory.RECORDS, "cmdb"),  # who a service serves (0185)
+    ("cmdb.ci_merged", AuditCategory.RECORDS, "cmdb"),  # a duplicate CI merged (S4b, 0192)
+    ("cmdb.downtime_recorded", AuditCategory.RECORDS, "cmdb"),  # by hand on a CI (S5b, 0198)
+    ("cmdb.downtime_changed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
+    ("cmdb.downtime_removed", AuditCategory.RECORDS, "cmdb"),  # a hand-recorded one (S5b)
+    ("cmdb.import_started", AuditCategory.DATA, "cmdb"),  # a CMDB import uploaded (S4b)
+    ("cmdb.import_run", AuditCategory.DATA, "cmdb"),  # a checked dry run run for real (S4b)
     ("cmdb.relationship_type_created", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_changed", AuditCategory.CONFIGURATION, "cmdb"),
     ("cmdb.relationship_type_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    # WP-053 S4a (0191): which source wins, sync rules, and one entry per run.
+    ("cmdb.source_precedence_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_created", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_changed", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_rule_deleted", AuditCategory.CONFIGURATION, "cmdb"),
+    ("cmdb.sync_run_requested", AuditCategory.RECORDS, "cmdb"),
+    ("cmdb.sync_run_finished", AuditCategory.RECORDS, "cmdb"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
     ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),
@@ -397,6 +418,25 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.major_declared", AuditCategory.RECORDS, "work_items"),  # WP-046b S4, REQ-INC-141
     # WP-046b S5: an unassigned ask to cancel fell to the service desk managers.
     ("incident.cancellation_to_managers", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S2a: a request stage named its own requester, who was left out (condition 2).
+    ("service_request.approver_was_requester", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S4 (REQ-SR-038): an approval decided, or not applied, by an e-mail reply.
+    ("service_request.approval_mail_decided", AuditCategory.RECORDS, "work_items"),
+    ("service_request.approval_mail_ignored", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S2b: approved with nobody asked (REQ-SR-033), and a running approval adjusted
+    # or asked ad hoc (REQ-SR-042).
+    ("service_request.approved_automatically", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S3a (REQ-SR-034, -037)
+    ("service_request.approval_escalated", AuditCategory.RECORDS, "work_items"),
+    ("service_request.clarification_asked", AuditCategory.RECORDS, "work_items"),
+    ("service_request.clarification_answered", AuditCategory.RECORDS, "work_items"),
+    # WP-047a S3b (REQ-SR-035, -041)
+    ("service_request.approval_restarted", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.created", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.changed", AuditCategory.RECORDS, "work_items"),
+    ("approval_delegation.ended", AuditCategory.RECORDS, "work_items"),
+    ("service_request.approvers_modified", AuditCategory.RECORDS, "work_items"),
+    ("service_request.approval_requested", AuditCategory.RECORDS, "work_items"),
     ("incident.major_ended", AuditCategory.RECORDS, "work_items"),  # WP-046b S4
     ("incident.major_settings_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S4
     ("incident.list_display_changed", AuditCategory.CONFIGURATION, "work_items"),  # WP-046b S3a
@@ -501,6 +541,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
     ("audit.personal_data_access_viewed", AuditCategory.DATA, "audit"),  # REQ-AUD-017 report
+    ("audit.system_log_exported", AuditCategory.DATA, "audit"),  # REQ-AUD-016 AC3
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),
@@ -528,6 +569,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.moved", AuditCategory.RECORDS, "assets"),
     ("asset.disposed", AuditCategory.RECORDS, "assets"),
     ("asset.assigned", AuditCategory.RECORDS, "assets"),
+    ("asset.handed_over", AuditCategory.RECORDS, "assets"),  # WP-047a S5: a fulfilment hand-over
     ("asset.unassigned", AuditCategory.RECORDS, "assets"),
     ("asset.linked", AuditCategory.RECORDS, "assets"),
     ("asset.unlinked", AuditCategory.RECORDS, "assets"),
@@ -567,6 +609,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_audit.fixes_applied", AuditCategory.RECORDS, "assets"),
     ("asset_overdue_rule.changed", AuditCategory.CONFIGURATION, "assets"),
     ("asset_overdue_rule.ran", AuditCategory.RECORDS, "assets"),
+    ("asset_overdue_rule.trash_paused", AuditCategory.RECORDS, "assets"),
     ("asset_scan.cleaned_up", AuditCategory.DATA, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),

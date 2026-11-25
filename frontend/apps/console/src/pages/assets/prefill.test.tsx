@@ -45,6 +45,7 @@ const laptop: CatalogItem = {
   questions: [
     {
       key: 'model',
+      restarts_approval: false,
       label: { en: 'Model' },
       kind: 'choice',
       required: true,
@@ -54,7 +55,9 @@ const laptop: CatalogItem = {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
   plan: [],
   default_priority: 'p2',
@@ -65,6 +68,7 @@ const laptop: CatalogItem = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   can_manage: true,
   version: 1,
 };

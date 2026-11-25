@@ -45,7 +45,11 @@ export const ur: LabelResource = {
   'errors.api_scope_missing': 'اس API کلید کے پاس دائرہ {{scope}} نہیں ہے۔',
   'errors.approval_changed': 'یہ منظوری اس دوران بدل گئی۔ اسے دوبارہ کھولیں۔',
   'errors.approval_closed': 'اس منظوری کا فیصلہ ہو چکا ہے یا اب ضرورت نہیں۔',
+  'errors.approval_delegation_not_found': 'یہ تفویض اب موجود نہیں۔',
+  'errors.approval_expired': 'اس منظوری کی میعاد فیصلے سے پہلے ختم ہو گئی۔',
   'errors.approval_not_found': 'یہ منظوری نہیں ملی۔',
+  'errors.approval_not_running':
+    '{{display_id}} پر کوئی منظوری زیرِ انتظار نہیں، اس لیے منظور کنندگان اب نہیں بدلے جا سکتے۔',
   'errors.approval_pending': '{{display_id}} پہلے ہی منظوری کا منتظر ہے۔',
   'errors.approval_segregation': 'آپ اپنی درخواست خود منظور نہیں کر سکتے۔',
   'errors.archive_busy': 'آپ کے دو ڈاؤن لوڈ پہلے سے چل رہے ہیں۔ ایک منٹ بعد دوبارہ کوشش کریں۔',
@@ -55,6 +59,8 @@ export const ur: LabelResource = {
   'errors.asset_acknowledgement_answered': 'آپ اس کا جواب پہلے ہی دے چکے ہیں۔',
   'errors.asset_acknowledgement_not_found': 'یہ تصدیق آپ کی نہیں، یا اب موجود نہیں۔',
   'errors.asset_already_disposed': 'اس اثاثے کا تلفی ریکارڈ پہلے سے موجود ہے۔',
+  'errors.asset_assigned_elsewhere':
+    'یہ اثاثہ کسی اور کو دیا گیا ہے۔ حوالے کرنے سے پہلے اسے فارغ کریں۔',
   'errors.asset_audit_closed': 'یہ آڈٹ بند ہے اور اب بدلا نہیں جا سکتا۔',
   'errors.asset_audit_item_not_found': 'یہ آئٹم اس آڈٹ کا حصہ نہیں۔',
   'errors.asset_audit_not_auditor': 'صرف اس آڈٹ کے نامزد آڈیٹر اس کے آئٹم نشان زد کر سکتے ہیں۔',
@@ -91,6 +97,8 @@ export const ur: LabelResource = {
     'متحرک گروپ کے اراکین اس کے فلٹر سے آتے ہیں؛ اس کی بجائے فلٹر بدلیں۔',
   'errors.asset_group_name_taken': 'کسی اور گروپ کا یہی نام ہے۔',
   'errors.asset_group_not_found': 'یہ گروپ اب موجود نہیں۔',
+  'errors.asset_handover_end_of_life':
+    'یہ اثاثہ ریٹائر یا تلف ہو چکا ہے، اس لیے حوالے نہیں کیا جا سکتا۔',
   'errors.asset_has_components':
     'اس پر پرزے لگے ہیں ({{count}}): انہیں الگ کریں یا انہیں بھی تلف کریں۔',
   'errors.asset_import_exists': 'اس کلید والا ریکارڈ پہلے سے موجود ہے، اور درآمد صرف شامل کرتی ہے۔',
@@ -162,6 +170,8 @@ export const ur: LabelResource = {
   'errors.asset_stock_rule_exists': 'اس کے اور اس سائٹ کے لیے پہلے سے کم از کم حد موجود ہے۔',
   'errors.asset_stock_rule_not_found': 'یہ کم از کم حد اب موجود نہیں۔',
   'errors.asset_stock_short': 'اسٹاک کافی نہیں: صرف {{available}} دستیاب ہیں۔',
+  'errors.assignment_from_identity_provider':
+    'یہ رسائی گروپ میپنگ سے آتی ہے۔ یہ تب بدلتی ہے جب فرد کا گروپ بدلے، یا کوئی منتظم میپنگ ہٹا دے۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -205,6 +215,9 @@ export const ur: LabelResource = {
     'اس آئٹم کی درخواستیں موجود ہیں، اس لیے اسے حذف نہیں کیا جا سکتا۔ اس کے بجائے اسے ختم کریں۔',
   'errors.catalog_item_incomplete': 'طے شدہ وقت پر آئٹم مکمل نہیں تھا، اس لیے یہ مسودہ ہی رہا۔',
   'errors.catalog_item_not_found': 'یہ کیٹلاگ آئٹم موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.catalog_item_retired':
+    'یہ آئٹم اب پیش نہیں کیا جاتا، اس لیے اسے دوبارہ درخواست نہیں کیا جا سکتا۔',
+  'errors.catalog_item_unavailable': 'یہ آئٹم اس وقت آپ کے لیے دستیاب نہیں۔',
   'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.certificate_invalid':
     'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
@@ -218,6 +231,8 @@ export const ur: LabelResource = {
   'errors.checklist_item_not_found': 'چیک لسٹ کا یہ آئٹم اب موجود نہیں۔',
   'errors.checklist_library_not_found': 'لائبریری کی یہ چیک لسٹ اب موجود یا پیش نہیں۔',
   'errors.checklist_not_found': 'یہ چیک لسٹ اب موجود نہیں۔',
+  'errors.clarification_open':
+    'اس منظوری پر ایک سوال ابھی کھلا ہے۔ جواب کا انتظار کریں، یا فیصلہ کریں۔',
   'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
   'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
   'errors.command_in_flight':
@@ -254,6 +269,8 @@ export const ur: LabelResource = {
   'errors.dashboard_not_found': 'یہ ڈیش بورڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
   'errors.database_not_configured':
     'سروس ابھی مکمل طور پر ترتیب نہیں دی گئی۔ براہِ کرم اپنے منتظم سے رابطہ کریں۔',
+  'errors.database_unavailable':
+    'ڈیٹا بیس اس وقت جواب نہیں دے رہا۔ براہ کرم کچھ دیر بعد دوبارہ کوشش کریں۔',
   'errors.default_board_kept':
     'تبدیلیوں کا طے شدہ مشاورتی بورڈ ہٹایا نہیں جا سکتا۔ جن تبدیلیوں کا جائزہ کوئی اور بورڈ نہیں لیتا، وہ اسی کے پاس جاتی ہیں۔',
   'errors.default_site_required':
@@ -333,6 +350,7 @@ export const ur: LabelResource = {
   'errors.erasure_storage_unavailable':
     'رپورٹ ایکسپورٹس حذف کرنے کے لیے فائل اسٹور تک رسائی نہیں ہو سکی۔ مٹانے کا عمل دوبارہ کوشش کرے گا۔',
   'errors.field.above_maximum': 'زیادہ سے زیادہ {{max}} ہے۔',
+  'errors.field.action_not_offered': 'اس قسم کے ریکارڈ پر یہ کارروائی نہیں ہو سکتی۔',
   'errors.field.address_not_allowed':
     'یہ سرور ایڈریس استعمال نہیں ہو سکتا۔ میل سرور کا عوامی نام استعمال کریں۔',
   'errors.field.already_has_parent':
@@ -350,6 +368,7 @@ export const ur: LabelResource = {
   'errors.field.api_key_name_invalid': 'زیادہ سے زیادہ 100 حروف کا نام درج کریں۔',
   'errors.field.api_key_owner_not_service': 'کسی اور کی کلید صرف سروس شناخت کی ہو سکتی ہے۔',
   'errors.field.api_key_scope_unknown': 'پیش کردہ دائروں میں سے کم از کم ایک منتخب کریں۔',
+  'errors.field.approver_already_named': 'یہ شخص اس مرحلے کا پہلے سے منظور کنندہ ہے۔',
   'errors.field.approver_is_requester': 'آپ اپنی درخواست منظور نہیں کر سکتے؛ کسی اور کا نام دیں۔',
   'errors.field.approver_not_active': 'کوئی فعال فرد چنیں۔',
   'errors.field.approver_not_eligible':
@@ -396,6 +415,8 @@ export const ur: LabelResource = {
     'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
   'errors.field.asset_tag_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ ٹیگ ہے۔',
   'errors.field.asset_type_not_consumable': 'قابلِ صرف پروڈکٹ کی قسم منتخب کریں۔',
+  'errors.field.assignment_from_identity_provider':
+    'یہ رسائی گروپ میپنگ سے آتی ہے۔ یہ تب بدلتی ہے جب فرد کا گروپ بدلے، یا کوئی منتظم میپنگ ہٹا دے۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
@@ -419,6 +440,8 @@ export const ur: LabelResource = {
   'errors.field.cannot_see_record':
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.catalog_item_not_found': 'کیٹلاگ سے ایسا آئٹم منتخب کریں جو آپ کے لیے دستیاب ہو۔',
+  'errors.field.catalog_item_not_requestable':
+    'ایسی شائع شدہ سروس آئٹم منتخب کریں جس کی لوگ درخواست کر سکیں۔',
   'errors.field.catalog_too_deep': 'کیٹلاگ کیٹیگریز کے زیادہ سے زیادہ چار درجے ہو سکتے ہیں۔',
   'errors.field.category_disabled': 'یہ زمرہ اب استعمال میں نہیں۔',
   'errors.field.category_loop':
@@ -441,6 +464,7 @@ export const ur: LabelResource = {
   'errors.field.child_has_children':
     'اس واقعے کے اپنے ذیلی واقعات ہیں، اس لیے یہ ذیلی نہیں بن سکتا۔',
   'errors.field.choices_required': 'کم از کم ایک انتخاب شامل کریں۔',
+  'errors.field.ci_not_linkable': 'آپ یہ کنفیگریشن آئٹم منسلک نہیں کر سکتے، یا یہ موجود نہیں۔',
   'errors.field.code_taken': 'یہ کوڈ پہلے سے استعمال میں ہے۔',
   'errors.field.comment_required': 'تبصرہ شامل کریں: اس آئٹم کے لیے تبصرہ لازمی ہے۔',
   'errors.field.condition_not_supported': 'اس اجازت کے لیے ابھی قواعد دستیاب نہیں۔',
@@ -474,6 +498,13 @@ export const ur: LabelResource = {
     'پہلے سے طے شدہ زبان دستیاب زبانوں میں سے ہونی چاہیے۔',
   'errors.field.default_required':
     'ہمیشہ ایک ڈیفالٹ سانچہ ہوتا ہے۔ اس کے بجائے کسی اور سانچے کو ڈیفالٹ بنائیں۔',
+  'errors.field.delegate_is_delegator': 'آپ منظوریاں خود کو تفویض نہیں کر سکتے۔',
+  'errors.field.delegate_not_eligible':
+    'یہ شخص منظوریاں نہیں لے سکتا: اسے فعال اور سائن ان کے قابل ہونا چاہیے۔',
+  'errors.field.delegation_ended': 'یہ تفویض ختم ہو چکی ہے اور تبدیل نہیں ہو سکتی۔',
+  'errors.field.delegation_overlaps': 'ایک اور تفویض پہلے ہی ان تاریخوں کا احاطہ کرتی ہے۔',
+  'errors.field.delegation_reason_too_long': 'وجہ زیادہ سے زیادہ 500 حروف کی ہو سکتی ہے۔',
+  'errors.field.delegation_too_long': 'تفویض زیادہ سے زیادہ 90 دن رہ سکتی ہے۔',
   'errors.field.department_not_found': 'کوئی فعال شعبہ منتخب کریں۔',
   'errors.field.dependency_loop':
     'کوئی کام خود اپنا انتظار نہیں کر سکتا، براہ راست یا دوسرے کاموں کے ذریعے۔',
@@ -554,6 +585,7 @@ export const ur: LabelResource = {
   'errors.field.group_not_yours': 'آپ اس گروپ کے رکن نہیں۔',
   'errors.field.group_required': 'چنیں کہ آپ کا کون سا گروپ اسے لے گا۔',
   'errors.field.half_day_single_date': 'صبح یا دوپہر کی چھٹی صرف ایک دن کی ہوتی ہے۔',
+  'errors.field.handover_person_not_active': 'اثاثہ حوالے کرنے کے لیے کوئی فعال شخص منتخب کریں۔',
   'errors.field.hidden_cannot_be_required':
     'چھپی ہوئی فیلڈ لازمی نہیں ہو سکتی: اسے کوئی بھر نہیں سکے گا۔',
   'errors.field.hidden_required_needs_default':
@@ -567,6 +599,10 @@ export const ur: LabelResource = {
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
   'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
+  'errors.field.idp_group_mappings_coming_soon':
+    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
+  'errors.field.incident_actual_only':
+    'انسیڈنٹ اپنی وجہ سے ہونے والا ڈاؤن ٹائم درج کرتا ہے: صرف اصل اوقات۔',
   'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
   'errors.field.invalid_code': 'حروف، اعداد، نقطے یا ڈیش استعمال کریں (زیادہ سے زیادہ 50)۔',
   'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
@@ -598,6 +634,7 @@ export const ur: LabelResource = {
   'errors.field.ip_allow_locks_you_out':
     'یہ فہرست آپ کو باہر کر دے گی: آپ کا پتہ {{address}} اس میں نہیں۔ اسے، یا اسے شامل کرنے والی رینج، شامل کریں۔',
   'errors.field.ip_allow_too_many': 'زیادہ سے زیادہ {{max}} اندراجات استعمال کریں۔',
+  'errors.field.is_you': 'آپ خود سے سوال نہیں پوچھ سکتے۔',
   'errors.field.kb_vote_comment_too_long': 'تبصرہ 1,000 حروف تک رکھیں۔',
   'errors.field.kb_vote_reason_for_no_only': 'وجہ صرف «نہیں» کے ساتھ دی جاتی ہے۔',
   'errors.field.kb_vote_reason_unknown': 'پیش کردہ وجوہات میں سے ایک منتخب کریں۔',
@@ -622,6 +659,13 @@ export const ur: LabelResource = {
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.field.manager_loop':
     'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
+  'errors.field.mapping_exists': 'یہ گروپ پہلے ہی اس کردار یا سپورٹ گروپ سے منسلک ہے۔',
+  'errors.field.mapping_grants_privileged_access':
+    'اس سے SupportX کے باہر سے منتظم سطح کی رسائی ملے گی۔ پہلے گروپ میپنگ کی ترتیبات میں اس کی اجازت دیں۔',
+  'errors.field.mapping_in_use_choice_required':
+    'کچھ لوگوں کے پاس اس گروپ میپنگ کے ذریعے رسائی ہے۔ منتخب کریں کہ وہ اسے رکھیں یا ابھی کھو دیں۔',
+  'errors.field.mapping_not_found': 'وہ گروپ میپنگ اب موجود نہیں۔',
+  'errors.field.mapping_source_not_found': 'وہ ڈائریکٹری یا سنگل سائن آن سیٹ اپ اب موجود نہیں۔',
   'errors.field.matrix_incomplete': 'اثر اور فوریت کے ہر جوڑے کو ترجیح درکار ہے۔',
   'errors.field.measure_not_available': 'یہ پیمانہ ابھی دستیاب نہیں۔',
   'errors.field.message_required': 'کم از کم انگریزی میں پیغام لکھیں۔',
@@ -638,8 +682,11 @@ export const ur: LabelResource = {
   'errors.field.needs_collapsible': 'صرف سمیٹا جانے والا حصہ بند حالت میں شروع ہو سکتا ہے۔',
   'errors.field.needs_scheduled_start': 'آغاز سے پہلے یاد دہانی کے لیے طے شدہ آغاز ضروری ہے۔',
   'errors.field.no_default_allowed': 'اس فیلڈ کی ابتدائی قدر نہیں ہو سکتی۔',
+  'errors.field.no_technician': 'اس درخواست پر ابھی کسی کو مقرر نہیں کیا گیا۔',
   'errors.field.not_a_field': 'اس قسم کے لیے یہ فیلڈ موجود نہیں۔',
   'errors.field.not_a_form_field': 'یہ فیلڈ فارم میں نہیں ہے۔',
+  'errors.field.not_a_person_question':
+    'اس فارم کا کوئی ایسا سوال چنیں جو کسی شخص کے بارے میں پوچھے۔',
   'errors.field.not_a_technician':
     'صرف وہی ٹیکنیشن جو مسائل پر کام کرتا ہے کسی مسئلے کی تفتیش کر سکتا ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
@@ -658,6 +705,7 @@ export const ur: LabelResource = {
   'errors.field.offset_too_large':
     'کوئی درجہ اپنے نقطۂ آغاز سے زیادہ سے زیادہ 30 کاروباری دن دور ہو سکتا ہے۔',
   'errors.field.one_day_required': 'ہفتے کا ایک دن منتخب کریں۔',
+  'errors.field.one_target_required': 'ایک کردار یا ایک سپورٹ گروپ منتخب کریں۔',
   'errors.field.operator_not_allowed': 'یہ موازنہ اس فیلڈ کے ساتھ استعمال نہیں ہو سکتا۔',
   'errors.field.order_incomplete': 'ترتیب بدلتے وقت فہرست بدل گئی۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.field.order_must_list_every_value':
@@ -692,9 +740,13 @@ export const ur: LabelResource = {
   'errors.field.phone_not_valid': 'فون نمبر درج کریں: ہندسے، خالی جگہ، +، - اور قوسین۔',
   'errors.field.plain_connection_refused':
     'بغیر انکرپشن کنکشن رد کیا جاتا ہے جب تک آپ اجازت نہ دیں۔',
+  'errors.field.plan_waits_in_a_loop':
+    'یہ مراحل ایک دوسرے کے منتظر ہیں، اس لیے کوئی شروع نہیں ہو سکتا۔',
   'errors.field.port_not_allowed': 'میل پورٹ استعمال کریں: 993 (TLS) یا 143۔',
   'errors.field.private_key_unreadable':
     'نجی کلید پڑھی نہیں جا سکی: اسے غیر خفیہ PEM فارمیٹ میں چسپاں کریں۔',
+  'errors.field.quantity_over_max': 'آپ زیادہ سے زیادہ {{max}} مانگ سکتے ہیں۔',
+  'errors.field.question_too_long': 'سوال زیادہ سے زیادہ 2,000 حروف کا ہو سکتا ہے۔',
   'errors.field.range_end_before_start': 'اختتام آغاز کے بعد ہونا چاہیے۔',
   'errors.field.read_category_unknown': 'اس قسم کی پڑھائی لاگ نہیں کی جا سکتی۔',
   'errors.field.read_only': 'یہ فیلڈ یہاں تبدیل نہیں ہو سکتی۔',
@@ -784,6 +836,8 @@ export const ur: LabelResource = {
     'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
   'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
   'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
+  'errors.field.stage_not_open':
+    'منظور کنندگان صرف اسی مرحلے میں شامل کیے جا سکتے ہیں جو ابھی زیرِ انتظار ہو۔',
   'errors.field.support_email_domain_not_allowed':
     'سپورٹ انجینئرز کو Extravis کے کسی اجازت یافتہ ڈومین کا پتہ استعمال کرنا ہوگا۔',
   'errors.field.support_email_invalid': 'ایک ای میل پتہ درج کریں۔',
@@ -797,6 +851,7 @@ export const ur: LabelResource = {
     'چوبیس گھنٹے ہمیشہ ہر گھنٹہ گنتا ہے۔ صرف اس کا نام بدلا جا سکتا ہے۔',
   'errors.field.target_amount_invalid': '1 سے 100,000 تک کا پورا عدد درج کریں۔',
   'errors.field.target_duplicate': 'اس ترجیح کے لیے یہ ہدف پہلے سے مقرر ہے۔',
+  'errors.field.task_field_required': 'کام مکمل کرنے سے پہلے یہ بھریں۔',
   'errors.field.technician_audience_empty': 'تمام تکنیکی ماہرین یا کم از کم ایک گروپ منتخب کریں۔',
   'errors.field.technician_not_allowed': 'یہ شخص ان ریکارڈز پر کام نہیں کر سکتا۔',
   'errors.field.technician_not_in_group': 'یہ ٹیکنیشن منتخب گروپ کا رکن نہیں۔',
@@ -815,6 +870,7 @@ export const ur: LabelResource = {
   'errors.field.too_many_assets': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} اثاثے ہو سکتے ہیں۔',
   'errors.field.too_many_categories':
     'کوئی آئٹم زیادہ سے زیادہ پانچ دیگر کیٹیگریز میں بھی دکھایا جا سکتا ہے۔',
+  'errors.field.too_many_cis': 'ایک ریکارڈ میں زیادہ سے زیادہ {{max}} کنفیگریشن آئٹمز ہو سکتے ہیں۔',
   'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
   'errors.field.too_many_copies': 'ایک وقت میں 1 سے {{max}} نقول بنائیں۔',
   'errors.field.too_many_decimals': 'زیادہ سے زیادہ {{max}} اعشاری مقامات استعمال کریں۔',
@@ -825,10 +881,14 @@ export const ur: LabelResource = {
   'errors.field.too_many_questions': 'فارم میں زیادہ سے زیادہ 30 سوال ہو سکتے ہیں۔',
   'errors.field.too_many_recipients': 'زیادہ سے زیادہ 50 افراد اور 20 گروپ۔',
   'errors.field.too_many_records': 'زیادہ سے زیادہ {{max}} ریکارڈ منتخب کریں۔',
+  'errors.field.too_many_rules':
+    'ایک مرحلے میں زیادہ سے زیادہ 5 خودکار منظوری کے قواعد ہو سکتے ہیں۔',
+  'errors.field.too_many_stages': 'ایک منظوری میں زیادہ سے زیادہ 10 مراحل ہو سکتے ہیں۔',
   'errors.field.too_many_tasks': 'ایک منصوبے میں زیادہ سے زیادہ 20 کام ہو سکتے ہیں۔',
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.topic_too_deep': 'موضوعات زیادہ سے زیادہ {{max}} درجے گہرے ہو سکتے ہیں۔',
   'errors.field.topic_under_itself': 'کوئی موضوع خود اپنے یا اپنے ذیلی موضوع کے نیچے نہیں جا سکتا۔',
+  'errors.field.trigger_event_not_offered': 'اس قسم کا ریکارڈ یہ واقعہ پیش نہیں کرتا۔',
   'errors.field.trusted_servers_too_many': 'زیادہ سے زیادہ 5 سرور لکھیں۔',
   'errors.field.type_cannot_change':
     'خانے کی قسم تبدیل نہیں ہو سکتی۔ نیا خانہ بنائیں اور اسے ریٹائر کریں۔',
@@ -936,6 +996,8 @@ export const ur: LabelResource = {
     'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
   'errors.identity_provider_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.idp_group_mappings_coming_soon':
+    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
   'errors.incident_has_problem':
     'یہ واقعہ پہلے سے {{display_id}} سے جڑا ہے۔ تصدیق کے لیے اسے منتقل کریں۔',
   'errors.insert_too_large':
@@ -1070,6 +1132,7 @@ export const ur: LabelResource = {
   'errors.mail_not_configured':
     'اس انسٹالیشن پر باہر جانے والی ای میل سیٹ اپ نہیں۔ اپنے آپریٹر سے اسے ترتیب دینے کو کہیں۔',
   'errors.mail_not_waiting': 'یہ پیغام اب منتظر نہیں: کسی نے پہلے ہی اسے نمٹا دیا۔',
+  'errors.mail_recipient_undeliverable': 'اس پیغام میں کوئی ایسا پتا نہیں جس پر یہ پہنچ سکے۔',
   'errors.mail_recipients': '1 سے 50 وصول کنندگان کو بھیجیں۔',
   'errors.mail_sender_invalid': 'بھیجنے والے کا نام یا جواب کا پتا درست نہیں۔',
   'errors.mail_status_staff_only': 'یہ صرف وہ لوگ دیکھ سکتے ہیں جو ریکارڈز پر جواب دیتے ہیں۔',
@@ -1083,6 +1146,13 @@ export const ur: LabelResource = {
   'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.mapping_exists': 'یہ گروپ پہلے ہی اس کردار یا سپورٹ گروپ سے منسلک ہے۔',
+  'errors.mapping_grants_privileged_access':
+    'اس سے SupportX کے باہر سے منتظم سطح کی رسائی ملے گی۔ پہلے گروپ میپنگ کی ترتیبات میں اس کی اجازت دیں۔',
+  'errors.mapping_in_use_choice_required':
+    'کچھ لوگوں کے پاس اس گروپ میپنگ کے ذریعے رسائی ہے۔ منتخب کریں کہ وہ اسے رکھیں یا ابھی کھو دیں۔',
+  'errors.mapping_not_found': 'وہ گروپ میپنگ اب موجود نہیں۔',
+  'errors.mapping_source_not_found': 'وہ ڈائریکٹری یا سنگل سائن آن سیٹ اپ اب موجود نہیں۔',
   'errors.measure_not_permitted':
     'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
   'errors.merge_undo_not_exact':
@@ -1132,6 +1202,7 @@ export const ur: LabelResource = {
   'errors.notify_link_not_found':
     'یہ لنک اب کام نہیں کرتا۔ شاید یہ پہلے استعمال ہو چکا ہے یا اس کی مدت ختم ہو گئی ہے۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
+  'errors.one_target_required': 'ایک کردار یا ایک سپورٹ گروپ منتخب کریں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':
     'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',
@@ -1194,6 +1265,8 @@ export const ur: LabelResource = {
   'errors.reference_is': 'حوالہ: {{reference}}',
   'errors.release_not_failed':
     'فالو اپ تب پیش کیے جاتے ہیں جب ریلیز کی تعیناتی ناکام ہو یا واپس لی جائے۔',
+  'errors.reminded_recently':
+    'منظور کنندگان کو {{minutes}} منٹ سے کم پہلے یاد دلایا گیا تھا۔ بعد میں دوبارہ کوشش کریں۔',
   'errors.reminder_not_found': 'یہ یاد دہانی اب موجود نہیں۔',
   'errors.repeat_hit_not_found': 'بار بار واقعات کا یہ مجموعہ اب موجود نہیں۔',
   'errors.repeat_rule_not_found': 'بار بار واقعات کا یہ اصول اب موجود نہیں۔',
@@ -1212,6 +1285,9 @@ export const ur: LabelResource = {
   'errors.report_schedule_not_found': 'یہ شیڈول موجود نہیں یا آپ کا نہیں۔',
   'errors.report_timeout':
     'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.request_not_awaiting_answers': 'یہ درخواست اب جوابات کی منتظر نہیں ہے۔',
+  'errors.request_too_slow':
+    'اس میں بہت زیادہ وقت لگا، اس لیے اسے روک دیا گیا۔ محدود تلاش یا فلٹر آزمائیں، یا بعد میں دوبارہ کوشش کریں۔',
   'errors.requester_action_closed':
     'اب آپ اسے تبدیل نہیں کر سکتے: یہ پہلے ہی حل، بند یا منسوخ ہو چکا ہے۔',
   'errors.requester_cancel_not_possible':
@@ -1335,6 +1411,8 @@ export const ur: LabelResource = {
   'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
   'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
   'errors.too_many_moves': 'ایک لائف سائیکل میں زیادہ سے زیادہ {{max}} منتقلیاں ہو سکتی ہیں۔',
+  'errors.too_many_reminders':
+    'اس درخواست کے منظور کنندگان کو پہلے ہی {{max}} بار یاد دلایا جا چکا ہے۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
   'errors.transition_condition_not_met':
     'حالت کی یہ تبدیلی اس وقت اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
@@ -1368,6 +1446,7 @@ export const ur: LabelResource = {
   'errors.withdraw_not_allowed': 'صرف درخواست گزار یہ درخواست واپس لے سکتا ہے۔',
   'errors.withdraw_not_pending': 'صرف منظوری کی منتظر درخواست واپس لی جا سکتی ہے۔',
   'errors.work_item_asset_not_found': 'یہ اثاثہ اب ریکارڈ سے منسلک نہیں۔',
+  'errors.work_item_ci_not_found': 'یہ کنفیگریشن آئٹم اب ریکارڈ سے منسلک نہیں ہے۔',
   'errors.work_item_link_not_found': 'یہ ربط اب موجود نہیں۔',
   'errors.work_item_not_found': 'یہ ریکارڈ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.work_item_task_not_found': 'یہ کام اب موجود نہیں۔',

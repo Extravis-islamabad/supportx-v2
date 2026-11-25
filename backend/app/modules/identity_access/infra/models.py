@@ -426,6 +426,9 @@ class UserRole(TenantKeyed, Base):
     role_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_by: Mapped[uuid.UUID | None]
+    # Made by a group mapping (WP-057 S5c, 0201): removed only when its last source goes, never
+    # by hand (409 assignment_from_identity_provider). A hand-made row stays false for good.
+    managed: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class AccessSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
@@ -442,6 +445,10 @@ class AccessSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
 
     technician_scope: Mapped[str] = mapped_column(String(20), server_default="group")
     answered_at: Mapped[datetime | None]
+    # WP-057 S5c (0201): a group mapping may give tenant admin or a never_via_idp right.
+    mappings_may_grant_privileged: Mapped[bool] = mapped_column(server_default=text("false"))
+    mappings_privileged_set_at: Mapped[datetime | None]
+    mappings_privileged_set_by: Mapped[uuid.UUID | None]
 
 
 IMPORT_STATUSES = ("queued", "running", "done", "failed")
@@ -661,6 +668,8 @@ class SupportGrant(TenantEntity):
     access: Mapped[str] = mapped_column(String(20), server_default="view")
     change_reason: Mapped[str | None] = mapped_column(String(500))
     unmask_personal: Mapped[bool] = mapped_column(server_default="false")
+    # D-180 (0188): the grant's "Mask names too" tick; e-mail and phone are always masked.
+    mask_names: Mapped[bool] = mapped_column(server_default="false")
     ip_allowlist: Mapped[list[str]] = mapped_column(
         ARRAY(CIDR), server_default=text("'{}'::cidr[]")
     )
@@ -775,6 +784,79 @@ class SsoProvider(TenantEntity):
     # When the OIDC client secret runs out (REQ-SEC-011, WP-057 S2b-2; 0158): entered by an admin
     # from the identity provider's own console. SupportX never reads the secret itself.
     client_secret_expires_at: Mapped[datetime | None]
+
+
+class IdpGroupMapping(TenantEntity):
+    """An external group mapped onto a role or a support group (WP-057 S5c, REQ-SEC-014; 0201).
+
+    The source is a directory connector, or an SSO set-up (applied from S5c-1b). There are no
+    foreign keys to the source or to the support group, as those are other modules' (rule e):
+    the service checks them through their public interfaces.
+    """
+
+    __tablename__ = "idp_group_mappings"
+    __table_args__ = (
+        CheckConstraint("source_kind IN ('directory', 'sso')", name="source_kind"),
+        CheckConstraint("(role_id IS NULL) <> (group_id IS NULL)", name="one_target"),
+        CheckConstraint("length(external_group_id) BETWEEN 1 AND 256", name="external"),
+        UniqueConstraint("tenant_id", "id", name="uq_idp_group_mappings_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"],
+            ["roles.tenant_id", "roles.id"],
+            ondelete="RESTRICT",
+            name="fk_idp_group_mappings_role",
+        ),
+        Index(
+            "uq_idp_group_mappings_role_id",
+            "tenant_id", "source_kind", "source_id", "external_group_id", "role_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND role_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_idp_group_mappings_group_id",
+            "tenant_id", "source_kind", "source_id", "external_group_id", "group_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND group_id IS NOT NULL"),
+        ),
+        Index("ix_idp_group_mappings_tenant_source", "tenant_id", "source_kind", "source_id"),
+    )  # fmt: skip
+
+    source_kind: Mapped[str] = mapped_column(String(16))
+    source_id: Mapped[uuid.UUID]
+    external_group_id: Mapped[str] = mapped_column(String(256))
+    external_name: Mapped[str | None] = mapped_column(String(256))
+    role_id: Mapped[uuid.UUID | None]
+    group_id: Mapped[uuid.UUID | None]
+    enabled: Mapped[bool] = mapped_column(server_default=text("true"))
+
+
+class AccessSource(TenantKeyed, Base):
+    """Which mapping holds a person's role or group (WP-057 S5c; 0201). Append and delete only."""
+
+    __tablename__ = "access_sources"
+    __table_args__ = (
+        CheckConstraint("target_kind IN ('role', 'group')", name="target_kind"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            ondelete="CASCADE",
+            name="fk_access_sources_user",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "mapping_id"],
+            ["idp_group_mappings.tenant_id", "idp_group_mappings.id"],
+            ondelete="CASCADE",
+            name="fk_access_sources_mapping",
+        ),
+        Index("ix_access_sources_tenant_mapping", "tenant_id", "mapping_id"),
+        Index("ix_access_sources_tenant_target", "tenant_id", "target_kind", "target_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    target_kind: Mapped[str] = mapped_column(String(8), primary_key=True)
+    target_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    mapping_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 INVITATION_STATES = ("pending", "accepted", "revoked")

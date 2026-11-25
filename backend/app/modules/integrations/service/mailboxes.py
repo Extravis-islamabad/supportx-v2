@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
+from app.modules import service_catalog
 from app.modules.integrations.domain.mailboxes import (
     CONNECTOR_KIND,
     IMAP_PORTS,
@@ -93,6 +94,7 @@ FIELDS = (
     "after_fetch",
     "move_to",
     "creates",
+    "catalog_item_id",
     "group_id",
     "unknown_senders",
     "allowed_domains",
@@ -134,6 +136,7 @@ FIELD_PROBLEMS = frozenset(
         "trusted_servers_too_many",
         "host_name_invalid",
         "mailbox_provider_results_graph_only",
+        "catalog_item_not_requestable",
     }
 )
 
@@ -304,6 +307,28 @@ async def _host_problems(values: Mapping[str, Any], settings: Settings) -> list[
     return []
 
 
+async def _item_problems(session: AsyncSession, values: Mapping[str, Any]) -> list[FieldError]:
+    """A request mailbox names a requestable item (WP-047a S4, REQ-SR-017); others name none.
+
+    A convenience when saving: each mail checks its item again, as the requester.
+    """
+    if values.get("creates") != MailboxCreates.SERVICE_REQUEST.value:
+        return []
+    item_id = values.get("catalog_item_id")
+    if item_id is None:
+        return [_field_error("catalog_item_id", "required")]
+    if not await service_catalog.item_requestable(session, uuid.UUID(str(item_id))):
+        return [_field_error("catalog_item_id", "catalog_item_not_requestable")]
+    return []
+
+
+def _item_for(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Only a request mailbox keeps an item: switching kind clears it (the table's check)."""
+    if "creates" in values and values["creates"] != MailboxCreates.SERVICE_REQUEST.value:
+        return {**values, "catalog_item_id": None}
+    return dict(values)
+
+
 async def create_mailbox(
     session: AsyncSession,
     settings: Settings,
@@ -313,8 +338,11 @@ async def create_mailbox(
     password: str | None,
 ) -> MailboxView:
     """A new mailbox; fetched at the next poll once its connection works (or its consent)."""
-    if errors := _problems(values, has_secret=bool(password)) or await _host_problems(
-        values, settings
+    values = _item_for(values)
+    if errors := (
+        _problems(values, has_secret=bool(password))
+        or await _host_problems(values, settings)
+        or await _item_problems(session, values)
     ):
         raise ValidationFailed(errors=errors)
     ring = key_ring(settings)
@@ -361,10 +389,13 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": row.version},
         )
+    values = _item_for(values)
     merged = {name: getattr(row, name) for name in FIELDS} | dict(values)
-    if errors := _problems(
-        merged, has_secret=bool(password) or row.secret_sealed is not None
-    ) or await _host_problems(merged, settings):
+    if errors := (
+        _problems(merged, has_secret=bool(password) or row.secret_sealed is not None)
+        or await _host_problems(merged, settings)
+        or await _item_problems(session, merged)
+    ):
         raise ValidationFailed(errors=errors)
     if audit_details is not None:
         audit_details.update(trust_changes(row, values))

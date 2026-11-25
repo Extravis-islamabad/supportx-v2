@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CatalogItem } from '@supportx/api-client';
-import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi, listCalls } from '../../test/api';
@@ -40,6 +40,7 @@ const laptop: CatalogItem = {
   questions: [
     {
       key: 'model',
+      restarts_approval: false,
       label: { en: 'Model' },
       kind: 'choice',
       required: true,
@@ -49,7 +50,9 @@ const laptop: CatalogItem = {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
   plan: [],
   default_priority: 'p2',
@@ -60,6 +63,7 @@ const laptop: CatalogItem = {
   technician_after_approval: false,
   count_approval_time: false,
   auto_fulfil: true,
+  asks_needed_by: false,
   can_manage: true,
   version: 1,
 };
@@ -101,13 +105,27 @@ const approvalsBody = {
   people: { [MANAGER]: { display_name: 'Omar Manager', email: 'omar@example.com' } },
 };
 
+// Someone who may see a request's workflows (workflows.run) and the request itself.
+const WORKFLOW_RUNNER = fakeSession(
+  { roles: ['tenant_admin'] },
+  {
+    permissions: ['service_requests.view', 'service_requests.edit', 'workflows.run'].map((key) => ({
+      key,
+      scope: 'all' as const,
+      scopes: ['all' as const],
+      conditional: false,
+    })),
+  },
+);
+
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
 });
 
-function api(routes: Record<string, unknown> = {}) {
+function api(routes: Record<string, unknown> = {}, me?: ReturnType<typeof fakeSession>) {
   const fake = consoleApi({
+    ...(me === undefined ? {} : { me }),
     routes: {
       'GET /api/v1/catalog/items': { body: [laptop] },
       [`GET /api/v1/catalog/items/${ITEM_ID}`]: { body: laptop },
@@ -136,6 +154,47 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('console: service requests', () => {
+  it('WP-047a S5 (REQ-SR-053 AC1): the request says what its workflow waits for', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api(
+      {
+        [`GET /api/v1/automation/workflows/records/service_request/${SR_ID}`]: {
+          body: [
+            {
+              instance: {
+                id: '01a1a2b3-0000-7000-8000-0000000e0f11',
+                workflow_id: '01a1a2b3-0000-7000-8000-0000000e0f12',
+                version_number: 1,
+                record_type: 'service_request',
+                record_id: SR_ID,
+                status: 'waiting',
+                failure: null,
+                wake_at: null,
+                started_how: 'catalog_item',
+                started_at: '2026-11-11T10:00:00Z',
+                finished_at: null,
+                stopped_reason: null,
+                version: 2,
+              },
+              workflow_name: 'Laptop fulfilment',
+              definition: { format: 1, nodes: [], links: [], variables: [] },
+              current_nodes: ['wait_needed'],
+              steps: [],
+              waiting_for: [
+                { node: 'wait_needed', kind: 'field', fields: ['needed_by'], events: [] },
+              ],
+            },
+          ],
+        },
+      },
+      WORKFLOW_RUNNER,
+    );
+    render(<App />);
+    const banner = await screen.findByTestId('workflow-waiting-wait_needed');
+    expect(banner.textContent).toContain('Laptop fulfilment: Waiting for a field');
+    expect(banner.textContent).toContain('Fill in Needed by to let it go on.');
+  });
+
   it('lists requests with their item and approval status', async () => {
     window.history.pushState({}, '', '/requests');
     api();
@@ -652,6 +711,58 @@ describe('console: service requests', () => {
     expect(sent?.body).toEqual({ status: 'done' });
     expect(sent?.headers.get('If-Match')).toBe('"2"');
   });
+
+  it('WP-047a S5: steps that wait show as a flow; a hand-over is never ticked done', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const base = {
+      work_item_id: SR_ID,
+      description: null,
+      owner_id: null,
+      group_id: null,
+      priority: 'normal',
+      due_at: null,
+      done_at: null,
+      blocked_by: [],
+      overdue: false,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 1,
+      created_at: '2026-11-04T08:00:00Z',
+      updated_at: '2026-11-04T08:00:00Z',
+    };
+    const order = {
+      ...base,
+      id: 't-order',
+      title: 'Order',
+      status: 'open',
+      position: 0,
+      depends_on: [],
+    };
+    const give = {
+      ...base,
+      id: 't-give',
+      title: 'Give the laptop',
+      status: 'open',
+      position: 1,
+      kind: 'asset_handover',
+      depends_on: ['t-order'],
+      blocked_by: ['t-order'],
+    };
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [order, give], done: 0, total: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-tasks'));
+    expect((await screen.findByTestId('sr-flow-0')).textContent).toContain('Order');
+    expect(screen.getByTestId('sr-flow-1').textContent).toContain('Give the laptop');
+    expect(screen.getByTestId('sr-flow-1').textContent).toContain('Waiting');
+    const tick = screen.getByRole('checkbox', { name: 'Give the laptop' });
+    expect(tick.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('sr-task-parts-1').textContent).toBe('Hand over');
+  });
 });
 
 describe('console: the service request record (template A)', () => {
@@ -685,5 +796,357 @@ describe('console: the service request record (template A)', () => {
         (c.path.startsWith('/api/v1/incidents/') || c.path.includes('/records/incident/')),
     );
     expect(strays.map((c) => c.path)).toEqual([]);
+  });
+
+  it('WP-047a S1: requests can be picked for a bulk change; ticking a row never opens it', async () => {
+    window.history.pushState({}, '', '/requests');
+    api();
+    render(<App />);
+    const row = (await screen.findByTestId('sr-row-SR-1')).closest('tr');
+    if (row === null) throw new Error('no row');
+    const tick = row.querySelector('input[type="checkbox"]');
+    if (tick === null) throw new Error('no checkbox on the row');
+    fireEvent.click(tick);
+    expect((await screen.findByText('1 request selected')).textContent).toBe('1 request selected');
+    expect(window.location.pathname).toBe('/requests');
+  });
+
+  it('WP-047a S1: the record shows how many, when needed and when expected, and a sooner need', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}`]: {
+        body: {
+          ...request,
+          quantity: 2,
+          needed_by: '2026-11-20T09:00:00Z',
+          expected_delivery_at: '2026-11-24T10:00:00Z',
+          needed_earlier: true,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-details'));
+    expect((await screen.findByTestId('sr-quantity')).textContent).toBe('2');
+    expect(screen.getByTestId('sr-expected').textContent).not.toBe('');
+    expect(screen.getByTestId('sr-needed-earlier').textContent).toContain(
+      'Needed earlier than expected',
+    );
+  });
+});
+
+// WP-047a S2a (REQ-SR-030, -032): a staged request's approvals on the record.
+describe('console: service request stages', () => {
+  it('numbers the stages, marks a parallel one and says why one was skipped, in words', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a011',
+              approver_id: null,
+              origin: 'administrators',
+              state: 'skipped',
+              skip_reason: 'condition_not_met',
+              condition: { field: 'model', op: 'eq', value: 'pro' },
+              can_decide: false,
+            },
+            { ...pendingApproval, stage: 2, branch: 'p2' },
+          ],
+          people: approvalsBody.people,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const skipped = await screen.findByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a011');
+    expect(within(skipped).getByTestId('approval-stage').textContent).toBe('Stage 1');
+    expect(within(skipped).getByTestId('approval-state').textContent).toBe('Skipped');
+    const why = within(skipped).getByTestId('approval-skip-reason').textContent;
+    expect(why).toContain('Skipped because its condition did not apply');
+    expect(why).toContain('Model is pro'); // the question's label, never its key or a code
+    // A skipped stage names nobody: no "approval administrators" on it, and no buttons.
+    expect(skipped.textContent).not.toContain('administrators');
+    expect(within(skipped).queryByTestId('approval-approve')).toBeNull();
+    const waiting = screen.getByTestId(`sr-approval-${APPROVAL_ID}`);
+    expect(within(waiting).getByText('Runs in parallel')).toBeDefined();
+    expect(within(waiting).getByText('Omar Manager')).toBeDefined();
+  });
+});
+
+describe('console: automatic approval and changing approvers (WP-047a S2b)', () => {
+  it('REQ-SR-033: says which stage or rule approved it automatically, never the keys as codes', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            { ...pendingApproval, state: 'approved', can_decide: false },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a021',
+              stage: 2,
+              state: 'approved',
+              channel: 'automatic',
+              auto_reason: 'approved_earlier',
+              auto_ref: 1,
+              decided_at: '2026-11-24T09:00:00Z',
+              can_decide: false,
+            },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a022',
+              stage: 3,
+              approver_id: null,
+              origin: 'administrators',
+              state: 'approved',
+              channel: 'automatic',
+              auto_reason: 'rule_matched',
+              auto_ref: 1,
+              auto_rule: { en: 'Air laptops are pre-approved' },
+              auto_keys: ['model'],
+              decided_at: '2026-11-24T09:00:00Z',
+              can_decide: false,
+            },
+          ],
+          people: approvalsBody.people,
+          modify_refused: 'approval_not_running',
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const earlier = await screen.findByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a021');
+    expect(within(earlier).getByTestId('approval-auto-reason').textContent).toBe(
+      'Approved automatically: already approved at stage 1',
+    );
+    const ruled = screen.getByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a022');
+    const why = within(ruled).getByTestId('approval-auto-reason').textContent;
+    expect(why).toContain('Approved automatically: Air laptops are pre-approved');
+    expect(why).toContain('Model'); // the question's label
+    expect(why).not.toContain('model'); // never its key
+  });
+
+  it('REQ-SR-042 AC2: without the right the actions stay visible, disabled, with the reason', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: 'no_permission' },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const add = await screen.findByTestId('approvers-add');
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    const replace = screen.getByTestId('approver-replace');
+    expect((replace as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.mouseEnter(add.closest("[data-testid='disabled-why']") ?? add);
+    expect(
+      await screen.findByText('You need the right to change approvers to do this.'),
+    ).toBeDefined();
+  });
+
+  it('REQ-SR-042: replacing an approver sends the person and the reason with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: null },
+      },
+      'GET /api/v1/users': {
+        body: {
+          items: [
+            {
+              id: '01a1a2b3-0000-7000-8000-00000000b002',
+              display_name: 'Sara Second',
+              email: 'sara@example.com',
+              status: 'active',
+            },
+          ],
+          next_cursor: null,
+          has_more: false,
+        },
+      },
+      [`POST /api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/replace`]: {
+        body: approvalsBody,
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    fireEvent.click(await screen.findByTestId('approver-replace'));
+    const picker = await screen.findByRole('combobox', { name: 'Approver' });
+    fireEvent.mouseDown(picker);
+    fireEvent.click(await screen.findByText('Sara Second'));
+    fireEvent.change(screen.getByTestId('approvers-reason'), {
+      target: { value: 'Omar is away' },
+    });
+    fireEvent.click(screen.getByTestId('approvers-send'));
+    await waitFor(() => {
+      const [sent] = fake.find(
+        'POST',
+        `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/replace`,
+      );
+      expect(sent?.body).toEqual({
+        approver_id: '01a1a2b3-0000-7000-8000-00000000b002',
+        reason: 'Omar is away',
+      });
+      expect(sent?.headers.get('If-Match')).toBe(`"${String(request.version)}"`);
+    });
+  });
+});
+
+describe('console: approval reminders, escalation and clarification (WP-047a S3a)', () => {
+  const ESCALATED = '01a1a2b3-0000-7000-8000-00000000a031';
+  const BACKUP = '01a1a2b3-0000-7000-8000-00000000b031';
+
+  it('REQ-SR-034/-036: an escalated approval names whom it was escalated from', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            pendingApproval,
+            {
+              ...pendingApproval,
+              id: ESCALATED,
+              approver_id: BACKUP,
+              origin: 'escalated',
+              escalated_from_id: APPROVAL_ID,
+              can_decide: false,
+            },
+          ],
+          people: {
+            ...approvalsBody.people,
+            [BACKUP]: { display_name: 'Bea Backup', email: 'bea@example.com' },
+          },
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const row = await screen.findByTestId(`sr-approval-${ESCALATED}`);
+    expect(within(row).getByText('Escalated to')).toBeDefined();
+    expect(within(row).getByTestId('approval-escalated-from').textContent).toBe(
+      'Added after Omar Manager was reminded without answering',
+    );
+  });
+
+  it('REQ-SR-037: shows an open question and its answer, in words', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          ...approvalsBody,
+          items: [
+            {
+              ...pendingApproval,
+              clarification: {
+                id: '01a1a2b3-0000-7000-8000-00000000c031',
+                state: 'answered',
+                addressee: 'requester',
+                asked_by: MANAGER,
+                asked_at: '2026-11-24T09:00:00Z',
+                ended_at: '2026-11-24T10:00:00Z',
+                question: '<p>Which colour?</p>',
+                answer: '<p>Silver, please</p>',
+              },
+            },
+          ],
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const asked = await screen.findByTestId('approval-clarification');
+    expect(within(asked).getByTestId('approval-clarification-state').textContent).toBe('Answered');
+    expect(within(asked).getByText(/Asked of the Requester/)).toBeDefined();
+    expect(within(asked).getByTestId('approval-clarification-question').textContent).toBe(
+      'Which colour?',
+    );
+    expect(within(asked).getByTestId('approval-clarification-answer').textContent).toBe(
+      'Silver, please',
+    );
+  });
+
+  it('REQ-SR-037 AC1: asking sends the question and whom it is for, with If-Match', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const fake = api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: { ...approvalsBody, modify_refused: null },
+      },
+      [`POST /api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/clarification`]: {
+        body: { ...pendingApproval, version: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    fireEvent.click(await screen.findByTestId('approval-ask'));
+    const send = await screen.findByTestId('clarification-send');
+    expect((send as HTMLButtonElement).disabled).toBe(true); // nothing asked yet
+    fireEvent.change(screen.getByTestId('clarification-question'), {
+      target: { value: '  Which colour?  ' },
+    });
+    fireEvent.click(screen.getByTestId('clarification-send'));
+    await waitFor(() => {
+      const [sent] = fake.find(
+        'POST',
+        `/api/v1/service-requests/${SR_ID}/approvals/${APPROVAL_ID}/clarification`,
+      );
+      expect(sent?.body).toEqual({ question: 'Which colour?', addressee: 'requester' });
+      expect(sent?.headers.get('If-Match')).toBe('"1"');
+    });
+  });
+});
+
+describe('console: approval delegation and restart (WP-047a S3b)', () => {
+  const DELEGATE = '01a1a2b3-0000-7000-8000-00000000b041';
+
+  it('REQ-SR-035 AC2 and 041: "A on behalf of B", and an earlier round marked', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/approvals`]: {
+        body: {
+          items: [
+            {
+              ...pendingApproval,
+              state: 'approved',
+              decided_by: MANAGER,
+              decided_at: '2026-11-24T09:00:00Z',
+              channel: 'app',
+              round: 1,
+              can_decide: false,
+            },
+            {
+              ...pendingApproval,
+              id: '01a1a2b3-0000-7000-8000-00000000a041',
+              approver_id: DELEGATE,
+              on_behalf_of_id: MANAGER,
+              state: 'approved',
+              decided_by: DELEGATE,
+              decided_at: '2026-11-24T10:00:00Z',
+              channel: 'app',
+              round: 2,
+              can_decide: false,
+            },
+          ],
+          people: {
+            ...approvalsBody.people,
+            [DELEGATE]: { display_name: 'Dana Delegate', email: 'dana@example.com' },
+          },
+          modify_refused: null,
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-approvals'));
+    const earlier = await screen.findByTestId(`sr-approval-${APPROVAL_ID}`);
+    expect(within(earlier).getByTestId('approval-earlier-round').textContent).toBe(
+      'Round 1 (before a restart)',
+    );
+    const delegated = screen.getByTestId('sr-approval-01a1a2b3-0000-7000-8000-00000000a041');
+    expect(delegated.textContent).toContain('Dana Delegate on behalf of Omar Manager');
+    expect(within(delegated).queryByTestId('approval-earlier-round')).toBeNull();
   });
 });

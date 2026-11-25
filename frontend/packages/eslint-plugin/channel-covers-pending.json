@@ -1,0 +1,15 @@
+{
+  "_why": "Files whose channel hooks don't say `covers` yet (architecture.md \u00a78.3). The rule is an error everywhere else; remove a file once it's converted, and this list once it's empty.",
+  "files": [
+    "apps/console/src/pages/ProfilePage.tsx",
+    "apps/console/src/pages/admin/FieldAccessTab.tsx",
+    "apps/console/src/pages/admin/InstanceSettingsPage.tsx",
+    "apps/console/src/pages/admin/LicencePage.tsx",
+    "apps/console/src/pages/admin/RolesPage.tsx",
+    "apps/console/src/pages/admin/ServiceAccountsPage.tsx",
+    "apps/console/src/pages/admin/UserAccessDrawer.tsx",
+    "apps/console/src/pages/admin/UsersPage.tsx",
+    "apps/console/src/pages/admin/branding/DomainsCard.tsx",
+    "apps/console/src/pages/admin/organization/OrganizationPage.tsx"
+  ]
+}

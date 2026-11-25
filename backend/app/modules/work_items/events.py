@@ -404,6 +404,9 @@ class WorkItemPartChanged(DomainEvent):
     # Tasks only, additive (WP-048b, lane C's task node waits for "done"): the task's status
     # after the change, a code (open, in_progress, done, ...); None for other parts.
     task_status: str | None = None
+    # Tasks only, additive (WP-047a S5, lane C's review): who owned it before this change took
+    # it away, so their own task lists drop it live; None when the owner did not change.
+    previous_owner_id: uuid.UUID | None = None
 
 
 class WorkItemAssetLinkChanged(DomainEvent):
@@ -425,6 +428,25 @@ class WorkItemAssetLinkChanged(DomainEvent):
     at_creation: bool = False
 
 
+class WorkItemCiLinkChanged(DomainEvent):
+    """A CI was linked to a record or unlinked (WP-053 S5; REQ-CMDB-019). IDs only.
+
+    The CMDB keeps the CI's Associations counters live from it (lane B); the record's screens
+    refresh its CIs. `type` lets a counter know which type changed without reading the record.
+    """
+
+    event_type: ClassVar[str] = "work_items.ci_link.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    ci_id: uuid.UUID
+    change: Literal["added", "removed"]
+    at_creation: bool = False
+    version: int
+
+
 class WorkItemPartChangedV2(DomainEvent):
     """As WorkItemPartChanged, with staged records' plan sections, schedules and downtimes.
 
@@ -444,6 +466,33 @@ class WorkItemPartChangedV2(DomainEvent):
 
 
 ApprovalChange = Literal["opened", "decided", "closed"]
+
+
+class WorkItemDowntimeChanged(DomainEvent):
+    """A downtime window was added, changed or removed (WP-053 S5; REQ-CMDB-020).
+
+    One row: planned or actual, its kind, its UTC times and the CIs and services it names, for
+    the CMDB's own downtime list (lane B's consumer, idempotent by event ID and version). An
+    incident's actual downtime names the incident as `source_work_item_id`. No state (derived
+    from the times) and no free text: the description stays on the record (§8 rule c).
+    """
+
+    event_type: ClassVar[str] = "work_items.downtime.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    downtime_id: uuid.UUID
+    version: int
+    phase: str
+    kind: str | None
+    starts_at: datetime
+    ends_at: datetime
+    ci_ids: list[uuid.UUID]
+    service_ids: list[uuid.UUID]
+    source_work_item_id: uuid.UUID | None
+    deleted: bool
 
 
 class WorkItemPartChangedV3(DomainEvent):
@@ -492,6 +541,64 @@ class WorkItemApprovalChanged(DomainEvent):
     approver_id: uuid.UUID | None
     state: str
     change: ApprovalChange
+
+
+ClarificationChange = Literal["asked", "answered", "ended"]
+
+
+class WorkItemApprovalClarification(DomainEvent):
+    """An approver's question on a request approval was asked, answered or ended (REQ-SR-037).
+
+    WP-047a S3a. `approver_id` is the person who asked. IDs and codes only: never the question
+    or the answer, which their screens read through the API (the coordinator's condition 4).
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.clarification"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    approval_id: uuid.UUID
+    approver_id: uuid.UUID
+    clarification_id: uuid.UUID
+    addressee: str
+    change: ClarificationChange
+
+
+class ApprovalDelegationChanged(DomainEvent):
+    """An approval delegation was set, changed or ended (WP-047a S3b; REQ-SR-035). IDs only.
+
+    Both people are told (the coordinator's condition 1); their screens refresh.
+    """
+
+    event_type: ClassVar[str] = "work_items.approval_delegation.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "approval_delegation"
+
+    delegation_id: uuid.UUID
+    delegator_id: uuid.UUID
+    delegate_id: uuid.UUID
+    change: Literal["created", "changed", "ended", "expired"]
+    version: int
+
+
+class WorkItemApprovalRestarted(DomainEvent):
+    """A request's approval started again after a relevant change (WP-047a S3b; REQ-SR-041).
+
+    The approvers of the round that ended are told (the coordinator's condition 3). `keys` are
+    the changed answer keys (codes), never the answers themselves.
+    """
+
+    event_type: ClassVar[str] = "work_items.approval.restarted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    round: int
+    approver_ids: list[uuid.UUID]
+    keys: list[str]
 
 
 class ChangeBoardChanged(DomainEvent):
@@ -573,6 +680,9 @@ class WorkItemTaskAssigned(DomainEvent):
     work_item_id: uuid.UUID
     task_id: uuid.UUID
     owner_id: uuid.UUID
+    # WP-047a S5: who held it before (None: nobody), so their own task lists refresh live too
+    # (a task-only owner's portal list loses it). Optional: older events carry none.
+    previous_owner_id: uuid.UUID | None = None
 
 
 class WorkItemTaskReminderDue(DomainEvent):
@@ -703,8 +813,13 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemPartChanged,
     WorkItemPartChangedV2,
     WorkItemPartChangedV3,
+    WorkItemDowntimeChanged,
+    WorkItemCiLinkChanged,
     WorkItemReminderDue,
     WorkItemApprovalChanged,
+    WorkItemApprovalClarification,
+    ApprovalDelegationChanged,
+    WorkItemApprovalRestarted,
     ChangeBoardChanged,
     ChangeWindowChanged,
     ChangeApprovalNotice,

@@ -43,7 +43,11 @@ export const en = {
   'errors.api_scope_missing': 'This API key does not have the scope {{scope}}.',
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
+  'errors.approval_delegation_not_found': 'This delegation no longer exists.',
+  'errors.approval_expired': 'This approval expired before it was decided.',
   'errors.approval_not_found': 'This approval was not found.',
+  'errors.approval_not_running':
+    '{{display_id}} has no approval waiting, so its approvers can no longer be changed.',
   'errors.approval_pending': '{{display_id}} already waits for an approval.',
   'errors.approval_segregation': 'You cannot approve your own request.',
   'errors.archive_busy': 'You already have two downloads running. Try again in a minute.',
@@ -53,6 +57,8 @@ export const en = {
   'errors.asset_acknowledgement_not_found':
     "That acknowledgement isn't yours, or no longer exists.",
   'errors.asset_already_disposed': 'This asset already has a disposal record.',
+  'errors.asset_assigned_elsewhere':
+    'This asset is assigned to someone else. Free it before handing it over.',
   'errors.asset_audit_closed': 'This audit is closed and can no longer change.',
   'errors.asset_audit_item_not_found': 'That item is not part of this audit.',
   'errors.asset_audit_not_auditor': 'Only the auditors named on this audit can mark its items.',
@@ -89,6 +95,8 @@ export const en = {
     "A dynamic group's members come from its filter; change the filter instead.",
   'errors.asset_group_name_taken': 'Another group already has this name.',
   'errors.asset_group_not_found': 'That group no longer exists.',
+  'errors.asset_handover_end_of_life':
+    "This asset is retired or disposed, so it can't be handed over.",
   'errors.asset_has_components':
     'It has fitted components ({{count}}): detach them or dispose of them too.',
   'errors.asset_import_exists': 'A record with this key already exists, and the import only adds.',
@@ -159,6 +167,8 @@ export const en = {
   'errors.asset_stock_rule_exists': 'There is already a minimum for this and this site.',
   'errors.asset_stock_rule_not_found': 'This minimum no longer exists.',
   'errors.asset_stock_short': 'Not enough in stock: only {{available}} available.',
+  'errors.assignment_from_identity_provider':
+    "This access comes from a group mapping. It changes when the person's group changes, or when an admin removes the mapping.",
   'errors.audit_archive_missing': 'The archive file is no longer in storage.',
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
@@ -206,6 +216,8 @@ export const en = {
   'errors.catalog_item_incomplete':
     'The item was not complete at its planned publish time, so it stayed a draft.',
   'errors.catalog_item_not_found': 'This catalog item does not exist or is not open to you.',
+  'errors.catalog_item_retired': 'This item is no longer offered, so it cannot be requested again.',
+  'errors.catalog_item_unavailable': 'This item is not available to you now.',
   'errors.category_not_found': 'This category does not exist.',
   'errors.certificate_invalid':
     'The certificate could not be read. Paste the PEM with its private key.',
@@ -220,6 +232,8 @@ export const en = {
   'errors.checklist_library_not_found':
     'This library checklist is no longer there or is no longer offered.',
   'errors.checklist_not_found': 'This checklist is no longer there.',
+  'errors.clarification_open':
+    'A question on this approval is still open. Wait for the answer, or decide.',
   'errors.client_id_invalid': "Enter the sync app's application (client) ID.",
   'errors.closure_rules': 'Some things are needed before this can be done.',
   'errors.command_in_flight':
@@ -256,6 +270,8 @@ export const en = {
   'errors.dashboard_not_found': 'This dashboard does not exist or is not shared with you.',
   'errors.database_not_configured':
     'The service is not fully configured yet. Please contact your administrator.',
+  'errors.database_unavailable':
+    "The database isn't answering right now. Please try again in a moment.",
   'errors.default_board_kept':
     'The default change advisory board cannot be removed. Changes that no other board reviews go to it.',
   'errors.default_site_required':
@@ -336,6 +352,7 @@ export const en = {
   'errors.erasure_storage_unavailable':
     'The file store could not be reached to delete report exports. The erasure will try again.',
   'errors.field.above_maximum': 'Maximum is {{max}}.',
+  'errors.field.action_not_offered': 'This kind of record cannot take this action.',
   'errors.field.address_not_allowed':
     "This server address can't be used. Use the mail server's public name.",
   'errors.field.already_has_parent': 'That incident already has a parent; remove it there first.',
@@ -353,6 +370,7 @@ export const en = {
   'errors.field.api_key_owner_not_service':
     'Keys for someone else can only belong to a service identity.',
   'errors.field.api_key_scope_unknown': 'Choose at least one of the scopes offered.',
+  'errors.field.approver_already_named': 'This person is already an approver of this stage.',
   'errors.field.approver_is_requester': 'You cannot approve your own request; name someone else.',
   'errors.field.approver_not_active': 'Choose an active person.',
   'errors.field.approver_not_eligible':
@@ -402,6 +420,8 @@ export const en = {
     'Use the counter {n} once, with some text around it, e.g. AST-{n}.',
   'errors.field.asset_tag_taken': 'Asset {{asset}} already has this tag.',
   'errors.field.asset_type_not_consumable': 'Choose a consumable product type.',
+  'errors.field.assignment_from_identity_provider':
+    "This access comes from a group mapping. It changes when the person's group changes, or when an admin removes the mapping.",
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
   'errors.field.before_publish': 'Retiring must come after publishing.',
@@ -423,6 +443,8 @@ export const en = {
   'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.field.catalog_item_not_requestable':
+    'Choose a published service item that people can request.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
   'errors.field.category_disabled': 'This category is no longer in use.',
   'errors.field.category_loop':
@@ -443,6 +465,7 @@ export const en = {
   'errors.field.child_has_children':
     'That incident has children of its own, so it cannot become a child.',
   'errors.field.choices_required': 'Add at least one choice.',
+  'errors.field.ci_not_linkable': 'You may not link this configuration item, or it does not exist.',
   'errors.field.code_taken': 'Another one already uses this code.',
   'errors.field.comment_required': 'Add a comment: this item requires one.',
   'errors.field.condition_not_supported': 'Rules are not available for this permission yet.',
@@ -476,6 +499,13 @@ export const en = {
     'The default language must be one of the languages offered.',
   'errors.field.default_required':
     'There is always a default template. Make another template the default instead.',
+  'errors.field.delegate_is_delegator': "You can't delegate approvals to yourself.",
+  'errors.field.delegate_not_eligible':
+    "This person can't take approvals: they must be active and able to sign in.",
+  'errors.field.delegation_ended': "This delegation has ended and can't be changed.",
+  'errors.field.delegation_overlaps': 'Another delegation already covers these dates.',
+  'errors.field.delegation_reason_too_long': 'The reason can be at most 500 characters.',
+  'errors.field.delegation_too_long': 'A delegation can last at most 90 days.',
   'errors.field.department_not_found': 'Choose an active department.',
   'errors.field.dependency_loop': 'A task cannot wait for itself, directly or through other tasks.',
   'errors.field.desk_not_found': 'Choose an active desk.',
@@ -551,6 +581,7 @@ export const en = {
   'errors.field.group_not_yours': 'You are not a member of this group.',
   'errors.field.group_required': 'Choose which of your groups takes it.',
   'errors.field.half_day_single_date': 'A morning or afternoon off is one day only.',
+  'errors.field.handover_person_not_active': 'Choose an active person to hand the asset to.',
   'errors.field.hidden_cannot_be_required':
     'A hidden field cannot be required: nobody could fill it in.',
   'errors.field.hidden_required_needs_default':
@@ -564,6 +595,10 @@ export const en = {
   'errors.field.ical_not_utf8': 'The file is not a text calendar file (UTF-8).',
   'errors.field.ical_too_large': 'The file is larger than 1 MB.',
   'errors.field.ical_too_many_lines': 'The file has more than 20,000 lines.',
+  'errors.field.idp_group_mappings_coming_soon':
+    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
+  'errors.field.incident_actual_only':
+    'An incident records the downtime it caused: actual times only.',
   'errors.field.invalid_choice': 'This is not one of the allowed values.',
   'errors.field.invalid_code': 'Use letters, digits, dots, dashes or underscores (up to 50).',
   'errors.field.invalid_colour': 'Choose a colour such as #1677ff.',
@@ -595,6 +630,7 @@ export const en = {
   'errors.field.ip_allow_locks_you_out':
     'This list would shut you out: your address {{address}} is not in it. Add it, or a range that holds it.',
   'errors.field.ip_allow_too_many': 'Use at most {{max}} entries.',
+  'errors.field.is_you': "You can't ask yourself.",
   'errors.field.kb_vote_comment_too_long': 'Keep the comment to 1,000 characters.',
   'errors.field.kb_vote_reason_for_no_only': 'A reason goes with "No" only.',
   'errors.field.kb_vote_reason_unknown': 'Choose one of the reasons offered.',
@@ -619,6 +655,14 @@ export const en = {
   'errors.field.managed_by_directory': 'Your directory keeps this field. Change it there.',
   'errors.field.manager_loop':
     'This person already manages that manager (directly or through others).',
+  'errors.field.mapping_exists': 'That group is already mapped to this role or support group.',
+  'errors.field.mapping_grants_privileged_access':
+    'This would give administrator-level access from outside SupportX. Allow it in the group mapping settings first.',
+  'errors.field.mapping_in_use_choice_required':
+    'People hold access through this group mapping. Choose whether they keep it or lose it now.',
+  'errors.field.mapping_not_found': 'That group mapping no longer exists.',
+  'errors.field.mapping_source_not_found':
+    'That directory or single sign-on set-up no longer exists.',
   'errors.field.matrix_incomplete': 'Every impact and urgency pair needs a priority.',
   'errors.field.measure_not_available': 'This measure is not available yet.',
   'errors.field.message_required': 'Write the message in English at least.',
@@ -635,8 +679,10 @@ export const en = {
   'errors.field.needs_collapsible': 'Only a collapsible section can start closed.',
   'errors.field.needs_scheduled_start': 'A reminder before the start needs a scheduled start.',
   'errors.field.no_default_allowed': 'This field cannot have a starting value.',
+  'errors.field.no_technician': 'Nobody is assigned to this request yet.',
   'errors.field.not_a_field': 'This field does not exist for this type.',
   'errors.field.not_a_form_field': 'This field is not on the form.',
+  'errors.field.not_a_person_question': 'Choose a question of this form that asks for a person.',
   'errors.field.not_a_technician': 'Only a technician who works on problems can investigate one.',
   'errors.field.not_allowed': 'This is not allowed together with the other values.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
@@ -653,6 +699,7 @@ export const en = {
   'errors.field.offset_too_large':
     'A level can be at most 30 business days from its starting point.',
   'errors.field.one_day_required': 'Choose one day of the week.',
+  'errors.field.one_target_required': 'Choose either a role or a support group.',
   'errors.field.operator_not_allowed': 'This comparison cannot be used with this field.',
   'errors.field.order_incomplete':
     'The list changed while you were reordering. Reload and try again.',
@@ -686,9 +733,12 @@ export const en = {
   'errors.field.phone_not_valid': 'Enter a phone number: digits, spaces, +, - and brackets.',
   'errors.field.plain_connection_refused':
     'A connection without encryption is refused unless you allow it.',
+  'errors.field.plan_waits_in_a_loop': 'These steps wait for each other, so none could start.',
   'errors.field.port_not_allowed': 'Use a mail port: 993 (TLS) or 143.',
   'errors.field.private_key_unreadable':
     'The private key cannot be read: paste it unencrypted in PEM format.',
+  'errors.field.quantity_over_max': 'You can ask for at most {{max}}.',
+  'errors.field.question_too_long': 'A question can be at most 2,000 characters.',
   'errors.field.range_end_before_start': 'The end must be after the start.',
   'errors.field.read_category_unknown': 'This kind of read cannot be logged.',
   'errors.field.read_only': 'This field cannot be changed here.',
@@ -778,6 +828,7 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
+  'errors.field.stage_not_open': 'Approvers can only be added to a stage that is waiting now.',
   'errors.field.support_email_domain_not_allowed':
     'Support engineers must use an address at an allowed Extravis domain.',
   'errors.field.support_email_invalid': 'Enter one e-mail address.',
@@ -791,6 +842,7 @@ export const en = {
     'Around the clock always counts every hour. Only its name can change.',
   'errors.field.target_amount_invalid': 'Enter a whole number from 1 to 100,000.',
   'errors.field.target_duplicate': 'This target is already set for this priority.',
+  'errors.field.task_field_required': 'Fill this in before completing the task.',
   'errors.field.technician_audience_empty': 'Choose all technicians or at least one group.',
   'errors.field.technician_not_allowed': 'This person cannot work on these records.',
   'errors.field.technician_not_in_group': 'This technician is not a member of the chosen group.',
@@ -809,6 +861,7 @@ export const en = {
   'errors.field.too_many_approvers': 'A stage can have at most 10 approvers.',
   'errors.field.too_many_assets': 'A record can have at most {{max}} assets.',
   'errors.field.too_many_categories': 'An item can also appear in at most five other categories.',
+  'errors.field.too_many_cis': 'A record can have at most {{max}} configuration items.',
   'errors.field.too_many_conditions': 'The filter has too many conditions.',
   'errors.field.too_many_copies': 'Make 1 to {{max}} copies at a time.',
   'errors.field.too_many_decimals': 'Use at most {{max}} decimal places.',
@@ -819,10 +872,13 @@ export const en = {
   'errors.field.too_many_questions': 'A form can have at most 30 questions.',
   'errors.field.too_many_recipients': 'Up to 50 people and 20 groups.',
   'errors.field.too_many_records': 'Choose at most {{max}} records.',
+  'errors.field.too_many_rules': 'A stage can have at most 5 automatic approval rules.',
+  'errors.field.too_many_stages': 'An approval can have at most 10 stages.',
   'errors.field.too_many_tasks': 'A plan can have at most 20 tasks.',
   'errors.field.too_many_values': 'Choose at most {{max}}.',
   'errors.field.topic_too_deep': 'Topics can be at most {{max}} levels deep.',
   'errors.field.topic_under_itself': 'A topic cannot go under itself or one of its subtopics.',
+  'errors.field.trigger_event_not_offered': 'This kind of record does not offer that event.',
   'errors.field.trusted_servers_too_many': 'Name 5 servers at most.',
   'errors.field.type_cannot_change':
     "A field's type cannot change. Add a new field and retire this one.",
@@ -929,6 +985,8 @@ export const en = {
     'Your organisation is not set up for sign-in yet. Ask your administrator.',
   'errors.identity_provider_unavailable':
     'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.idp_group_mappings_coming_soon':
+    'Group mappings from single sign-on are coming soon. Directory mappings work now.',
   'errors.incident_has_problem':
     'This incident is already linked to {{display_id}}. Move it to confirm.',
   'errors.insert_too_large':
@@ -1064,6 +1122,7 @@ export const en = {
   'errors.mail_not_configured':
     'Outgoing mail is not set up on this installation. Ask your operator to configure it.',
   'errors.mail_not_waiting': 'This message is no longer waiting: someone handled it already.',
+  'errors.mail_recipient_undeliverable': 'This message has no address it can be delivered to.',
   'errors.mail_recipients': 'Send to between 1 and 50 recipients.',
   'errors.mail_sender_invalid': 'The sender name or reply-to address is not valid.',
   'errors.mail_status_staff_only': 'Only people who reply on records can see this.',
@@ -1077,6 +1136,13 @@ export const en = {
   'errors.mailbox_sign_in_not_needed': 'This mailbox does not need anyone to sign in.',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'Your directory keeps this field. Change it there.',
+  'errors.mapping_exists': 'That group is already mapped to this role or support group.',
+  'errors.mapping_grants_privileged_access':
+    'This would give administrator-level access from outside SupportX. Allow it in the group mapping settings first.',
+  'errors.mapping_in_use_choice_required':
+    'People hold access through this group mapping. Choose whether they keep it or lose it now.',
+  'errors.mapping_not_found': 'That group mapping no longer exists.',
+  'errors.mapping_source_not_found': 'That directory or single sign-on set-up no longer exists.',
   'errors.measure_not_permitted':
     'You may not see this figure: it needs access to its data (for asset money, the right to see financials).',
   'errors.merge_undo_not_exact':
@@ -1124,6 +1190,7 @@ export const en = {
     'This link no longer works. It may have been used already, or it has expired.',
   'errors.on_behalf_out_of_scope':
     "You can't raise a request for this person. Ask your service desk.",
+  'errors.one_target_required': 'Choose either a role or a support group.',
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
   'errors.open_work_unconfirmed': 'Work is still open: {{items}}. Confirm to go ahead anyway.',
   'errors.order_out_of_date': 'The list changed meanwhile. Reload it and order again.',
@@ -1185,6 +1252,8 @@ export const en = {
   'errors.reference_is': 'Reference: {{reference}}',
   'errors.release_not_failed':
     "Follow-ups are offered once the release's deployment has failed or been rolled back.",
+  'errors.reminded_recently':
+    'The approvers were reminded less than {{minutes}} minutes ago. Try again later.',
   'errors.reminder_not_found': 'This reminder is no longer there.',
   'errors.repeat_hit_not_found': 'This set of repeated incidents no longer exists.',
   'errors.repeat_rule_not_found': 'This repeat incident rule no longer exists.',
@@ -1203,6 +1272,9 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.request_not_awaiting_answers': 'This request is no longer waiting for answers.',
+  'errors.request_too_slow':
+    'This took too long to finish, so it was stopped. Try a narrower search or filter, or try again later.',
   'errors.requester_action_closed':
     "You can no longer change this: it's already resolved, closed or cancelled.",
   'errors.requester_cancel_not_possible':
@@ -1326,6 +1398,8 @@ export const en = {
   'errors.too_many_favourites': 'You can star up to {{max}} reports.',
   'errors.too_many_files': 'Too many files at once: at most {{max}}.',
   'errors.too_many_moves': 'A life cycle can have at most {{max}} moves.',
+  'errors.too_many_reminders':
+    'The approvers of this request have already been reminded {{max}} times.',
   'errors.too_many_rules': 'At most {{max}} rules per record type.',
   'errors.transition_condition_not_met':
     'This status change is not available to you on this record now.',
@@ -1358,6 +1432,7 @@ export const en = {
   'errors.withdraw_not_allowed': 'Only the requester can withdraw this request.',
   'errors.withdraw_not_pending': 'Only a request awaiting approval can be withdrawn.',
   'errors.work_item_asset_not_found': 'This asset is no longer linked to the record.',
+  'errors.work_item_ci_not_found': 'This configuration item is no longer linked to the record.',
   'errors.work_item_link_not_found': 'This link no longer exists.',
   'errors.work_item_not_found': 'This record does not exist or you cannot see it.',
   'errors.work_item_task_not_found': 'This task no longer exists.',

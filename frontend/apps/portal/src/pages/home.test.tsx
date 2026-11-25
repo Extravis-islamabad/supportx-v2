@@ -51,6 +51,7 @@ function item(id: string, name: string, extra: Partial<CatalogItem> = {}): Catal
     technician_after_approval: false,
     count_approval_time: false,
     auto_fulfil: false,
+    asks_needed_by: false,
     can_manage: false,
     version: 1,
     ...extra,
@@ -62,7 +63,9 @@ const LAPTOP = item('01a1a2b3-0000-7000-8000-00000000d001', 'New laptop', {
   approval: {
     approvers: [{ kind: 'requested_for_manager', person_id: null }],
     comments_required: false,
+    rule: 'any',
     self_approval: false,
+    escalate_to: 'backup',
   },
 });
 const VPN = item('01a1a2b3-0000-7000-8000-00000000d002', 'VPN access');

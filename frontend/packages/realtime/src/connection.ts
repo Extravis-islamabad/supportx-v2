@@ -8,9 +8,15 @@ import {
 } from '@supportx/api-client';
 
 import type { ConnectionStatus, PresenceMember, RealtimeMessage } from './types';
+import { duringCatchUp } from './catchup';
 
 /** Disconnect code the server uses after an access change (backend app/shared/realtime). */
 export const ACCESS_CHANGED = 4000;
+// The server ended the person's sessions (an admin's sign-out, a vendor support grant's end): the
+// backend's SESSION_ENDED disconnect code (app/shared/realtime/centrifugo.py).
+export const SESSION_ENDED = 4001;
+// centrifuge-js's `disconnectedCodes.unauthorized`: the connection token was refused (401/403).
+const UNAUTHORIZED = 1;
 /** Without a connection for this long, screens fall back to timed refreshes. */
 /** How far the refetch after an access change is spread, at random (ms; lane C's #513 note). */
 export const ACCESS_REFETCH_SPREAD_MS = 3000;
@@ -31,6 +37,8 @@ interface ChannelEntry {
   denied: boolean;
   /** Not subscribed although a screen follows it: refused, or ended by the server. */
   lost: boolean;
+  /** Live at least once: the first `subscribed` catches up on what changed before it (§8.3). */
+  liveOnce: boolean;
   retries: number;
   retryTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -111,6 +119,7 @@ export class RealtimeConnection {
   private readonly channels = new Map<string, ChannelEntry>();
   private readonly statusListeners = new Set<(status: ConnectionStatus) => void>();
   private readonly reconnectListeners = new Set<(code: number) => void>();
+  private readonly endedListeners = new Set<() => void>();
   private status: ConnectionStatus = 'connecting';
   private clientId: string | null = null;
   private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,13 +133,30 @@ export class RealtimeConnection {
   private closeTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnects = 0;
+  // The session is over (4001, or the token refused with 401): never reconnect again.
+  private ended = false;
+  // The last connection-token answer was 401 (the session ended), not 403 or a failure.
+  private tokenSessionEnded = false;
 
   constructor(factory: ClientFactory = activeFactory) {
-    this.client = factory(() => fetchConnectionToken().catch(denial));
+    this.client = factory(() =>
+      fetchConnectionToken().then(
+        (token) => {
+          this.tokenSessionEnded = false;
+          return token;
+        },
+        (error: unknown) => {
+          this.tokenSessionEnded = error instanceof ApiError && error.status === 401;
+          return denial(error);
+        },
+      ),
+    );
     this.client.on('connecting', (ctx) => {
       this.setStatus(this.status === 'connected' ? 'reconnecting' : this.status);
       this.armFallback();
       for (const listener of this.reconnectListeners) listener(ctx.code);
+      // The server ended the session: tell the screens, and stop (no reconnect loop).
+      if (ctx.code === SESSION_ENDED) this.end();
     });
     this.client.on('connected', (ctx) => {
       const wasPolling = this.status === 'polling';
@@ -141,8 +167,16 @@ export class RealtimeConnection {
       this.setStatus(this.anyLost() ? 'limited' : 'connected');
       if (wasPolling) this.refreshAll(); // reconcile what changed while we were polling
     });
-    this.client.on('disconnected', () => {
+    this.client.on('disconnected', (ctx) => {
       this.clearTimers();
+      // The token was refused with 401: the session is over. Screens learn it now, not at their
+      // next request (lane B's condition 6 on #566: the console signs out). A 403, a network
+      // drop, a timeout or a 5xx is not an ended session: those keep retrying as before.
+      if (ctx.code === UNAUTHORIZED && this.tokenSessionEnded) this.end();
+      if (this.ended) {
+        this.setStatus('offline');
+        return;
+      }
       // Dropped while screens still use it (token refused, server ended it): show "reconnecting"
       // and try again with backoff, never silently offline (QA BUG-02). Closed on purpose: offline.
       if (this.started) {
@@ -209,6 +243,23 @@ export class RealtimeConnection {
   }
 
   /** Called with the reason code whenever the connection starts (re)connecting. */
+  /** The session ended on the server (4001), or the connection's token was refused. */
+  onEnded(listener: () => void): () => void {
+    this.endedListeners.add(listener);
+    return () => this.endedListeners.delete(listener);
+  }
+
+  /** Once: no more reconnects, the client closed, the screens told (they ask for the session). */
+  private end(): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.clearTimers();
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.client.disconnect();
+    for (const listener of this.endedListeners) listener();
+  }
+
   onReconnect(listener: (code: number) => void): () => void {
     this.reconnectListeners.add(listener);
     return () => this.reconnectListeners.delete(listener);
@@ -220,8 +271,10 @@ export class RealtimeConnection {
    * screens treat as "refetch what you show" (architecture.md §8.3).
    */
   join(channel: string, listener: MessageListener, presence = false): () => void {
-    const entry = this.channels.get(channel) ?? this.open(channel, presence);
-    entry.listeners.add(listener);
+    const entry =
+      this.channels.get(channel) ??
+      this.open(channel, presence, (opened) => opened.listeners.add(listener));
+    entry.listeners.add(listener); // a no-op after the seed: a Set holds each listener once
     return () => {
       entry.listeners.delete(listener);
       if (entry.listeners.size === 0 && entry.presenceListeners.size === 0) this.drop(channel);
@@ -230,8 +283,10 @@ export class RealtimeConnection {
 
   /** Who else follows `channel` (record channels only). */
   watchPresence(channel: string, listener: PresenceListener): () => void {
-    const entry = this.channels.get(channel) ?? this.open(channel, true);
-    entry.presenceListeners.add(listener);
+    const entry =
+      this.channels.get(channel) ??
+      this.open(channel, true, (opened) => opened.presenceListeners.add(listener));
+    entry.presenceListeners.add(listener); // a no-op after the seed (a Set)
     listener(this.membersOf(entry));
     return () => {
       entry.presenceListeners.delete(listener);
@@ -243,7 +298,15 @@ export class RealtimeConnection {
     return this.channels.get(channel)?.denied ?? false;
   }
 
-  private open(channel: string, presence: boolean): ChannelEntry {
+  /**
+   * `seed` adds the first listener before subscribing: a client may confirm the subscription
+   * synchronously, and its first-subscribe catch-up must not go to an empty channel.
+   */
+  private open(
+    channel: string,
+    presence: boolean,
+    seed: (entry: ChannelEntry) => void,
+  ): ChannelEntry {
     const existing = this.client.getSubscription(channel);
     if (existing !== null) this.client.removeSubscription(existing);
     const subscription = this.client.newSubscription(channel, {
@@ -257,6 +320,7 @@ export class RealtimeConnection {
       presence,
       denied: false,
       lost: false,
+      liveOnce: false,
       retries: 0,
       retryTimer: null,
     };
@@ -267,8 +331,17 @@ export class RealtimeConnection {
       entry.denied = false;
       const wasLost = entry.lost;
       this.stopRetry(entry);
+      const first = !entry.liveOnce;
+      entry.liveOnce = true;
       if ((ctx.wasRecovering && !ctx.recovered) || wasLost) {
         this.deliver(entry, { type: 'refresh', ids: [] }); // fetch what was missed meanwhile
+      } else if (first && !ctx.recovered) {
+        // The first time it's live: what changed after the screen fetched but before now was
+        // published to nobody, so each active query fetches once more (catchup.ts). A
+        // subscription that recovered its stream already got every message it missed.
+        duringCatchUp(Date.now(), () => {
+          this.deliver(entry, { type: 'refresh', ids: [], catchUp: true });
+        });
       }
       if (entry.presence) void this.loadPresence(entry);
       if (wasLost && this.status === 'limited' && !this.anyLost()) this.setStatus('connected');
@@ -293,6 +366,7 @@ export class RealtimeConnection {
       this.notifyPresence(entry);
     });
     this.channels.set(channel, entry);
+    seed(entry);
     subscription.subscribe();
     return entry;
   }
@@ -308,6 +382,7 @@ export class RealtimeConnection {
   }
 
   private scheduleReconnect(): void {
+    if (this.ended) return;
     if (this.reconnectTimer !== null) return;
     const delay = RETRY_DELAYS_MS[Math.min(this.reconnects, RETRY_DELAYS_MS.length - 1)] ?? 30_000;
     this.reconnects += 1;
@@ -322,6 +397,7 @@ export class RealtimeConnection {
   }
 
   private scheduleRetry(entry: ChannelEntry): void {
+    if (this.ended) return; // the session is over: no channel asks again
     entry.lost = true;
     if (this.status === 'connected') this.setStatus('limited');
     if (entry.retryTimer !== null) return;

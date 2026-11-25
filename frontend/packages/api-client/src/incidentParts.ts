@@ -27,7 +27,7 @@ const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
 /** The work-item types whose record parts (tasks, worklogs, links) these hooks serve. */
 // Changes (WP-045d S1): the same parts; their tasks carry the stage they are for.
-export type PartsBase = 'incidents' | 'problems' | 'changes' | 'releases';
+export type PartsBase = 'incidents' | 'problems' | 'changes' | 'releases' | 'service-requests';
 
 /**
  * The same engine route under another type's prefix (WP-044c: problems' tasks and worklogs).
@@ -125,10 +125,13 @@ export function useMyTasks(enabled = true) {
   });
 }
 
+/** My Tasks' query key (exported so its screen names it in `covers`, §8.3). */
+export const myTasksKey = ['my-tasks'] as const;
+
 /** Your open tasks on every type, due first, overdue marked (REQ-INC-076). */
 export function useAllMyTasks(enabled = true) {
   return useQuery({
-    queryKey: ['my-tasks'] as const,
+    queryKey: myTasksKey,
     queryFn: () => call(api.GET('/api/v1/my-tasks')),
     enabled,
   });

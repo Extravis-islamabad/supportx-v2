@@ -152,6 +152,41 @@ async def _subject(session: AsyncSession, workflow: Workflow) -> Subject | None:
     return await subject_for(session, workflow.tenant_id, workflow.service_identity_id)
 
 
+async def workflow_problem(
+    session: AsyncSession, workflow_id: uuid.UUID, record_type: str, *, live: bool
+) -> str | None:
+    """Why the workflow cannot run on this record type (None: it can), for other modules.
+
+    WP-047a S5 (REQ-SR-053): a catalog item names its fulfilment workflow. `live`: an item that
+    is published needs a workflow that is published and switched on; a draft may name one not
+    yet ready (they are prepared together), as a draft trigger may.
+    """
+    workflow = await session.get(Workflow, workflow_id)
+    if workflow is None or workflow.deleted_at is not None:
+        return "workflow_not_found"
+    if workflow.record_type != record_type:
+        return "workflow_wrong_record_type"
+    if live and workflow.published_version is None:
+        return "workflow_not_published"
+    if live and not workflow.enabled:
+        return "workflow_disabled"
+    return None
+
+
+async def start_workflow(
+    session: AsyncSession, *, workflow_id: uuid.UUID, record_type: str, record_id: uuid.UUID
+) -> uuid.UUID:
+    """Start the workflow on the record for another module (REQ-SR-053); the instance's ID.
+
+    As the workflow's run-as identity, as a trigger starts one; its refusals are Conflicts.
+    """
+    instance = await start(
+        session, workflow_id=workflow_id, record_type=record_type, record_id=record_id,
+        how="catalog_item",
+    )  # fmt: skip
+    return instance.id
+
+
 async def start(  # noqa: PLR0913 - the workflow, the record and how it started, explicit
     session: AsyncSession,
     *,
@@ -214,6 +249,11 @@ async def start(  # noqa: PLR0913 - the workflow, the record and how it started,
         raise Conflict(code="workflow_already_running") from error
     await run(session, instance.id, None, now=moment, tell_parent=parent is None)
     return instance
+
+
+def definition_of(version: WorkflowVersion) -> Definition:
+    """A version's definition as the interpreter reads it (for the API's waiting banner)."""
+    return _definition(version)
 
 
 def _definition(version: WorkflowVersion) -> Definition:
@@ -346,7 +386,9 @@ async def _result_of(  # noqa: PLR0913, PLR0917 - one command and what it runs w
     )
     if outcome.ok and outcome.pending:
         return None  # waits, as a sub-flow does, until the owning module's event continues it
-    return CommandDone(command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs)
+    return CommandDone(
+        command.id, outcome.ok, error=outcome.error, outputs=outcome.outputs, port=outcome.port
+    )
 
 
 def _child_result(child: WorkflowInstance, command: str) -> CommandDone | None:

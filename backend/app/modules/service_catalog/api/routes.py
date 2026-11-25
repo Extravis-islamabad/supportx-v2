@@ -31,9 +31,15 @@ from app.modules.identity_access import Subject
 from app.modules.service_catalog.domain.catalog import ItemKind, ItemStatus
 from app.modules.service_catalog.domain.items import (
     ApproverKind,
+    EscalationTarget,
     ItemAudience,
+    PlanStepKind,
     QuestionAudience,
     QuestionKind,
+    RestartOn,
+    StageRule,
+    TaskFieldKind,
+    TaskOwnerKind,
 )
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
 from app.modules.service_catalog.service import catalog as service
@@ -67,30 +73,124 @@ class QuestionIO(BaseModel):
     help: dict[str, str] = Field(default_factory=dict)
     default: Any = None
     shown_to: list[QuestionAudience] = Field(default_factory=lambda: list(QuestionAudience))
+    restarts_approval: bool = Field(
+        default=False,
+        description="A change to this answer after submitting restarts approval (REQ-SR-041).",
+    )
 
 
 class ApproverIO(BaseModel):
-    """An approver: a named person, or the requested-for person's manager."""
+    """An approver: a kind, and the person, group or question it names (REQ-SR-022, -031)."""
 
     model_config = ConfigDict(extra="forbid")
 
     kind: ApproverKind
     person_id: uuid.UUID | None = None
+    group_id: uuid.UUID | None = Field(default=None, description="`group` only.")
+    question_key: str | None = Field(
+        default=None, max_length=40, description="`person_answer` only: a person question."
+    )
 
 
-class ApprovalIO(BaseModel):
-    """The item's approval stage (one at MVP)."""
+class AutoRuleIO(BaseModel):
+    """A rule that approves a stage automatically (WP-047a S2b; REQ-SR-033)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    approvers: list[ApproverIO] = Field(max_length=10)
+    name: dict[str, str] = Field(
+        description="Shown on the record as the reason, per language (English required)."
+    )
+    condition: dict[str, Any] = Field(
+        description="The form rules' condition language over the answers, `quantity` and "
+        "`requester_groups` (`eq` a group ID: the requester is a member)."
+    )
+
+
+class ApprovalStageIO(BaseModel):
+    """One approval stage (WP-047a S2a; REQ-SR-029..032)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    approvers: list[ApproverIO] = Field(max_length=10)  # required as before S2a (additive API)
     backup_id: uuid.UUID | None = None
     comments_required: bool = False
     self_approval: bool = False
+    rule: StageRule = Field(
+        default=StageRule.ANY, description="any (the first decision), all, majority."
+    )
+    parallel_group: str | None = Field(
+        default=None,
+        max_length=40,
+        description="Stages with the same group open together (REQ-SR-030).",
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None,
+        description="The stage applies only when this holds (REQ-SR-032): the form rules' "
+        "condition language over the answers and `quantity`.",
+    )
+    auto_earlier: bool | None = Field(
+        default=None,
+        description="Someone who approved an earlier stage of the same request is not asked "
+        "again (REQ-SR-033); null: the tenant's setting decides. Professional.",
+    )
+    auto_rules: list[AutoRuleIO] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Rules that approve the stage at once when one holds (REQ-SR-033). "
+        "Professional.",
+    )
+    escalate_to: EscalationTarget = Field(
+        default=EscalationTarget.BACKUP,
+        description="Where a pending approval goes after its last reminder (REQ-SR-034): the "
+        "backup, the approver's manager, the request's group, or none. The approver keeps it too.",
+    )
+
+
+class ApprovalIO(ApprovalStageIO):
+    """The item's approval: one stage (as before), or `stages` in order (Professional)."""
+
+    stages: list[ApprovalStageIO] | None = Field(
+        default=None,
+        max_length=10,
+        description="Every stage in order (WP-047a S2a). When given, the top-level stage "
+        "fields are ignored on save; on read they repeat the first stage.",
+    )
+    restart_on: list[RestartOn] = Field(
+        default_factory=list,
+        description="The request's own values whose change restarts approval (REQ-SR-041): "
+        "quantity, requested_for. Marked questions restart it too.",
+    )
+
+    @classmethod
+    def read(cls, stored: dict[str, Any] | None) -> "ApprovalIO | None":
+        """From the stored JSON: the old single stage, or `stages` with stage 1 on top."""
+        if not stored:
+            return None
+        if "stages" not in stored:
+            return cls.model_validate(stored)
+        stages = stored["stages"] or []
+        first = dict(stages[0]) if stages else {}
+        extra = {"restart_on": stored["restart_on"]} if stored.get("restart_on") else {}
+        return cls.model_validate({**first, "stages": stages, **extra})
+
+
+class TaskFieldIO(BaseModel):
+    """A value a fulfilment task's owner fills in (WP-047a S5; REQ-SR-049)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(max_length=40)
+    label: dict[str, str]
+    kind: TaskFieldKind = TaskFieldKind.TEXT
+    required: bool = False
+    options: list[str] = Field(default_factory=list, max_length=50)
+    requester_visible: bool = Field(
+        default=False, description="Its value may reach the requester's notices (off)."
+    )
 
 
 class PlannedTaskIO(BaseModel):
-    """A fulfilment task the plan creates."""
+    """A fulfilment task the plan creates (WP-047a S5: order, condition, fields, owner, kind)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -99,6 +199,17 @@ class PlannedTaskIO(BaseModel):
     owner_id: uuid.UUID | None = None
     required: bool = True
     internal: bool = False
+    key: str | None = Field(default=None, max_length=40, description="For waits_for (REQ-SR-047).")
+    waits_for: list[str] = Field(default_factory=list, max_length=20)
+    condition: dict[str, Any] | None = Field(
+        default=None, description="Made only when this holds (REQ-SR-048)."
+    )
+    fields: list[TaskFieldIO] = Field(default_factory=list, max_length=10)
+    owner_kind: TaskOwnerKind | None = Field(
+        default=None, description="Who it goes to (REQ-SR-050); none: the group or owner."
+    )
+    question_key: str | None = Field(default=None, max_length=40)
+    kind: PlanStepKind = PlanStepKind.TASK
 
 
 class CatalogItemIn(BaseModel):
@@ -131,6 +242,9 @@ class CatalogItemIn(BaseModel):
     sort_order: int | None = Field(default=None, ge=0, le=100_000)
     subject_template: str | None = Field(default=None, max_length=200)
     requesters_see_approval: bool | None = None
+    workflow_id: uuid.UUID | None = Field(
+        default=None, description="Its fulfilment workflow: a service request workflow."
+    )
     questions: list[QuestionIO] | None = Field(default=None, max_length=30)
     approval: ApprovalIO | None = None
     plan: list[PlannedTaskIO] | None = Field(default=None, max_length=20)
@@ -142,6 +256,9 @@ class CatalogItemIn(BaseModel):
     technician_after_approval: bool | None = None
     count_approval_time: bool | None = None
     auto_fulfil: bool | None = None
+    # WP-047a S1: REQ-SR-014 (Professional: `catalog`) and REQ-SR-015.
+    max_quantity: int | None = Field(default=None, ge=1, le=10_000)
+    asks_needed_by: bool | None = None
 
 
 class CatalogMissingTranslation(BaseModel):
@@ -157,6 +274,11 @@ class ExpectedDeliveryOut(BaseModel):
     amount: int
     unit: str = Field(description="minutes, hours or business_days.")
     around_the_clock: bool = Field(description="False: counted in working time.")
+    at: datetime | None = Field(
+        default=None,
+        description="When a request raised now should be delivered (REQ-SR-015 AC1), on the "
+        "SLA's calendar; the form shows it in the requester's time zone.",
+    )
 
 
 class CatalogItemOut(BaseModel):
@@ -185,6 +307,7 @@ class CatalogItemOut(BaseModel):
     sort_order: int
     subject_template: str | None
     requesters_see_approval: bool
+    workflow_id: uuid.UUID | None = None
     starter: bool
     questions: list[QuestionIO]
     approval: ApprovalIO | None
@@ -197,6 +320,10 @@ class CatalogItemOut(BaseModel):
     technician_after_approval: bool
     count_approval_time: bool
     auto_fulfil: bool
+    max_quantity: int | None = Field(
+        default=None, description="The most one request may ask for; null: no quantity asked."
+    )
+    asks_needed_by: bool = False
     missing_translations: list[CatalogMissingTranslation]
     can_manage: bool
     version: int
@@ -207,8 +334,14 @@ class CatalogItemOut(BaseModel):
     )
 
     @classmethod
-    def of(cls, view: service.ItemView, *, staff: bool) -> "CatalogItemOut":
-        """From the service's view; requesters never see questions meant for others."""
+    def of(
+        cls, view: service.ItemView, *, staff: bool, quantity_offered: bool = True
+    ) -> "CatalogItemOut":
+        """From the service's view; requesters never see questions meant for others.
+
+        `quantity_offered` false: no quantity is offered (REQ-SR-014 is Professional), so the
+        portal never shows a field the server would refuse (lane C, #578).
+        """
         item = view.item
         questions = [
             q
@@ -217,9 +350,13 @@ class CatalogItemOut(BaseModel):
             or QuestionAudience.REQUESTER.value
             in (q.get("shown_to") or [QuestionAudience.REQUESTER])
         ]
+        fields = {name: getattr(item, name) for name in service.ITEM_FIELDS}
+        if not quantity_offered:
+            fields["max_quantity"] = None
         return cls.model_validate(
             {
-                **{name: getattr(item, name) for name in service.ITEM_FIELDS},
+                **fields,
+                "approval": ApprovalIO.read(item.approval),
                 "questions": questions,
                 "id": item.id,
                 "status": item.status,
@@ -445,7 +582,8 @@ async def list_items(
         statuses=item_status or (),
         featured=featured,
     )
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/popular", summary="The most requested catalog items you may see")
@@ -457,7 +595,8 @@ async def popular_items(
     """Most requested over the last 90 days first (REQ-CAT-027, the portal home, WP-032)."""
     staff = is_staff(subject)
     views = await service.popular_items(session, subject, limit=limit)
-    return [CatalogItemOut.of(v, staff=staff) for v in views]
+    offered = staff or await service.quantity_licensed(subject)
+    return [CatalogItemOut.of(v, staff=staff, quantity_offered=offered) for v in views]
 
 
 @router.get("/items/search", summary="Search the catalog items you may see")
@@ -469,8 +608,9 @@ async def search_items(
 ) -> list[CatalogItemOut]:
     """Names, keywords, summaries and descriptions in every language; best match first."""
     staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
     return [
-        CatalogItemOut.of(v, staff=staff)
+        CatalogItemOut.of(v, staff=staff, quantity_offered=offered)
         for v in await search.search_items(session, subject, q, limit=limit)
     ]
 
@@ -482,11 +622,16 @@ async def get_item(
     """One item you may see (404 otherwise)."""
     view = await service.get_item(session, subject, item_id)
     set_etag(response, view.item.version)
-    out = CatalogItemOut.of(view, staff=is_staff(subject))
+    staff = is_staff(subject)
+    offered = staff or await service.quantity_licensed(subject)
+    out = CatalogItemOut.of(view, staff=staff, quantity_offered=offered)
     target = await service.expected_delivery(session, view.item)
     if target is not None:
         out.expected_delivery = ExpectedDeliveryOut(
-            amount=target.amount, unit=target.unit, around_the_clock=target.around_the_clock
+            amount=target.amount,
+            unit=target.unit,
+            around_the_clock=target.around_the_clock,
+            at=await service.expected_delivery_at(session, view.item),
         )
     return out
 

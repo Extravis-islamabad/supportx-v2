@@ -9,6 +9,7 @@ import pytest
 
 from app.modules.work_items.domain.change_boards import FIELD_PROBLEMS as BOARD_PROBLEMS
 from app.modules.work_items.domain.changes import CHANGE_MODEL
+from app.modules.work_items.domain.clarifications import FIELD_PROBLEMS as CLARIFICATION_PROBLEMS
 from app.modules.work_items.domain.classification import (
     DEFAULT_MATRIX,
     SCALE_CODES,
@@ -21,6 +22,7 @@ from app.modules.work_items.domain.classification import (
     check_matrix,
     compute_priority,
 )
+from app.modules.work_items.domain.delegations import FIELD_PROBLEMS as DELEGATION_PROBLEMS
 from app.modules.work_items.domain.drafts import FIELD_PROBLEMS as DRAFT_PROBLEMS
 from app.modules.work_items.domain.kept_informed import FIELD_PROBLEMS as KEPT_PROBLEMS
 from app.modules.work_items.domain.lifecycle import (
@@ -54,6 +56,9 @@ from app.modules.work_items.domain.types import (
     clean_subject,
     clean_tags,
     parse_display_id,
+)
+from app.modules.work_items.service.approver_changes import (
+    FIELD_PROBLEMS as APPROVER_CHANGE_PROBLEMS,
 )
 from app.modules.work_items.service.change_windows import FIELD_PROBLEMS as WINDOW_PROBLEMS
 from app.modules.work_items.service.incident_children import CHILD_PROBLEMS
@@ -300,6 +305,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "close_requires",
         "worklog_type",
         "awaiting_fulfilment",  # the service request view codes (work_items.SR_VIEW_CODES)
+        "service_ids",  # a downtime's two CI fields, ("ci_ids", "service_ids") (WP-053 S5)
     }
     found -= {s.code for s in RELEASE_MODEL.statuses}  # releases' seeded moves (from, to)
     found -= {s.code for s in CHANGE_MODEL.statuses}  # changes' seeded moves (WP-045a)
@@ -326,6 +332,9 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         | COPY_PROBLEMS
         | KEPT_PROBLEMS
         | CHILD_PROBLEMS
+        | APPROVER_CHANGE_PROBLEMS
+        | CLARIFICATION_PROBLEMS
+        | DELEGATION_PROBLEMS
     )
     # WP-046b S2: how a link reads from each side (parts._SIDES), not problems.
     found -= set(get_args(Relation))

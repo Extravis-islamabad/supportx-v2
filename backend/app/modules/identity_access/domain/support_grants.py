@@ -118,6 +118,7 @@ class GrantRequest:
     ip_allowlist: Sequence[str]
     verification: Verification
     confirmation_note: str | None
+    mask_names: bool = False  # D-180: names withheld too (0188)
 
 
 def email_domain(email: str) -> str | None:
@@ -212,10 +213,43 @@ LINK_TOKEN_BYTES = 32
 def support_login(grant_id: uuid.UUID) -> str:
     """The support account's sign-in name: generated per grant, never an address (D-177 fallback).
 
-    The shared realm allows one account per address, so the account holds no e-mail at all; the
-    engineer's real address stays on the grant, where SupportX's own mail reaches it.
+    The shared realm allows one account per address, so the account never holds the engineer's
+    address: it holds its own `.invalid` one (`support_address`), and the engineer's real address
+    stays on the grant, where SupportX's own mail reaches it.
     """
     return f"sx-support-{grant_id.hex}"
+
+
+# The account's address domain: RFC 2606 .invalid never delivers, and SupportX's one mail sender
+# refuses it (`mail_recipient_undeliverable`), so the address only completes the profile.
+SUPPORT_ADDRESS_DOMAIN = "support.invalid"
+NAME_PART_MAX = 100  # Keycloak's own limit for first and last name
+
+
+def support_address(grant_id: uuid.UUID) -> str:
+    """The account's e-mail: per grant, under .invalid, set (verified) by SupportX only.
+
+    A fresh realm's user profile requires an address and a last name; without them Keycloak asks
+    the engineer to fill them in at first sign-in, which would let them choose an address (lane
+    C's fresh-realm e2e). The server completes the profile instead (lane B's conditions, #566),
+    and the account holds no role to change it.
+    """
+    return f"support-{grant_id.hex}@{SUPPORT_ADDRESS_DOMAIN}"
+
+
+def support_names(engineer_name: str, grant_id: uuid.UUID) -> tuple[str, str]:
+    """The account's first and last name, never empty (lane B's condition 1 on #566).
+
+    The named engineer's (D-180), split at the last space; one word gives "Support" as the last
+    name; none at all gives "Support" and the grant's short ID.
+    """
+    words = " ".join(engineer_name.split())
+    if not words:
+        return "Support", mail_subject_id(grant_id)
+    first, _, last = words.rpartition(" ")
+    if not first:
+        return words[:NAME_PART_MAX], "Support"
+    return first[:NAME_PART_MAX], last[:NAME_PART_MAX]
 
 
 def new_link_token() -> tuple[str, bytes]:
