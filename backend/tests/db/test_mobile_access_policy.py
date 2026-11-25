@@ -29,6 +29,16 @@ pytestmark = test_auth_bff.pytestmark
 bff = test_auth_bff.bff  # the BFF world fixture, reused
 
 
+async def _as_phone(bff: Bff, phone: str, path: str) -> httpx.Response:
+    """A request from the app alone: its session header, without the test browser's cookie."""
+    cookies = bff.client.cookies
+    bff.client.cookies = httpx.Cookies()
+    try:
+        return await bff.client.get(path, headers={SESSION_HEADER: phone})
+    finally:
+        bff.client.cookies = cookies
+
+
 async def _sql(bff: Bff, statement: str, *args: object) -> list[asyncpg.Record]:
     conn = await asyncpg.connect(bff.db.admin_url)
     try:
@@ -109,7 +119,7 @@ async def test_switching_the_app_off_ends_its_sessions_but_not_the_webs(bff: Bff
     async with _policy(bff, tenant, mobile_allowed=False):
         bff.clock.advance(timedelta(seconds=1))
         await bff.app.state.auth.end_mobile_sessions(tenant)
-        after = await bff.client.get("/api/v1/auth/me", headers={SESSION_HEADER: phone})
+        after = await _as_phone(bff, phone, "/api/v1/auth/mobile/policy")
         assert (after.status_code, after.json()["code"]) == (401, "mobile_not_allowed")
         assert (await bff.me()).status_code == 200  # the browser session carries on
 
@@ -219,7 +229,7 @@ async def test_switching_the_app_off_through_the_card_ends_its_sessions(bff: Bff
     off = await _put_mobile(bff, csrf, version, allowed=False)
     assert off.status_code == 200, off.text
     try:
-        after = await bff.client.get("/api/v1/auth/me", headers={SESSION_HEADER: phone})
+        after = await _as_phone(bff, phone, "/api/v1/auth/mobile/policy")
         assert (after.status_code, after.json()["code"]) == (401, "mobile_not_allowed")
     finally:
         await _put_mobile(bff, csrf, off.json()["version"], allowed=True)

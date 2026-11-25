@@ -712,7 +712,10 @@ class AuthService:
         mobile = MobileStart.from_pending(pending)
         if mobile is not None:  # the person's session list names the phone (ADR-044 item 5)
             session = replace(
-                session, device_platform=mobile.platform, app_version=mobile.app_version
+                session,
+                device_platform=mobile.platform,
+                app_version=mobile.app_version,
+                mobile=True,
             )
         session_id = await self._save_new(session)
         log.info(
@@ -1427,7 +1430,7 @@ class AuthService:
             # Deactivated or sign-in turned off since (REQ-ADM-010 AC1): over at once.
             await self.store.delete_session(session_id)
             raise Unauthenticated(code="session_expired")
-        if session.device_platform is not None:
+        if session.mobile:
             # The tenant switched the mobile app off since (REQ-SEC-047 AC1): its sessions end.
             off = await self.store.user_sessions_ended(mobile_key(session.tenant_id))
             if off is not None and session.created_at <= off:

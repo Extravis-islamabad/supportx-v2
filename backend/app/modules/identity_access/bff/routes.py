@@ -522,14 +522,17 @@ class MobilePolicyOut(BaseModel):
     clear_on_sign_out: bool
 
 
-@router.get("/mobile/policy", summary="The tenant's mobile app policy, for the app")
-async def mobile_policy(request: Request, auth: Auth) -> MobilePolicyOut:
+@router.get(
+    "/mobile/policy",
+    summary="The tenant's mobile app policy, for the app",
+    dependencies=[Depends(rate_limit("auth_sessions"))],
+)
+@entitlement_exempt
+@public_route  # like /me: the BFF's own session check (CurrentSession) answers 401 without one
+async def mobile_policy(found: CurrentSession, auth: Auth) -> MobilePolicyOut:
     """A mobile session's own tenant only; 401 without one, 403 from a web session."""
-    found = await auth.session_for(request)
-    if found is None:
-        raise Unauthenticated(code="unauthenticated")
     _session_id, session = found
-    if session.device_platform is None:
+    if not session.mobile:
         raise PermissionDenied(code="mobile_session_required")
     if auth.database is None:  # pragma: no cover - the app always has its database
         raise ServiceUnavailable(code="sign_in_unavailable")

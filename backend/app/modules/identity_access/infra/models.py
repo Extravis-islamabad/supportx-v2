@@ -548,6 +548,7 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
         CheckConstraint("mobile_unlock_after_minutes BETWEEN 1 AND 60", name="mobile_unlock_range"),
         CheckConstraint(
             "(mobile_idle_seconds IS NULL AND mobile_absolute_seconds IS NULL) OR ("
+            "mobile_idle_seconds IS NOT NULL AND mobile_absolute_seconds IS NOT NULL AND "
             f"mobile_idle_seconds BETWEEN {MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}"
             " AND mobile_absolute_seconds BETWEEN mobile_idle_seconds AND "
             f"{MOBILE_MAX_ABSOLUTE_SECONDS})",
@@ -619,7 +620,8 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # the tenant's message), a second factor, the session's length (NULL: the web app's).
     # Client-enforced by the app: the device unlock (AC2) and clearing local data at sign-out.
     mobile_allowed: Mapped[bool] = mapped_column(server_default="true")
-    mobile_refusal_message: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    # SQL NULL for None, never JSON null (0206's check wants an object or NULL).
+    mobile_refusal_message: Mapped[dict[str, str] | None] = mapped_column(JSONB(none_as_null=True))
     mobile_mfa_required: Mapped[bool] = mapped_column(server_default="false")
     mobile_device_unlock_required: Mapped[bool] = mapped_column(server_default="false")
     mobile_unlock_after_minutes: Mapped[int] = mapped_column(Integer, server_default="5")

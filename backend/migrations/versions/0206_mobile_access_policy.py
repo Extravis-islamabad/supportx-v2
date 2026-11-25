@@ -57,7 +57,9 @@ def upgrade() -> None:
     op.create_check_constraint(
         op.f("ck_identity_settings_mobile_limits"),
         TABLE,
+        # Both set in the second branch: BETWEEN on a NULL is NULL, which a check lets through.
         "(mobile_idle_seconds IS NULL AND mobile_absolute_seconds IS NULL) OR ("
+        "mobile_idle_seconds IS NOT NULL AND mobile_absolute_seconds IS NOT NULL AND "
         f"mobile_idle_seconds BETWEEN {MIN_IDLE} AND {MAX_IDLE}"
         f" AND mobile_absolute_seconds BETWEEN mobile_idle_seconds AND {MAX_ABSOLUTE})",
     )

@@ -224,7 +224,7 @@ inside a service is not shown here: declare it on the route too.
 | POST | `/api/v1/auth/logout` | session (BFF) | - | - |
 | GET | `/api/v1/auth/me` | session (BFF) | - | - |
 | POST | `/api/v1/auth/mobile/exchange` | public | - | - |
-| GET | `/api/v1/auth/mobile/policy` | None | - | - |
+| GET | `/api/v1/auth/mobile/policy` | session (BFF) | - | - |
 | POST | `/api/v1/auth/password-reset` | public | - | - |
 | GET | `/api/v1/auth/sessions` | session (BFF) | - | - |
 | POST | `/api/v1/auth/sessions/end-others` | session (BFF) | - | - |
