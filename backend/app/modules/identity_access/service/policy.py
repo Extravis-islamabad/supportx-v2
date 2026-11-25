@@ -32,7 +32,7 @@ from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.scopes import scope_of
-from app.core.tenancy import NO_SIGN_IN, AccessSource, AccessSourceKind, TenantContext
+from app.core.tenancy import ANY_SOURCE, NO_SIGN_IN, AccessSource, AccessSourceKind, TenantContext
 from app.modules.identity_access.domain import api_keys, support_access
 from app.modules.identity_access.domain import field_access as field_rules
 from app.modules.identity_access.domain import resource_access as resource_rules
@@ -88,6 +88,9 @@ log = get_logger(__name__)
 
 
 SUBJECT_STATE = "authz_subject"
+# A refusal's reason when the right comes only through a sign-in group this session leaves out
+# (D-188): a job, a password sign-in or another provider's (labelled, action_reason.*).
+SIGN_IN_GROUP_ONLY = "sign_in_group_only"
 
 
 # --- access managed from outside SupportX, by sign-in (WP-057 S5c-1b; D-188) ------------------
@@ -95,10 +98,15 @@ SUBJECT_STATE = "authz_subject"
 
 @dataclass(frozen=True)
 class Admitted:
-    """The managed roles and group memberships a sign-in admits (hand-made access always counts)."""
+    """The managed roles and group memberships a sign-in admits (hand-made access always counts).
+
+    `left_out`: the person holds managed access this sign-in does not admit (the profile's note,
+    and a refusal's reason, D-188).
+    """
 
     roles: frozenset[uuid.UUID]
     groups: frozenset[uuid.UUID]
+    left_out: bool = False
 
 
 NOTHING_MANAGED = Admitted(frozenset(), frozenset())
@@ -142,36 +150,40 @@ async def admitted_managed(
     """
     if source.kind is AccessSourceKind.ANY:
         return None
-    if source.kind is AccessSourceKind.BREAK_GLASS:
+    rows = (
+        await session.execute(
+            select(
+                AccessSourceRow.target_kind,
+                AccessSourceRow.target_id,
+                IdpGroupMapping.source_kind,
+                IdpGroupMapping.source_id,
+            )
+            .join(IdpGroupMapping, IdpGroupMapping.id == AccessSourceRow.mapping_id)
+            .where(AccessSourceRow.user_id == user_id, IdpGroupMapping.deleted_at.is_(None))
+        )
+    ).all()
+    if not rows:
         return NOTHING_MANAGED
-    admits: list[ColumnElement[bool]] = [IdpGroupMapping.source_kind == SourceKind.DIRECTORY.value]
+    provider: uuid.UUID | None = None
     if source.kind is AccessSourceKind.SSO and source.alias:
         provider = await session.scalar(
             select(SsoProvider.id).where(
                 SsoProvider.alias == source.alias, SsoProvider.deleted_at.is_(None)
             )
         )
-        if provider is not None:
-            admits.append(
-                and_(
-                    IdpGroupMapping.source_kind == SourceKind.SSO.value,
-                    IdpGroupMapping.source_id == provider,
-                )
-            )
-    rows = (
-        await session.execute(
-            select(AccessSourceRow.target_kind, AccessSourceRow.target_id)
-            .join(IdpGroupMapping, IdpGroupMapping.id == AccessSourceRow.mapping_id)
-            .where(
-                AccessSourceRow.user_id == user_id,
-                IdpGroupMapping.deleted_at.is_(None),
-                or_(*admits),
-            )
-        )
-    ).all()
+
+    def admits(kind: str, source_id: uuid.UUID) -> bool:
+        if source.kind is AccessSourceKind.BREAK_GLASS:
+            return False
+        if kind == SourceKind.DIRECTORY.value:
+            return True
+        return provider is not None and kind == SourceKind.SSO.value and source_id == provider
+
+    kept = {(r.target_kind, r.target_id) for r in rows if admits(r.source_kind, r.source_id)}
     return Admitted(
-        roles=frozenset(r.target_id for r in rows if r.target_kind == "role"),
-        groups=frozenset(r.target_id for r in rows if r.target_kind == "group"),
+        roles=frozenset(t for k, t in kept if k == "role"),
+        groups=frozenset(t for k, t in kept if k == "group"),
+        left_out=any((r.target_kind, r.target_id) not in kept for r in rows),
     )
 
 
@@ -743,7 +755,7 @@ class PolicyService:
                     (row.permission, row.scope, row.condition)
                 )
         features = await self.entitled_features(tenant_id, session)
-        return compile_subject(
+        compiled = compile_subject(
             tenant_id=tenant_id,
             user_id=user_id,
             role_keys=role_keys,
@@ -758,6 +770,24 @@ class PolicyService:
                 session, self._entitled_role_grants(role_grants, features)
             ),
             person=user.user_type != UserType.SERVICE.value,
+        )
+        return await self._noting_held_elsewhere(session, compiled, admitted)
+
+    async def _noting_held_elsewhere(
+        self, session: AsyncSession, compiled: Subject, admitted: Admitted | None
+    ) -> Subject:
+        """The rights held only through managed access this sign-in leaves out (D-188).
+
+        Rare (a second compile only for someone whose sign-in leaves something out), so a refusal
+        can say "from your sign-in group" instead of "no permission".
+        """
+        if admitted is None or not admitted.left_out:
+            return compiled
+        everything = await self.compile(
+            session, compiled.tenant_id, compiled.user_id, source=ANY_SOURCE
+        )
+        return replace(
+            compiled, held_elsewhere=frozenset(everything.grants) - frozenset(compiled.grants)
         )
 
     def _entitled_role_grants(
@@ -974,6 +1004,9 @@ class PolicyService:
         reason = (
             "not_entitled"
             if all(p in subject.not_entitled for p in permissions)
+            # D-188: held through a sign-in group, which only that provider's sign-in applies.
+            else SIGN_IN_GROUP_ONLY
+            if any(p in subject.held_elsewhere for p in permissions)
             else "no_permission"
         )
         raise PermissionDenied(params={"permission": permissions[0], "reason": reason})

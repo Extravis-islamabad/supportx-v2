@@ -166,3 +166,19 @@ async def test_the_profile_lists_what_only_another_sign_in_applies(world: World)
             session, cast.person, AccessSource(AccessSourceKind.SSO, cast.alias)
         )
     assert through == []
+
+
+async def test_a_refusal_says_the_right_comes_from_a_sign_in_group(world: World) -> None:
+    """Lane B's condition 4: a job or a password session refused says why, never "no permission"."""
+    from app.core.errors import PermissionDenied  # noqa: PLC0415 - this test only
+    from app.modules.identity_access.service.policy import SIGN_IN_GROUP_ONLY  # noqa: PLC0415
+
+    cast = await _cast(world)
+    strict = await _compiled(world, cast, NO_SIGN_IN)
+    assert SSO_RIGHT in strict.held_elsewhere
+    assert DIRECTORY_RIGHT not in strict.held_elsewhere  # it applies here
+    with pytest.raises(PermissionDenied) as refused:
+        world.app.state.policy.require(strict, [SSO_RIGHT])
+    assert refused.value.params["reason"] == SIGN_IN_GROUP_ONLY
+    through = await _compiled(world, cast, AccessSource(AccessSourceKind.SSO, cast.alias))
+    assert through.held_elsewhere == frozenset()  # nothing left out
