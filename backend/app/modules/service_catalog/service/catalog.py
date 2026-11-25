@@ -329,6 +329,12 @@ def _stored_question(q: Mapping[str, Any]) -> dict[str, Any]:
         "default": q.get("default"),
         "shown_to": sorted(set(q.get("shown_to") or [a.value for a in QuestionAudience])),
         **({"restarts_approval": True} if q.get("restarts_approval") else {}),
+        # WP-047b S1 (REQ-CAT-020): a choice's option prices, as decimal text (never floats).
+        **(
+            {"option_prices": {str(k): str(v) for k, v in q["option_prices"].items()}}
+            if q.get("option_prices")
+            else {}
+        ),
     }
 
 

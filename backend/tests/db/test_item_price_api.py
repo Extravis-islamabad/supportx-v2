@@ -86,6 +86,19 @@ async def test_the_estimate_is_taken_at_submission_and_on_changed_answers_only(
     assert Decimal((await fresh(world, a, record))["estimated_cost"]) == Decimal("1800.00")
 
 
+async def _show_prices(world: World, org: Org, *, show: bool) -> Any:  # noqa: ANN401 - httpx response
+    current = await world.call("GET", "/catalog/settings", org, org.admin)
+    assert current.status_code == 200, current.text
+    return await world.call(
+        "PATCH",
+        "/catalog/settings",
+        org,
+        org.admin,
+        json={"requesters_see_prices": show},
+        headers={"If-Match": f'"{current.json()["version"]}"', **CONSOLE},
+    )
+
+
 async def test_d184_who_sees_the_estimate(world: World) -> None:
     """View_costs and approvers see it; another technician never; the requester by setting."""
     a = world.a
@@ -105,14 +118,7 @@ async def test_d184_who_sees_the_estimate(world: World) -> None:
     hidden = await world.call("GET", portal, a, a.requester)
     assert hidden.status_code == 200, hidden.text
     assert hidden.json()["estimated_cost"] is None  # off by default
-    on = await world.call(
-        "PATCH",
-        "/catalog/settings",
-        a,
-        a.admin,
-        json={"requesters_see_prices": True},
-        headers=CONSOLE,
-    )
+    on = await _show_prices(world, a, show=True)
     assert on.status_code == 200, on.text
     try:
         shown = await world.call("GET", portal, a, a.requester)
@@ -121,17 +127,10 @@ async def test_d184_who_sees_the_estimate(world: World) -> None:
         assert Decimal(card.json()["price"]) == Decimal("500.00")
         assert card.json()["internal_cost"] is None
     finally:
-        await world.call(
-            "PATCH",
-            "/catalog/settings",
-            a,
-            a.admin,
-            json={"requesters_see_prices": False},
-            headers=CONSOLE,
-        )
+        await _show_prices(world, a, show=False)
     card = await world.call("GET", f"/catalog/items/{item['id']}", a, a.requester)
     assert card.json()["price"] is None
-    assert all("option_prices" not in q for q in card.json()["questions"])
+    assert not any(q.get("option_prices") for q in card.json()["questions"])  # none sent
 
 
 async def test_fulfilment_freezes_the_charge_once(world: World) -> None:
