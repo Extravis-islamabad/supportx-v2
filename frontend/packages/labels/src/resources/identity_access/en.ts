@@ -573,6 +573,9 @@ export const en = {
   'people_erasure.record_type_of.announcement': 'Announcement',
   'people_erasure.record_type_of.asset': 'Asset',
   'people_erasure.record_type_of.ci': 'Configuration item',
+  'people_erasure.record_type_of.ci_baseline': 'Configuration item baseline',
+  'people_erasure.record_type_of.ci_baseline_snapshot':
+    'Configuration item, as a baseline saved it',
   'people_erasure.record_type_of.ci_business_view': 'Business view',
   'people_erasure.record_type_of.ci_version': 'Configuration item, earlier version',
   'people_erasure.record_type_of.file': 'File',

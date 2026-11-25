@@ -1,5 +1,7 @@
 // cmdb labels (see ../README.md). English is the reference.
 export const en = {
+  'audit.action.cmdb.baseline_deleted': 'Deleted a baseline of a configuration item',
+  'audit.action.cmdb.baseline_saved': 'Saved a baseline of a configuration item',
   'audit.action.cmdb.ci_merged': 'Merged a duplicate CI',
   'audit.action.cmdb.ci_state_changed': 'Changed a CI state',
   'audit.action.cmdb.ci_state_created': 'Created a CI state',
@@ -548,6 +550,8 @@ export const en = {
   'errors.cmdb_business_view_not_found': 'This business view does not exist, or you cannot see it.',
   'errors.cmdb_business_view_not_owner':
     "Only the view's owner or a CMDB administrator can change or remove it.",
+  'errors.cmdb_ci_baseline_not_found':
+    'This configuration item has no such baseline, or it has been deleted.',
   'errors.cmdb_ci_merged': 'This configuration item was merged into another one.',
   'errors.cmdb_ci_not_found': 'This configuration item does not exist, or you cannot see it.',
   'errors.cmdb_ci_restore_merged':

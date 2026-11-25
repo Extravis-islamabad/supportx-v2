@@ -576,6 +576,9 @@ export const ur: LabelResource = {
   'people_erasure.record_type_of.announcement': 'اعلان',
   'people_erasure.record_type_of.asset': 'اثاثہ',
   'people_erasure.record_type_of.ci': 'کنفیگریشن آئٹم',
+  'people_erasure.record_type_of.ci_baseline': 'کنفیگریشن آئٹم کی بیس لائن',
+  'people_erasure.record_type_of.ci_baseline_snapshot':
+    'کنفیگریشن آئٹم، جیسا بیس لائن نے محفوظ کیا',
   'people_erasure.record_type_of.ci_business_view': 'کاروباری منظر',
   'people_erasure.record_type_of.ci_version': 'کنفیگریشن آئٹم، پچھلا ورژن',
   'people_erasure.record_type_of.file': 'فائل',

@@ -2,6 +2,8 @@ import type { LabelResource } from '../en';
 
 // cmdb labels (see ../README.md).
 export const ar: LabelResource = {
+  'audit.action.cmdb.baseline_deleted': 'حذف خط أساس لعنصر تهيئة',
+  'audit.action.cmdb.baseline_saved': 'حفظ خط أساس لعنصر تهيئة',
   'audit.action.cmdb.ci_merged': 'دمج عنصر تهيئة مكرر',
   'audit.action.cmdb.ci_state_changed': 'غيّر حالة عنصر تهيئة',
   'audit.action.cmdb.ci_state_created': 'أنشأ حالة عنصر تهيئة',
@@ -567,6 +569,7 @@ export const ar: LabelResource = {
   'errors.cmdb_built_in_locked': 'تحتفظ الأنواع والحالات المدمجة برمزها وموضعها وفئتها.',
   'errors.cmdb_business_view_not_found': 'عرض الأعمال هذا غير موجود، أو لا يمكنك رؤيته.',
   'errors.cmdb_business_view_not_owner': 'لا يغيّر هذا العرض أو يزيله إلا مالكه أو مسؤول CMDB.',
+  'errors.cmdb_ci_baseline_not_found': 'لا يوجد خط أساس كهذا لعنصر التهيئة هذا، أو تم حذفه.',
   'errors.cmdb_ci_merged': 'دُمج عنصر التهيئة هذا في عنصر آخر.',
   'errors.cmdb_ci_not_found': 'عنصر التهيئة هذا غير موجود، أو لا يمكنك رؤيته.',
   'errors.cmdb_ci_restore_merged':

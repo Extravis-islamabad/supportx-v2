@@ -2,6 +2,8 @@ import type { LabelResource } from '../en';
 
 // cmdb labels (see ../README.md).
 export const ur: LabelResource = {
+  'audit.action.cmdb.baseline_deleted': 'کنفیگریشن آئٹم کی ایک بیس لائن حذف کی',
+  'audit.action.cmdb.baseline_saved': 'کنفیگریشن آئٹم کی ایک بیس لائن محفوظ کی',
   'audit.action.cmdb.ci_merged': 'ایک دہرا CI ضم کیا',
   'audit.action.cmdb.ci_state_changed': 'CI کی حالت تبدیل کی',
   'audit.action.cmdb.ci_state_created': 'CI کی حالت بنائی',
@@ -550,6 +552,8 @@ export const ur: LabelResource = {
   'errors.cmdb_business_view_not_found': 'یہ کاروباری منظر موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.cmdb_business_view_not_owner':
     'اس ویو کو صرف اس کا مالک یا CMDB منتظم تبدیل کر یا ہٹا سکتا ہے۔',
+  'errors.cmdb_ci_baseline_not_found':
+    'اس کنفیگریشن آئٹم کی ایسی کوئی بیس لائن نہیں، یا اسے حذف کر دیا گیا ہے۔',
   'errors.cmdb_ci_merged': 'یہ کنفیگریشن آئٹم کسی دوسرے میں ضم ہو گیا۔',
   'errors.cmdb_ci_not_found': 'یہ کنفیگریشن آئٹم موجود نہیں، یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.cmdb_ci_restore_merged':
