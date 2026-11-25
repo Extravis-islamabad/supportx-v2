@@ -68,6 +68,11 @@ def _connection_fk(table: str) -> sa.ForeignKeyConstraint:
 
 
 def upgrade() -> None:
+    # integrations' secret store learns the API token type (SecretType.API_TOKEN): expand only.
+    op.drop_constraint(op.f(_STORE_KIND_CHECK), "connector_secrets", type_="check")
+    op.create_check_constraint(
+        op.f(_STORE_KIND_CHECK), "connector_secrets", f"secret_type IN {_TYPES_NOW}"
+    )
     """The four tables, RLS on each."""
     op.create_table(
         CONNECTIONS,
@@ -183,6 +188,10 @@ def upgrade() -> None:
 
 # Per tenant (business tables force RLS, even for the migrator; see 0023): a tenant's MonetX set-up
 # is never dropped by a downgrade (rule 5h).
+_STORE_KIND_CHECK = "ck_connector_secrets_secret_type_code"
+_TYPES_BEFORE = "('password', 'client_secret', 'certificate', 'refresh_token')"
+_TYPES_NOW = "('password', 'client_secret', 'certificate', 'refresh_token', 'api_token')"
+
 _REFUSE_IF_ANY = """
 DO $$
 DECLARE t uuid;
@@ -191,6 +200,9 @@ BEGIN
         PERFORM set_config('app.tenant_id', t::text, true);
         IF EXISTS (SELECT 1 FROM monitoring_connections) THEN
             RAISE EXCEPTION 'downgrade refused: tenant % has a monitoring connection (rule 5h)', t;
+        END IF;
+        IF EXISTS (SELECT 1 FROM connector_secrets WHERE secret_type = 'api_token') THEN
+            RAISE EXCEPTION 'downgrade refused: tenant % still holds an API token secret', t;
         END IF;
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
@@ -203,3 +215,7 @@ def downgrade() -> None:
     op.execute(_REFUSE_IF_ANY)
     for table in (LINKS, DEVICES, RUNS, CONNECTIONS):
         op.drop_table(table)
+    op.drop_constraint(op.f(_STORE_KIND_CHECK), "connector_secrets", type_="check")
+    op.create_check_constraint(
+        op.f(_STORE_KIND_CHECK), "connector_secrets", f"secret_type IN {_TYPES_BEFORE}"
+    )

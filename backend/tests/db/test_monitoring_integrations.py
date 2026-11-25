@@ -14,6 +14,7 @@ in-process stand-in (tests/monetx_fake.py) behind the client's transport. Covers
 - the health event carries the state code only.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -154,10 +155,13 @@ async def test_tenant_b_neither_sees_nor_changes_tenant_as_rows(world: World, ta
             params,
         )
         assert seen.scalar_one() == 0
-        changed = await session.execute(
-            text(f"UPDATE {table} SET updated_at = now() WHERE tenant_id = :a"),  # noqa: S608 - fixed table names
-            params,
+        # monitoring_links is insert/delete only (the app has no UPDATE on it): try the delete.
+        write = (
+            f"DELETE FROM {table} WHERE tenant_id = :a"  # noqa: S608 - fixed table names
+            if table == "monitoring_links"
+            else f"UPDATE {table} SET updated_at = now() WHERE tenant_id = :a"  # noqa: S608
         )
+        changed = await session.execute(text(write), params)
         assert changed.rowcount == 0
 
 
@@ -431,8 +435,9 @@ async def test_an_open_breaker_answers_unknown_without_asking(
 ) -> None:
     devices = await _monitored(world, monetx)
     monetx.fail = "monitoring_unreachable"
-    for _ in range(3):  # the threshold; each read misses the cache (fresh devices)
-        health.use_cache(None)
+    health.use_cache(None)  # a clean start (it also resets the breakers)
+    for _ in range(3):  # the threshold; each read misses the cache, the breaker kept
+        health._CACHE[0] = health.MemoryCache()  # noqa: SLF001 - an empty cache only
         await world.call("GET", "/monitoring/health", world.a, world.a.admin, params=_ids(devices))
     asked = monetx.reads_of("/api/v1/health")
     health._CACHE[0] = health.MemoryCache()  # noqa: SLF001 - an empty cache, the breaker kept
@@ -470,14 +475,12 @@ async def test_a_change_of_health_emits_the_state_code_only(
     monetx.health["d1"] = {"status": "up", "problem_count": 0}
     async with world.app.state.db.tenant_session(TenantContext(world.a.tenant)) as session:
         assert await health.refresh_tenant(session, world.app.state.settings) >= 1
-        payloads = (
-            await session.execute(
-                text(
-                    "SELECT payload FROM outbox WHERE event_type = "
-                    "'monitoring_integrations.health.changed' ORDER BY created_at"
-                )
-            )
-        ).scalars()
-        for payload in payloads:
-            data = payload if isinstance(payload, dict) else {}
-            assert set(data) <= {"event_id", "ci_id", "state", "occurred_at", "tenant_id"}
+    rows = await world.sql(
+        "SELECT envelope->'payload' AS payload FROM outbox_events WHERE tenant_id = $1"
+        " AND event_type = 'monitoring_integrations.health.changed' ORDER BY created_at",
+        world.a.tenant,
+    )
+    emitted = [json.loads(r["payload"]) for r in rows]
+    assert emitted, "a change of health is an event"
+    for data in emitted:  # IDs and the state code, nothing MonetX said beyond it
+        assert set(data) <= {"event_id", "ci_id", "state", "occurred_at", "tenant_id"}, data
