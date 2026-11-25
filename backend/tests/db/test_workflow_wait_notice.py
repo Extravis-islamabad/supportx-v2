@@ -186,10 +186,12 @@ async def test_a_muted_preference_tells_nobody(world: World) -> None:
         "/notifications/preferences",
         a,
         a.tech_a,
-        json={"off": [{"category": "assignment", "channel": "in_app"}]},
+        json={"off": [{"category": "workflow", "channel": "in_app"}]},
         headers={"If-Match": prefs.headers["etag"]},
     )
     assert saved.status_code == 200, saved.text
+    choices = {(c["category"], c["channel"]): c for c in saved.json()["choices"]}
+    assert not choices[("workflow", "in_app")]["on"]  # really muted (never a locked category)
     try:
         flow = await _flow(world, a)
         record = await _request(world, a, technician=True)

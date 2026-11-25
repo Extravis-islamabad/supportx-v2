@@ -185,10 +185,11 @@ EVENTS: tuple[NotificationEvent, ...] = (
         NotificationCategory.ASSIGNMENT,
         EventDefault(enabled=True, recipients=(GROUP,), channels=(NotificationChannel.IN_APP,)),
     ),
-    # Not required: people may mute it (lane B's condition 4). The technician, else the group.
+    # Not required, and in the workflow category, which people may mute (lane B's condition 4;
+    # "assignment" holds required events, so it is locked). The technician, else the group.
     NotificationEvent(
         WAITING,
-        NotificationCategory.ASSIGNMENT,
+        NotificationCategory.WORKFLOW,
         EventDefault(enabled=True, recipients=(ASSIGNEE, GROUP)),
         variables=(Variable("wait.kind", "notification_variable.wait.kind"),),
     ),
