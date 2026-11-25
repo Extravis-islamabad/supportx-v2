@@ -627,6 +627,7 @@ export const en = {
   'errors.field.downtime_too_long': 'A downtime can last at most a year.',
   'errors.field.row_conflict':
     'This row clashes with an existing configuration item, so it was not added.',
+  'event_type.cmdb.baseline.changed': 'Configuration item baseline changed',
   'event_type.cmdb.business_view.changed': 'Business view changed',
   'event_type.cmdb.ci.created': 'Configuration item created',
   'event_type.cmdb.ci.deleted': 'Configuration item moved to the trash',

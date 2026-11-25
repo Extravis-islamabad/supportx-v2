@@ -640,6 +640,7 @@ export const ar: LabelResource = {
   'errors.field.cmdb_sync_target_unknown': 'لا يمكن لقاعدة مزامنة تعبئة حقل عنصر التهيئة هذا.',
   'errors.field.downtime_too_long': 'لا يمكن أن تتجاوز فترة التوقف سنة واحدة.',
   'errors.field.row_conflict': 'يتعارض هذا الصف مع عنصر تهيئة موجود، لذا لم يُضف.',
+  'event_type.cmdb.baseline.changed': 'تغيّر خط الأساس لعنصر التهيئة',
   'event_type.cmdb.business_view.changed': 'تغيّر عرض أعمال',
   'event_type.cmdb.ci.created': 'أُنشئ عنصر تهيئة',
   'event_type.cmdb.ci.deleted': 'نُقل عنصر تهيئة إلى سلة المحذوفات',

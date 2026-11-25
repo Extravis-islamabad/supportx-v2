@@ -100,9 +100,14 @@ async def test_saving_needs_manage_and_raises_an_ids_only_event(world: World) ->
     )
     assert first.status_code == 201, first.text
     again = await world.call(
-        "POST", _path(ci), a, manager, json={"name": "Gold build"}, headers=key
+        "POST", _path(ci), a, manager, json={"name": "  Gold build  "}, headers=key
     )
-    assert again.json()["id"] == first.json()["id"]  # the same Idempotency-Key: the same baseline
+    assert again.status_code == 201, again.text
+    assert again.json()["id"] == first.json()["id"]  # the same key and body: the same baseline
+    other = await world.call(
+        "POST", _path(ci), a, manager, json={"name": "Silver build"}, headers=key
+    )
+    assert other.status_code >= 400, other.text  # the same key, another body: refused
     saved = first.json()
     assert (saved["name"], saved["from_version"]) == ("Gold build", ci["version"])
     listed = await world.call("GET", _path(ci), a, editor)  # cmdb.view reads them
@@ -111,7 +116,7 @@ async def test_saving_needs_manage_and_raises_an_ids_only_event(world: World) ->
         "SELECT envelope->'payload' AS payload FROM outbox_events WHERE tenant_id = $1"
         " AND event_type = 'cmdb.baseline.changed' AND aggregate_id = $2",
         a.tenant,
-        uuid.UUID(saved["id"]),
+        saved["id"],  # aggregate_id is text
     )
     [payload] = [json.loads(r["payload"]) for r in rows]
     assert payload["action"] == "created"

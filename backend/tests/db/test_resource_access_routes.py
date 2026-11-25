@@ -51,6 +51,8 @@ MUST: dict[str, str] = {
     "/cmdb/cis/{ci_id}/neighbours": CIS,
     "/cmdb/cis/{ci_id}/subscribers": CIS,  # 0185: the CI is read through get_ci first
     "/cmdb/cis/{ci_id}/subscribers/people": CIS,
+    "/cmdb/cis/{ci_id}/baselines": CIS,  # S7b: the CI is read through the filter first
+    "/cmdb/cis/{ci_id}/baselines/{baseline_id}/compare": CIS,
     "/cmdb/cis/{ci_id}/versions": CIS,
     "/cmdb/merges/preview": CIS,  # S4b: both CIs read through get_visible first
     "/assets": ASSETS,
@@ -167,6 +169,11 @@ async def test_every_cmdb_and_asset_record_route_goes_through_scope_filter(world
         headers=_new(),
     )
     # Every right a GET route asks for, so each reaches its read instead of a 403.
+    baseline = await world.call(
+        "POST", f"/cmdb/cis/{ci['id']}/baselines", a, a.admin, json={"name": "Walk"},
+        headers=_new(),
+    )  # fmt: skip
+    assert baseline.status_code == 201, baseline.text
     narrowed = await role(
         world,
         a,
@@ -205,6 +212,7 @@ async def test_every_cmdb_and_asset_record_route_goes_through_scope_filter(world
         "{kind}": "incident",
         "{audit_id}": audit["id"],
         "{note_id}": str(uuid.uuid4()),  # the asset is read before the note
+        "{baseline_id}": baseline.json()["id"],
     }
     query = {
         "/assets/held-by": {"kind": "user", "id": str(a.requester)},

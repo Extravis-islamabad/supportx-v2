@@ -627,6 +627,7 @@ export const ur: LabelResource = {
   'errors.field.downtime_too_long': 'ڈاؤن ٹائم زیادہ سے زیادہ ایک سال کا ہو سکتا ہے۔',
   'errors.field.row_conflict':
     'یہ قطار ایک موجودہ کنفیگریشن آئٹم سے ٹکراتی ہے، اس لیے شامل نہیں کی گئی۔',
+  'event_type.cmdb.baseline.changed': 'کنفیگریشن آئٹم کی بیس لائن بدلی گئی',
   'event_type.cmdb.business_view.changed': 'کاروباری منظر تبدیل ہوا',
   'event_type.cmdb.ci.created': 'کنفیگریشن آئٹم بنایا گیا',
   'event_type.cmdb.ci.deleted': 'کنفیگریشن آئٹم کوڑے دان میں ڈالا گیا',
