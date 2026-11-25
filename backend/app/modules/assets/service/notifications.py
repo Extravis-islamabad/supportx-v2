@@ -26,6 +26,7 @@ from app.modules.assets.events import (
     AssetLoanChanged,
     AssetNoteChanged,
     ErasedHolderItems,
+    OverdueTrashPaused,
     StockLow,
     WarrantyEnding,
 )
@@ -37,10 +38,12 @@ from app.modules.assets.infra.models import (
     AssetLoan,
     AssetLoanItem,
     AssetNote,
+    AssetOverdueRule,
     AssetProduct,
     AssetStockRule,
 )
-from app.modules.assets.service.assets import ASSETS, MANAGE, RECORD_TYPE, VIEW, _visible
+from app.modules.assets.service.assets import ASSETS, DELETE, MANAGE, RECORD_TYPE, VIEW, _visible
+from app.modules.assets.service.catalogue import CONFIGURE_ANY
 from app.modules.assets.service.realtime import RECORD_KIND
 from app.modules.identity_access import scope_filter, subject_for, user_names, worker_policy
 from app.shared.events import EventEnvelope
@@ -103,6 +106,15 @@ EVENTS: tuple[NotificationEvent, ...] = (
             Variable("holdings.count", "notification_variable.holdings.count"),
         ),
     ),
+    # D-185 (lane C): the overdue-scan rule's "move to trash" was paused, as its saver no longer
+    # holds assets.delete. Required: the rule stays off until someone who may trash saves it.
+    NotificationEvent(
+        "asset.overdue_trash_paused",
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("rule_fixers",)),
+        required=True,
+        public=False,
+    ),
     NotificationEvent(
         "asset.ack_requested",
         NotificationCategory.ASSIGNMENT,
@@ -126,8 +138,10 @@ RECIPIENT_KINDS = (
     "asset_managers",
     "stock_watchers",
     "mentioned",
+    "rule_fixers",
 )
 MANAGERS_LIMIT = 500
+RULE_LINK = "/admin/assets"
 VARIABLES = (
     Variable("warranty.ends_on", "notification_variable.warranty.ends_on"),
     Variable("record.display_id", "notification_variable.record.display_id"),
@@ -159,6 +173,7 @@ class AssetNotifications:
         StockLow.event_type,
         AssetNoteChanged.event_type,
         ErasedHolderItems.event_type,
+        OverdueTrashPaused.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -167,6 +182,7 @@ class AssetNotifications:
             WarrantyEnding.event_type: ("asset.warranty_expiring",),
             StockLow.event_type: ("asset.stock_low",),
             ErasedHolderItems.event_type: ("asset.erased_holder_items",),
+            OverdueTrashPaused.event_type: ("asset.overdue_trash_paused",),
         }
         if envelope.event_type in fixed:
             return fixed[envelope.event_type]
@@ -195,6 +211,7 @@ class AssetNotifications:
             StockLow.event_type: self._stock_context,
             AssetNoteChanged.event_type: self._note_context,
             ErasedHolderItems.event_type: self._held_context,
+            OverdueTrashPaused.event_type: self._paused_context,
         }.get(envelope.event_type)
         if other is not None:
             return await other(session, event_code, payload)
@@ -358,6 +375,39 @@ class AssetNotifications:
             event_code=event_code,
         )
 
+    async def _paused_context(
+        self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
+    ) -> RecordContext | None:
+        """Who may fix the paused rule: people holding assets.delete and asset configuration."""
+        del payload
+        tenant = session.info[SESSION_TENANT_KEY].tenant_id
+        rule = await session.get(AssetOverdueRule, tenant)
+        if rule is None or rule.enabled:
+            return None  # saved again meanwhile: nothing to fix
+        policy = worker_policy()
+        deleters = {
+            u for u, _ in await policy.holders(session, tenant, DELETE, limit=MANAGERS_LIMIT)
+        }
+        configurers: set[uuid.UUID] = set()
+        for permission in CONFIGURE_ANY:
+            configurers |= {
+                u
+                for u, _ in await policy.holders(session, tenant, permission, limit=MANAGERS_LIMIT)
+            }
+        fixers = frozenset(deleters & configurers)
+        if not fixers:
+            return None
+        return RecordContext(
+            record_id=tenant,
+            display_id="",
+            link=RULE_LINK,
+            variables={"record.link": RULE_LINK},
+            public_variables={},
+            relatives={"rule_fixers": fixers},
+            conditions={},
+            event_code=event_code,
+        )
+
     async def _held_context(
         self, session: AsyncSession, event_code: str, payload: Mapping[str, object]
     ) -> RecordContext | None:
@@ -414,6 +464,10 @@ class AssetNotifications:
         """FULL for staff who may see the asset; PUBLIC for the person who holds it."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
+        if record_id == tenant and await session.get(AssetOverdueRule, tenant) is not None:
+            # The overdue-scan rule (keyed by its tenant): its configurers, never anyone else.
+            allowed = any(subject.holds(p) for p in CONFIGURE_ANY)
+            return RecordAccess.FULL if allowed else RecordAccess.NONE
         if await session.get(AssetConsumableStock, record_id) is not None:  # a low stock
             return RecordAccess.FULL if subject.holds(VIEW) else RecordAccess.NONE
         loan = await session.get(AssetLoan, record_id)

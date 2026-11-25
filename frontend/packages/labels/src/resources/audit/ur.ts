@@ -90,6 +90,8 @@ export const ur: LabelResource = {
   'audit.action.asset_note.updated': 'اثاثے کا نوٹ بدلا',
   'audit.action.asset_overdue_rule.changed': 'تاخیر سے اسکین کا اصول بدلا',
   'audit.action.asset_overdue_rule.ran': 'تاخیر سے اسکین کے اصول نے اثاثے بدلے',
+  'audit.action.asset_overdue_rule.trash_paused':
+    'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا روک دیا گیا',
   'audit.action.asset_scan.cleaned_up': 'مدت کے بعد اسکین کی تاریخ ہٹائی',
   'audit.action.asset_stock_rule.created': 'کم از کم اسٹاک شامل کیا',
   'audit.action.asset_stock_rule.deleted': 'کم از کم اسٹاک ہٹایا',
@@ -1099,6 +1101,7 @@ export const ur: LabelResource = {
   'event_type.assets.loan.changed': 'اثاثوں کا ادھار بدلا',
   'event_type.assets.note.changed': 'اثاثے کا نوٹ بدلا',
   'event_type.assets.overdue_rule.changed': 'تاخیر سے اسکین کا اصول بدلا یا چلا',
+  'event_type.assets.overdue_rule.trash_paused': 'تاخیر سے اسکین کے اصول کا ردی میں منتقل کرنا رکا',
   'event_type.assets.product.changed': 'پروڈکٹ تبدیل ہوئی',
   'event_type.assets.scan.recorded': 'اثاثے کا اسکین درج ہوا',
   'event_type.assets.stock.low': 'اسٹاک کم از کم پر',

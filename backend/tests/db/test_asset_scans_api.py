@@ -22,8 +22,10 @@ from tests.db.test_asset_audits_api import _asset
 from tests.db.test_asset_financials_api import _events, _fresh
 from tests.db.test_asset_moves_api import _states
 from tests.db.test_assets_api import _types
+from tests.db.test_cmdb_relationships import _given
 from tests.db.test_incidents_api import Org, World, field_codes, problem
 from tests.db.test_knowledge_api import _match, _new
+from tests.db.test_notifications_api import run_engine
 
 pytestmark = pytest.mark.db
 world = test_incidents_api.world  # the incident world fixture, reused
@@ -321,3 +323,99 @@ async def test_056_the_preview_only_reads_it_writes_no_row_and_no_event(world: W
     )
     assert previewed.status_code == 200, previewed.text
     assert await counts() == before
+
+
+# --- D-185 follow-up (lane C): the sweep never trashes in the name of someone who may not ------
+
+
+async def _trash_rule_saved_by(world: World, org: Org, saver: uuid.UUID) -> None:
+    """A trash rule whose last saver is `saver` (as a rule saved before 0202 would be)."""
+    rule = await _rule(world, org)
+    saved = await world.call(
+        "PATCH", RULE, org, org.admin, headers=_match(rule["version"]),
+        json={"enabled": True, "days": 90, "action": "trash"},
+    )  # fmt: skip
+    assert saved.status_code == 200, saved.text
+    await world.sql(
+        "UPDATE asset_overdue_rules SET updated_by = $2 WHERE tenant_id = $1", org.tenant, saver
+    )
+
+
+async def test_a_trash_rule_whose_saver_may_not_delete_pauses_and_tells_who_may_fix_it(
+    world: World,
+) -> None:
+    a = world.a
+    asset = await _asset(world, a, "Kept by the pause")
+    await _scan(a, world, asset, 100)
+    await _given(world, a, a.tech_b, "Asset configurer", [("config.assets", "all")])
+    await _trash_rule_saved_by(world, a, a.tech_b)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await scans.run_rule(session) is None
+    # Nothing trashed; the rule is off; the pause is audited and its event is in the outbox.
+    assert (await world.call("GET", f"/assets/{asset['id']}", a, a.admin)).status_code == 200
+    rule = await _rule(world, a)
+    assert rule["enabled"] is False
+    assert rule["action"] == "trash"  # kept as saved: someone who may trash turns it back on
+    audit = await world.sql(
+        "SELECT details::text AS details FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        a.tenant,
+        scans.TRASH_PAUSED,
+    )
+    assert len(audit) == 1
+    assert str(a.tech_b) in audit[0]["details"]
+    paused = await world.sql(
+        "SELECT count(*) AS n FROM outbox_events WHERE tenant_id = $1 AND event_type = $2",
+        a.tenant,
+        "assets.overdue_rule.trash_paused",
+    )
+    assert paused[0]["n"] == 1
+    # Who may fix it hears of it (people holding assets.delete and asset configuration); the
+    # configurer who can't delete does not.
+    await _given(
+        world, a, a.lead, "Asset fixer", [("config.assets", "all"), ("assets.delete", "all")]
+    )
+    await run_engine(world, a)
+    told = await world.sql(
+        "SELECT user_id, state, reason FROM notification_deliveries"
+        " WHERE tenant_id = $1 AND event_code = 'asset.overdue_trash_paused'",
+        a.tenant,
+    )
+    reached = {d["user_id"] for d in told if d["state"] != "skipped" and d["reason"] is None}
+    assert a.lead in reached, told
+    assert a.tech_b not in reached, told
+    # The configurer alone can't turn it back on (saving a trash rule needs assets.delete).
+    again = await world.call(
+        "PATCH", RULE, a, a.tech_b, headers=_match(rule["version"]), json={"enabled": True}
+    )
+    assert again.status_code == 403, again.text
+
+
+async def test_a_trash_rule_saved_by_someone_who_may_delete_still_trashes(world: World) -> None:
+    a = world.a
+    asset = await _asset(world, a, "Trashed as before")
+    await _scan(a, world, asset, 100)
+    await _given(
+        world, a, a.lead, "Asset deleter", [("config.assets", "all"), ("assets.delete", "all")]
+    )
+    await _trash_rule_saved_by(world, a, a.lead)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        run = await scans.run_rule(session)
+    assert run is not None
+    assert run.changed_count >= 1
+    assert (await world.call("GET", f"/assets/{asset['id']}", a, a.admin)).status_code == 404
+
+
+async def test_a_move_rule_saved_by_a_configurer_keeps_running(world: World) -> None:
+    """Only the trash is paused: a move to a state needs no delete right."""
+    a = world.a
+    await _given(world, a, a.tech_c, "Asset configurer", [("config.assets", "all")])
+    rule = await _rule(world, a)
+    missing_id = (await _states(world, a))["missing"]
+    saved = await world.call(
+        "PATCH", RULE, a, a.tech_c, headers=_match(rule["version"]),
+        json={"enabled": True, "days": 60, "action": "move_state", "state_id": missing_id},
+    )  # fmt: skip
+    assert saved.status_code == 200, saved.text
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        await scans.run_rule(session)
+    assert (await _rule(world, a))["enabled"] is True

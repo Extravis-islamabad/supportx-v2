@@ -52,7 +52,7 @@ from app.modules.assets.domain.scans import (
     failure_problem,
     rule_problems,
 )
-from app.modules.assets.events import OverdueRuleChanged, ScanRecorded
+from app.modules.assets.events import OverdueRuleChanged, OverdueTrashPaused, ScanRecorded
 from app.modules.assets.infra.models import (
     Asset,
     AssetLifeCycle,
@@ -78,7 +78,7 @@ from app.modules.assets.service.assets import (
 from app.modules.assets.service.catalogue import SETTINGS_RECORD, _fresh, require_configure
 from app.modules.assets.service.moves import _life_cycle_id, _missing, _moves
 from app.modules.audit import WORKER, AuditActorType, record
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, subject_for
 from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import Change, Source, automated, record_changes
@@ -90,6 +90,7 @@ RULE_RECORD_TYPE = "asset_overdue_rule"
 OVERDUE_REASON = "overdue_scan_rule"  # label asset_change_reason.overdue_scan_rule {{days}}
 RULE_FIELDS = ("enabled", "days", "product_type_ids", "action", "state_id")
 DELETE_BATCH = 5000
+TRASH_PAUSED = "asset_overdue_rule.trash_paused"
 RUNS_LISTED = 20
 
 
@@ -566,6 +567,9 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
     )
     if terms.action is OverdueAction.MOVE_STATE and terms.state_id is None:
         return None
+    if terms.action is OverdueAction.TRASH and not await _saver_may_trash(session, rule):
+        await _pause_trash(session, rule)
+        return None
     at = now or system_clock.now()
     statement = (await _overdue(session, terms, at)).order_by(Asset.id).limit(RUN_LIST_MAX)
     # The rule is the reason a "reason required" state asks for (accepted by the coordinator):
@@ -620,6 +624,58 @@ async def run_rule(session: AsyncSession, *, now: datetime | None = None) -> Ass
         aggregate_id=run.id,
     )
     return run
+
+
+async def _saver_may_trash(session: AsyncSession, rule: AssetOverdueRule) -> bool:
+    """Whether the person who last saved the rule may trash assets now (D-185, lane C).
+
+    Saving a trash rule needs `assets.delete` (#623), but a rule saved before 0202, or by
+    someone who has since lost the right, must not keep trashing in their name. Checked through
+    the normal subject, so a vendor support account (never `assets.delete`) never qualifies.
+    """
+    saver = rule.updated_by or rule.created_by
+    if saver is None:
+        return False
+    try:
+        subject = await subject_for(session, rule.tenant_id, saver)
+    except AppError:  # gone, disabled or erased: nobody left whose right it was
+        return False
+    return subject.support_grant_id is None and subject.holds(DELETE)
+
+
+async def _pause_trash(session: AsyncSession, rule: AssetOverdueRule) -> None:
+    """Switch the trash rule off, audited, and tell who may fix it.
+
+    Moves to a state never come here (they keep running). Saving it again needs
+    `assets.delete` (save_rule).
+    """
+    saver = rule.updated_by or rule.created_by
+    rule.enabled = False
+    rule.version += 1
+    rule.updated_at = system_clock.now()
+    await session.flush()
+    await record(
+        session,
+        action_code=TRASH_PAUSED,
+        facts=WORKER,
+        actor=(AuditActorType.AUTOMATION, None),
+        object_type="asset_overdue_rule",
+        object_id=rule.tenant_id,
+        details={"saved_by": None if saver is None else str(saver)},
+    )
+    await record_event(
+        session,
+        OverdueTrashPaused(rule_id=rule.tenant_id, saved_by=saver),
+        aggregate_id=rule.tenant_id,
+        aggregate_version=rule.version,
+    )
+    await record_event(
+        session,
+        OverdueRuleChanged(action="updated"),
+        aggregate_id=rule.tenant_id,
+        aggregate_version=rule.version,
+    )
+    log.warning("asset_overdue_trash_paused", tenant_id=str(rule.tenant_id))
 
 
 async def overdue_sweep(database: Database, settings: Settings) -> None:

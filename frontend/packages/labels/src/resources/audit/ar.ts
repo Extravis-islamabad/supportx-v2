@@ -90,6 +90,8 @@ export const ar: LabelResource = {
   'audit.action.asset_note.updated': 'عدّل ملاحظة على أصل',
   'audit.action.asset_overdue_rule.changed': 'غيّر قاعدة المسح المتأخر',
   'audit.action.asset_overdue_rule.ran': 'غيّرت قاعدة المسح المتأخر أصولًا',
+  'audit.action.asset_overdue_rule.trash_paused':
+    'أُوقف نقل قاعدة المسح المتأخر إلى سلة المهملات مؤقتًا',
   'audit.action.asset_scan.cleaned_up': 'أزال سجل المسح بعد مدة الاحتفاظ',
   'audit.action.asset_stock_rule.created': 'أضاف حدًا أدنى للمخزون',
   'audit.action.asset_stock_rule.deleted': 'أزال حدًا أدنى للمخزون',
@@ -1091,6 +1093,8 @@ export const ar: LabelResource = {
   'event_type.assets.loan.changed': 'تغيّرت إعارة أصول',
   'event_type.assets.note.changed': 'تغيّرت ملاحظة أصل',
   'event_type.assets.overdue_rule.changed': 'تغيّرت قاعدة المسح المتأخر أو شُغّلت',
+  'event_type.assets.overdue_rule.trash_paused':
+    'إيقاف مؤقت لنقل قاعدة المسح المتأخر إلى سلة المهملات',
   'event_type.assets.product.changed': 'تغيّر منتج',
   'event_type.assets.scan.recorded': 'سُجّل مسح أصل',
   'event_type.assets.stock.low': 'المخزون عند حده الأدنى',
