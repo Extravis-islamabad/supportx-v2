@@ -31,7 +31,7 @@ from app.modules.ai import (
     unregister_record_access,
 )
 from app.modules.assets import register_linked_records, register_ticket_requesters
-from app.modules.cmdb import register_ci_links, register_open_counts
+from app.modules.cmdb import register_ci_linked_records, register_ci_links, register_open_counts
 from app.modules.identity_access import SERVICE_DESK_MANAGER
 from app.modules.work_items.api.approval_settings_routes import router as approval_settings_router
 from app.modules.work_items.api.change_board_routes import router as change_board_router
@@ -81,6 +81,7 @@ from app.modules.work_items.service import (
     change_notifications,
     change_reminders,
     checklists,
+    ci_linked_port,
     ci_links,
     clarifications,
     delegation_notifications,
@@ -210,6 +211,8 @@ register_linked_records(ASSET_LINK_PORT)
 register_ci_links(ci_links.repoint_ci_links)
 # WP-053 S5 (REQ-CMDB-009, -019): open and total linked records per CI, each type's own view.
 register_open_counts(ci_links.COUNTS_PORT)
+# A CI's Associations tab (WP-053 S5c, lane B's #635 port): its linked work items, visible only.
+register_ci_linked_records(ci_linked_port.PORT)
 _register_ai()  # at import too: the consumers worker runs the re-embed sweep without startup
 register_types()
 register_triggers()
