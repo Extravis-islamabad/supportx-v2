@@ -1,18 +1,26 @@
-import { Button, Flex, List, Typography } from 'antd';
-import { useState } from 'react';
+import { Alert, Button, Flex, List, Typography } from 'antd';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
 import { useCiLinkedPage, type CiLinkedKinds } from '@supportx/api-client';
-import { Drawer, EmptyText, ToneTag, useDateTime, useLabel } from '@supportx/ui';
+import { Drawer, EmptyText, reportError, ToneTag, useDateTime, useLabel } from '@supportx/ui';
 
-/** Where each kind of work item opens in the console. */
-const PATHS: Record<string, string> = {
+import { problemText } from '../assets/problemText';
+
+type LinkedKind = 'incident' | 'service_request' | 'problem' | 'change' | 'release';
+
+/** Where each kind of work item opens in the console; an unknown kind is shown, never linked. */
+const PATHS: Record<LinkedKind, string> = {
   incident: '/incidents',
   service_request: '/requests',
   problem: '/problems',
   change: '/changes',
   release: '/releases',
 };
+
+function isLinkedKind(kind: string): kind is LinkedKind {
+  return Object.hasOwn(PATHS, kind);
+}
 
 /**
  * The work items linked to a CI (WP-053 S5c; REQ-CMDB-019, D-158): per type, how many are open
@@ -75,6 +83,11 @@ function LinkedDrawer({
   const dates = useDateTime();
   const page = useCiLinkedPage(ciId, kind);
   const rows = page.data?.pages.flatMap((p) => p.items) ?? [];
+  // A failed load is never "none you can see" (lane C's #635 review): say so, offer Retry,
+  // and report it (the query is silent so a missing port never toasts).
+  useEffect(() => {
+    if (page.isError) reportError(page.error);
+  }, [page.isError, page.error]);
   return (
     <Drawer
       open={kind !== undefined}
@@ -84,16 +97,42 @@ function LinkedDrawer({
       title={kind === undefined ? '' : t(`work_item_type.${kind}`)}
       data-testid="ci-associations-drawer"
     >
+      {page.isError && (
+        <Alert
+          type="error"
+          showIcon
+          message={problemText(t, page.error)}
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                void page.refetch();
+              }}
+            >
+              {t('actions.retry')}
+            </Button>
+          }
+          data-testid="ci-associations-error"
+        />
+      )}
       <List
-        loading={page.isPending}
+        loading={page.isPending && kind !== undefined}
         dataSource={rows}
-        locale={{ emptyText: <EmptyText>{t('cmdb.linked.none_visible')}</EmptyText> }}
+        locale={{
+          emptyText: page.isError ? null : <EmptyText>{t('cmdb.linked.none_visible')}</EmptyText>,
+        }}
         renderItem={(row) => (
           <List.Item>
             <Flex vertical gap={2} style={{ minWidth: 0 }}>
-              <Link to={`${PATHS[row.kind] ?? '/incidents'}/${row.id}`}>
-                <bdi dir="ltr">{row.display_id}</bdi> <bdi dir="auto">{row.subject}</bdi>
-              </Link>
+              {isLinkedKind(row.kind) ? (
+                <Link to={`${PATHS[row.kind]}/${row.id}`}>
+                  <bdi dir="ltr">{row.display_id}</bdi> <bdi dir="auto">{row.subject}</bdi>
+                </Link>
+              ) : (
+                <span>
+                  <bdi dir="ltr">{row.display_id}</bdi> <bdi dir="auto">{row.subject}</bdi>
+                </span>
+              )}
               <Flex gap={8} align="center" wrap>
                 <ToneTag tone={row.open ? 'info' : 'default'}>
                   {t(row.open ? 'cmdb.linked.open' : 'cmdb.linked.done')}

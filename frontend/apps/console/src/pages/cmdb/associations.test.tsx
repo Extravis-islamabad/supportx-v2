@@ -52,7 +52,7 @@ const ci = {
   names: {},
 };
 
-function api(linked: 'available' | 'not_available') {
+function api(linked: 'available' | 'not_available', page: 'ok' | 'fails' | 'unknown_kind' = 'ok') {
   const fake = consoleApi({
     me: fakeSession({}, { permissions: fakePermissions('technician') }),
     routes: {
@@ -78,22 +78,25 @@ function api(linked: 'available' | 'not_available') {
               },
             }
           : { status: 404, body: problem(404, 'linked_records_not_available') },
-      [`GET /api/v1/cmdb/cis/${CI}/linked/incident`]: {
-        body: {
-          items: [
-            {
-              id: INCIDENT,
-              kind: 'incident',
-              display_id: 'INC-7',
-              subject: 'Mail is slow',
-              status: 'in_progress',
-              open: true,
-              updated_at: now,
+      [`GET /api/v1/cmdb/cis/${CI}/linked/incident`]:
+        page === 'fails'
+          ? { status: 500, body: problem(500, 'internal_error') }
+          : {
+              body: {
+                items: [
+                  {
+                    id: INCIDENT,
+                    kind: page === 'unknown_kind' ? 'future_type' : 'incident',
+                    display_id: 'INC-7',
+                    subject: 'Mail is slow',
+                    status: 'in_progress',
+                    open: true,
+                    updated_at: now,
+                  },
+                ],
+                next_cursor: null,
+              },
             },
-          ],
-          next_cursor: null,
-        },
-      },
     },
   });
   restore = fake.restore;
@@ -125,6 +128,31 @@ describe("CMDB › a CI's Associations tab", () => {
     expect(link.getAttribute('href')).toBe(`/incidents/${INCIDENT}`);
     expect(drawer.textContent).toContain('Open');
     expect(drawer.textContent).not.toMatch(/in_progress|incident\b|service_request/);
+  });
+
+  it('a failed list says so with "Try again", never "none you can see" (lane C)', async () => {
+    setDefaultClientFactory(inertClientFactory);
+    api('available', 'fails');
+    window.history.pushState({}, '', `/cmdb/${CI}?tab=associations`);
+    render(<Shown />);
+    const tab = await screen.findByTestId('ci-associations');
+    fireEvent.click(await within(tab).findByTestId('ci-associations-incident'));
+    const drawer = await screen.findByTestId('ci-associations-drawer');
+    await within(drawer).findByTestId('ci-associations-error');
+    expect(within(drawer).getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(drawer.textContent).not.toContain('None you can see.');
+  });
+
+  it('an unknown type is shown as text, never linked as an incident (lane C)', async () => {
+    setDefaultClientFactory(inertClientFactory);
+    api('available', 'unknown_kind');
+    window.history.pushState({}, '', `/cmdb/${CI}?tab=associations`);
+    render(<Shown />);
+    const tab = await screen.findByTestId('ci-associations');
+    fireEvent.click(await within(tab).findByTestId('ci-associations-incident'));
+    const drawer = await screen.findByTestId('ci-associations-drawer');
+    await within(drawer).findByText('INC-7');
+    expect(within(drawer).queryByRole('link')).toBeNull();
   });
 
   it('has no Associations tab while work items do not offer the links', async () => {
