@@ -35,6 +35,7 @@ export const ur: LabelResource = {
   'audit.action.asset.created': 'اثاثہ شامل کیا',
   'audit.action.asset.deleted': 'اثاثہ کوڑے دان میں ڈالا',
   'audit.action.asset.disposed': 'اثاثہ تلف کیا',
+  'audit.action.asset.handed_over': 'درخواست کے لیے اثاثہ حوالے کیا',
   'audit.action.asset.life_cycle_deleted': 'اثاثے کا لائف سائیکل حذف کیا',
   'audit.action.asset.life_cycle_saved': 'اثاثے کا لائف سائیکل محفوظ کیا',
   'audit.action.asset.linked': 'دو اثاثوں کو جوڑا',

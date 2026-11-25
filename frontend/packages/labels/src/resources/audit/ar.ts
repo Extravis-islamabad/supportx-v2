@@ -35,6 +35,7 @@ export const ar: LabelResource = {
   'audit.action.asset.created': 'أضاف أصلًا',
   'audit.action.asset.deleted': 'نقل أصلًا إلى المهملات',
   'audit.action.asset.disposed': 'تخلّص من أصل',
+  'audit.action.asset.handed_over': 'سلّم أصلًا لتنفيذ طلب',
   'audit.action.asset.life_cycle_deleted': 'حذف دورة حياة أصل',
   'audit.action.asset.life_cycle_saved': 'حفظ دورة حياة أصل',
   'audit.action.asset.linked': 'ربط أصلين',

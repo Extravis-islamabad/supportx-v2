@@ -274,12 +274,12 @@ async def test_handover_assigns_links_and_audits(world: World) -> None:
     )
     assert [r["actor_id"] for r in audit] == [a.admin]
     history = await world.sql(
-        "SELECT source FROM field_history WHERE tenant_id = $1 AND record_id = $2"
+        "SELECT source, reason FROM field_changes WHERE tenant_id = $1 AND record_id = $2"
         " AND field = 'owner_user_id'",
         a.tenant,
         uuid.UUID(asset["id"]),
     )
-    assert [r["source"] for r in history] == ["workflow"]
+    assert [(r["source"], r["reason"]) for r in history] == [("workflow", record["display_id"])]
     holdings = await world.sql(  # lane B: the hand-over starts a holding (none was current)
         "SELECT holder_id, ended_at FROM asset_assignments WHERE tenant_id = $1 AND asset_id = $2",
         a.tenant,

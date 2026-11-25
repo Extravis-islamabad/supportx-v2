@@ -33,6 +33,7 @@ export const en = {
   'audit.action.asset.created': 'Added an asset',
   'audit.action.asset.deleted': 'Moved an asset to the trash',
   'audit.action.asset.disposed': 'Disposed of an asset',
+  'audit.action.asset.handed_over': 'Handed an asset over for a request',
   'audit.action.asset.life_cycle_deleted': 'Deleted an asset life cycle',
   'audit.action.asset.life_cycle_saved': 'Saved an asset life cycle',
   'audit.action.asset.linked': 'Linked two assets',

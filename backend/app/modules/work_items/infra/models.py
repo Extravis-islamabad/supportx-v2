@@ -1676,7 +1676,8 @@ class WorkItemTask(TenantEntity):
     # fields and their values, an asset hand-over or not, task-only access by this task alone,
     # and a conditional task no longer wanted but kept for a person (worklogs or values).
     plan_key: Mapped[str | None] = mapped_column(String(40))
-    fields: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # None is SQL NULL, never JSON null (the fields-array check, 0204).
+    fields: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB(none_as_null=True))
     field_values: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     kind: Mapped[str] = mapped_column(String(20), server_default="task")
     task_only: Mapped[bool] = mapped_column(Boolean, server_default="false")
