@@ -95,8 +95,11 @@ export const ur: LabelResource = {
   'automation.problem_field.stop_after': 'اس قاعدے کے بعد رک جائیں',
   'automation.problem_field.use_category_group': 'زمرے کا گروپ',
   'automation.problems': 'یہ ابھی محفوظ نہیں ہو سکتا:',
+  'automation.reason.approval_feature_lapsed': 'پلان میں اب منظوری کی کارروائیاں شامل نہیں',
+  'automation.reason.approval_pending': 'ایک منظوری پہلے سے منتظر تھی',
   'automation.reason.has_value': 'اس میں پہلے سے قدر تھی',
   'automation.reason.not_supported': 'اس قسم کے ریکارڈ کے لیے دستیاب نہیں',
+  'automation.reason.record_closed': 'ریکارڈ بند تھا',
   'automation.refusal_message': 'محفوظ کرنے سے انکار پر دکھایا جانے والا پیغام ({{language}})',
   'automation.remove': 'ہٹائیں',
   'automation.remove.confirm': '“{{name}}” ہٹائیں؟ ریکارڈ پہلے کی گئی تبدیلیاں رکھیں گے۔',
@@ -195,6 +198,9 @@ export const ur: LabelResource = {
     '{{name}} اب فعال نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
   'automation.why.unavailable.not_in_group':
     '{{name}} اب اس گروپ میں نہیں، اس لیے یہ کسی کو تفویض کیے بغیر گروپ میں گیا',
+  'automation.workflow.approval_timeout': 'مہلت (گھنٹے)',
+  'automation.workflow.approval_timeout_help':
+    'کسی کے فیصلہ کرنے تک انتظار کے لیے خالی چھوڑیں۔ مہلت کے ساتھ اس کی «مہلت ختم» شاخ جوڑیں۔',
   'automation_outcome.applied': 'ہو گیا',
   'automation_outcome.chain_depth': 'روکا گیا: سلسلہ بہت لمبا',
   'automation_outcome.failed': 'ناکام',
@@ -280,6 +286,7 @@ export const ur: LabelResource = {
   'setup.page.workflows.keywords': 'ورک فلوز, ڈیزائنر, منظوری, خودکاری, ٹیسٹ موڈ, ورژن',
   'trigger_action_kind.note': 'نجی نوٹ شامل کریں',
   'trigger_action_kind.set': 'فیلڈ سیٹ کریں',
+  'trigger_action_kind.start_approval': 'منظوری طلب کریں',
   'trigger_action_kind.start_workflow': 'ورک فلو شروع کریں',
   'trigger_event.assigned': 'تفویض ہونے پر',
   'trigger_event.created': 'بننے پر',
@@ -365,10 +372,13 @@ export const ur: LabelResource = {
   'workflow_port.no': 'نہیں',
   'workflow_port.overtaken': 'پہلے ہی ہو چکا',
   'workflow_port.rejected': 'مسترد',
+  'workflow_port.timed_out': 'مہلت ختم',
   'workflow_port.timeout': 'وقت ختم',
   'workflow_port.yes': 'ہاں',
   'workflow_problem.approval_not_offered': 'اس قسم کے ریکارڈ میں منظوریاں نہیں ہوتیں۔',
   'workflow_problem.approval_role_unknown': 'اس ریکارڈ میں {{role}} کا کردار نہیں ہے۔',
+  'workflow_problem.approval_timeout_out_of_range':
+    '{{min}} اور {{max}} گھنٹوں کے درمیان مہلت منتخب کریں۔',
   'workflow_problem.approval_without_approvers': 'منظوری دینے والے چنیں: افراد، گروپ یا کردار۔',
   'workflow_problem.definition_format_invalid':
     'یہ ورک فلو ایسی شکل میں محفوظ ہے جو یہ ورژن نہیں پڑھ سکتا۔',

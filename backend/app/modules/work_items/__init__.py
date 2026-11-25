@@ -73,6 +73,7 @@ from app.modules.work_items.domain.types import (
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import (
     ai_sources,
+    approval_mail,
     asset_links,
     audit_subtype,
     bulk,
@@ -239,6 +240,8 @@ record_facts.register()
 audit_subtype.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# WP-047a S4 (REQ-SR-038): replies to approval mail decide, as above.
+approval_mail.register()
 # D-157 (lane B; lane A reviews): the requesters of a technician's tickets that link an asset, for
 # the assets module's narrower technician write. At import, as above.
 register_ticket_requesters(asset_links.linked_requester_ids_select)

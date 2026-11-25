@@ -6,7 +6,8 @@ and e-mails (through the one mail sender, `app.shared.mail`), with rules, recipi
 send time, personal preferences and a delivery log. A core module: every edition has it.
 
 Public interface for other modules: `records_for_mail` (which record a reply answers, for the
-email channel, WP-024); otherwise they use the port.
+email channel, WP-024) and `mail_recipients_for` (whom one notice's mail in a reply's thread went
+to: approval replies, WP-047a S4); otherwise they use the port.
 """
 
 from app.core.authorization import PermissionSpec
@@ -19,7 +20,7 @@ from app.modules.notifications.service.engine import DISPATCH, waiting_schedule
 from app.modules.notifications.service.erasure import ERASED
 from app.modules.notifications.service.realtime import ROUTES
 from app.modules.notifications.service.resend import resend_entry
-from app.modules.notifications.service.threads import records_for_mail
+from app.modules.notifications.service.threads import mail_recipients_for, records_for_mail
 from app.shared.schedules import ScheduleSpec
 
 # D-157: the "e-mails given up" summary for the people who set mail up; at import, for the
@@ -39,4 +40,4 @@ module = ModuleSpec(
     schedules=[ScheduleSpec("notifications__mail_waiting", 60, waiting_schedule)],
 )
 
-__all__ = ["module", "records_for_mail", "resend_entry"]
+__all__ = ["mail_recipients_for", "module", "records_for_mail", "resend_entry"]

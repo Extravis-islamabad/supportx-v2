@@ -44,6 +44,7 @@ export const en = {
   'errors.approval_changed': 'This approval changed meanwhile. Open it again.',
   'errors.approval_closed': 'This approval is already decided or no longer needed.',
   'errors.approval_delegation_not_found': 'This delegation no longer exists.',
+  'errors.approval_expired': 'This approval expired before it was decided.',
   'errors.approval_not_found': 'This approval was not found.',
   'errors.approval_not_running':
     '{{display_id}} has no approval waiting, so its approvers can no longer be changed.',
@@ -434,6 +435,8 @@ export const en = {
   'errors.field.cannot_merge_itself': 'A problem cannot be merged into itself.',
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.catalog_item_not_found': 'Choose an item from the catalog that is open to you.',
+  'errors.field.catalog_item_not_requestable':
+    'Choose a published service item that people can request.',
   'errors.field.catalog_too_deep': 'Catalog categories have at most four levels.',
   'errors.field.category_disabled': 'This category is no longer in use.',
   'errors.field.category_loop':
@@ -1237,6 +1240,7 @@ export const en = {
   'errors.report_schedule_not_found': 'This schedule does not exist or is not yours.',
   'errors.report_timeout':
     'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.request_not_awaiting_answers': 'This request is no longer waiting for answers.',
   'errors.request_too_slow':
     'This took too long to finish, so it was stopped. Try a narrower search or filter, or try again later.',
   'errors.requester_action_closed':

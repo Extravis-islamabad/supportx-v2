@@ -1306,6 +1306,8 @@ export {
   usePortalRequest,
   usePortalRequests,
   usePortalRequestAgain,
+  useCompletePortalAnswers,
+  usePortalMissingAnswers,
   usePortalRequestSteps,
   useAnswerRequest,
   portalRequestKeys,

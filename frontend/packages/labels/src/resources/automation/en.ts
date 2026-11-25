@@ -92,8 +92,11 @@ export const en = {
   'automation.problem_field.stop_after': 'Stop after this rule',
   'automation.problem_field.use_category_group': 'Category group',
   'automation.problems': 'This cannot be saved yet:',
+  'automation.reason.approval_feature_lapsed': 'the plan no longer includes approval actions',
+  'automation.reason.approval_pending': 'an approval was already waiting',
   'automation.reason.has_value': 'it already had a value',
   'automation.reason.not_supported': 'not available for this kind of record',
+  'automation.reason.record_closed': 'the record was closed',
   'automation.refusal_message': 'Message shown when the save is refused ({{language}})',
   'automation.remove': 'Remove',
   'automation.remove.confirm': 'Remove “{{name}}”? Records keep what it already changed.',
@@ -191,6 +194,9 @@ export const en = {
     '{{name}} is no longer active, so it went to the group with nobody on it',
   'automation.why.unavailable.not_in_group':
     '{{name}} is not in that group any more, so it went to the group with nobody on it',
+  'automation.workflow.approval_timeout': 'Timeout (hours)',
+  'automation.workflow.approval_timeout_help':
+    'Leave empty to wait until someone decides. With a timeout, connect its Timed out branch.',
   'automation_outcome.applied': 'Done',
   'automation_outcome.chain_depth': 'Stopped: chain too long',
   'automation_outcome.failed': 'Failed',
@@ -280,6 +286,7 @@ export const en = {
     'workflows, designer, approvals, automation, test mode, versions',
   'trigger_action_kind.note': 'Add a private note',
   'trigger_action_kind.set': 'Set a field',
+  'trigger_action_kind.start_approval': 'Ask for an approval',
   'trigger_action_kind.start_workflow': 'Start a workflow',
   'trigger_event.assigned': 'When assigned',
   'trigger_event.created': 'When created',
@@ -367,10 +374,13 @@ export const en = {
   'workflow_port.no': 'No',
   'workflow_port.overtaken': 'Already done',
   'workflow_port.rejected': 'Rejected',
+  'workflow_port.timed_out': 'Timed out',
   'workflow_port.timeout': 'Timed out',
   'workflow_port.yes': 'Yes',
   'workflow_problem.approval_not_offered': 'This kind of record has no approvals.',
   'workflow_problem.approval_role_unknown': 'This record has no role {{role}}.',
+  'workflow_problem.approval_timeout_out_of_range':
+    'Choose a timeout between {{min}} and {{max}} hours.',
   'workflow_problem.approval_without_approvers': 'Choose who approves: people, groups or roles.',
   'workflow_problem.definition_format_invalid':
     'This workflow was saved in a format this version cannot read.',

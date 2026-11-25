@@ -260,6 +260,9 @@ export const ur: LabelResource = {
     'تجویز کردہ۔ Exchange Online میں ایپ کو سپورٹ میل باکسز تک محدود کریں (RBAC for Applications)۔',
   'mail.field.auth_model_hint_delegated':
     'کوئی ایک بار میل باکس کے اپنے اکاؤنٹ سے سائن اِن کرتا ہے۔ مشترکہ میل باکسز کے لیے نہیں۔',
+  'mail.field.catalog_item': 'کیٹلاگ آئٹم',
+  'mail.field.catalog_item_hint':
+    'نئی ای میل اس آئٹم کی درخواست بن جاتی ہے۔ اگر اس کے فارم کو ایسے جوابات درکار ہوں جو ای میل نہ دے سکے تو درخواست دہندہ سے پوچھا جاتا ہے۔',
   'mail.field.certificate': 'سرٹیفکیٹ اور پرائیویٹ کی (PEM)',
   'mail.field.certificate_hint':
     'سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی چسپاں کریں۔ کی مہر بند محفوظ ہوتی ہے اور دوبارہ نہیں دکھائی جاتی۔',
@@ -364,6 +367,15 @@ export const ur: LabelResource = {
   'mail_outcome.rejected': 'رد کیا گیا، بھیجنے والے کو جواب دیا گیا',
   'mail_outcome.replied': 'اس کے ریکارڈ میں شامل کیا گیا',
   'mail_outcome.too_large': 'بہت بڑا',
+  'mail_waiting_reason.approval_reply_already_decided': 'ایسی منظوری کا جواب جس کا فیصلہ ہو چکا',
+  'mail_waiting_reason.approval_reply_comment_required': 'مطلوبہ تبصرے کے بغیر منظوری جواب',
+  'mail_waiting_reason.approval_reply_not_allowed':
+    'ایسا منظوری جواب جس کی منظوری کے قواعد نے اجازت نہیں دی',
+  'mail_waiting_reason.approval_reply_sender_not_verified':
+    'ایسے بھیجنے والے کا منظوری جواب جس کی تصدیق نہ ہو سکی',
+  'mail_waiting_reason.approval_reply_unclear': 'غیر واضح منظوری جواب',
+  'mail_waiting_reason.approval_reply_wrong_sender':
+    'ایسے شخص کا منظوری جواب جس سے منظوری نہیں مانگی گئی',
   'mail_waiting_reason.block_rule':
     'روک کا ایک اصول اس پر لاگو ہوا؛ اگر یہ مطلوب ہو تو اسے جاری کریں',
   'mail_waiting_reason.fields_needed':
@@ -380,6 +392,24 @@ export const ur: LabelResource = {
   'mailbox_after_fetch.delete': 'میل باکس سے حذف کریں',
   'mailbox_after_fetch.mark_read': 'پڑھا ہوا نشان زد کریں',
   'mailbox_after_fetch.move': 'فولڈر میں منتقل کریں',
+  'mailbox_answer.approval_reply.already_decided.body':
+    '{{display_id}} کے بارے میں آپ کے جواب پر عمل نہیں ہوا: اس منظوری کا فیصلہ ہو چکا ہے یا اب یہ آپ کی منتظر نہیں۔ آپ اسے ایپ میں دیکھ سکتے ہیں۔',
+  'mailbox_answer.approval_reply.already_decided.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.comment_required.body':
+    '{{display_id}} کے بارے میں آپ کے جواب پر عمل نہیں ہوا: اس منظوری کے لیے تبصرہ درکار ہے۔ اسے "منظور" یا "مسترد" کے بعد والی سطروں میں لکھیں، یا ایپ میں فیصلہ کریں۔',
+  'mailbox_answer.approval_reply.comment_required.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.not_allowed.body':
+    '{{display_id}} کے بارے میں آپ کے جواب پر عمل نہیں ہوا: آپ اس منظوری کا فیصلہ نہیں کر سکتے۔ وجہ ایپ میں دیکھ سکتے ہیں۔',
+  'mailbox_answer.approval_reply.not_allowed.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.sender_not_verified.body':
+    'ہم تصدیق نہیں کر سکے کہ {{display_id}} کے بارے میں آپ کا جواب آپ ہی کا ہے، اس لیے اس پر عمل نہیں ہوا۔ براہِ کرم ایپ میں منظور یا مسترد کریں۔',
+  'mailbox_answer.approval_reply.sender_not_verified.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.unclear.body':
+    'ہم یہ نہیں سمجھ سکے کہ {{display_id}} کے بارے میں آپ کا جواب منظوری ہے یا مسترد، اس لیے کچھ نہیں ہوا۔ پہلی سطر میں "منظور" یا "مسترد" لکھیں، یا ایپ میں فیصلہ کریں۔',
+  'mailbox_answer.approval_reply.unclear.subject': 'جواب: {{subject}}',
+  'mailbox_answer.approval_reply.wrong_sender.body':
+    '{{display_id}} کے بارے میں آپ کا جواب ایسے پتے سے آیا جس سے منظوری نہیں مانگی گئی تھی، اس لیے اس پر عمل نہیں ہوا۔ منظور کنندہ ایپ میں فیصلہ کر سکتا ہے۔',
+  'mailbox_answer.approval_reply.wrong_sender.subject': 'جواب: {{subject}}',
   'mailbox_answer.commands_line': 'سطر {{line}}: {{text}} ({{reason}})',
   'mailbox_answer.commands_not_applied.body':
     'آپ کی ای میل سے {{id}} بنا، لیکن اس کے اوپر کی یہ سطریں لاگو نہیں ہوئیں:\n\n{{lines}}\n\nواقعے میں اضافے کے لیے اس ای میل کا جواب دیں۔',
@@ -397,6 +427,7 @@ export const ur: LabelResource = {
   'mailbox_auth_model.delegated': 'میل باکس کے اکاؤنٹ سے سائن اِن',
   'mailbox_creates.incident': 'واقعات',
   'mailbox_creates.nothing': 'صرف جوابات',
+  'mailbox_creates.service_request': 'سروس کی درخواستیں',
   'mailbox_credential_kind.certificate': 'سرٹیفکیٹ',
   'mailbox_credential_kind.secret': 'کلائنٹ سیکرٹ',
   'mailbox_protocol.gmail': 'Gmail',

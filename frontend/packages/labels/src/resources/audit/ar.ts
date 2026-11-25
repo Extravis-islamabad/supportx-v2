@@ -477,6 +477,8 @@ export const ar: LabelResource = {
   'audit.action.service_request.access_changed': 'غيّر صلاحيات الوصول إلى طلب خدمة',
   'audit.action.service_request.approval_decided': 'وافق على طلب خدمة أو رفضه',
   'audit.action.service_request.approval_escalated': 'صُعّدت موافقة على طلب خدمة',
+  'audit.action.service_request.approval_mail_decided': 'بتّ في موافقة عبر الرد على البريد',
+  'audit.action.service_request.approval_mail_ignored': 'لم يُطبِّق ردًا بالبريد على موافقة',
   'audit.action.service_request.approval_requested': 'طلب من أشخاص محددين الموافقة على طلب خدمة',
   'audit.action.service_request.approval_restarted': 'بدأت موافقة طلب خدمة من جديد بعد تغيير',
   'audit.action.service_request.approved_automatically':

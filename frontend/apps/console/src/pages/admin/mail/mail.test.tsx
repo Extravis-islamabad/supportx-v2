@@ -347,6 +347,52 @@ describe('Admin › Mail', () => {
     });
   });
 
+  it('WP-047a S4 (REQ-SR-017): a request mailbox names its catalog item', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const box = fakeMailbox();
+    const ITEM = '01a1a2b3-0000-7000-8000-00000000c1a1';
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [box] },
+        'GET /api/v1/catalog/items': {
+          body: [
+            { id: ITEM, kind: 'service', status: 'published', names: { en: 'Access request' } },
+            { id: 'retired', kind: 'service', status: 'retired', names: { en: 'Old item' } },
+          ],
+        },
+        [`PATCH ${BASE}/${box.id}`]: {
+          body: { ...box, creates: 'service_request', catalog_item_id: ITEM, version: 2 },
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId(`mailbox-${box.address}`);
+    fireEvent.click(within(row).getByTestId('mailbox-edit'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    expect(within(editor).queryByTestId('mailbox-catalog-item')).toBeNull();
+    fireEvent.mouseDown(
+      within(within(editor).getByTestId('mailbox-creates')).getByRole('combobox'),
+    );
+    const options = await screen.findAllByTitle('Service requests');
+    const option = options.find((o) => o.classList.contains('ant-select-item-option'));
+    if (option === undefined) throw new Error('no Service requests option');
+    fireEvent.click(option);
+    const picker = await within(editor).findByTestId('mailbox-catalog-item');
+    fireEvent.mouseDown(within(picker).getByRole('combobox'));
+    expect(screen.queryByTitle('Old item')).toBeNull(); // only published service items
+    fireEvent.click(await screen.findByTitle('Access request'));
+    await act(async () => {
+      fireEvent.click(within(editor).getByTestId('mailbox-save'));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(fake.find('PATCH', `${BASE}/${box.id}`).map((c) => c.body)).toContainEqual(
+        expect.objectContaining({ creates: 'service_request', catalog_item_id: ITEM }),
+      );
+    });
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });
