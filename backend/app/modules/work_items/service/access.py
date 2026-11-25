@@ -403,7 +403,6 @@ INCIDENT_FIELDS: Mapping[str, FilterField] = {
 # WP-047b S1 (REQ-CAT-021 AC2): a request's estimate and its frozen charge, for the charge-back
 # report by department and item (money: withheld from reports without view_costs, D-184).
 SERVICE_REQUEST_FIELDS: Mapping[str, FilterField] = {
-    "catalog_item_id": FilterField(WorkItem.catalog_item_id, FieldType.UUID, simple=False),
     "estimated_cost": FilterField(WorkItem.estimated_cost, FieldType.DECIMAL, simple=False),
     "charged_amount": FilterField(WorkItem.charged_amount, FieldType.DECIMAL, simple=False),
     "charge_department_id": FilterField(
