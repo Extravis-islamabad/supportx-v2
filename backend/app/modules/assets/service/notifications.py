@@ -45,6 +45,7 @@ from app.modules.assets.infra.models import (
 from app.modules.assets.service.assets import ASSETS, DELETE, MANAGE, RECORD_TYPE, VIEW, _visible
 from app.modules.assets.service.catalogue import CONFIGURE_ANY
 from app.modules.assets.service.realtime import RECORD_KIND
+from app.modules.assets.service.scans import deletes_everywhere
 from app.modules.identity_access import scope_filter, subject_for, user_names, worker_policy
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
@@ -394,7 +395,12 @@ class AssetNotifications:
                 u
                 for u, _ in await policy.holders(session, tenant, permission, limit=MANAGERS_LIMIT)
             }
-        fixers = frozenset(deleters & configurers)
+        # Tenant-wide delete only: the rule trashes across every site (lane C's #629 review).
+        everywhere: set[uuid.UUID] = set()
+        for user_id in deleters & configurers:
+            if deletes_everywhere(await subject_for(session, tenant, user_id)):
+                everywhere.add(user_id)
+        fixers = frozenset(everywhere)
         if not fixers:
             return None
         return RecordContext(

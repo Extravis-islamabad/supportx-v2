@@ -1,5 +1,7 @@
 // assets labels (see ../README.md). English is the reference.
 export const en = {
+  'action_reason.trash_rule_needs_tenant_wide_delete':
+    'A rule that moves assets to the trash needs delete rights for assets on every site.',
   'asset_ack_channel.console': 'Console',
   'asset_ack_channel.portal': 'Portal',
   'asset_ack_status.accepted': 'Accepted',

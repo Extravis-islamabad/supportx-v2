@@ -185,9 +185,11 @@ decisions D1-D13 (D-038).
    service identities, for an admin to review. **A role made from now on needs `assets.delete`
    ticked to delete assets.** Merging away an asset, a bulk delete, and setting or previewing an
    overdue-scan rule whose action is the trash need it too. An overdue rule set to trash whose last
-   saver doesn't hold `assets.delete` (one saved before the upgrade, or by someone who later lost
-   the right) is paused before it trashes anything, and the people who may delete and configure
-   assets are told: someone with `assets.delete` saves it again to turn it back on.
+   saver doesn't hold `assets.delete` tenant-wide (one saved before the upgrade, by a site-scoped
+   deleter, or by someone who later lost the right) is paused before it trashes anything, and the
+   people who may delete and configure assets are told: someone with tenant-wide `assets.delete`
+   saves it again to turn it back on. A deleter limited to some sites can no longer save or own a
+   trash rule, since the rule trashes across every site.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),

@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
-from app.core.errors import AppError, NotFound
+from app.core.errors import AppError, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.assets.domain.assets import counts_toward_limit
@@ -91,6 +91,8 @@ OVERDUE_REASON = "overdue_scan_rule"  # label asset_change_reason.overdue_scan_r
 RULE_FIELDS = ("enabled", "days", "product_type_ids", "action", "state_id")
 DELETE_BATCH = 5000
 TRASH_PAUSED = "asset_overdue_rule.trash_paused"
+# The UI shows it as action_reason.<code> under the refusal (rule d).
+TRASH_NEEDS_ALL = "trash_rule_needs_tenant_wide_delete"
 RUNS_LISTED = 20
 
 
@@ -405,6 +407,12 @@ def _may_set_trash(subject: Subject, action: OverdueAction) -> None:
     """
     if action is OverdueAction.TRASH:
         _require(subject, DELETE)
+        if not deletes_everywhere(subject):
+            # The sweep trashes every overdue asset of the tenant: a site-scoped right is not
+            # enough (lane C's #629 review).
+            raise PermissionDenied(
+                params={"permission": DELETE, "scope": "all", "reason": TRASH_NEEDS_ALL}
+            )
 
 
 async def preview(session: AsyncSession, subject: Subject, values: Mapping[str, Any]) -> int:
@@ -640,7 +648,12 @@ async def _saver_may_trash(session: AsyncSession, rule: AssetOverdueRule) -> boo
         subject = await subject_for(session, rule.tenant_id, saver)
     except AppError:  # gone, disabled or erased: nobody left whose right it was
         return False
-    return subject.support_grant_id is None and subject.holds(DELETE)
+    return subject.support_grant_id is None and deletes_everywhere(subject)
+
+
+def deletes_everywhere(subject: Subject) -> bool:
+    """`assets.delete` at the tenant-wide scope: the sweep trashes across every site."""
+    return subject.broadest_scope(DELETE) == "all"
 
 
 async def _pause_trash(session: AsyncSession, rule: AssetOverdueRule) -> None:

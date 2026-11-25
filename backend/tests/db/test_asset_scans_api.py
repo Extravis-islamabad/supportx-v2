@@ -419,3 +419,39 @@ async def test_a_move_rule_saved_by_a_configurer_keeps_running(world: World) -> 
     async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
         await scans.run_rule(session)
     assert (await _rule(world, a))["enabled"] is True
+
+
+async def test_a_site_scoped_deleter_may_not_save_a_trash_rule_and_one_saved_pauses(
+    world: World,
+) -> None:
+    """The sweep trashes across every site: only tenant-wide assets.delete counts (lane C)."""
+    a = world.a
+    asset = await _asset(world, a, "Other site's laptop")
+    await _scan(a, world, asset, 100)
+    await _given(
+        world,
+        a,
+        a.tech_a,
+        "Site deleter",
+        [("config.assets", "all"), ("assets.view", "all"), ("assets.delete", "site")],
+    )
+    rule = await _rule(world, a)
+    refused = await world.call(
+        "PATCH", RULE, a, a.tech_a, headers=_match(rule["version"]),
+        json={"enabled": True, "days": 90, "action": "trash"},
+    )  # fmt: skip
+    assert refused.status_code == 403, refused.text
+    assert refused.json()["params"] == {
+        "permission": "assets.delete",
+        "scope": "all",
+        "reason": scans.TRASH_NEEDS_ALL,
+    }
+    preview = await world.call(
+        "POST", f"{RULE}/preview", a, a.tech_a, json={"enabled": True, "action": "trash"}
+    )
+    assert preview.status_code == 403, preview.text
+    await _trash_rule_saved_by(world, a, a.tech_a)  # one already stored with that saver
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await scans.run_rule(session) is None
+    assert (await world.call("GET", f"/assets/{asset['id']}", a, a.admin)).status_code == 200
+    assert (await _rule(world, a))["enabled"] is False
