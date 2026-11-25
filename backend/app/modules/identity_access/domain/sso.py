@@ -277,8 +277,101 @@ def representation(  # noqa: PLR0913 - every part of the provider, keyword-only
     }
 
 
-def mappers(protocol: Protocol, mapping: Mapping) -> list[dict[str, Any]]:
-    """Keycloak mappers putting each mapped claim or attribute on the user."""
+# WP-057 S5c (REQ-SEC-014; lane B's spikes on Keycloak 26.8.1): a sign-in's groups reach
+# SupportX as per-provider user attributes. A session note can't carry them (Keycloak's note
+# mapper drops an array claim), so each provider writes its own attributes, FORCE-synced on
+# every brokered sign-in, never in any token. Freshness: a hardcoded `seen` marker set by every
+# brokered sign-in, and the BFF reads then clears them all, so what it finds is this sign-in's
+# (the importer skips standard claims such as `iat`, so no upstream timestamp can be used).
+GROUPS_PREFIX = "sx_groups"
+_ALIAS = re.compile(r"[a-z0-9-]+")  # what alias_for makes; one-to-one with the names
+OVERAGE_CLAIM = "_claim_names"  # Entra: the groups were too many to send (a JSON object)
+HASGROUPS_CLAIM = "hasgroups"  # Entra's other overage signal
+
+
+@dataclass(frozen=True)
+class GroupAttributes:
+    """One provider's group attributes: derived from its alias only, never from a request."""
+
+    groups: str
+    seen: str
+    overage: str
+    hasgroups: str
+
+    def all(self) -> tuple[str, ...]:
+        """Every one of them, in a stable order (the BFF reads, then clears, these)."""
+        return (self.groups, self.seen, self.overage, self.hasgroups)
+
+
+def group_attributes(alias: str) -> GroupAttributes:
+    """The attribute names provider `alias` writes (and the BFF reads for that alias only).
+
+    Separate attributes for the two overage claims: two FORCE importers on one attribute would
+    clear each other (an absent claim clears its attribute).
+    """
+    # `-` becomes `_`, so a name maps back to one alias only while aliases hold no `_` (lane C's
+    # #632 review): any other alias is refused, never folded onto another's attributes.
+    if not _ALIAS.fullmatch(alias):
+        msg = "an SSO alias is lowercase letters, digits and hyphens only"
+        raise ValueError(msg)
+    a = alias.replace("-", "_")
+    return GroupAttributes(
+        groups=f"{GROUPS_PREFIX}_{a}",
+        seen=f"{GROUPS_PREFIX}_seen_{a}",
+        overage=f"{GROUPS_PREFIX}_overage_{a}",
+        hasgroups=f"{GROUPS_PREFIX}_hasgroups_{a}",
+    )
+
+
+class GroupsUnsupportedError(ValueError):
+    """Following groups needs a freshness marker SAML can't give yet (422 code below)."""
+
+    code = "idp_groups_saml_unsupported"
+
+
+def group_mappers(protocol: Protocol, alias: str, groups_claim: str) -> list[dict[str, Any]]:
+    """The mappers carrying a sign-in's groups, its overage and its `seen` marker onto the user.
+
+    OIDC only for now: SAML is refused until its path is proven on a real Keycloak.
+    """
+    if protocol != "oidc":
+        raise GroupsUnsupportedError(protocol)
+    names = group_attributes(alias)
+    importers = [
+        {
+            "name": f"sx {target}",
+            "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+            "config": {"claim": claim, "user.attribute": target, "syncMode": "FORCE"},
+        }
+        for claim, target in (
+            (groups_claim, names.groups),
+            (OVERAGE_CLAIM, names.overage),
+            (HASGROUPS_CLAIM, names.hasgroups),
+        )
+    ]
+    seen = {
+        "name": f"sx {names.seen}",
+        "identityProviderMapper": "hardcoded-attribute-idp-mapper",
+        "config": {"attribute": names.seen, "attribute.value": "1", "syncMode": "FORCE"},
+    }
+    return [*importers, seen]
+
+
+def mappers(
+    protocol: Protocol,
+    mapping: Mapping,
+    *,
+    alias: str | None = None,
+    groups_claim: str | None = None,
+) -> list[dict[str, Any]]:
+    """Keycloak mappers putting each mapped claim or attribute on the user.
+
+    With `groups_claim` (following groups is on), the provider's group importers too, so a
+    replace of the set-up's mappers never drops them.
+    """
+    if groups_claim is not None and alias is None:
+        msg = "group mappers need the provider's alias"
+        raise ValueError(msg)
     kind = (
         "oidc-user-attribute-idp-mapper" if protocol == "oidc" else "saml-user-attribute-idp-mapper"
     )
@@ -290,7 +383,7 @@ def mappers(protocol: Protocol, mapping: Mapping) -> list[dict[str, Any]]:
         DEPARTMENT_ATTRIBUTE: mapping.department,
         SITE_ATTRIBUTE: mapping.site,
     }
-    return [
+    found = [
         {
             "name": f"sx {target}",
             "identityProviderMapper": kind,
@@ -299,6 +392,9 @@ def mappers(protocol: Protocol, mapping: Mapping) -> list[dict[str, Any]]:
         for target, claim in targets.items()
         if claim
     ]
+    if groups_claim is not None and alias is not None:
+        found += group_mappers(protocol, alias, groups_claim)
+    return found
 
 
 # Connection check results (REQ-SEC-007 AC1: a plain reason; codes → `sso_check.<code>`).
