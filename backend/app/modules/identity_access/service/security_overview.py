@@ -34,6 +34,7 @@ from app.modules.identity_access.domain.sign_in import SignInOutcome
 from app.modules.identity_access.infra.models import SsoProvider
 from app.modules.identity_access.service import (
     api_keys,
+    group_mappings,
     mfa,
     service_accounts,
     sign_in_log,
@@ -207,6 +208,7 @@ async def overview(
         locked_sign_ins=locked or 0,
         support_removals_stuck=len(await support_grants.stuck_removals(session, now)),
         plaintext_siem_destinations=await plaintext_siem_destinations(session),
+        directory_access_stale=await group_mappings.stale_sources(session, now),
     )
     return Overview(
         sso_required=sso_policy.required,

@@ -325,6 +325,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "UserType": "user_type",
     "PersonType": "user_type",  # the types a person can be given (WP-040: never `service`)
     "SyncScope": "sync_scope",  # who a directory syncs (WP-040 session 2)
+    "SourceKind": "group_mapping_source",  # where a group mapping's groups come from (WP-057 S5c)
     "Security": "ldap_security",  # how an AD/LDAP directory is reached (WP-040, D-118)
     "Vendor": "ldap_vendor",  # which kind of directory
     "EmailFrom": "email_from",

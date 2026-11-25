@@ -302,6 +302,9 @@ class GroupMember(TenantKeyed, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_by: Mapped[uuid.UUID | None]
+    # Made by a group mapping (WP-057 S5c, 0201; identity_access's follow()): removed only when
+    # its last source goes, never by hand. A hand-made membership stays false for good.
+    managed: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class TenantBranding(TenantEntity):

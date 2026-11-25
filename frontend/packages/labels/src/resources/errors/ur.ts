@@ -166,6 +166,8 @@ export const ur: LabelResource = {
   'errors.asset_stock_rule_exists': 'اس کے اور اس سائٹ کے لیے پہلے سے کم از کم حد موجود ہے۔',
   'errors.asset_stock_rule_not_found': 'یہ کم از کم حد اب موجود نہیں۔',
   'errors.asset_stock_short': 'اسٹاک کافی نہیں: صرف {{available}} دستیاب ہیں۔',
+  'errors.assignment_from_identity_provider':
+    'یہ رسائی گروپ میپنگ سے آتی ہے۔ یہ تب بدلتی ہے جب فرد کا گروپ بدلے، یا کوئی منتظم میپنگ ہٹا دے۔',
   'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
@@ -409,6 +411,8 @@ export const ur: LabelResource = {
     'کاؤنٹر {n} ایک بار، اس کے ساتھ کچھ متن کے ساتھ استعمال کریں، مثلاً AST-{n}۔',
   'errors.field.asset_tag_taken': 'اثاثہ {{asset}} کے پاس پہلے سے یہ ٹیگ ہے۔',
   'errors.field.asset_type_not_consumable': 'قابلِ صرف پروڈکٹ کی قسم منتخب کریں۔',
+  'errors.field.assignment_from_identity_provider':
+    'یہ رسائی گروپ میپنگ سے آتی ہے۔ یہ تب بدلتی ہے جب فرد کا گروپ بدلے، یا کوئی منتظم میپنگ ہٹا دے۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
   'errors.field.before_publish': 'ختم کرنے کا وقت شائع کرنے کے بعد ہونا چاہیے۔',
@@ -590,6 +594,8 @@ export const ur: LabelResource = {
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
   'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
+  'errors.field.idp_group_mappings_coming_soon':
+    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
   'errors.field.incident_actual_only':
     'انسیڈنٹ اپنی وجہ سے ہونے والا ڈاؤن ٹائم درج کرتا ہے: صرف اصل اوقات۔',
   'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
@@ -648,6 +654,13 @@ export const ur: LabelResource = {
   'errors.field.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
   'errors.field.manager_loop':
     'یہ فرد پہلے ہی اس مینیجر کا مینیجر ہے (براہِ راست یا دوسروں کے ذریعے)۔',
+  'errors.field.mapping_exists': 'یہ گروپ پہلے ہی اس کردار یا سپورٹ گروپ سے منسلک ہے۔',
+  'errors.field.mapping_grants_privileged_access':
+    'اس سے SupportX کے باہر سے منتظم سطح کی رسائی ملے گی۔ پہلے گروپ میپنگ کی ترتیبات میں اس کی اجازت دیں۔',
+  'errors.field.mapping_in_use_choice_required':
+    'کچھ لوگوں کے پاس اس گروپ میپنگ کے ذریعے رسائی ہے۔ منتخب کریں کہ وہ اسے رکھیں یا ابھی کھو دیں۔',
+  'errors.field.mapping_not_found': 'وہ گروپ میپنگ اب موجود نہیں۔',
+  'errors.field.mapping_source_not_found': 'وہ ڈائریکٹری یا سنگل سائن آن سیٹ اپ اب موجود نہیں۔',
   'errors.field.matrix_incomplete': 'اثر اور فوریت کے ہر جوڑے کو ترجیح درکار ہے۔',
   'errors.field.measure_not_available': 'یہ پیمانہ ابھی دستیاب نہیں۔',
   'errors.field.message_required': 'کم از کم انگریزی میں پیغام لکھیں۔',
@@ -687,6 +700,7 @@ export const ur: LabelResource = {
   'errors.field.offset_too_large':
     'کوئی درجہ اپنے نقطۂ آغاز سے زیادہ سے زیادہ 30 کاروباری دن دور ہو سکتا ہے۔',
   'errors.field.one_day_required': 'ہفتے کا ایک دن منتخب کریں۔',
+  'errors.field.one_target_required': 'ایک کردار یا ایک سپورٹ گروپ منتخب کریں۔',
   'errors.field.operator_not_allowed': 'یہ موازنہ اس فیلڈ کے ساتھ استعمال نہیں ہو سکتا۔',
   'errors.field.order_incomplete': 'ترتیب بدلتے وقت فہرست بدل گئی۔ دوبارہ لوڈ کر کے پھر کوشش کریں۔',
   'errors.field.order_must_list_every_value':
@@ -974,6 +988,8 @@ export const ur: LabelResource = {
     'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
   'errors.identity_provider_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.idp_group_mappings_coming_soon':
+    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
   'errors.incident_has_problem':
     'یہ واقعہ پہلے سے {{display_id}} سے جڑا ہے۔ تصدیق کے لیے اسے منتقل کریں۔',
   'errors.insert_too_large':
@@ -1122,6 +1138,13 @@ export const ur: LabelResource = {
   'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
   // WP-040 session 2: directory sync.
   'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.mapping_exists': 'یہ گروپ پہلے ہی اس کردار یا سپورٹ گروپ سے منسلک ہے۔',
+  'errors.mapping_grants_privileged_access':
+    'اس سے SupportX کے باہر سے منتظم سطح کی رسائی ملے گی۔ پہلے گروپ میپنگ کی ترتیبات میں اس کی اجازت دیں۔',
+  'errors.mapping_in_use_choice_required':
+    'کچھ لوگوں کے پاس اس گروپ میپنگ کے ذریعے رسائی ہے۔ منتخب کریں کہ وہ اسے رکھیں یا ابھی کھو دیں۔',
+  'errors.mapping_not_found': 'وہ گروپ میپنگ اب موجود نہیں۔',
+  'errors.mapping_source_not_found': 'وہ ڈائریکٹری یا سنگل سائن آن سیٹ اپ اب موجود نہیں۔',
   'errors.measure_not_permitted':
     'آپ یہ عدد نہیں دیکھ سکتے: اس کے لیے اس کے ڈیٹا تک رسائی چاہیے (اثاثوں کی رقم کے لیے، مالیات دیکھنے کا حق)۔',
   'errors.merge_undo_not_exact':
@@ -1171,6 +1194,7 @@ export const ur: LabelResource = {
   'errors.notify_link_not_found':
     'یہ لنک اب کام نہیں کرتا۔ شاید یہ پہلے استعمال ہو چکا ہے یا اس کی مدت ختم ہو گئی ہے۔',
   'errors.on_behalf_out_of_scope': 'آپ اس شخص کے لیے درخواست نہیں دے سکتے۔ سروس ڈیسک سے پوچھیں۔',
+  'errors.one_target_required': 'ایک کردار یا ایک سپورٹ گروپ منتخب کریں۔',
   'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
   'errors.open_work_unconfirmed':
     'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',

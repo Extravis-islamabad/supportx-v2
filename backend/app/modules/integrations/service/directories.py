@@ -23,7 +23,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
-from app.modules.identity_access import Subject, check_group_grantable, release_from_directory
+from app.modules.identity_access import (
+    GroupSourceKind,
+    Subject,
+    check_group_grantable,
+    create_group_mapping,
+    list_group_mappings,
+    register_group_source,
+    register_source_freshness,
+    release_from_directory,
+    remove_group_mapping,
+    rename_group_mapping,
+)
 from app.modules.integrations.domain.connector_health import SYNC_MINUTES
 from app.modules.integrations.domain.directory import (
     ATTRIBUTES,
@@ -74,6 +85,8 @@ class DirectoryView:
     row: DirectoryConnector
     secret: secrets.SecretInfo | None
     people: int
+    # Its group mappings, from identity_access's table (WP-057 S5c): {external_id, name, group_id}.
+    group_mappings: list[dict[str, str]]
 
 
 def _error(field: str, code: str) -> FieldError:
@@ -160,10 +173,6 @@ def _stored(values: Mapping[str, Any]) -> dict[str, Any]:
             {"external_id": g.external_id, "name": g.name[:200]}
             for g in groups_from_json(values.get("scope_groups", []))
         ],
-        "group_mappings": [
-            {"external_id": m.external_id, "name": m.name[:200], "group_id": m.group_id}
-            for m in group_mappings_from_json(values.get("group_mappings", []))
-        ],
         "mapping": {
             "email_from": mapping.email_from.value,
             "department_from": mapping.department_from,
@@ -193,7 +202,60 @@ async def _view(session: AsyncSession, row: DirectoryConnector) -> DirectoryView
     people = await session.scalar(
         select(func.count()).where(DirectoryPersonLink.connector_id == row.id)
     )
-    return DirectoryView(row=row, secret=info, people=int(people or 0))
+    mapped = await list_group_mappings(session, GroupSourceKind.DIRECTORY, row.id)
+    return DirectoryView(
+        row=row,
+        secret=info,
+        people=int(people or 0),
+        group_mappings=[
+            {
+                "external_id": m.external_group_id,
+                "name": m.external_name or "",
+                "group_id": str(m.group_id),
+            }
+            for m in mapped
+            if m.group_id is not None
+        ],
+    )
+
+
+async def _save_mappings(
+    session: AsyncSession,
+    connector_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    on_held: Literal["keep", "remove"] | None,
+) -> bool:
+    """The request's group mappings, kept in identity_access's table (WP-057 S5c; lane A's OK).
+
+    New ones are created, ones no longer listed are removed (people holding access through one:
+    `on_held` decides, else 422), renamed ones keep their row. True if the set changed.
+    """
+    wanted = {
+        (m.external_id, m.group_id): m.name[:200]
+        for m in group_mappings_from_json(values.get("group_mappings", []))
+    }
+    current = {
+        (m.external_group_id, str(m.group_id)): m
+        for m in await list_group_mappings(session, GroupSourceKind.DIRECTORY, connector_id)
+        if m.group_id is not None
+    }
+    for (external, group), name in wanted.items():
+        if (external, group) in current:
+            await rename_group_mapping(session, current[(external, group)].id, name)
+            continue
+        await create_group_mapping(
+            session,
+            source_kind=GroupSourceKind.DIRECTORY,
+            source_id=connector_id,
+            external_group_id=external,
+            external_name=name,
+            group_id=uuid.UUID(group),
+        )
+    for key, mapping in current.items():
+        if key not in wanted:
+            await remove_group_mapping(session, mapping.id, on_held=on_held)
+    return set(wanted) != set(current)
 
 
 def _ring(settings: Settings) -> Any:  # noqa: ANN401 - a KeyRing
@@ -239,6 +301,7 @@ async def create_directory(
     )
     await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.name)
     await session.flush()
+    await _save_mappings(session, row.id, values, on_held=None)
     await _announce(session, row, "added")
     return await _view(session, row)
 
@@ -252,8 +315,12 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
     expected_version: int,
     credential: str | None,
     by: Subject,
+    on_held: Literal["keep", "remove"] | None = None,
 ) -> DirectoryView:
-    """Change a connector (If-Match); a new secret replaces the old one behind the same row."""
+    """Change a connector (If-Match); a new secret replaces the old one behind the same row.
+
+    `on_held`: what a removed group mapping's holders keep (WP-057 S5c; required if any).
+    """
     current = await DirectoryRepository(session).get(directory_id)
     entra_app(current)  # 404 for an AD/LDAP directory: it has its own screen
     if "interval_minutes" not in values:  # left out: it keeps its own interval
@@ -263,16 +330,18 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
     await _groups_exist(session, values, by)
     stored = _stored(values)
     # Who is synced changed: the next round reads everyone again (delta links start over).
-    if (stored["scope"], stored["scope_groups"], stored["group_mappings"], stored["mapping"]) != (
+    if (stored["scope"], stored["scope_groups"], stored["mapping"]) != (
         current.scope,
         current.scope_groups,
-        current.group_mappings,
         current.mapping,
     ):
         stored["users_delta_link"] = stored["groups_delta_link"] = None
+    # The version first (If-Match), then the mappings: a stale edit changes nothing (lane A).
     row = await DirectoryRepository(session).update(
         directory_id, expected_version=expected_version, changes=stored
     )
+    if await _save_mappings(session, directory_id, values, on_held=on_held):
+        row.users_delta_link = row.groups_delta_link = None
     if credential:
         row.secret_ref = await secrets.put_owned(
             session,
@@ -373,3 +442,33 @@ class DirectoryRefused(ServiceUnavailable):
     """The directory refused or did not answer; `reason` says what an admin can do."""
 
     code = "directory_unavailable"
+
+
+async def _directory_exists(session: AsyncSession, directory_id: uuid.UUID) -> bool:
+    """A live directory connector of this tenant (a group mapping's source, WP-057 S5c)."""
+    found = await session.scalar(
+        select(DirectoryConnector.id).where(
+            DirectoryConnector.id == directory_id, DirectoryConnector.deleted_at.is_(None)
+        )
+    )
+    return found is not None
+
+
+async def _last_successful_sync(session: AsyncSession, directory_id: uuid.UUID) -> datetime | None:
+    """When the directory last brought its people in; None when it can't any more.
+
+    A connector an admin switched off (or removed) never syncs again, so its managed access is
+    as stale as a failing one's, and no failing run would say so (the coordinator, 2026-11-25).
+    """
+    row = await session.scalar(
+        select(DirectoryConnector).where(DirectoryConnector.id == directory_id)
+    )
+    if row is None or row.deleted_at is not None or not row.enabled:
+        return None
+    return row.last_synced_at
+
+
+def register_mapping_source() -> None:
+    """identity_access checks a directory mapping's source, and its freshness, through these."""
+    register_group_source(GroupSourceKind.DIRECTORY, _directory_exists)
+    register_source_freshness(GroupSourceKind.DIRECTORY, _last_successful_sync)
