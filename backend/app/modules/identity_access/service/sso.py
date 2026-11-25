@@ -80,6 +80,8 @@ class SsoInput:
     # When the OIDC client secret runs out (REQ-SEC-011), from the provider's own console: the
     # admins are told 30, 7 and 1 days before. Never read from the secret itself.
     client_secret_expires_at: datetime | None = None
+    # WP-057 S5c-1b: following the provider's groups (None keeps what is stored).
+    groups: sso.GroupsSetting | None = None
 
     @property
     def protocol(self) -> sso.Protocol:
@@ -220,6 +222,7 @@ def _validate(values: SsoInput, *, creating: bool) -> tuple[list[str], list[sso.
         problems += _validate_oidc(values, creating=creating)
     else:
         problems += _validate_saml(values)
+    problems += sso.groups_problems(values.protocol, values.groups)
     return domains, problems
 
 
@@ -465,7 +468,12 @@ async def create_provider(
         raise Conflict(code="sso_provider_refused") from exc
     try:
         await keycloak.link_provider(organization.id, alias)
-        await keycloak.replace_mappers(alias, sso.mappers(values.protocol, mapping))
+        # A set-up may start following groups: its importers come with it (no clear needed).
+        starts = _groups_claim(_groups_settings(values.groups, None))
+        await keycloak.replace_mappers(
+            alias,
+            sso.mappers(values.protocol, mapping, alias=alias, groups_claim=starts),
+        )
         added = await _set_domains(
             keycloak, organization, alias=alias, mine=domains, drop=set(), redirect=False
         )
@@ -478,7 +486,9 @@ async def create_provider(
             preset=values.preset,
             display_name=values.display_name.strip(),
             state="draft",
-            settings=_public_settings(values, config) | {"added_domains": added},
+            settings=_public_settings(values, config)
+            | {"added_domains": added}
+            | _groups_settings(values.groups, None),
             domains=domains,
             email_redirect=values.email_redirect,
             client_secret_expires_at=_secret_expiry(values),
@@ -560,14 +570,19 @@ async def update_provider(  # noqa: PLR0913, PLR0915 - the record and its input;
     mapping = values.mapping or (
         sso.SAML_MAPPING if values.protocol == "saml" else sso.OIDC_MAPPING
     )
-    groups_claim = _groups_claim(row.settings)
+    was = _groups_claim(row.settings)
+    groups = _groups_settings(values.groups, row.settings)
+    groups_claim = _groups_claim(groups)
     # Mappers first, then the clear (lane C's #632 review): cleared first, a sign-in in between
     # would write the groups and `seen` back through the old importers.
     await keycloak.replace_mappers(
         row.alias,
         sso.mappers(values.protocol, mapping, alias=row.alias, groups_claim=groups_claim),
     )
-    await _sync_group_attributes(keycloak, row.alias, groups_claim)
+    if was is not None and groups_claim is None:
+        # Only on stopping (lane A's #632 note): a claim change while following keeps the
+        # attributes, which are per alias and rewritten by the next sign-in's importers.
+        await _sync_group_attributes(keycloak, row.alias, None)
     ours = set(row.settings.get("added_domains") or [])
     gone = {d for d in ours if d not in domains}
     added = await _set_domains(
@@ -582,7 +597,7 @@ async def update_provider(  # noqa: PLR0913, PLR0915 - the record and its input;
     row.domains = domains
     row.email_redirect = values.email_redirect
     row.client_secret_expires_at = _secret_expiry(values)
-    row.settings = public | {"added_domains": sorted((ours - gone) | set(added))}
+    row.settings = public | {"added_domains": sorted((ours - gone) | set(added))} | groups
     row.last_check = asdict(
         CheckResult(
             ok=not warnings,
@@ -645,6 +660,21 @@ async def switch_provider(
     await session.flush()
     await _changed(session, row, "switched_on" if on else "switched_off")
     return _view(row)
+
+
+def _groups_settings(
+    groups: sso.GroupsSetting | None, stored: dict[str, Any] | None
+) -> dict[str, Any]:
+    """The `groups` settings entry to store: the input, else what is stored, else none."""
+    if groups is not None:
+        return {"groups": {"follow": groups.follow, "claim": groups.claim}}
+    kept = (stored or {}).get("groups")
+    return {"groups": kept} if isinstance(kept, dict) else {}
+
+
+def following_claim(settings: dict[str, Any] | None) -> str | None:
+    """The claim a set-up follows groups from, or None (the sign-in read, WP-057 S5c-1b)."""
+    return _groups_claim(settings)
 
 
 def _groups_claim(settings: dict[str, Any] | None) -> str | None:

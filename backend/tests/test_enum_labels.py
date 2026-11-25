@@ -52,6 +52,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "MentionState": "people_erasure.mention_state",
     "PlaceOut.kind": "sign_in_place_kind",  # WP-057 S2b-1 (D-170)
     "PersonalDataAccessOut.kind": "access_kind",  # WP-057 S3b-1 (REQ-AUD-017)
+    "HeldElsewhereOut.kind": "held_elsewhere_kind",  # WP-057 S5c-1b (D-188)
     "InviteLinkPeekOut.app": "sign_in_app",  # WP-057 S2b-2: console or portal (REQ-SEC-021)
     "TemplateKind": "text_template_kind",  # WP-046a S5a
     "TemplateVisibility": "text_template_visibility",

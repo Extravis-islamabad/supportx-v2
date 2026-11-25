@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules.assets.events import (
     AcknowledgementChanged,
     AssetLoanChanged,
@@ -399,7 +400,7 @@ class AssetNotifications:
         everywhere: set[uuid.UUID] = set()
         for user_id in deleters & configurers:
             try:
-                subject = await subject_for(session, tenant, user_id)
+                subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
             except AppError:  # disabled or erased meanwhile: the others are still told
                 continue
             if deletes_everywhere(subject):
@@ -473,7 +474,7 @@ class AssetNotifications:
     ) -> RecordAccess:
         """FULL for staff who may see the asset; PUBLIC for the person who holds it."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         if record_id == tenant and await session.get(AssetOverdueRule, tenant) is not None:
             # The overdue-scan rule (keyed by its tenant): its configurers, never anyone else.
             allowed = any(subject.holds(p) for p in CONFIGURE_ANY)
@@ -521,7 +522,7 @@ async def _seen_by_all(
     recipients: list[uuid.UUID] = []
     shared: set[uuid.UUID] | None = None
     for person in people:
-        subject = await subject_for(session, tenant, person)
+        subject = await subject_for(session, tenant, person, source=ANY_SOURCE)
         if not subject.holds(VIEW):
             continue
         seen = set(

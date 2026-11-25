@@ -14,6 +14,7 @@ from app.modules.announcements.domain.announcement import PUBLISH_PROBLEMS
 from app.modules.announcements.service.announcements import NO_PERMISSION, NOT_FROM_STATUS
 from app.modules.assets.service.scans import TRASH_NEEDS_ALL
 from app.modules.automation.service.transitions import NOT_FOR_YOU, NOT_OFFERED
+from app.modules.identity_access.service.policy import SIGN_IN_GROUP_ONLY
 from tests.test_error_labels import label_keys
 
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
@@ -29,6 +30,7 @@ def reason_codes() -> set[str]:
         NOT_OFFERED,
         NOT_FOR_YOU,
         TRASH_NEEDS_ALL,  # assets: a trash rule needs tenant-wide delete (D-185, #629)
+        SIGN_IN_GROUP_ONLY,  # D-188: a right only a sign-in group gives (policy.require)
     }
     for source in APP_DIR.rglob("*.py"):
         if "tests" in source.parts:

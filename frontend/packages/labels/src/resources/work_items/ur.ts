@@ -44,6 +44,8 @@ export const ur: LabelResource = {
   'action_reason.relative.group_head': 'گروپ کا سربراہ',
   'action_reason.relative.requester': 'درخواست گزار',
   'action_reason.relative.requester_manager': 'درخواست گزار کا مینیجر',
+  'action_reason.sign_in_group_only':
+    'یہ اجازت آپ کے سائن اِن گروپ سے آتی ہے، اس لیے یہ صرف تب لاگو ہوتی ہے جب آپ اپنی تنظیم کے سائن اِن سے سائن اِن کریں۔',
   'action_reason.stage_access': 'اس مرحلے میں یہ صرف مخصوص گروپ یا کردار کر سکتے ہیں۔',
   'action_reason.stage_tasks_open': 'پہلے اس مرحلے کے کام مکمل کریں۔',
   'action_reason.stage_tasks_open_named_one': 'پہلے اس مرحلے کا کھلا کام مکمل کریں: {{task}}۔',

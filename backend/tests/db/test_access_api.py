@@ -19,7 +19,13 @@ from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from app.core.recent_auth import SignInFreshness, record_freshness
-from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
+from app.core.tenancy import (
+    NO_SIGN_IN,
+    SESSION_RESOLVER_STATE,
+    AccessSource,
+    AccessSourceKind,
+    TenantContext,
+)
 from app.main import create_app
 from app.modules.identity_access import authorize
 from conftest import assign_system_role, create_tenant, make_settings
@@ -41,7 +47,11 @@ async def fake_session(request: Request) -> TenantContext | None:
         return None
     # A signed-in browser that confirmed just now (REQ-SEC-027's RecentAuth passes).
     record_freshness(request, FRESH)
-    return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None)
+    # WP-057 S5c-1b: `x-test-sso: <alias>` stands for a session through that provider (D-188);
+    # without it, the strict side (no sign-in source), as every context without a session.
+    alias = request.headers.get("x-test-sso")
+    source = AccessSource(AccessSourceKind.SSO, alias) if alias else NO_SIGN_IN
+    return TenantContext(uuid.UUID(tenant), uuid.UUID(user) if user else None, access_source=source)
 
 
 @dataclass

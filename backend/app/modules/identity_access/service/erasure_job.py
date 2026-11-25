@@ -35,6 +35,7 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import WORKER, AuditActorType, AuditOutcome, erase_subject, record
 from app.modules.identity_access.domain import erasure as rules
+from app.modules.identity_access.domain import sso as sso_domain
 from app.modules.identity_access.domain.erasure import ErasureState, Step
 from app.modules.identity_access.events import (
     KeycloakSessionEndPending,
@@ -50,7 +51,7 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminUnavailable,
     KeycloakAdmin,
 )
-from app.modules.identity_access.infra.models import Invitation, PersonErasure, User
+from app.modules.identity_access.infra.models import Invitation, PersonErasure, SsoProvider, User
 from app.modules.identity_access.service.directory import USER_RECORD_TYPE
 from app.modules.identity_access.service.erasure import expire_due, refusal
 from app.modules.identity_access.service.erasure_mentions import (
@@ -116,6 +117,7 @@ JOB_KINDS: frozenset[str] = frozenset(
         "api_keys_revoked",
         "audit_personal_rows_removed",
         "files_kept",
+        "idp_group_attributes_cleared",  # WP-057 S5c-1b: a kept account's sx_groups* here
         "invitations_revoked",
         "keycloak_accounts_deleted",
         "keycloak_memberships_removed",
@@ -273,10 +275,14 @@ async def _keycloak(run: _Run) -> None:
         organization = await organization_of(run.session, admin)
         await admin.remove_member(organization.id, account)
         others = await admin.member_tenants(account)
-        deleted = 0
+        deleted = cleared = 0
         if not [tenant for tenant in others if tenant != str(run.row.tenant_id)]:
             await admin.delete_user(account)
             deleted = 1
+        else:
+            # Kept for another tenant (WP-057 S5c-1b, lane B's #637 review): what this tenant's
+            # providers left on the account goes with the person here, never carried over.
+            cleared = await _clear_group_attributes(run.session, admin, account)
     except (
         IdentityAdminUnavailable,
         IdentityAdminNotConfigured,
@@ -286,6 +292,21 @@ async def _keycloak(run: _Run) -> None:
         raise StepUnavailable(rules.IDENTITY_UNAVAILABLE) from exc
     run.counts["keycloak_memberships_removed"] = 1
     run.counts["keycloak_accounts_deleted"] = deleted
+    run.counts["idp_group_attributes_cleared"] = cleared
+
+
+async def _clear_group_attributes(session: AsyncSession, admin: IdentityAdmin, account: str) -> int:
+    """Clear this tenant's providers' group attributes from a kept account; how many it held.
+
+    Only this tenant's aliases (RLS): another tenant's provider's attributes stay with it.
+    """
+    aliases = (
+        await session.scalars(select(SsoProvider.alias).where(SsoProvider.deleted_at.is_(None)))
+    ).all()
+    names = tuple(name for alias in aliases for name in sso_domain.group_attributes(alias).all())
+    if not names:
+        return 0
+    return len(await admin.take_attributes(account, names))
 
 
 async def _ports(run: _Run) -> None:

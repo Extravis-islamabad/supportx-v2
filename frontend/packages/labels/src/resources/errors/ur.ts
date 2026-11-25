@@ -599,8 +599,12 @@ export const ur: LabelResource = {
   'errors.field.ical_not_utf8': 'یہ فائل ٹیکسٹ کیلنڈر فائل (UTF-8) نہیں ہے۔',
   'errors.field.ical_too_large': 'فائل 1 MB سے بڑی ہے۔',
   'errors.field.ical_too_many_lines': 'فائل میں 20,000 سے زیادہ سطریں ہیں۔',
-  'errors.field.idp_group_mappings_coming_soon':
-    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
+  'errors.field.idp_groups_claim_invalid':
+    'صرف حروف، ہندسے اور . _ : / - استعمال کریں، 128 حروف تک، sx_ سے شروع نہ ہو۔',
+  'errors.field.idp_groups_claim_reserved':
+    'یہ کلیم شخص کو ظاہر کرتا ہے، اس کے گروپ نہیں۔ وہ کلیم استعمال کریں جو گروپوں کی فہرست دیتا ہے، جیسے groups۔',
+  'errors.field.idp_groups_saml_unsupported':
+    'گروپس کی پیروی فی الحال صرف OpenID Connect سیٹ اپ کے ساتھ کام کرتی ہے۔',
   'errors.field.incident_actual_only':
     'انسیڈنٹ اپنی وجہ سے ہونے والا ڈاؤن ٹائم درج کرتا ہے: صرف اصل اوقات۔',
   'errors.field.invalid_choice': 'یہ اجازت یافتہ قدروں میں سے نہیں ہے۔',
@@ -996,8 +1000,8 @@ export const ur: LabelResource = {
     'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
   'errors.identity_provider_unavailable':
     'سائن اِن عارضی طور پر دستیاب نہیں۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
-  'errors.idp_group_mappings_coming_soon':
-    'سنگل سائن آن سے گروپ میپنگ جلد آ رہی ہے۔ ڈائریکٹری میپنگ ابھی کام کرتی ہے۔',
+  'errors.idp_groups_unavailable':
+    'آپ کے سائن اِن گروپس ابھی پڑھے نہیں جا سکے۔ تھوڑی دیر بعد دوبارہ سائن اِن کریں۔',
   'errors.incident_has_problem':
     'یہ واقعہ پہلے سے {{display_id}} سے جڑا ہے۔ تصدیق کے لیے اسے منتقل کریں۔',
   'errors.insert_too_large':

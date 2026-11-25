@@ -16,6 +16,7 @@ from typing import ClassVar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.analytics.events import ReportScheduleRecipientsSkipped
 from app.modules.analytics.infra.models import ReportSchedule
 from app.modules.analytics.service.naming import field_label
@@ -133,7 +134,7 @@ class ScheduleNotifications:
         if row is None or row.deleted_at is not None or row.owner_id != user_id:
             return RecordAccess.NONE
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         return RecordAccess.FULL if subject.holds(SCHEDULE_RIGHT) else RecordAccess.NONE
 
 

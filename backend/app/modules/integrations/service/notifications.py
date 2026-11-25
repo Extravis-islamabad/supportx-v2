@@ -12,6 +12,7 @@ from typing import ClassVar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for, worker_policy
 from app.modules.integrations.events import (
     MailboxCredentialExpiring,
@@ -132,7 +133,7 @@ class MailboxNotifications:
         """FULL for people who manage mailboxes (checked at send time), NONE for anyone else."""
         del record_id
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         return RecordAccess.FULL if may_manage(subject) else RecordAccess.NONE
 
 

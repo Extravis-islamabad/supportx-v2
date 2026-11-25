@@ -24,6 +24,7 @@ from typing import ClassVar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for, worker_policy
 from app.modules.notifications.events import MailNotSentSummary
 from app.shared.events import EventEnvelope
@@ -110,7 +111,7 @@ class MailSummaryNotifications:
         """FULL for people who may set mail up (checked at send time), NONE for anyone else."""
         del record_id
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         return RecordAccess.FULL if subject.holds(SETS_UP_MAIL) else RecordAccess.NONE
 
 

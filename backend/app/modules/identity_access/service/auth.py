@@ -21,6 +21,7 @@ from urllib.parse import urlencode, urlsplit
 
 import valkey.exceptions
 from fastapi import Request
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
@@ -36,9 +37,12 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
-from app.core.tenancy import TenantContext
+from app.core.tenancy import AccessSource, AccessSourceKind, TenantContext
 from app.modules.audit import WORKER, RequestFacts, record_alone
+from app.modules.identity_access.domain import group_mappings as group_rules
 from app.modules.identity_access.domain import quick_sign_in as quick
+from app.modules.identity_access.domain import sso as sso_domain
+from app.modules.identity_access.domain.group_mappings import IDP_GROUPS_UNAVAILABLE
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
     Identity,
@@ -76,9 +80,10 @@ from app.modules.identity_access.infra.device_keys import device_keys
 from app.modules.identity_access.infra.geoip import GeoIp
 from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
+    IdentityAdminRefused,
     IdentityAdminUnavailable,
 )
-from app.modules.identity_access.infra.models import SESSION_LIMITS
+from app.modules.identity_access.infra.models import SESSION_LIMITS, SsoProvider
 from app.modules.identity_access.infra.oidc import (
     ClientCredentials,
     IdentityProviderUnavailable,
@@ -93,6 +98,7 @@ from app.modules.identity_access.service import (
     api_keys,
     break_glass,
     confirm,
+    group_mappings,
     known_devices,
     sign_in_log,
     site_networks,
@@ -1059,6 +1065,10 @@ class AuthService:
             await self._audit_first_link(
                 uuid.UUID(target.tenant_id), user.user_id, identity.identity_provider, app, attempt
             )
+        # WP-057 S5c-1b (REQ-SEC-014): the roles and groups this sign-in's IdP groups give.
+        await self._follow_sign_in_groups(
+            uuid.UUID(target.tenant_id), user.user_id, identity, attempt
+        )
         synced = await mfa_service.on_sign_in(
             self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
         )
@@ -1190,6 +1200,72 @@ class AuthService:
             identity_provider=identity.identity_provider,
         )
         await sign_in_log.record(self.database, tenant_id, facts)
+
+    async def _follow_sign_in_groups(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        identity: Identity,
+        attempt: "Attempt | None",
+    ) -> None:
+        """Follow this sign-in's groups through the tenant's own provider (WP-057 S5c-1b).
+
+        Only a brokered sign-in through this tenant's provider (S1b's verified `sx_idp`, the
+        row this tenant owns) that follows groups (OIDC). Under the person's lock: read and
+        clear that provider's four attributes, judge them, then follow, in one transaction
+        whose commit invalidates compiled permissions before the session exists (lane B (5)).
+        - Seen absent, an overage, or a list out of bounds: no change, `idp_groups_unverified`.
+        - An admin-API failure at the read or clear, or a failed follow: the sign-in is refused
+          (`idp_groups_unavailable`), nothing applied (lane B's condition 4). Break-glass sign-ins
+          are password sign-ins and never come here.
+        """
+        alias = identity.identity_provider
+        if alias is None or self.identity_admin is None:
+            return
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        names = sso_domain.group_attributes(alias)
+        async with self.database.tenant_session(TenantContext(tenant_id)) as session:
+            provider = (
+                await session.execute(
+                    select(SsoProvider.id, SsoProvider.protocol, SsoProvider.settings).where(
+                        SsoProvider.alias == alias, SsoProvider.deleted_at.is_(None)
+                    )
+                )
+            ).one_or_none()
+            if provider is None or provider.protocol != "oidc":
+                return
+            if sso_service.following_claim(provider.settings) is None:
+                return
+            await group_mappings.lock_person(session, user_id)
+            try:
+                values = await self.identity_admin.take_attributes(identity.subject, names.all())
+            except (IdentityAdminUnavailable, IdentityAdminNotConfigured, IdentityAdminRefused):
+                await self._log_policy_refusal(tenant_id, identity, attempt, IDP_GROUPS_UNAVAILABLE)
+                raise PermissionDenied(code=IDP_GROUPS_UNAVAILABLE) from None
+            judged = group_rules.judge_sign_in_groups(
+                values,
+                group_rules.GroupAttributeNames(
+                    groups=names.groups,
+                    seen=names.seen,
+                    overage=names.overage,
+                    hasgroups=names.hasgroups,
+                ),
+            )
+            if judged.groups is None:
+                # Nothing to trust: what the person holds stays as it is (G2).
+                log.warning("idp_groups_unverified", reason=judged.reason, alias=alias)
+                return
+            try:
+                await group_mappings.follow(
+                    session,
+                    source_kind=group_rules.SourceKind.SSO,
+                    source_id=provider.id,
+                    user_id=user_id,
+                    group_ids=judged.groups,
+                )
+            except AppError:
+                await self._log_policy_refusal(tenant_id, identity, attempt, IDP_GROUPS_UNAVAILABLE)
+                raise PermissionDenied(code=IDP_GROUPS_UNAVAILABLE) from None
 
     async def _directory(self, subject: str) -> dict[str, str | None]:
         """Department and site the person's identity provider sent (best effort, WP-039)."""
@@ -1450,6 +1526,7 @@ class AuthService:
             support_grant_id=grant_id,
             mask_contacts=masked,
             mask_names=names_masked,
+            access_source=access_source_of(session),
         )
 
     async def _check_support(self, request: Request, session_id: str, session: Session) -> None:
@@ -1728,3 +1805,18 @@ class AuthService:
             "csrf_token": session.csrf_token,
             "mfa_due_at": session.mfa_due_at,
         }
+
+
+def access_source_of(session: Session) -> AccessSource:
+    """The session's source for access managed from outside SupportX (WP-057 S5c-1b, D-188).
+
+    Only what the sign-in stored: the verified broker claim (`identity_provider`, S1b) and the
+    break-glass mark, kept for the session's life (a tenant switch has no new token). Nothing a
+    request sends can change it (lane B's condition 3). A session from before S1b has no method:
+    judged a password sign-in, the strict side.
+    """
+    if session.break_glass:
+        return AccessSource(AccessSourceKind.BREAK_GLASS)
+    if session.identity_provider:
+        return AccessSource(AccessSourceKind.SSO, session.identity_provider)
+    return AccessSource(AccessSourceKind.PASSWORD)

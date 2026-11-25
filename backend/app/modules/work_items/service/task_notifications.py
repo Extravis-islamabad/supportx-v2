@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules import licensing
 from app.modules.identity_access import subject_for, user_names
 from app.modules.work_items.domain.parts import OPEN_TASK_STATUSES
@@ -171,7 +172,7 @@ class TaskNotifications:
             return RecordAccess.NONE
         wtype = TYPES[WorkItemTypeCode(record.type)]
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, wtype, record_id)
         except (NotFound, PermissionDenied):

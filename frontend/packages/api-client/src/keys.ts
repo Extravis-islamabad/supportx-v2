@@ -30,6 +30,8 @@ export const queryKeys = {
   version: ['system', 'version'] as const,
   access: {
     all: ['access'] as const,
+    // WP-057 S5c-1b (D-188): under `access`, so the person's `access.changed` refreshes it.
+    elsewhere: ['access', 'my-elsewhere'] as const,
     catalogue: ['access', 'catalogue'] as const,
     roles: ['access', 'roles'] as const,
     role: (id: string) => ['access', 'roles', id] as const,
@@ -54,6 +56,8 @@ export const queryKeys = {
     all: ['identity'] as const,
     settings: ['identity', 'settings'] as const,
     sso: ['identity', 'sso'] as const,
+    // WP-057 S5c-1b: a source's group mappings (under `access`'s refresh too: they give access).
+    groupMappings: (kind: string, id: string) => ['identity', 'group-mappings', kind, id] as const,
     domains: ['identity', 'domains'] as const,
     invitations: ['identity', 'invitations'] as const,
     personInvitations: (userId: string) => ['identity', 'invitations', userId] as const,

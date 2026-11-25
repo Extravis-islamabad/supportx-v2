@@ -40,7 +40,7 @@ from app.core.authorization import (
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
-from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.core.tenancy import NO_SIGN_IN, SESSION_RESOLVER_STATE, AccessSource
 from app.core.valkey import client as valkey_client
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
@@ -53,6 +53,7 @@ from app.modules.identity_access.api.field_access import router as field_access_
 from app.modules.identity_access.api.group_mappings import router as group_mappings_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.invite_links import public_router as invite_links_router
+from app.modules.identity_access.api.my_access import router as my_access_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.resource_access import router as resource_access_router
@@ -300,9 +301,12 @@ def build_catalogue(registry: ModuleRegistry) -> Catalogue:
 
 
 async def _members(
-    session: AsyncSession, user_id: uuid.UUID
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    admitted_managed: frozenset[uuid.UUID] | None = None,
 ) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
-    found = await memberships(session, user_id)
+    found = await memberships(session, user_id, admitted_managed=admitted_managed)
     return found.site_ids, found.group_ids
 
 
@@ -327,15 +331,35 @@ def worker_policy() -> PolicyService:
     return _worker_policy()
 
 
-async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
+async def subject_for(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    source: AccessSource = NO_SIGN_IN,
+) -> Subject:
     """The user's compiled subject, read from the database now (no cache), for workers and jobs.
 
     The very compile the API uses (same catalogue, roles, memberships and entitlements), so a
     worker applying a user's scope (exports, scheduled reports; D-052) decides exactly as the API
     would. A deactivated or deleted user gets the subject that may do nothing. `session` is a
     tenant session of `tenant_id`.
+
+    `source` (WP-057 S5c-1b, D-188): work without a session is the strict side, so access an SSO
+    group mapping gives never applies to a job, even one started in an SSO session (lane B's
+    condition 4), nor to an act off-session such as an approval by mail (Q1). Only "could act"
+    questions (who is told of a record) pass `ANY_SOURCE` (lane B's condition 2, option a).
+
+    Which source each entry point compiles with (lane B's #637 review):
+    - every request (routes, the realtime tokens, lists, search, AI, reports, exports read in the
+      request): the session's own, through `PolicyService.subject_for(request, context)`;
+    - `/auth/me`: the session's own (`access_source_of(session)`);
+    - notification `access()` checks (every `*_notifications` module, mail summaries):
+      `ANY_SOURCE`;
+    - everything else here (mail approvals, inbound mail, action links, bulk and import jobs,
+      workflow runs, erasure): the default, `NO_SIGN_IN`. A missed path is a denial, never a leak.
     """
-    return await _worker_policy().compile(session, tenant_id, user_id)
+    return await _worker_policy().compile(session, tenant_id, user_id, source=source)
 
 
 def check_catalogue_labels(catalogue: Catalogue, settings: "Settings") -> None:
@@ -511,6 +535,7 @@ module = ModuleSpec(
         verified_domains_router,  # WP-057 S5d: verified e-mail domains (REQ-SEC-010)
         field_access_router,  # ADR-047: field access per role (WP-046a S7)
         group_mappings_router,  # WP-057 S5c: roles and groups from external groups
+        my_access_router,  # WP-057 S5c-1b: access that applies only through another sign-in
         resource_access_router,  # ADR-053: fine-grained access to assets and CIs
         router,
         quick_router,  # dev-only quick sign-in: 404 unless on and local (D-151)

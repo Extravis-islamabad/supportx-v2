@@ -47,6 +47,7 @@ import { ApiKeysPanel } from './apiKeys/ApiKeysPanel';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 import { LedGroupsCard } from '../GroupMembersAvailability';
 import { PreferencesCard } from './PreferencesCard';
+import { SignInGroupAccessNote } from './SignInGroupAccessNote';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -131,6 +132,7 @@ export function ProfilePage() {
       </SettingsCard>
       <ContactDetailsCard />
       <AccountSecurityCard callToAction={false} />
+      <SignInGroupAccessNote />
       <SignedInSessionsCard />
       <ApiKeysPanel mode="mine" />
       <NotificationPreferencesCard />

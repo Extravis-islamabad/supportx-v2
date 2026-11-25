@@ -71,6 +71,7 @@ from app.modules.identity_access.service.auth import (
     LoginResult,
     LoginStarted,
     PortalInstead,
+    access_source_of,
     sign_in_unavailable,
 )
 from app.modules.identity_access.service.confirm import ConfirmFinished
@@ -762,7 +763,11 @@ async def _describe(request: Request, session: Session) -> MeResponse:
     if policy is None:
         described["user"]["roles"] = []
         return MeResponse.model_validate(described)
-    subject = await policy.subject(session.tenant_uuid, session.user_uuid)
+    # The session's own access (WP-057 S5c-1b, D-188): an action the server would refuse in this
+    # session is never offered (managed access from another sign-in does not count).
+    subject = await policy.subject(
+        session.tenant_uuid, session.user_uuid, source=access_source_of(session)
+    )
     described["user"]["roles"] = sorted(subject.role_keys)
     described["permissions"] = [
         {

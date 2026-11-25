@@ -112,6 +112,9 @@ class Subject:
     # the compile (a support grant without unmask_personal), never decided by who the actor is.
     mask_contacts: bool = False
     mask_names: bool = False  # D-180: the grant's "Mask names too" tick (0188)
+    # Permissions the person holds only through access this sign-in leaves out (WP-057 S5c-1b,
+    # D-188): a refusal of one says why ("from your sign-in group"). Cached with the subject.
+    held_elsewhere: frozenset[str] = frozenset()
     extra: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def holds(self, permission: str) -> bool:
@@ -155,6 +158,7 @@ class Subject:
             else str(self.support_grant_id),
             "mask_contacts": self.mask_contacts,
             "mask_names": self.mask_names,
+            "held_elsewhere": sorted(self.held_elsewhere),
         }
 
     @classmethod
@@ -184,6 +188,7 @@ class Subject:
             ),
             mask_contacts=bool(data.get("mask_contacts", False)),
             mask_names=bool(data.get("mask_names", False)),
+            held_elsewhere=frozenset(data.get("held_elsewhere", ())),
         )
 
     @property

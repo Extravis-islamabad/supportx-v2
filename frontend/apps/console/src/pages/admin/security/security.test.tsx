@@ -625,3 +625,47 @@ describe('single sign-on', () => {
     expect(await screen.findByTestId('sso-test-done')).toBeTruthy();
   });
 });
+
+describe('groups from single sign-on (WP-057 S5c-1b; REQ-SEC-014)', () => {
+  it('following groups is sent with its claim, and a new set-up asks to be saved before mapping', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'POST /api/v1/identity/sso': () => ({ status: 201, body: provider() }),
+        },
+      }),
+    );
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sso-add'));
+    const editor = await screen.findByTestId('sso-editor');
+    fireEvent.change(within(editor).getByTestId('sso-display_name'), {
+      target: { value: 'Acme Entra ID' },
+    });
+    fireEvent.change(within(editor).getByRole('combobox'), { target: { value: 'acme.test,' } });
+    fireEvent.change(within(editor).getByTestId('sso-issuer'), {
+      target: { value: 'https://login.example.test/acme/v2.0' },
+    });
+    fireEvent.change(within(editor).getByTestId('sso-client_id'), {
+      target: { value: 'supportx' },
+    });
+    fireEvent.change(within(editor).getByTestId('sso-client_secret'), {
+      target: { value: 'right' },
+    });
+    fireEvent.click(within(editor).getByText('Groups from this sign-in'));
+    fireEvent.click(await within(editor).findByTestId('sso-follow-groups'));
+    expect(within(editor).getByText('Save the set-up first, then map its groups.')).toBeTruthy();
+    fireEvent.change(within(editor).getByTestId('sso-groups-claim'), {
+      target: { value: 'roles' },
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('sso-save').hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(screen.getByTestId('sso-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/identity/sso')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/identity/sso')[0]?.body).toMatchObject({
+      groups: { follow: true, claim: 'roles' },
+    });
+  });
+});

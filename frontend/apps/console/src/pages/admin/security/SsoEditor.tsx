@@ -23,6 +23,7 @@ import {
 
 import { ssoView, useSsoFieldName } from './conflict';
 import { FieldNote } from './FieldNote';
+import { SsoGroupMappings } from './SsoGroupMappings';
 
 type Preset = SsoInput['preset'];
 const PRESETS: Preset[] = ['entra', 'okta', 'google', 'oidc', 'saml'];
@@ -53,6 +54,9 @@ interface Form {
   sso_url: string;
   certificate: string;
   mapping: Mapping;
+  // WP-057 S5c-1b: follow the provider's groups (OpenID Connect only).
+  follow_groups: boolean;
+  groups_claim: string;
 }
 
 function text(value: unknown): string {
@@ -61,6 +65,7 @@ function text(value: unknown): string {
 
 function formFrom(saved: SsoProvider | null, preset: Preset): Form {
   const settings = saved?.settings ?? {};
+  const groups = (settings.groups ?? {}) as { follow?: unknown; claim?: unknown };
   const mapping = (settings.mapping ?? {}) as Partial<Mapping>;
   const defaults = preset === 'saml' ? SAML_MAPPING : OIDC_MAPPING;
   return {
@@ -84,6 +89,8 @@ function formFrom(saved: SsoProvider | null, preset: Preset): Form {
       department: mapping.department ?? '',
       site: mapping.site ?? '',
     },
+    follow_groups: groups.follow === true,
+    groups_claim: text(groups.claim) || 'groups',
   };
 }
 
@@ -182,6 +189,7 @@ export function SsoEditor({
         client_secret: form.client_secret === '' ? null : form.client_secret,
         client_secret_expires_at: form.client_secret_expires_at,
         scopes: form.scopes.trim(),
+        groups: { follow: form.follow_groups, claim: form.groups_claim.trim() || 'groups' },
       };
     }
     return {
@@ -203,10 +211,10 @@ export function SsoEditor({
         Object.fromEntries(
           error.fieldErrors.map((f) => {
             const domain = f.params?.domain;
-            return [
-              f.field,
-              typeof domain === 'string' ? `${f.message_key}|${domain}` : f.message_key,
-            ];
+            // The groups setting's refusals sit on its claim field (WP-057 S5c-1b).
+            const at =
+              f.field === 'groups.claim' || f.field === 'groups' ? 'groups_claim' : f.field;
+            return [at, typeof domain === 'string' ? `${f.message_key}|${domain}` : f.message_key];
           }),
         ),
       );
@@ -425,6 +433,56 @@ export function SsoEditor({
             )}
             {field('scopes', 'security.sso.scopes', textInput('scopes'))}
           </>
+        )}
+        {!saml && (
+          <Collapse
+            items={[
+              {
+                key: 'groups',
+                label: t('security.groups.title'),
+                children: (
+                  <Flex vertical gap={12}>
+                    <Typography.Text type="secondary">{t('security.groups.intro')}</Typography.Text>
+                    <Space>
+                      <Switch
+                        checked={form.follow_groups}
+                        onChange={(on) => {
+                          set({ follow_groups: on });
+                        }}
+                        aria-labelledby="sso-follow-groups-label"
+                        data-testid="sso-follow-groups"
+                      />
+                      <Typography.Text id="sso-follow-groups-label">
+                        {t('security.groups.follow')}
+                      </Typography.Text>
+                    </Space>
+                    {form.follow_groups &&
+                      field(
+                        'groups_claim',
+                        'security.groups.claim',
+                        <Input
+                          id="sso-groups_claim"
+                          dir="ltr"
+                          value={form.groups_claim}
+                          onChange={(event) => {
+                            set({ groups_claim: event.target.value });
+                          }}
+                          data-testid="sso-groups-claim"
+                        />,
+                      )}
+                    {form.follow_groups && provider !== null && (
+                      <SsoGroupMappings providerId={provider.id} />
+                    )}
+                    {form.follow_groups && provider === null && (
+                      <Typography.Text type="secondary">
+                        {t('security.groups.save_first')}
+                      </Typography.Text>
+                    )}
+                  </Flex>
+                ),
+              },
+            ]}
+          />
         )}
         <Collapse
           items={[

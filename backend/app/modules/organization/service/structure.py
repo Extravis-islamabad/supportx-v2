@@ -775,6 +775,22 @@ async def site_names(session: AsyncSession, ids: Sequence[uuid.UUID]) -> dict[uu
     return dict(rows.tuples().all())
 
 
+async def support_group_names(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """The names of these support groups of the session's tenant (RLS), read only.
+
+    For identity's profile (WP-057 S5c-1b): the groups a sign-in group gives, named. Unknown IDs
+    are absent.
+    """
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(SupportGroup.id, SupportGroup.name).where(SupportGroup.id.in_(list(ids)))
+    )
+    return dict(rows.tuples().all())
+
+
 async def leave_groups(
     session: AsyncSession, user_id: uuid.UUID, group_ids: Sequence[uuid.UUID]
 ) -> None:

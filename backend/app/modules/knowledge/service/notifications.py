@@ -24,7 +24,7 @@ from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import NotFound, PermissionDenied
 from app.core.logging import get_logger
-from app.core.tenancy import TenantContext
+from app.core.tenancy import ANY_SOURCE, TenantContext
 from app.modules.identity_access import subject_for, user_names, worker_policy
 from app.modules.knowledge.domain.knowledge import VersionStatus, WorkflowStep
 from app.modules.knowledge.events import KbArticleWorkflow
@@ -146,7 +146,9 @@ async def _approvers(session: AsyncSession, article: KbArticle, topic: KbTopic) 
     people = {topic.owner_id} if topic.owner_id is not None else set()
     holders = await worker_policy().holders(session, tenant, APPROVE, limit=APPROVER_LIMIT)
     for user_id, _ in holders:
-        if may_approve(await subject_for(session, tenant, user_id), article, topic):
+        if may_approve(
+            await subject_for(session, tenant, user_id, source=ANY_SOURCE), article, topic
+        ):
             people.add(user_id)
     return people
 
@@ -233,7 +235,7 @@ class ArticleNotifications:
     ) -> RecordAccess:
         """FULL for staff who may read the article now (drafts where they may); NONE otherwise."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         if not is_staff(subject):
             return RecordAccess.NONE
         try:

@@ -11,6 +11,7 @@ The rules live in domain/group_mappings.py; the plan is ~/Extravis/plans/wp-057-
 
 import uuid
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
@@ -23,10 +24,10 @@ from app.core.authorization import access_changed
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.core.logging import get_logger
+from app.core.tenancy import AccessSource as TenantAccessSource
 from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access.domain.group_mappings import (
     MAX_GROUP_ID,
-    SSO_GROUP_MAPPINGS_READY,
     Held,
     Plan,
     SourceKind,
@@ -48,7 +49,14 @@ from app.modules.identity_access.infra.models import (
     User,
 )
 from app.modules.identity_access.service import roles
-from app.modules.organization import SYSTEM_PATH, add_member, remove_member, unmanage_member
+from app.modules.identity_access.service.policy import admitted_managed
+from app.modules.organization import (
+    SYSTEM_PATH,
+    add_member,
+    remove_member,
+    support_group_names,
+    unmanage_member,
+)
 from app.shared.clock import system_clock
 from app.shared.history import stale_version
 
@@ -277,7 +285,6 @@ async def _audit(session: AsyncSession, item: Held, user_id: uuid.UUID, change: 
 # --- the mappings themselves (admins; directory connectors' screen today) ----------------------
 
 PRIVILEGED_CODE = "mapping_grants_privileged_access"
-COMING_SOON_CODE = "idp_group_mappings_coming_soon"
 CHOICE_REQUIRED_CODE = "mapping_in_use_choice_required"
 HOLDS_LAST_ADMIN_CODE = "mapping_holds_last_admin"
 OnHeld = Literal["keep", "remove"]
@@ -368,9 +375,7 @@ async def create_mapping(  # noqa: PLR0913 - the source, the group and its one t
     role_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
 ) -> IdpGroupMapping:
-    """A new mapping, after the guards: SSO waits for S5c-1b; privileged access is refused."""
-    if source_kind is SourceKind.SSO and not SSO_GROUP_MAPPINGS_READY:
-        raise ValidationFailed(errors=[_error("source_kind", COMING_SOON_CODE)])
+    """A new mapping, after the guards: the source exists; privileged access is refused."""
     await require_source(session, source_kind, source_id)
     if (role_id is None) == (group_id is None):
         raise ValidationFailed(errors=[_error("target", "one_target_required")])
@@ -585,3 +590,73 @@ async def _make_hand_made(session: AsyncSession, row: AccessSource) -> None:
 
 def _error(field: str, code: str) -> FieldError:
     return FieldError(field=f"body.{field}", code=code, message_key=f"errors.{code}")
+
+
+# --- the profile's "only with <provider>" (WP-057 S5c-1b; D-188, lane B's Q3) -------------------
+
+
+@dataclass(frozen=True)
+class HeldElsewhere:
+    """Access a sign-in group gives that this session does not apply, and where it applies."""
+
+    kind: Literal["role", "group"]
+    target_id: uuid.UUID
+    name: str
+    provider_name: str
+    role_key: str | None = None  # a system role renders through its label
+    system: bool = False
+
+
+async def held_elsewhere(
+    session: AsyncSession, user_id: uuid.UUID, source: TenantAccessSource
+) -> list[HeldElsewhere]:
+    """The person's SSO-managed access their current sign-in leaves out, by provider (D-188).
+
+    The same filter the compile uses (`admitted_managed`), so the profile says exactly what the
+    session lacks. Directory-managed access applies in every session but break-glass, which has
+    its own notice, so only SSO mappings are listed: "only applies when you sign in with ...".
+    """
+    admitted = await admitted_managed(session, user_id, source)
+    if admitted is None:
+        return []
+    rows = (
+        await session.execute(
+            select(AccessSource.target_kind, AccessSource.target_id, SsoProvider.display_name)
+            .join(IdpGroupMapping, IdpGroupMapping.id == AccessSource.mapping_id)
+            .join(SsoProvider, SsoProvider.id == IdpGroupMapping.source_id)
+            .where(
+                AccessSource.user_id == user_id,
+                IdpGroupMapping.deleted_at.is_(None),
+                IdpGroupMapping.source_kind == SourceKind.SSO.value,
+                SsoProvider.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    missing = sorted(
+        {
+            (r.target_kind, r.target_id, r.display_name)
+            for r in rows
+            if r.target_id not in (admitted.roles if r.target_kind == "role" else admitted.groups)
+        },
+        key=lambda m: (m[0], m[2], str(m[1])),
+    )
+    role_ids = [t for k, t, _ in missing if k == "role"]
+    roles_named = {
+        r.id: r
+        for r in (
+            await session.execute(
+                select(Role.id, Role.key, Role.name, Role.is_system).where(Role.id.in_(role_ids))
+            )
+        ).all()
+    }
+    groups_named = await support_group_names(session, [t for k, t, _ in missing if k == "group"])
+    found: list[HeldElsewhere] = []
+    for kind, target, provider in missing:
+        if kind == "role" and target in roles_named:
+            r = roles_named[target]
+            found.append(
+                HeldElsewhere("role", target, r.name, provider, role_key=r.key, system=r.is_system)
+            )
+        elif kind == "group" and target in groups_named:
+            found.append(HeldElsewhere("group", target, groups_named[target], provider))
+    return found

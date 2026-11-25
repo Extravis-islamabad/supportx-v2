@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import Select, delete, func, select
+from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -315,18 +315,33 @@ async def _membership_event(
     )
 
 
-async def memberships(session: AsyncSession, user_id: uuid.UUID) -> Memberships:
-    """The sites and groups `user_id` belongs to (in the session's tenant)."""
+async def memberships(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    admitted_managed: frozenset[uuid.UUID] | None = None,
+) -> Memberships:
+    """The sites and groups `user_id` belongs to (in the session's tenant).
+
+    `admitted_managed` (WP-057 S5c-1b, D-188; lane B's Q2): the managed group memberships this
+    session's sign-in admits; a managed membership outside it is left out, a hand-made one never.
+    None counts every membership (routing, and code that is not a person's access).
+    """
     sites = await session.scalars(
         select(SiteMember.site_id)
         .join(Site, Site.id == SiteMember.site_id)
         .where(SiteMember.user_id == user_id, Site.deleted_at.is_(None))
     )
-    groups = await session.scalars(
+    query = (
         select(GroupMember.group_id)
         .join(SupportGroup, SupportGroup.id == GroupMember.group_id)
         .where(GroupMember.user_id == user_id, SupportGroup.deleted_at.is_(None))
     )
+    if admitted_managed is not None:
+        query = query.where(
+            or_(GroupMember.managed.is_(False), GroupMember.group_id.in_(admitted_managed))
+        )
+    groups = await session.scalars(query)
     return Memberships(frozenset(sites.all()), frozenset(groups.all()))
 
 

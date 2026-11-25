@@ -429,3 +429,37 @@ CheckCode = Literal[
 def issuer_matches(configured: str, discovered: str) -> bool:
     """The discovery document belongs to the issuer typed (trailing slash aside)."""
     return configured.rstrip("/") == discovered.rstrip("/")
+
+
+# --- following a provider's groups (WP-057 S5c-1b; lane B's #632 and S5c-1b reviews) ----------
+
+GROUPS_CLAIM = re.compile(r"^[A-Za-z0-9_.:/-]{1,128}$")
+# Standard identity claims: never a group list (`email` would turn an address into a group ID).
+RESERVED_CLAIMS = frozenset(
+    {"sub", "email", "email_verified", "iss", "aud", "sid", "preferred_username", "name"}
+)
+
+
+@dataclass(frozen=True)
+class GroupsSetting:
+    """Whether a set-up follows its provider's groups, and from which claim."""
+
+    follow: bool
+    claim: str
+
+
+def groups_problems(protocol: Protocol, groups: GroupsSetting | None) -> list[Problem]:
+    """The groups setting's rules: OIDC only, a claim name of ours to read, never a reserved one.
+
+    Off is always allowed (whatever the claim says), so a downgraded set-up can stop following.
+    """
+    if groups is None or not groups.follow:
+        return []
+    if protocol != "oidc":
+        return [Problem("groups", GroupsUnsupportedError.code)]
+    claim = groups.claim
+    if not GROUPS_CLAIM.fullmatch(claim) or claim.startswith(GROUPS_PREFIX):
+        return [Problem("groups.claim", "idp_groups_claim_invalid")]
+    if claim in RESERVED_CLAIMS:
+        return [Problem("groups.claim", "idp_groups_claim_reserved")]
+    return []

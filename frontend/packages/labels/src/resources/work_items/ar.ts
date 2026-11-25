@@ -42,6 +42,8 @@ export const ar: LabelResource = {
   'action_reason.relative.group_head': 'رئيس المجموعة',
   'action_reason.relative.requester': 'مقدّم الطلب',
   'action_reason.relative.requester_manager': 'مدير مقدّم الطلب',
+  'action_reason.sign_in_group_only':
+    'تأتي هذه الصلاحية من مجموعة تسجيل الدخول، لذا لا تنطبق إلا عند تسجيل الدخول عبر تسجيل الدخول الخاص بمؤسستك.',
   'action_reason.stage_access': 'يمكن لمجموعات أو أدوار معيّنة فقط القيام بذلك في هذه المرحلة.',
   'action_reason.stage_tasks_open': 'أنهِ مهام هذه المرحلة أولًا.',
   'action_reason.stage_tasks_open_named_few':

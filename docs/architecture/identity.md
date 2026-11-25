@@ -92,6 +92,33 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
   The DNS TXT proof that verifies them comes with the SaaS cell (WP-014d). Single-tenant
   installations are unaffected.
 
+## Groups from identity providers (REQ-SEC-014; WP-057 S5c, D-188)
+
+- **Mappings:** an external group, exactly as the source sends it, gives one role or one support
+  group (`/identity/group-mappings`). The sources are a directory connector (Entra ID or LDAP
+  sync) or an SSO set-up that follows groups (OIDC only; its claim is a plain name, never a
+  standard identity claim such as `email`, never `sx_…`). Tenant admin and the `never_via_idp`
+  rights need the tenant's opt-in. Removing a mapping people hold access through asks whether
+  they keep it (hand-made from then on) or lose it now.
+- **At each sign-in through the tenant's own provider:** under the person's lock, SupportX
+  reads and clears that provider's four attributes, then follows them in one transaction, whose
+  commit refreshes compiled permissions before the session exists:
+  - `seen` absent, an overage, `hasgroups`, or a list out of bounds: no change
+    (`idp_groups_unverified`);
+  - otherwise the groups as sent; none sent means in no group now;
+  - the admin API or the follow failing: the sign-in is refused (`idp_groups_unavailable`).
+- **Which access applies where (D-188, strict):** hand-made access in every session;
+  directory-managed access in every session but break-glass; SSO-managed access only in a session
+  through **this tenant's** provider that the mapping names (a password, LDAP or break-glass
+  sign-in, an API key, a job and an act without a session, such as a mail approval, never get it).
+  Routing still counts every membership; opening a record enforces the session's own access. The
+  compiled permissions are cached per source, so a password and an SSO session never share one.
+  A refusal of a right held only through a sign-in group says so (`sign_in_group_only`), and the
+  profile lists that access by name.
+- **Stopping:** turning following off removes the importers first, then clears what sign-ins left
+  on people (only on that change, not every save). Changing the claim while following clears
+  nothing: the next sign-in rewrites the attributes.
+
 ## Password policy (REQ-SEC-005; D-089 D1 c, D2)
 
 - One policy for the installation (a shared realm has one), edited by tenant admins in **Admin ›

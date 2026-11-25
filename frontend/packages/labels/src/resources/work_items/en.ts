@@ -41,6 +41,8 @@ export const en = {
   'action_reason.relative.group_head': 'the group head',
   'action_reason.relative.requester': 'the requester',
   'action_reason.relative.requester_manager': "the requester's manager",
+  'action_reason.sign_in_group_only':
+    'This comes from your sign-in group, so it only applies when you sign in with your organisation’s sign-in.',
   'action_reason.stage_access': 'Only certain groups or roles may do this in this stage.',
   'action_reason.stage_tasks_open': "Finish this stage's tasks first.",
   'action_reason.stage_tasks_open_named_one': "Finish this stage's open task first: {{task}}.",

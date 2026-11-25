@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound, PermissionDenied
+from app.core.tenancy import ANY_SOURCE
 from app.modules.identity_access import subject_for, user_names, worker_policy
 from app.modules.organization import users_in_groups
 from app.modules.work_items.domain import approvals as rules
@@ -507,7 +508,7 @@ class ChangeNotifications:
     ) -> RecordAccess:
         """FULL for staff who see the change; PUBLIC for its requester and live approvers."""
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, CHANGE, record_id)
         except (NotFound, PermissionDenied):

@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
+from app.core.tenancy import ANY_SOURCE
 from app.modules import sla
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
@@ -739,7 +740,7 @@ class IncidentNotifications:
         as the portal will show it (WP-028), even without a console permission.
         """
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        subject = await subject_for(session, tenant, user_id)
+        subject = await subject_for(session, tenant, user_id, source=ANY_SOURCE)
         try:
             await items.visible_record(session, subject, INCIDENT, record_id)
         except NotFound:

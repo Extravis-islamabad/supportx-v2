@@ -59,6 +59,78 @@ export function useSaveIdentitySettings() {
   });
 }
 
+/** One external group mapped onto a role or a support group (WP-057 S5c). */
+export type GroupMapping = components['schemas']['IdpGroupMappingOut'];
+export type GroupMappingInput = components['schemas']['IdpGroupMappingIn'];
+type MappingSource = GroupMapping['source_kind'];
+
+/** A source's group mappings (a directory connector or an SSO set-up), oldest first. */
+export function useGroupMappings(kind: MappingSource, sourceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.identity.groupMappings(kind, sourceId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/identity/group-mappings', {
+          params: { query: { source_kind: kind, source_id: sourceId ?? '' } },
+        }),
+      ),
+    enabled: sourceId !== undefined,
+  });
+}
+
+/** Map an external group (refused with a labelled code: privileged, unknown source...). */
+export function useCreateGroupMapping() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (body: GroupMappingInput) =>
+      call(
+        api.POST('/api/v1/identity/group-mappings', {
+          params: { header: { 'Idempotency-Key': crypto.randomUUID() } },
+          body,
+        }),
+      ),
+    onSuccess: (_made, body) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.identity.groupMappings(body.source_kind, body.source_id),
+      });
+    },
+  });
+}
+
+/** How many people hold access through a mapping (the remove dialog's count). */
+export async function groupMappingHolders(mappingId: string): Promise<number> {
+  const found = await call(
+    api.GET('/api/v1/identity/group-mappings/{mapping_id}/holders', {
+      params: { path: { mapping_id: mappingId } },
+    }),
+  );
+  return found.holders;
+}
+
+/** Remove a mapping: what it gave stays hand-made (`keep`) or goes now (`remove`). */
+export function useRemoveGroupMapping() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ mapping, onHeld }: { mapping: GroupMapping; onHeld?: 'keep' | 'remove' }) =>
+      call(
+        api.DELETE('/api/v1/identity/group-mappings/{mapping_id}', {
+          params: {
+            path: { mapping_id: mapping.id },
+            header: ifMatch(mapping.version),
+            query: onHeld === undefined ? {} : { on_held: onHeld },
+          },
+        }),
+      ),
+    onSuccess: (_done, { mapping }) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.identity.groupMappings(mapping.source_kind, mapping.source_id),
+      });
+    },
+  });
+}
+
 /** The tenant's single sign-on set-ups. */
 export function useSsoProviders() {
   return useQuery({
@@ -444,6 +516,21 @@ export function useEndPersonSession(userId: string) {
 // --- My account (REQ-SEC-028) -----------------------------------------------------------------
 
 /** How the signed-in person signs in, and their recent sign-ins. */
+/** One role or support group that applies only through another sign-in (D-188). */
+export type HeldElsewhere = components['schemas']['HeldElsewhereOut'];
+
+/**
+ * Your access that only another sign-in applies (WP-057 S5c-1b, D-188): what a sign-in group
+ * gives you that this session leaves out, with the sign-in it applies through. Live: the
+ * person's `access.changed` refreshes every `access` query.
+ */
+export function useMyAccessElsewhere() {
+  return useQuery({
+    queryKey: queryKeys.access.elsewhere,
+    queryFn: () => call(api.GET('/api/v1/identity/my-access/elsewhere')),
+  });
+}
+
 export function useAccountSecurity() {
   return useQuery({
     queryKey: queryKeys.identity.accountSecurity,

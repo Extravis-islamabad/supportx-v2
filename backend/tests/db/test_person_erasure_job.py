@@ -53,6 +53,7 @@ class FakeKeycloak:
         self.calls: list[tuple[str, str]] = []
         self.others = others or []
         self.down = down
+        self.taken: tuple[str, ...] = ()
 
     async def organization(self, slug: str, tenant_id: str) -> Organization:
         if self.down:
@@ -72,6 +73,11 @@ class FakeKeycloak:
 
     async def set_enabled(self, user_id: str, *, enabled: bool) -> None:
         self.calls.append(("set_enabled", f"{user_id}:{enabled}"))
+
+    async def take_attributes(self, user_id: str, names: tuple[str, ...]) -> dict[str, list[str]]:
+        self.calls.append(("take_attributes", user_id))
+        self.taken = names
+        return {names[0]: ["sx-change"]} if names else {}
 
 
 class Effects:
@@ -608,3 +614,32 @@ async def test_an_approver_who_is_no_longer_active_ends_the_run(world: World) ->
     outcome = await _run(world, a, erasure_id, effects)
     assert (outcome.state, outcome.error_code) == ("failed", "erasure_approval_invalid")
     assert (effects.mail, effects.ended, effects.keycloak.calls) == ([], [], [])
+
+
+async def test_a_kept_account_loses_this_tenants_sign_in_group_details(world: World) -> None:
+    """WP-057 S5c-1b (lane B's #637 review): another tenant keeps the account; what this
+    tenant's providers left on it (sx_groups*) is cleared, and nothing of other tenants' is asked.
+    """
+    from app.modules.identity_access.domain import sso  # noqa: PLC0415 - this test only
+
+    a = world.a
+    alias = f"sx-er-{uuid.uuid4().hex[:6]}"
+    await world.sql(
+        "INSERT INTO sso_providers (id, tenant_id, alias, protocol, preset, display_name)"
+        " VALUES ($1, $2, $3, 'oidc', 'entra', 'Acme')",
+        uuid.uuid4(), a.tenant, alias,
+    )  # fmt: skip
+    erasure_id = await _approved(world, a, a.tech_b)
+    effects = Effects(FakeKeycloak(others=[str(world.b.tenant)]))
+    run = await _run(world, a, erasure_id, effects)
+    assert run.state == "done"
+    assert ("take_attributes", f"sub-{a.tech_b}") in effects.keycloak.calls
+    taken = set(effects.keycloak.taken)
+    assert set(sso.group_attributes(alias).all()) <= taken
+    assert all(name.startswith("sx_groups") for name in taken)  # only group attributes
+    completed = [
+        e
+        for e in await _audits(world, a, "person.erasure_completed")
+        if e["details"]["erasure_id"] == str(erasure_id)
+    ]
+    assert completed[0]["details"]["idp_group_attributes_cleared"] == 1
