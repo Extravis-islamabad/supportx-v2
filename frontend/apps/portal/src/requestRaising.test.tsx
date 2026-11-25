@@ -36,6 +36,8 @@ const item: CatalogItem = {
   sort_order: 0,
   subject_template: null,
   requesters_see_approval: true,
+  price_period: 'once',
+  charge_to: 'requested_for_department',
   starter: false,
   questions: [
     {

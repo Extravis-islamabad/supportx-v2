@@ -9,6 +9,7 @@ technician only through `/assign` and `/take`.
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -759,6 +760,17 @@ class WorkItemOut(BaseModel):
         default=False,
         description="Service requests: needed before the expected delivery (REQ-SR-015 AC2).",
     )
+    # WP-047b S1: money in base currency (D-164), null when the reader may not see it (D-184).
+    estimated_cost: Decimal | None = Field(
+        default=None, description="Service requests: price x quantity, taken at submission."
+    )
+    estimate_period: str | None = Field(default=None, description="once, month or year.")
+    charged_amount: Decimal | None = Field(
+        default=None, description="Service requests: what fulfilment charged (view_costs)."
+    )
+    charge_department_id: uuid.UUID | None = None
+    charge_cost_centre: str | None = None
+    charged_at: datetime | None = None
     custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
     stage: str | None = Field(
         default=None, description="Staged types (releases): the stage it is in (ADR-041)."
@@ -908,6 +920,13 @@ _RECORD_FIELDS = (
     "quantity",  # WP-047a S1 (REQ-SR-014, -015)
     "needed_by",
     "expected_delivery_at",
+    # WP-047b S1 (D-184, REQ-CAT-021): withheld by the service when the reader may not see money.
+    "estimated_cost",
+    "estimate_period",
+    "charged_amount",
+    "charge_department_id",
+    "charge_cost_centre",
+    "charged_at",
     "id",
     "type",
     "display_id",

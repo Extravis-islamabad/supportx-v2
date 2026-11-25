@@ -36,6 +36,8 @@ import {
 import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
 import { pickedOf } from '../assets/raise';
+import { KnownCiLine } from '../../KnownCiLine';
+import { useRaisedFromCi } from '../../raisedFromCi';
 import { AssetPickerField } from '../incidents/RecordAssets';
 import { plainText } from '../incidents/writingText';
 import { deliveryText, itemName } from './items';
@@ -68,6 +70,9 @@ export function NewRequestPage() {
   // once each is known to exist for this person; an unknown one leaves its field as it was.
   const [pickedAssets, setAssetIds] = useState<string[] | null>(null);
   const hasAssets = useLicence().has('assets');
+  // Raised from a CI (lane B's Raise menu): `?ci=` links it, once it is known to exist for this
+  // person and the plan has the CMDB; else nothing is linked, quietly. The server checks again.
+  const knownCi = useRaisedFromCi(params.get('ci'));
   const [pickedRequester, setRequester] = useState<string | null | undefined>(undefined);
   const knownAsset = useKnownAsset(params.get('asset'), hasAssets);
   const knownRequester = useKnownUser(params.get('requester'));
@@ -204,6 +209,7 @@ export function NewRequestPage() {
           answers: sentAnswers(shown),
           confirm_lose_access: false,
           ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
+          ...(knownCi === undefined ? {} : { ci_ids: [knownCi.id] }),
         },
       })
       .then((made) => {
@@ -307,6 +313,7 @@ export function NewRequestPage() {
               ariaLabel={t('requests.requested_for')}
             />
           </Form.Item>
+          <KnownCiLine name={knownCi?.name} />
           {/* REQ-AST-025: the assets it is about, the person's own first. */}
           {hasAssets && (
             <Form.Item label={t('work_item.field.asset_ids')} htmlFor="sr-assets">

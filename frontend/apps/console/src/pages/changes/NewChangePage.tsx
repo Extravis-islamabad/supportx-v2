@@ -26,6 +26,8 @@ import {
 
 import { useFormKey } from '../formKey';
 import { UserPicker } from '../incidents/pickers';
+import { KnownCiLine } from '../../KnownCiLine';
+import { useRaisedFromCi } from '../../raisedFromCi';
 import { listValueName, stageName } from '../staged/labels';
 import { templateName } from './labels';
 
@@ -64,6 +66,9 @@ export function NewChangePage() {
   const [pickedRequester, setRequester] = useState<string | null>(null);
   // `?requester=` only once the person is known; an unknown one leaves the field empty, quietly.
   const knownRequester = useKnownUser(params.get('requester'));
+  // Raised from a CI (lane B's Raise menu): `?ci=` links it, once it is known to exist for this
+  // person and the plan has the CMDB; else nothing is linked, quietly. The server checks again.
+  const knownCi = useRaisedFromCi(params.get('ci'));
   const [reason, setReason] = useState<string | null>(null);
   const reasons = (settings.data?.own_lists?.change_reason ?? []).filter((v) => !v.disabled);
   const filledFrom = prefill.data;
@@ -89,6 +94,7 @@ export function NewChangePage() {
           urgency: (filledFrom?.urgency ?? null) as ChangeInput['urgency'],
           site_id: filledFrom?.site_id ?? null,
           confirm_lose_access: false,
+          ...(knownCi === undefined ? {} : { ci_ids: [knownCi.id] }),
         },
       })
       .then(
@@ -208,6 +214,7 @@ export function NewChangePage() {
               ariaLabel={t('work_item.field.requester_id')}
             />
           </Form.Item>
+          <KnownCiLine name={knownCi?.name} />
           <FormProblem problem={problem} />
         </Form>
       </FormSection>

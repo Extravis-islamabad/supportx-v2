@@ -908,3 +908,67 @@ describe('Reports', () => {
     });
   });
 });
+
+// WP-047b S1 (REQ-CAT-021 AC2; lane C's condition 4): the charge-back report names its items.
+describe('Reports › grouped by catalog item', () => {
+  afterEach(() => {
+    restore();
+  });
+  const LAPTOP = '01a1a2b3-0000-7000-8000-00000000c901';
+  const RETIRED = '01a1a2b3-0000-7000-8000-00000000c902';
+  const GONE = '01a1a2b3-0000-7000-8000-00000000c903';
+  const ITEM_GROUP = {
+    field: 'catalog_item_id',
+    kind: 'reference',
+    label_prefix: null,
+    reference: 'catalog_item',
+    bucket: null,
+  };
+  const BY_ITEM = {
+    ...RESULT,
+    groups: [ITEM_GROUP],
+    rows: [LAPTOP, RETIRED, GONE].map((id, i) => ({
+      keys: [id],
+      values: [3 - i],
+      drill: { field: 'catalog_item_id', op: 'eq', value: id },
+    })),
+    totals: [6],
+  };
+  const NAMES = {
+    'POST /api/v1/reports/run': { body: BY_ITEM },
+    // The deleted (retired since) item is still named; an unknown ID is simply absent.
+    'GET /api/v1/catalog/items/names': {
+      body: [
+        { id: LAPTOP, names: { en: 'New laptop', ar: 'حاسوب جديد' } },
+        { id: RETIRED, names: { en: 'Old phone' } },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
+  });
+
+  it('shows each item by name, a retired one too, and an unknown one as such', async () => {
+    api({ me: fakeSession(), routes: routes(NAMES) });
+    render(<App />);
+    const table = await screen.findByTestId('report-result');
+    await waitFor(() => {
+      expect(table.textContent).toContain('New laptop');
+    });
+    expect(table.textContent).toContain('Old phone');
+    expect(table.textContent).toContain('Unknown value');
+    expect(table.textContent).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+  });
+
+  it('names items in Arabic, English when an item has no Arabic name (RTL)', async () => {
+    api({ me: fakeSession({ locale: 'ar' }), routes: routes(NAMES) });
+    render(<App />);
+    const table = await screen.findByTestId('report-result');
+    await waitFor(() => {
+      expect(table.textContent).toContain('حاسوب جديد');
+    });
+    expect(table.textContent).toContain('Old phone');
+    expect(table.textContent).toContain('قيمة غير معروفة');
+  });
+});

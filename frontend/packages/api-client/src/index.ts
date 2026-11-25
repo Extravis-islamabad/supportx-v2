@@ -157,6 +157,13 @@ export {
   type CiDowntimeState,
 } from './cmdbDowntimes';
 export {
+  useCiLinked,
+  useCiLinkedPage,
+  type CiLinkedKind,
+  type CiLinkedKinds,
+  type CiLinkedRecord,
+} from './cmdbLinked';
+export {
   downloadAuditExport,
   useAuditArchives,
   useAuditEntries,
@@ -1150,6 +1157,7 @@ export {
   serviceRequestKeys,
   useCatalogCategories,
   useCatalogItem,
+  useCatalogItemNames,
   useCatalogItems,
   useRaiseServiceRequest,
   useServiceRequest,
@@ -1677,7 +1685,7 @@ export {
   type RiskLevel,
   type StageChanges,
 } from './changes';
-export { useKnownAsset, useKnownUser } from './prefill';
+export { useKnownAsset, useKnownCi, useKnownUser } from './prefill';
 export {
   sharedListKeys,
   useFavouriteView,

@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeIncident, fakeSession } from '@supportx/api-client/testing';
+import type { Ci } from '@supportx/api-client';
+import { fakeEntitlements, fakeIncident, fakeSession } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
 import { scriptedRealtime } from '@supportx/realtime/testing';
 
@@ -423,6 +424,56 @@ describe('console: changes', () => {
     // It opens on the Risk tab: the questionnaire is the template's, so the change comes first.
     expect(await screen.findByTestId('change-risk')).toBeTruthy();
     expect(window.location.search).toBe('?tab=risk');
+  });
+
+  // Raised from a CI (lane B's WP-053 S5c Raise menu): `?ci=` links it once it is known, shown by
+  // its name only; unknown, unseen or without the CMDB in the plan, nothing is linked, quietly.
+  const CI_ID = '01a1a2b3-0000-7000-8000-0000000c1c1c';
+  const coreSwitch = { id: CI_ID, name: 'Core switch 1', display_id: 'CI-12' } as Ci;
+
+  it('?ci= links a known CI: its name on the form, ci_ids on create', async () => {
+    window.history.pushState({}, '', `/changes/new?ci=${CI_ID}`);
+    const fake = api({ [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch } });
+    render(<App />);
+    expect((await screen.findByTestId('raised-from-ci')).textContent).toBe('Core switch 1');
+    expect(document.body.textContent).not.toContain(CI_ID); // never its ID (rule d)
+    fireEvent.change(screen.getByTestId('change-subject'), { target: { value: 'Firmware' } });
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes')[0]?.body).toMatchObject({ ci_ids: [CI_ID] });
+  });
+
+  it('?ci= that is unknown, or a plan without the CMDB, links nothing and says nothing', async () => {
+    window.history.pushState({}, '', `/changes/new?ci=${CI_ID}`);
+    const fake = api({ [`GET /api/v1/cmdb/cis/${CI_ID}`]: { status: 404, body: {} } });
+    const { unmount } = render(<App />);
+    await waitFor(() => {
+      expect(fake.find('GET', `/api/v1/cmdb/cis/${CI_ID}`).length).toBeGreaterThan(0);
+    });
+    fireEvent.change(await screen.findByTestId('change-subject'), { target: { value: 'Patch' } });
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/changes')).toHaveLength(1);
+    });
+    expect(fake.find('POST', '/api/v1/changes')[0]?.body).not.toHaveProperty('ci_ids');
+    expect(screen.queryByTestId('raised-from-ci')).toBeNull();
+    expect(document.querySelector('.ant-message-notice')).toBeNull();
+    unmount();
+    restore();
+    const noCmdb = fakeEntitlements();
+    window.history.pushState({}, '', `/changes/new?ci=${CI_ID}`);
+    const plain = api({
+      'GET /api/v1/entitlements': {
+        body: { ...noCmdb, features: noCmdb.features.filter((f) => f !== 'cmdb') },
+      },
+      [`GET /api/v1/cmdb/cis/${CI_ID}`]: { body: coreSwitch },
+    });
+    render(<App />);
+    expect(await screen.findByTestId('change-subject')).toBeTruthy();
+    expect(plain.find('GET', `/api/v1/cmdb/cis/${CI_ID}`)).toHaveLength(0); // never asked
+    expect(screen.queryByTestId('raised-from-ci')).toBeNull();
   });
 
   it('an unknown ?template= falls back to the default template, quietly (lane A, #404)', async () => {

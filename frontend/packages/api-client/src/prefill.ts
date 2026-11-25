@@ -32,3 +32,19 @@ export function useKnownUser(id: string | null) {
     meta: quiet,
   });
 }
+
+/**
+ * The CI, if it exists and the person may see it; else undefined (and nothing shown). Raised
+ * from a CI (lane B's WP-053 S5c Raise menu): `?ci=`. `enabled` is the cmdb feature: without it
+ * nothing is asked for, as the server refuses `ci_ids` then.
+ */
+export function useKnownCi(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['prefill', 'ci', id ?? ''] as const,
+    queryFn: () =>
+      call(api.GET('/api/v1/cmdb/cis/{ci_id}', { params: { path: { ci_id: id ?? '' } } })),
+    enabled: enabled && id !== null && id !== '',
+    retry: false,
+    meta: quiet,
+  });
+}

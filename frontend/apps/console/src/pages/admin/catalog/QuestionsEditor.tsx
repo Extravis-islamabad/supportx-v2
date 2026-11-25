@@ -4,7 +4,18 @@ import {
   DeleteOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Flex, Form, Input, Select, Switch, Typography } from 'antd';
+import {
+  Button,
+  Card,
+  Checkbox,
+  Flex,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+  Typography,
+} from 'antd';
 
 import type { CatalogQuestion, CatalogQuestionKind } from '@supportx/api-client';
 import { lengthLimit, useLabel } from '@supportx/ui';
@@ -79,10 +90,13 @@ export function QuestionsEditor({
   value,
   onChange,
   disabled,
+  priced = false,
 }: {
   value: CatalogQuestion[];
   onChange: (next: CatalogQuestion[]) => void;
   disabled: boolean;
+  /** Options may carry a price (WP-047b S1; the catalog feature). */
+  priced?: boolean;
 }) {
   const t = useLabel();
   const put = (index: number, next: Partial<CatalogQuestion>) => {
@@ -243,7 +257,17 @@ export function QuestionsEditor({
                 <OptionsEditor
                   question={question}
                   onChange={(options, option_labels) => {
-                    put(index, { options, option_labels });
+                    // An option removed takes its price with it (WP-047b S1).
+                    const prices = Object.fromEntries(
+                      Object.entries(question.option_prices ?? {}).filter(([code]) =>
+                        options.includes(code),
+                      ),
+                    );
+                    put(index, { options, option_labels, option_prices: prices });
+                  }}
+                  priced={priced}
+                  onPrices={(option_prices) => {
+                    put(index, { option_prices });
                   }}
                   index={index}
                 />
@@ -284,19 +308,27 @@ export function QuestionsEditor({
   );
 }
 
-/** A choice question's options: each a stable code and its words per language. */
+/**
+ * A choice question's options: each a stable code and its words per language, and (WP-047b
+ * S1, REQ-CAT-020; Professional) an extra price, in the base currency.
+ */
 function OptionsEditor({
   question,
   onChange,
+  priced,
+  onPrices,
   index,
 }: {
   question: CatalogQuestion;
   onChange: (options: string[], labels: Record<string, Record<string, string>>) => void;
+  priced: boolean;
+  onPrices: (prices: Record<string, string>) => void;
   index: number;
 }) {
   const t = useLabel();
   const options = question.options ?? [];
   const labels = question.option_labels ?? {};
+  const prices = question.option_prices ?? {};
   return (
     <Flex vertical gap={8}>
       {options.map((code, i) => (
@@ -312,6 +344,26 @@ function OptionsEditor({
               required
             />
           </div>
+          {(priced || prices[code] !== undefined) && (
+            <InputNumber<string>
+              stringMode
+              min="0"
+              step="0.01"
+              precision={2}
+              style={{ width: 130 }}
+              placeholder={t('catalog_admin.price.option_price')}
+              aria-label={t('catalog_admin.price.option_price')}
+              value={prices[code] ?? null}
+              onChange={(value) => {
+                // Clearing a price drops the option from the map (an empty amount is no price).
+                const rest = Object.fromEntries(
+                  Object.entries(prices).filter(([option]) => option !== code),
+                );
+                onPrices(value === null || value === '' ? rest : { ...rest, [code]: value });
+              }}
+              data-testid={`cat-question-${String(index)}-option-${String(i)}-price`}
+            />
+          )}
           <Button
             type="text"
             danger

@@ -98,6 +98,8 @@ import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
 import { pickedOf } from '../assets/raise';
+import { KnownCiLine } from '../../KnownCiLine';
+import { useRaisedFromCi } from '../../raisedFromCi';
 import { KeptDraftNotice } from './KeptDraft';
 import { useServerDraft } from './useServerDraft';
 import { AssetPickerField } from './RecordAssets';
@@ -310,6 +312,9 @@ export function NewIncidentPage() {
   // person's to see leaves its field empty, with no message (lane A's condition). The server
   // checks everything again on submit, as for any typed value.
   const knownAsset = useKnownAsset(params.get('asset'), has('assets'));
+  // Raised from a CI (lane B's Raise menu): `?ci=` links it, once it is known to exist for this
+  // person and the plan has the CMDB; else nothing is linked, quietly. The server checks again.
+  const knownCi = useRaisedFromCi(params.get('ci'));
   const knownRequester = useKnownUser(params.get('requester'));
   const knownPicked = knownAsset.data === undefined ? [] : [pickedOf(knownAsset.data)];
   const assetIds = pickedAssets ?? (knownAsset.data === undefined ? [] : [knownAsset.data.id]);
@@ -477,6 +482,7 @@ export function NewIncidentPage() {
       ),
       keep_following: keepFollowing ?? null,
       ...(assetIds.length > 0 ? { asset_ids: assetIds } : {}),
+      ...(knownCi === undefined ? {} : { ci_ids: [knownCi.id] }),
       // The kept draft of this form goes with the save (yours only, on the server).
       draft_form_key: 'incident-new' as const,
     };
@@ -764,6 +770,12 @@ export function NewIncidentPage() {
               )}
             />,
           )}
+          {knownCi !== undefined &&
+            extra(
+              <Col key="ci" xs={24}>
+                <KnownCiLine name={knownCi.name} />
+              </Col>,
+            )}
           {/* REQ-AST-025: the assets it is about, the requester's own first. */}
           {has('assets') &&
             extra(

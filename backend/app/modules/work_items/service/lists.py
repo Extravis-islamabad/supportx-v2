@@ -61,7 +61,13 @@ from app.modules.work_items.infra.models import (
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import view_filters
 from app.modules.work_items.service import work_items as items
-from app.modules.work_items.service.access import FIELDS, SHARE_VIEWS, SHARE_VIEWS_WIDE, type_fields
+from app.modules.work_items.service.access import (
+    FIELDS,
+    SHARE_VIEWS,
+    SHARE_VIEWS_WIDE,
+    money_withheld,
+    type_fields,
+)
 from app.modules.work_items.service.reporting import DIMENSIONS, TYPE_DIMENSIONS
 from app.shared.api.filters import FieldType, ResourceFields, compile_filter
 from app.shared.api.listing import parse_sort
@@ -173,7 +179,9 @@ async def list_fields(
     _require_view(subject, wtype)
     allowed = await allowed_fields(session, wtype)
     # Not the fields the caller's roles hide or mask (ADR-047 AC2): the list refuses them too.
-    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all
+    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all | money_withheld(
+        subject, wtype
+    )
     cat = await config.load(session, wtype)
     # Retired codes too: old records keep them and a filter must still find those records.
     picked = {
@@ -228,7 +236,9 @@ async def shown_filter(
     Sealed values are opened for the owner while they may see the field, else withheld; a
     non-owner never gets such a view (D-176), and would get them withheld anyway.
     """
-    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all
+    withheld = field_rules.unseen(subject.field_access, wtype.code.value).all | money_withheld(
+        subject, wtype
+    )
     if row.owner_id != subject.user_id:
         withheld = withheld | await sealed_fields(session, wtype)
     return await view_filters.opened(session, row.id, row.filter, withheld)
@@ -251,7 +261,9 @@ async def withheld_from(
     Their role rules (ADR-047), the permission gates (a problem's root cause) and every sealed
     custom field (ADR-050).
     """
-    rules = field_rules.unseen(subject.field_access, wtype.code.value).all
+    rules = field_rules.unseen(subject.field_access, wtype.code.value).all | money_withheld(
+        subject, wtype
+    )
     gates = frozenset(
         name
         for name, action in items.HIDDEN_WITHOUT.items()
