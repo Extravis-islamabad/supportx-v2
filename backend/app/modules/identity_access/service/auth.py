@@ -38,6 +38,7 @@ from app.core.logging import get_logger
 from app.core.recent_auth import RECENT_AUTH_WINDOW, SignInFreshness, record_freshness
 from app.core.tenancy import TenantContext
 from app.modules.audit import WORKER, RequestFacts, record_alone
+from app.modules.identity_access.domain import mobile as mobile_rules
 from app.modules.identity_access.domain import quick_sign_in as quick
 from app.modules.identity_access.domain.identity import (
     ClaimsError,
@@ -48,6 +49,7 @@ from app.modules.identity_access.domain.identity import (
 )
 from app.modules.identity_access.domain.mobile import (
     HANDOFF_TTL,
+    MOBILE_NOT_ALLOWED,
     SESSION_HEADER,
     MobileStart,
     app_return,
@@ -93,6 +95,7 @@ from app.modules.identity_access.service import (
     api_keys,
     break_glass,
     confirm,
+    identity_settings,
     known_devices,
     sign_in_log,
     site_networks,
@@ -109,6 +112,7 @@ from app.modules.identity_access.service.users import (
     requester_only,
     tenant_name,
 )
+from app.modules.organization import offered_languages
 from app.shared.api.ratelimit import client_address
 from app.shared.clock import Clock
 from app.shared.events import record_event
@@ -240,6 +244,11 @@ class ListedSession:
 def user_key(tenant_id: str, user_id: str) -> str:
     """The session store's key for a person in a tenant."""
     return f"{tenant_id}:{user_id}"
+
+
+def mobile_key(tenant_id: str) -> str:
+    """The store's key for "every mobile session of this tenant ended" (WP-057 S6b, AC1)."""
+    return f"mobile:{tenant_id}"
 
 
 @dataclass(frozen=True)
@@ -1039,6 +1048,8 @@ class AuthService:
         if support is not None:
             await self._log_policy_refusal(uuid.UUID(target.tenant_id), identity, attempt, support)
             raise PermissionDenied(code=support)
+        # WP-057 S6b (REQ-SEC-047 AC1): the tenant's mobile policy, before anyone is provisioned.
+        mobile = await self._mobile_policy(uuid.UUID(target.tenant_id), identity, attempt)
         # D-177: whether this person already had an account here, for the link audit below.
         existed = (
             await known_user_id(self.database, uuid.UUID(target.tenant_id), identity.subject)
@@ -1065,7 +1076,11 @@ class AuthService:
         mfa = synced.status
         # The identity provider's MFA is trusted after a single sign-on, unless the tenant also
         # requires SupportX's (REQ-SEC-026); then an SSO user must enrol before any session.
-        if requires_supportx_mfa(method, also_require_mfa=also_mfa) and mfa.must_enrol(now):
+        # The tenant asks for a second factor on mobile (REQ-SEC-047): enrol first, no grace.
+        mobile_mfa = mobile is not None and mobile.mobile_mfa_required and not mfa.enrolled
+        if mobile_mfa or (
+            requires_supportx_mfa(method, also_require_mfa=also_mfa) and mfa.must_enrol(now)
+        ):
             if not synced.enforced:
                 # Keycloak could not be told: never loop through sign-in, say so instead.
                 raise PermissionDenied(code="mfa_enrolment_unavailable")
@@ -1091,8 +1106,12 @@ class AuthService:
             refresh_token=tokens.refresh_token,
             id_token=tokens.id_token,
             keycloak_session_id=identity.keycloak_session_id,
-            idle_seconds=user.session_idle_seconds,
-            absolute_seconds=user.session_absolute_seconds,
+            idle_seconds=user.session_idle_seconds
+            if mobile is None
+            else mobile.mobile_session_limits(app)[0],
+            absolute_seconds=user.session_absolute_seconds
+            if mobile is None
+            else mobile.mobile_session_limits(app)[1],
             sign_in_method=method.value,
             identity_provider=identity.identity_provider,
             break_glass=verdict.break_glass,
@@ -1169,6 +1188,29 @@ class AuthService:
             object_type="user",
             object_id=user_id,
             details={"identity_provider": identity_provider},
+        )
+
+    async def _mobile_policy(
+        self, tenant_id: uuid.UUID, identity: Identity, attempt: "Attempt | None"
+    ) -> "identity_settings.IdentitySettingsView | None":
+        """A mobile sign-in's settings (None for the web apps); refused when the app is off.
+
+        AC1: refused before anyone is provisioned or any session exists, with the tenant's own
+        message in the person's language (else the tenant's default; else the app's built-in
+        text), cleaned to plain text. Logged in the sign-in log as any policy refusal.
+        """
+        if attempt is None or not attempt.mobile:
+            return None
+        assert self.database is not None  # noqa: S101 - _new_session checked it
+        async with self.database.tenant_session(TenantContext(tenant_id)) as session:
+            found = await identity_settings.get_identity_settings(session)
+            _offered, default = await offered_languages(session)
+        if found.mobile_allowed:
+            return found
+        await self._log_policy_refusal(tenant_id, identity, attempt, MOBILE_NOT_ALLOWED)
+        text = mobile_rules.refusal_message(found.mobile_policy(), identity.locale, default)
+        raise PermissionDenied(
+            code=MOBILE_NOT_ALLOWED, params={} if text is None else {"tenant_message": text}
         )
 
     async def _log_policy_refusal(
@@ -1257,11 +1299,7 @@ class AuthService:
         if session.expiry(now, idle=self.idle, absolute=self.absolute) is not None:
             await self.store.delete_session(session_id)
             raise Unauthenticated(code="session_expired")
-        ended = await self.store.user_sessions_ended(user_key(session.tenant_id, session.user_id))
-        if ended is not None and session.created_at <= ended:
-            # Deactivated or sign-in turned off since (REQ-ADM-010 AC1): over at once.
-            await self.store.delete_session(session_id)
-            raise Unauthenticated(code="session_expired")
+        await self._refuse_ended(session_id, session)
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
@@ -1381,6 +1419,30 @@ class AuthService:
         )
         if self.end_realtime is not None:
             await self.end_realtime(tenant_id, user_id)
+
+    async def _refuse_ended(self, session_id: str, session: Session) -> None:
+        """401 for a session ended since it began: the person's, or the tenant's mobile ones."""
+        ended = await self.store.user_sessions_ended(user_key(session.tenant_id, session.user_id))
+        if ended is not None and session.created_at <= ended:
+            # Deactivated or sign-in turned off since (REQ-ADM-010 AC1): over at once.
+            await self.store.delete_session(session_id)
+            raise Unauthenticated(code="session_expired")
+        if session.device_platform is not None:
+            # The tenant switched the mobile app off since (REQ-SEC-047 AC1): its sessions end.
+            off = await self.store.user_sessions_ended(mobile_key(session.tenant_id))
+            if off is not None and session.created_at <= off:
+                await self.store.delete_session(session_id)
+                raise Unauthenticated(code=MOBILE_NOT_ALLOWED)
+
+    async def end_mobile_sessions(self, tenant_id: uuid.UUID) -> None:
+        """End every mobile app session of the tenant now: the app was switched off (AC1).
+
+        The app's next request gets 401 `mobile_not_allowed`; its next sign-in is refused with
+        the tenant's message. The marker outlives the longest mobile session.
+        """
+        await self.store.end_user_sessions(
+            mobile_key(str(tenant_id)), self.clock.now(), MAX_SESSION
+        )
 
     async def check_address(self, request: Request) -> None:
         """Refuse a signed-in request from outside its tenant's list for its app (REQ-SEC-034).

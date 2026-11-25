@@ -46,9 +46,11 @@ from app.modules.identity_access.domain.identity import (
     WeekStart,
 )
 from app.modules.identity_access.domain.mobile import (
+    MOBILE_NOT_ALLOWED,
     SESSION_HEADER,
     MobileStart,
     app_return,
+    clean_message,
     valid_app_version,
     valid_challenge,
 )
@@ -57,8 +59,8 @@ from app.modules.identity_access.domain.support_grants import SUPPORT_USER_TYPE
 from app.modules.identity_access.infra.models import SupportGrant, User
 from app.modules.identity_access.infra.oidc import IdentityProviderUnavailable
 from app.modules.identity_access.service import confirm as confirm_service
+from app.modules.identity_access.service import identity_settings, sso
 from app.modules.identity_access.service import password_reset as password_reset_service
-from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import (
     LOGIN_STATE_TTL,
     SIGN_IN_UNAVAILABLE,
@@ -454,7 +456,14 @@ async def _failure_response(request: Request, auth: AuthService, failure: LoginF
     A problem response, not a raised error: the callback still adds its cookie clearing to it.
     """
     if failure.mobile_return is not None:  # back to the app, which shows the label
-        target = app_return(failure.mobile_return, auth_error=failure.problem.instance_code)
+        returned = {"auth_error": failure.problem.instance_code}
+        # REQ-SEC-047 AC1: the tenant's own words when the app is switched off, cleaned again
+        # here (plain text, one line, capped); the app shows it as text, never as markup.
+        said = (failure.problem.params or {}).get("tenant_message")
+        text = clean_message(said) if isinstance(said, str) else ""
+        if failure.problem.instance_code == MOBILE_NOT_ALLOWED and text:
+            returned["auth_message"] = text
+        target = app_return(failure.mobile_return, **returned)
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     if "text/html" not in request.headers.get("accept", ""):
         return await app_error_response(request, failure.problem)
@@ -499,6 +508,38 @@ async def mobile_exchange(body: MobileExchangeIn, request: Request, auth: Auth) 
         raise RateLimited
     session_id, _session = await auth.exchange_handoff(body.handoff, body.verifier)
     return MobileSessionOut(session_id=session_id)
+
+
+class MobilePolicyOut(BaseModel):
+    """What the app enforces on the device (REQ-SEC-047 AC2): policy only, never a secret.
+
+    Client-enforced: the server cannot prove a device unlock happened or local data was cleared;
+    it states the tenant's policy and the app applies it.
+    """
+
+    device_unlock_required: bool
+    unlock_after_minutes: int = Field(description="In the background longer than this: unlock.")
+    clear_on_sign_out: bool
+
+
+@router.get("/mobile/policy", summary="The tenant's mobile app policy, for the app")
+async def mobile_policy(request: Request, auth: Auth) -> MobilePolicyOut:
+    """A mobile session's own tenant only; 401 without one, 403 from a web session."""
+    found = await auth.session_for(request)
+    if found is None:
+        raise Unauthenticated(code="unauthenticated")
+    _session_id, session = found
+    if session.device_platform is None:
+        raise PermissionDenied(code="mobile_session_required")
+    if auth.database is None:  # pragma: no cover - the app always has its database
+        raise ServiceUnavailable(code="sign_in_unavailable")
+    async with auth.database.tenant_session(TenantContext(session.tenant_uuid)) as db:
+        policy = (await identity_settings.get_identity_settings(db)).mobile_policy()
+    return MobilePolicyOut(
+        device_unlock_required=policy.device_unlock_required,
+        unlock_after_minutes=policy.unlock_after_minutes,
+        clear_on_sign_out=policy.clear_on_sign_out,
+    )
 
 
 class PasswordResetIn(BaseModel):

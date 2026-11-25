@@ -32,6 +32,7 @@ API_KEY_NOT_ALLOWED = "api_key_not_allowed"
 RECENT_AUTH_ROUTES: tuple[str, ...] = (
     # Sign-in and security settings.
     "PUT /api/v1/identity/settings",
+    "PUT /api/v1/identity/settings/mobile",  # WP-057 S6b: the mobile app policy
     "POST /api/v1/identity/settings/password-policy/apply",
     "PUT /api/v1/identity/sso-policy",
     "PUT /api/v1/identity/network-rules",
