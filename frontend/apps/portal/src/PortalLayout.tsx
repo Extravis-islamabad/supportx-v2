@@ -38,6 +38,8 @@ const NAV: { path: string; labelKey: LabelKey; feature?: Feature }[] = [
     feature: 'service_request',
   },
   { path: '/approvals', labelKey: 'portal.approvals.title', feature: 'service_request' },
+  // WP-047a S5: fulfilment tasks given to someone outside the desk (REQ-SR-050).
+  { path: '/tasks', labelKey: 'portal.tasks.title', feature: 'service_request' },
   // WP-045d S4a: the changes a requester raised (REQ-CHG-109).
   { path: '/changes', labelKey: 'portal.changes.title', feature: 'change' },
   { path: '/catalog', labelKey: 'nav.catalog' },

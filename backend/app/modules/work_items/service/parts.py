@@ -25,7 +25,7 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound, PermissionDenied
-from app.modules import automation, licensing
+from app.modules import assets, automation, licensing
 from app.modules.identity_access import Subject
 from app.modules.organization import base_currency
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
@@ -106,6 +106,14 @@ class LinkRepository(Repository[WorkItemLink]):
     model = WorkItemLink
 
 
+def _owner_before(changes: list[Change]) -> uuid.UUID | None:
+    """The owner a task change took it away from (None: its owner did not change)."""
+    for change in changes:
+        if change.field == "task.owner_id" and change.old not in (None, change.new):
+            return uuid.UUID(str(change.old))
+    return None
+
+
 async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what changed, explicit
     session: AsyncSession,
     record: WorkItem,
@@ -134,6 +142,7 @@ async def _recorded(  # noqa: PLR0913, PLR0917 - the record, the part and what c
             part_id=part_id,
             change=_CHANGES[kind],
             task_status=task.status if task is not None else None,
+            previous_owner_id=_owner_before(changes) if part == "task" else None,
         ),
         aggregate_id=record.id,
     )
@@ -426,10 +435,229 @@ async def _assigned(
         return
     await record_event(
         session,
-        WorkItemTaskAssigned(work_item_id=record.id, task_id=task.id, owner_id=task.owner_id),
+        WorkItemTaskAssigned(
+            work_item_id=record.id,
+            task_id=task.id,
+            owner_id=task.owner_id,
+            previous_owner_id=before,
+        ),
         aggregate_id=record.id,
         aggregate_version=record.version,
     )
+
+
+CLOSED_TASKS = frozenset({TaskStatus.DONE.value, TaskStatus.CANCELED.value})
+HANDOVER_KIND = "asset_handover"
+HANDOVER_KEY = "asset_id"  # where a hand-over task keeps the asset it handed over
+
+
+async def _plan_task_values(  # noqa: PLR0913 - the task, what was sent and how, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record: WorkItem,
+    task: WorkItemTask,
+    *,
+    given: tuple[Any, Any],
+    finishing: bool,
+    source: Source,
+) -> dict[str, Any]:
+    """A plan task's own values in this change (WP-047a S5): {} or {"field_values": ...}.
+
+    Its fields are checked against its definitions (REQ-SR-049); completing it needs every
+    required one filled (AC1), and a hand-over task hands its asset over (REQ-SR-056).
+    """
+    field_values = _field_values(task, given[0])
+    if finishing:
+        _required_filled(task, field_values if field_values is not None else task.field_values)
+        if task.kind == HANDOVER_KIND:
+            field_values = await _hand_over(
+                session, subject, record, task, given=given[1], field_values=field_values,
+                source=source,
+            )  # fmt: skip
+    return {} if field_values is None else {"field_values": field_values}
+
+
+async def _hand_over(  # noqa: PLR0913 - the task, the asset and the source, explicit
+    session: AsyncSession,
+    subject: Subject,
+    record: WorkItem,
+    task: WorkItemTask,
+    *,
+    given: Any,  # noqa: ANN401 - untrusted JSON
+    field_values: dict[str, Any] | None,
+    source: Source,
+) -> dict[str, Any]:
+    """Completing a hand-over task hands the asset to the requested-for person (REQ-SR-056).
+
+    As the task's owner through assets' port (lane B's terms: their scope, refusals labelled,
+    audited there), then linked to the request as that owner may; one transaction with the
+    completion, so a refusal leaves the task open. The task keeps the asset's ID.
+    """
+    try:
+        asset_id = uuid.UUID(str(given)) if given else None
+    except ValueError:
+        asset_id = None
+    if asset_id is None:
+        raise items.field_errors([(HANDOVER_KEY, "task_field_required")])
+    person = record.on_behalf_of_id or record.requester_id
+    if person is None:
+        raise items.field_errors([(HANDOVER_KEY, "handover_person_not_active")])
+    # Imported here: asset links build on this module's records.
+    from app.modules.work_items.service import asset_links  # noqa: PLC0415 - see above
+
+    await assets.handover_asset(
+        session,
+        subject,
+        asset_id,
+        person,
+        source_ref={
+            "work_item_id": record.id,
+            "task_id": task.id,
+            "display_id": record.display_id,
+        },
+    )
+    await asset_links.attach(session, subject, record, [asset_id], source=source)
+    base = field_values if field_values is not None else dict(task.field_values or {})
+    return {**base, HANDOVER_KEY: str(asset_id)}
+
+
+TASK_FIELD_MAX = 2000  # a text value's length
+
+
+def _field_values(task: WorkItemTask, given: Any) -> dict[str, Any] | None:  # noqa: ANN401 - untrusted JSON
+    """The task's field values after this change, checked (None: not changed; REQ-SR-049)."""
+    if given is None:
+        return None
+    if not isinstance(given, dict):
+        raise items.field_errors([("field_values", "invalid_value")])
+    known = {f["key"]: f for f in task.fields or []}
+    problems = [(f"field_values.{k}", "unknown_field") for k in given if k not in known]
+    for key, value in given.items():
+        if key in known and value not in (None, "") and not _fits(known[key], value):
+            problems.append((f"field_values.{key}", "invalid_value"))
+    if problems:
+        raise items.field_errors(problems)
+    return {**dict(task.field_values or {}), **{k: v for k, v in given.items() if k in known}}
+
+
+def _is_number(value: Any) -> bool:  # noqa: ANN401 - untrusted JSON
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _parses(value: Any, parse: Any) -> bool:  # noqa: ANN401 - untrusted JSON, a parser
+    try:
+        parse(str(value))
+    except ValueError:
+        return False
+    return True
+
+
+def _fits(field: dict[str, Any], value: Any) -> bool:  # noqa: ANN401 - untrusted JSON
+    """A value of the field's kind (number, choice, person, date; text up to its limit)."""
+    kind = field.get("kind") or "text"
+    checks = {
+        "number": lambda: _is_number(value),
+        "choice": lambda: value in (field.get("options") or []),
+        "person": lambda: _parses(value, uuid.UUID),
+        "date": lambda: _parses(value, datetime.fromisoformat),
+    }
+    check = checks.get(kind)
+    if check is not None:
+        return bool(check())
+    return isinstance(value, str) and len(value) <= TASK_FIELD_MAX
+
+
+def _required_filled(task: WorkItemTask, values: dict[str, Any]) -> None:
+    """REQ-SR-049 AC1: a required field still empty refuses completing the task."""
+    missing = [
+        f["key"]
+        for f in task.fields or []
+        if f.get("required") and values.get(f["key"]) in (None, "", [])
+    ]
+    if missing:
+        raise items.field_errors([(f"field_values.{k}", "task_field_required") for k in missing])
+
+
+async def _tell_who_may_start(session: AsyncSession, record: WorkItem, done: WorkItemTask) -> None:
+    """The tasks that waited for this one and wait for nothing else now hear (REQ-SR-047 AC1)."""
+    edges = await dependencies_of(session, record.id)
+    tasks = {t.id: t for t in await _tasks(session, record.id)}
+    for task_id, before in edges.items():
+        if done.id not in before or task_id not in tasks:
+            continue
+        if all(tasks[b].status == TaskStatus.DONE for b in before if b in tasks):
+            await _assigned(session, record, tasks[task_id], before=None)
+
+
+async def has_worklogs(
+    session: AsyncSession, record_id: uuid.UUID, owner_id: uuid.UUID | None
+) -> bool:
+    """Whether the task's owner logged work on the record (WP-047a S5, condition 3).
+
+    Worklogs belong to the record, not a task, so any by the task's owner keeps the task: a
+    person decides rather than the plan quietly cancelling work that may be its own.
+    """
+    if owner_id is None:
+        return False
+    found = await session.scalar(
+        select(WorkItemWorklog.id)
+        .where(
+            WorkItemWorklog.work_item_id == record_id,
+            WorkItemWorklog.owner_id == owner_id,
+            WorkItemWorklog.deleted_at.is_(None),
+        )
+        .limit(1)
+    )
+    return found is not None
+
+
+MY_TASKS_MAX = 200  # a person's own open task-only tasks: never a long list
+
+
+def _my_tasks_query(subject: Subject) -> Any:  # noqa: ANN401 - a SQLAlchemy select
+    """Open task-only plan tasks owned by the subject, on live records (condition 1)."""
+    return (
+        select(WorkItemTask, WorkItem.display_id)
+        .join(WorkItem, WorkItem.id == WorkItemTask.work_item_id)
+        .where(
+            WorkItemTask.owner_id == subject.user_id,
+            WorkItemTask.task_only.is_(True),
+            WorkItemTask.deleted_at.is_(None),
+            WorkItemTask.status.not_in(CLOSED_TASKS),
+            WorkItem.deleted_at.is_(None),
+        )
+    )
+
+
+async def task_only_tasks(
+    session: AsyncSession, subject: Subject
+) -> list[tuple[WorkItemTask, str]]:
+    """The subject's own task-only tasks, oldest first, with their request's reference only.
+
+    WP-047a S5 (REQ-SR-050; the coordinator's condition 1): this task alone, never its record:
+    closing or reassigning it drops it from here and from `task_only_task`.
+    """
+    rows = await session.execute(
+        _my_tasks_query(subject).order_by(WorkItemTask.created_at).limit(MY_TASKS_MAX)
+    )
+    return [(task, display_id) for task, display_id in rows.all()]
+
+
+async def task_only_task(
+    session: AsyncSession, subject: Subject, task_id: uuid.UUID
+) -> tuple[WorkItemTask, str]:
+    """One of `task_only_tasks`; anyone else's, closed or reassigned: 404 (as if none)."""
+    row = (
+        await session.execute(_my_tasks_query(subject).where(WorkItemTask.id == task_id))
+    ).first()
+    if row is None:
+        raise NotFound(code="work_item_task_not_found")
+    return row[0], row[1]
+
+
+async def tell_owner(session: AsyncSession, record: WorkItem, task: WorkItemTask) -> None:
+    """Tell a task's owner it is theirs now (WP-047a S5: a plan task, when it can start)."""
+    await _assigned(session, record, task, before=None)
 
 
 async def _task(session: AsyncSession, record_id: uuid.UUID, task_id: uuid.UUID) -> WorkItemTask:
@@ -500,7 +728,13 @@ async def _any_task_access(
         and parent is not None
         and parent.deleted_at is None
         and task.owner_id == subject.user_id
-        and await owner_access(session, wtype)
+        and (
+            # WP-047a S5 (REQ-SR-050; the coordinator's condition 1): a plan task given to
+            # someone outside the desk opens this task alone, while it is open; reassigning it
+            # (another owner) or closing it ends that access.
+            (task.task_only and task.status not in CLOSED_TASKS)
+            or await owner_access(session, wtype)
+        )
     ):
         return parent, task, False
     if await items.may(session, subject, wtype, "view", record_id):
@@ -523,10 +757,12 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
 ) -> WorkItemTask:
     """Change a task (If-Match). A task-only owner changes the status only."""
     record, task, full = await _task_access(session, subject, wtype, record_id, task_id)
-    if not full and set(values) - {"status"}:
+    if not full and set(values) - {"status", "field_values", "asset_id"}:
         raise PermissionDenied(
             params={"permission": wtype.permission("edit"), "reason": "task_owner_status_only"}
         )
+    given_values, handover_id = values.pop("field_values", None), values.pop("asset_id", None)
+    finishing = values.get("status") == TaskStatus.DONE and task.status != TaskStatus.DONE
     clean = _task_values(
         values, creating=False, stages=await _stages_of(session, wtype, record), current=task
     )
@@ -537,6 +773,17 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
         clean["done_at"] = datetime.now(UTC) if done else None
         clean["done_by"] = subject.user_id if done else None  # D-154d: "Done by <name>"
     was_done = task.status == TaskStatus.DONE
+    clean.update(
+        await _plan_task_values(
+            session,
+            subject,
+            record,
+            task,
+            given=(given_values, handover_id),
+            finishing=finishing,
+            source=source,
+        )
+    )
     before = _snapshot(task)
     updated = await TaskRepository(session).update(
         task.id, expected_version=expected_version, changes=clean
@@ -547,6 +794,8 @@ async def update_task(  # noqa: PLR0913, PLR0917 - the task, its version, the ch
     await _assigned(session, record, updated, before=before["owner_id"])
     if "status" in clean and updated.workflow_instance_id is not None:
         await workflow_task_settled(session, updated)
+    if finishing:  # REQ-SR-047 AC1: whoever waited for this one may start now
+        await _tell_who_may_start(session, record, updated)
     if "status" in clean and updated.from_plan:
         # Imported here: fulfilment uses this module's tasks (WP-030 s3, REQ-SR-058).
         from app.modules.work_items.service import fulfilment  # noqa: PLC0415 - see above
@@ -966,6 +1215,20 @@ class WorklogTotals:
     def total_cost(self) -> Decimal:
         """Technician and other costs together."""
         return self.technician_cost + self.other_cost
+
+
+def task_cost(tasks: list[WorkItemTask]) -> Decimal:
+    """The extra costs of a record's live, not cancelled tasks (REQ-SR-052)."""
+    return sum(
+        (
+            t.extra_cost
+            for t in tasks
+            if t.extra_cost is not None
+            and t.deleted_at is None
+            and t.status != TaskStatus.CANCELED.value
+        ),
+        Decimal("0.00"),
+    )
 
 
 async def _worklogs(session: AsyncSession, record_id: uuid.UUID) -> list[WorkItemWorklog]:

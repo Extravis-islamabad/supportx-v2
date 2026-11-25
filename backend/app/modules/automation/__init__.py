@@ -88,6 +88,7 @@ from app.modules.automation.service.transitions import refusal as transition_ref
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.modules.automation.service.usage import register_usage_checks
 from app.modules.automation.service.workflow_events import command_finished
+from app.modules.automation.service.workflow_runtime import start_workflow, workflow_problem
 from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
@@ -211,8 +212,10 @@ __all__ = [
     "register_record_type",
     "route_record",
     "run_business_rules",
+    "start_workflow",
     "step_owner",
     "transition_audience",
     "transition_refusal",
     "transition_settings",
+    "workflow_problem",
 ]

@@ -202,8 +202,11 @@ async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and
     *,
     expected_version: int,
     source: Source,
+    reason: str | None = None,
 ) -> Asset:
     """Give the asset to `holder` (None: back to no one), with history and one holding row.
+
+    `reason`: kept in the history (WP-047a S5: a fulfilment hand-over names its request).
 
     `assets.manage` on the asset, or (D-157) a technician fitting a free component into, or
     taking one out of, an asset its own ticket allows it to change (`_component_write`).
@@ -237,7 +240,7 @@ async def set_holder(  # noqa: PLR0913 - the asset, the holder, the If-Match and
             source=source,  # where the change came from, as its history says
         )
         session.add(holding)
-    await _saved(session, subject, row, changes, action="updated", source=source)
+    await _saved(session, subject, row, changes, action="updated", source=source, reason=reason)
     if holding is not None:
         await session.flush()
         await ask_if_needed(session, row, holding, subject.user_id)

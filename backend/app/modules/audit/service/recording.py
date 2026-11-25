@@ -378,6 +378,18 @@ class LifecycleSink:
 # --- route dependencies ------------------------------------------------------------------------
 
 
+def _same_object(record_id: object, object_id: object) -> bool:
+    """The saved record is the route's object (lane C's #631 review).
+
+    The note's ID is the raw path string, so an upper-cased or braced UUID in the URL is still
+    the same record: compared as UUIDs when both parse, as strings otherwise.
+    """
+    try:
+        return uuid.UUID(str(record_id)) == uuid.UUID(str(object_id))
+    except ValueError:
+        return str(record_id) == str(object_id)
+
+
 def audited(
     action_code: str,
     *,
@@ -417,9 +429,16 @@ def audited(
             # no second entry (WP-064, ADR-045).
             facts = RequestFacts.of(request)
             merged = group_saves(saves)
-            lead = next(
-                (i for i, m in enumerate(merged) if str(m[-1].record_id) == str(note.object_id)), 0
+            matched = next(
+                (i for i, m in enumerate(merged) if _same_object(m[-1].record_id, note.object_id)),
+                None,
             )
+            # The route names an object none of its saves is (a workflow stop names the instance
+            # but saves the request, lane A's #630): its action is that object's own entry, and
+            # the saves are plain record entries. Never merged onto another record. A route
+            # naming no object yet (a create) leads its first save, as before.
+            own_entry = matched is None and note.object_id is not None
+            lead = None if own_entry else (matched if matched is not None else 0)
             for index, saved in enumerate(merged):
                 await _write_save(
                     session,
@@ -428,7 +447,8 @@ def audited(
                     route=action_code if index == lead else None,
                     note=note if index == lead else None,
                 )
-            return
+            if not own_entry:
+                return
         if note.skip:
             return
         change_ids = recorded_change_ids(session)

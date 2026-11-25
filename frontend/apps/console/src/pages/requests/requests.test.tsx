@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CatalogItem } from '@supportx/api-client';
-import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import { fakeIncident, fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi, listCalls } from '../../test/api';
@@ -107,13 +107,27 @@ const approvalsBody = {
   people: { [MANAGER]: { display_name: 'Omar Manager', email: 'omar@example.com' } },
 };
 
+// Someone who may see a request's workflows (workflows.run) and the request itself.
+const WORKFLOW_RUNNER = fakeSession(
+  { roles: ['tenant_admin'] },
+  {
+    permissions: ['service_requests.view', 'service_requests.edit', 'workflows.run'].map((key) => ({
+      key,
+      scope: 'all' as const,
+      scopes: ['all' as const],
+      conditional: false,
+    })),
+  },
+);
+
 let restore: () => void = () => undefined;
 afterEach(() => {
   restore();
 });
 
-function api(routes: Record<string, unknown> = {}) {
+function api(routes: Record<string, unknown> = {}, me?: ReturnType<typeof fakeSession>) {
   const fake = consoleApi({
+    ...(me === undefined ? {} : { me }),
     routes: {
       'GET /api/v1/catalog/items': { body: [laptop] },
       [`GET /api/v1/catalog/items/${ITEM_ID}`]: { body: laptop },
@@ -142,6 +156,47 @@ function api(routes: Record<string, unknown> = {}) {
 }
 
 describe('console: service requests', () => {
+  it('WP-047a S5 (REQ-SR-053 AC1): the request says what its workflow waits for', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    api(
+      {
+        [`GET /api/v1/automation/workflows/records/service_request/${SR_ID}`]: {
+          body: [
+            {
+              instance: {
+                id: '01a1a2b3-0000-7000-8000-0000000e0f11',
+                workflow_id: '01a1a2b3-0000-7000-8000-0000000e0f12',
+                version_number: 1,
+                record_type: 'service_request',
+                record_id: SR_ID,
+                status: 'waiting',
+                failure: null,
+                wake_at: null,
+                started_how: 'catalog_item',
+                started_at: '2026-11-11T10:00:00Z',
+                finished_at: null,
+                stopped_reason: null,
+                version: 2,
+              },
+              workflow_name: 'Laptop fulfilment',
+              definition: { format: 1, nodes: [], links: [], variables: [] },
+              current_nodes: ['wait_needed'],
+              steps: [],
+              waiting_for: [
+                { node: 'wait_needed', kind: 'field', fields: ['needed_by'], events: [] },
+              ],
+            },
+          ],
+        },
+      },
+      WORKFLOW_RUNNER,
+    );
+    render(<App />);
+    const banner = await screen.findByTestId('workflow-waiting-wait_needed');
+    expect(banner.textContent).toContain('Laptop fulfilment: Waiting for a field');
+    expect(banner.textContent).toContain('Fill in Needed by to let it go on.');
+  });
+
   it('lists requests with their item and approval status', async () => {
     window.history.pushState({}, '', '/requests');
     api();
@@ -657,6 +712,58 @@ describe('console: service requests', () => {
     const [sent] = fake.find('PATCH', path);
     expect(sent?.body).toEqual({ status: 'done' });
     expect(sent?.headers.get('If-Match')).toBe('"2"');
+  });
+
+  it('WP-047a S5: steps that wait show as a flow; a hand-over is never ticked done', async () => {
+    window.history.pushState({}, '', `/requests/${SR_ID}`);
+    const base = {
+      work_item_id: SR_ID,
+      description: null,
+      owner_id: null,
+      group_id: null,
+      priority: 'normal',
+      due_at: null,
+      done_at: null,
+      blocked_by: [],
+      overdue: false,
+      from_plan: true,
+      required: true,
+      internal: false,
+      version: 1,
+      created_at: '2026-11-04T08:00:00Z',
+      updated_at: '2026-11-04T08:00:00Z',
+    };
+    const order = {
+      ...base,
+      id: 't-order',
+      title: 'Order',
+      status: 'open',
+      position: 0,
+      depends_on: [],
+    };
+    const give = {
+      ...base,
+      id: 't-give',
+      title: 'Give the laptop',
+      status: 'open',
+      position: 1,
+      kind: 'asset_handover',
+      depends_on: ['t-order'],
+      blocked_by: ['t-order'],
+    };
+    api({
+      [`GET /api/v1/service-requests/${SR_ID}/tasks`]: {
+        body: { items: [order, give], done: 0, total: 2 },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sr-tab-tasks'));
+    expect((await screen.findByTestId('sr-flow-0')).textContent).toContain('Order');
+    expect(screen.getByTestId('sr-flow-1').textContent).toContain('Give the laptop');
+    expect(screen.getByTestId('sr-flow-1').textContent).toContain('Waiting');
+    const tick = screen.getByRole('checkbox', { name: 'Give the laptop' });
+    expect(tick.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('sr-task-parts-1').textContent).toBe('Hand over');
   });
 });
 

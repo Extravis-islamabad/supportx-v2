@@ -45,6 +45,7 @@ from app.modules.service_catalog.service.ports import (
     register_item_usage,
     register_request_counts,
     register_template_check,
+    register_workflow_check,
 )
 from app.modules.service_catalog.service.realtime import ROUTES
 from app.modules.service_catalog.service.schedule import SCHEDULE_EVERY, run_schedule
@@ -99,6 +100,7 @@ __all__ = [
     "register_item_usage",
     "register_request_counts",
     "register_template_check",
+    "register_workflow_check",
     "request_item",
     "requester_question_keys",
     "rules_of",

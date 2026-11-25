@@ -963,6 +963,9 @@ inside a service is not shown here: declare it on the route too.
 | GET | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
 | PATCH | `/api/v1/portal/settings` | signed_in | - | `incident` (module) |
 | GET | `/api/v1/portal/summary` | signed_in | - | `incident` (module) |
+| GET | `/api/v1/portal/tasks` | signed_in | - | `service_request` (module) |
+| GET | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
+| PATCH | `/api/v1/portal/tasks/{task_id}` | signed_in | - | `service_request` (module) |
 | GET | `/api/v1/problem-repeats/hits` | `problems.create` | problems.create: all | `problem` (module, permission) |
 | POST | `/api/v1/problem-repeats/hits/{hit_id}/handle` | `problems.create` | problems.create: all | `problem` (module, permission) |
 | GET | `/api/v1/problem-repeats/hits/{hit_id}/incidents` | `problems.create` | problems.create: all | `problem` (module, permission) |

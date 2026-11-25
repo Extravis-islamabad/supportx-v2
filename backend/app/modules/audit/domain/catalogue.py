@@ -567,6 +567,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset.moved", AuditCategory.RECORDS, "assets"),
     ("asset.disposed", AuditCategory.RECORDS, "assets"),
     ("asset.assigned", AuditCategory.RECORDS, "assets"),
+    ("asset.handed_over", AuditCategory.RECORDS, "assets"),  # WP-047a S5: a fulfilment hand-over
     ("asset.unassigned", AuditCategory.RECORDS, "assets"),
     ("asset.linked", AuditCategory.RECORDS, "assets"),
     ("asset.unlinked", AuditCategory.RECORDS, "assets"),
@@ -606,6 +607,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("asset_audit.fixes_applied", AuditCategory.RECORDS, "assets"),
     ("asset_overdue_rule.changed", AuditCategory.CONFIGURATION, "assets"),
     ("asset_overdue_rule.ran", AuditCategory.RECORDS, "assets"),
+    ("asset_overdue_rule.trash_paused", AuditCategory.RECORDS, "assets"),
     ("asset_scan.cleaned_up", AuditCategory.DATA, "assets"),
     ("asset_group.created", AuditCategory.RECORDS, "assets"),
     ("asset_group.updated", AuditCategory.RECORDS, "assets"),

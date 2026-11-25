@@ -2,6 +2,8 @@ import type { LabelResource } from '../en';
 
 // assets labels (see ../README.md).
 export const ar: LabelResource = {
+  'action_reason.trash_rule_needs_tenant_wide_delete':
+    'تحتاج القاعدة التي تنقل الأصول إلى سلة المهملات إلى صلاحية حذف الأصول في كل المواقع.',
   'asset_ack_channel.console': 'وحدة التحكم',
   'asset_ack_channel.portal': 'البوابة',
   'asset_ack_status.accepted': 'مقبول',

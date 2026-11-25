@@ -313,7 +313,7 @@ class WorkflowInstance(UuidPrimaryKey, TenantScoped, Timestamps, Actors, Version
             name="status_code",
         ),
         CheckConstraint(
-            "started_how IN ('template', 'trigger', 'manual', 'sub_flow')",
+            "started_how IN ('template', 'trigger', 'manual', 'sub_flow', 'catalog_item')",
             name="started_how_code",
         ),
         CheckConstraint("jsonb_typeof(state) = 'object'", name="state_object"),

@@ -58,6 +58,7 @@ from app.modules.work_items.api.portal_change_routes import router as portal_cha
 from app.modules.work_items.api.portal_home_routes import router as portal_home_router
 from app.modules.work_items.api.portal_request_routes import router as portal_request_router
 from app.modules.work_items.api.portal_routes import router as portal_router
+from app.modules.work_items.api.portal_task_routes import router as portal_task_router
 from app.modules.work_items.api.repeat_routes import router as repeat_router
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
@@ -262,6 +263,7 @@ module = ModuleSpec(
         draft_router,  # REQ-INC-019: kept drafts of unsent create forms
         notify_links_router,  # WP-046a S6: stop mails to an address kept informed
         portal_request_router,  # WP-030 D9
+        portal_task_router,  # WP-047a S5: task-only owners' own tasks
         portal_home_router,  # WP-032 D1
         approval_settings_router,  # D-146: the approval chair (WP-048b S2)
         delegation_router,  # WP-047a S3b (REQ-SR-035): approval delegations
@@ -284,6 +286,7 @@ module = ModuleSpec(
         INCIDENT.feature,  # kept drafts (incident-new)
         INCIDENT.feature,  # stopping mails to people kept informed (WP-046a S6)
         SERVICE_REQUEST.feature,
+        SERVICE_REQUEST.feature,  # task-only owners' own plan tasks (WP-047a S5)
         INCIDENT.feature,  # the portal home's summary: the portal is the incident feature's
         None,  # approval settings: the engine is core, every type with approvals uses them
         SERVICE_REQUEST.feature,  # approval delegations (WP-047a S3b): request approvals

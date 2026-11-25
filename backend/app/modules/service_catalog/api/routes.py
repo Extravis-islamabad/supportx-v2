@@ -37,10 +37,13 @@ from app.modules.service_catalog.domain.items import (
     ApproverKind,
     EscalationTarget,
     ItemAudience,
+    PlanStepKind,
     QuestionAudience,
     QuestionKind,
     RestartOn,
     StageRule,
+    TaskFieldKind,
+    TaskOwnerKind,
 )
 from app.modules.service_catalog.domain.pricing import ChargeTo, PricePeriod
 from app.modules.service_catalog.infra.models import CatalogSettings, ServiceCategory
@@ -178,8 +181,23 @@ class ApprovalIO(ApprovalStageIO):
         return cls.model_validate({**first, "stages": stages, **extra})
 
 
+class TaskFieldIO(BaseModel):
+    """A value a fulfilment task's owner fills in (WP-047a S5; REQ-SR-049)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(max_length=40)
+    label: dict[str, str]
+    kind: TaskFieldKind = TaskFieldKind.TEXT
+    required: bool = False
+    options: list[str] = Field(default_factory=list, max_length=50)
+    requester_visible: bool = Field(
+        default=False, description="Its value may reach the requester's notices (off)."
+    )
+
+
 class PlannedTaskIO(BaseModel):
-    """A fulfilment task the plan creates."""
+    """A fulfilment task the plan creates (WP-047a S5: order, condition, fields, owner, kind)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -188,6 +206,17 @@ class PlannedTaskIO(BaseModel):
     owner_id: uuid.UUID | None = None
     required: bool = True
     internal: bool = False
+    key: str | None = Field(default=None, max_length=40, description="For waits_for (REQ-SR-047).")
+    waits_for: list[str] = Field(default_factory=list, max_length=20)
+    condition: dict[str, Any] | None = Field(
+        default=None, description="Made only when this holds (REQ-SR-048)."
+    )
+    fields: list[TaskFieldIO] = Field(default_factory=list, max_length=10)
+    owner_kind: TaskOwnerKind | None = Field(
+        default=None, description="Who it goes to (REQ-SR-050); none: the group or owner."
+    )
+    question_key: str | None = Field(default=None, max_length=40)
+    kind: PlanStepKind = PlanStepKind.TASK
 
 
 class CatalogItemIn(BaseModel):
@@ -220,6 +249,9 @@ class CatalogItemIn(BaseModel):
     sort_order: int | None = Field(default=None, ge=0, le=100_000)
     subject_template: str | None = Field(default=None, max_length=200)
     requesters_see_approval: bool | None = None
+    workflow_id: uuid.UUID | None = Field(
+        default=None, description="Its fulfilment workflow: a service request workflow."
+    )
     questions: list[QuestionIO] | None = Field(default=None, max_length=30)
     approval: ApprovalIO | None = None
     plan: list[PlannedTaskIO] | None = Field(default=None, max_length=20)
@@ -288,6 +320,7 @@ class CatalogItemOut(BaseModel):
     sort_order: int
     subject_template: str | None
     requesters_see_approval: bool
+    workflow_id: uuid.UUID | None = None
     starter: bool
     questions: list[QuestionIO]
     approval: ApprovalIO | None

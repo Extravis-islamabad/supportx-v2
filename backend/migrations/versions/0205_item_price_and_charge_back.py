@@ -20,7 +20,7 @@ On `work_items` (service requests only; other types leave them NULL):
 Reversible; RLS unchanged (existing tables).
 
 Revision ID: 0205
-Revises: 0201
+Revises: 0204
 Created: 2026-11-25
 """
 
@@ -32,8 +32,8 @@ from alembic import op
 from migrations.helpers import grant_report_columns, revoke_report
 
 revision: str = "0205"
-# On main's head 0202 for now; re-pointed at its queue turn (after #630's 0204).
-down_revision: str | None = "0201"
+# On main's head 0204 (#630); re-pointed at its queue turn if main moves on.
+down_revision: str | None = "0204"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

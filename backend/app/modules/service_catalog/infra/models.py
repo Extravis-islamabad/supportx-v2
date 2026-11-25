@@ -207,6 +207,8 @@ class CatalogItem(TenantEntity):
     price_period: Mapped[str] = mapped_column(String(10), server_default="once")
     charge_to: Mapped[str] = mapped_column(String(30), server_default="requested_for_department")
     charge_question_key: Mapped[str | None] = mapped_column(String(40))
+    # WP-047a S5 (0204, REQ-SR-053): the item's fulfilment workflow (service request type).
+    workflow_id: Mapped[uuid.UUID | None]
     # Columns of the table, not of the mapped object: never loaded or written by the ORM.
     search_vector: Unmapped[Any] = unmapped_column(
         TSVECTOR, Computed(SEARCH_VECTOR, persisted=True)

@@ -513,7 +513,7 @@ function AutoApproval({
   );
 }
 
-function ConditionField({
+export function ConditionField({
   condition,
   questions,
   licensed,
