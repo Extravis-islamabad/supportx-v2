@@ -592,6 +592,7 @@ function StarterBanner() {
 /** The tenant's catalog setting (plan D7): hide the default incident form from requesters. */
 function SettingsCard() {
   const t = useLabel();
+  const hasCatalog = useLicence().has('catalog');
   const settings = useCatalogSettings();
   const change = useCatalogSettingsChange();
   const value = settings.data;
@@ -619,6 +620,31 @@ function SettingsCard() {
           }}
         />
       </Flex>
+      {/* WP-047b S1 (D-184): requesters see prices and the estimate only when this is on. */}
+      {hasCatalog && (
+        <Flex align="center" gap={12} justify="space-between" style={{ marginTop: 12 }}>
+          <Flex vertical>
+            <Typography.Text strong>{t('catalog_admin.requesters_see_prices')}</Typography.Text>
+            <Typography.Text type="secondary">
+              {t('catalog_admin.requesters_see_prices_help')}
+            </Typography.Text>
+          </Flex>
+          <Switch
+            checked={value?.requesters_see_prices ?? false}
+            disabled={value === undefined}
+            loading={change.isPending}
+            aria-label={t('catalog_admin.requesters_see_prices')}
+            data-testid="cat-requesters-see-prices"
+            onChange={(checked) => {
+              if (value === undefined) return;
+              change.mutate(
+                { body: { requesters_see_prices: checked }, version: value.version },
+                { onError: reportError },
+              );
+            }}
+          />
+        </Flex>
+      )}
     </Card>
   );
 }

@@ -4,7 +4,18 @@
 // meaning here is the server's: read that module's docstring before changing anything.
 // The browser gives instant feedback only; the server enforces the same rules on save.
 
-export type RuleOp = 'eq' | 'ne' | 'in' | 'not_in' | 'is_null' | 'is_not_null';
+export type RuleOp =
+  | 'eq'
+  | 'ne'
+  | 'in'
+  | 'not_in'
+  | 'is_null'
+  | 'is_not_null'
+  // WP-047b S1: numbers only; any other type never matches (false), as on the server.
+  | 'lt'
+  | 'lte'
+  | 'gt'
+  | 'gte';
 export type RuleActionKind = 'show' | 'hide' | 'require' | 'lock' | 'set';
 export type RuleScalar = string | number | boolean;
 
@@ -71,9 +82,24 @@ function asText(value: unknown): string {
   return isUuid(text) ? text.toLowerCase() : text;
 }
 
+/** A number a comparison reads: never a flag, text or a list (the server's `number`). */
+const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+function compared(op: 'lt' | 'lte' | 'gt' | 'gte', wanted: unknown, actual: unknown): boolean {
+  if (!isNumber(wanted) || !isNumber(actual)) return false; // numbers only with numbers
+  if (op === 'lt') return actual < wanted;
+  if (op === 'lte') return actual <= wanted;
+  if (op === 'gt') return actual > wanted;
+  return actual >= wanted;
+}
+
 function leaf(op: RuleOp, wanted: RuleLeaf['value'], actual: unknown): boolean {
   if (op === 'is_null') return isEmptyValue(actual);
   if (op === 'is_not_null') return !isEmptyValue(actual);
+  if (op === 'lt' || op === 'lte' || op === 'gt' || op === 'gte') {
+    return compared(op, wanted, actual);
+  }
   const listed = op === 'in' || op === 'not_in';
   const choices = new Set((listed ? (wanted as RuleScalar[]) : [wanted as RuleScalar]).map(asText));
   if (isEmptyValue(actual)) return op === 'ne' || op === 'not_in';

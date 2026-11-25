@@ -43,6 +43,7 @@ import {
 
 import { PortalStatusTag } from '../requests/PortalStatusTag';
 import { RequestConversation } from './RequestConversation';
+import { moneyText, periodText } from '../catalog/price';
 
 /**
  * One service request as its requester sees it (WP-030 D9; REQ-SR-051, -061, -062): the plain
@@ -58,7 +59,7 @@ export function ServiceRequestPage() {
   const submitted = params.get('submitted') === '1';
   const listFormat = useListFormat();
   const { format } = useDateTime();
-  const { locale } = useAppearance();
+  const { locale, intlLocale } = useAppearance();
   const queryClient = useQueryClient();
   const me = useSession().data?.user.id;
   const record = usePortalRequest(id);
@@ -272,6 +273,18 @@ export function ServiceRequestPage() {
       {/* On a white card, labels beside their answers, no grey label cells (QA6-SR-04). */}
       <Card title={t('requests.item_details')} data-testid="portal-service-request-details">
         <Descriptions size="small" column={1} data-testid="portal-service-request-answers">
+          {/* WP-047b S1 (D-184): the estimate, when the server sends it (approver, or shown). */}
+          {r.estimated_cost != null && (
+            <Descriptions.Item label={t('work_item.field.estimated_cost')}>
+              <span data-testid="portal-sr-estimate">
+                {periodText(
+                  t,
+                  moneyText(r.estimated_cost, item.data?.currency, intlLocale) ?? '',
+                  r.estimate_period,
+                )}
+              </span>
+            </Descriptions.Item>
+          )}
           {questions.map((q) => (
             <Descriptions.Item key={q.key} label={q.label[locale] ?? q.label.en ?? q.key}>
               {answerWords(q, r.answers?.[q.key]) || (

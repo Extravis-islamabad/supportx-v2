@@ -1142,6 +1142,7 @@ export {
   serviceRequestKeys,
   useCatalogCategories,
   useCatalogItem,
+  useCatalogItemNames,
   useCatalogItems,
   useRaiseServiceRequest,
   useServiceRequest,
