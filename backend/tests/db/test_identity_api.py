@@ -61,6 +61,8 @@ class FakeAdmin:
     providers: dict[str, dict[str, Any]] = field(default_factory=dict)
     links: dict[str, set[str]] = field(default_factory=dict)
     mapper_sets: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    # S5c: the providers whose group attributes were cleared.
+    cleared_groups: list[str] = field(default_factory=list)
     attributes: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     events: list[LoginEvent] = field(default_factory=list)
     logged_out: list[str] = field(default_factory=list)
@@ -219,6 +221,10 @@ class FakeAdmin:
 
     async def replace_mappers(self, alias: str, mappers: list[dict[str, Any]]) -> None:
         self.mapper_sets[alias] = mappers
+
+    async def clear_group_attributes(self, alias: str) -> int:
+        self.cleared_groups.append(alias)
+        return 0
 
     async def parse_saml_metadata(self, metadata: str) -> dict[str, str]:
         if "<EntityDescriptor" not in metadata:

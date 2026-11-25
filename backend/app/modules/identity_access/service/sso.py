@@ -560,7 +560,12 @@ async def update_provider(  # noqa: PLR0913, PLR0915 - the record and its input;
     mapping = values.mapping or (
         sso.SAML_MAPPING if values.protocol == "saml" else sso.OIDC_MAPPING
     )
-    await keycloak.replace_mappers(row.alias, sso.mappers(values.protocol, mapping))
+    groups_claim = _groups_claim(row.settings)
+    await _sync_group_attributes(keycloak, row.alias, groups_claim)
+    await keycloak.replace_mappers(
+        row.alias,
+        sso.mappers(values.protocol, mapping, alias=row.alias, groups_claim=groups_claim),
+    )
     ours = set(row.settings.get("added_domains") or [])
     gone = {d for d in ours if d not in domains}
     added = await _set_domains(
@@ -640,6 +645,31 @@ async def switch_provider(
     return _view(row)
 
 
+def _groups_claim(settings: dict[str, Any] | None) -> str | None:
+    """The claim a set-up follows groups from, or None when following is off (S5c).
+
+    `settings["groups"] = {"follow": bool, "claim": str}` (lane C's S5c-1 validates and writes it).
+    """
+    groups = (settings or {}).get("groups") or {}
+    if not isinstance(groups, dict) or groups.get("follow") is not True:
+        return None
+    claim = groups.get("claim")
+    return claim if isinstance(claim, str) and claim else None
+
+
+async def _sync_group_attributes(
+    keycloak: IdentityAdmin, alias: str, groups_claim: str | None
+) -> None:
+    """When a set-up stops following groups (or goes), clear what its sign-ins left on people.
+
+    Never a user-profile change: that needs manage-realm, which the identity account never holds
+    (tooling/keycloak_identity.py). The attributes are kept, admin-only, by the realm's own
+    unmanaged-attribute policy (set by the deploy step; the product owner's decision pending).
+    """
+    if groups_claim is None:
+        await keycloak.clear_group_attributes(alias)
+
+
 async def remove_provider(
     session: AsyncSession,
     admin: IdentityAdmin | None,
@@ -653,6 +683,8 @@ async def remove_provider(
     await _check_version(session, row, expected_version)
     organization = await organization_of(session, keycloak)
     ours = set(row.settings.get("added_domains") or [])
+    # Its group attributes go first, while the people are still linked to it (S5c, lane C (b)).
+    await _sync_group_attributes(keycloak, row.alias, None)
     await keycloak.delete_provider(row.alias)
     await _set_domains(keycloak, organization, alias=row.alias, mine=[], drop=ours, redirect=False)
     row.deleted_at = datetime.now(UTC)
