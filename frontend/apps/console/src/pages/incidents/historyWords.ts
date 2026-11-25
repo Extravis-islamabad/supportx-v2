@@ -328,7 +328,9 @@ export function useHistoryWords(
     }
     // Commands written in a mail were set aside (WP-046a S6, lane B): say so, and why.
     if (
-      (change.field === 'mail_commands' || change.field === 'mail_cc') &&
+      (change.field === 'mail_commands' ||
+        change.field === 'mail_cc' ||
+        change.field === 'external_problem') && // WP-053 S7a: a monitoring problem's note
       typeof change.new === 'string'
     ) {
       return t(`work_item.history.${change.field}.${change.new}`);

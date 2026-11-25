@@ -797,6 +797,23 @@ class WorkItemDraftChanged(DomainEvent):
     version: int
 
 
+class WorkItemSourceRecovered(DomainEvent):
+    """An outside problem recovered but its incident stays open (WP-053 S7a, D-050).
+
+    A person has worked on it (or the tenant's closure rules held it open), so it is not resolved:
+    its assignee is told (`incident.source_recovered`). IDs and codes only.
+    """
+
+    event_type: ClassVar[str] = "work_items.work_item.source_recovered"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    type: str
+    source_kind: str  # monetx, alert_webhook
+    why: Literal["touched", "not_asked", "closure_rules"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemDraftChanged,
     ServiceRequestReadyToFulfil,
@@ -805,6 +822,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemAssigneeUnavailable,
     WorkItemCreated,
     WorkItemWorkflowNotice,
+    WorkItemSourceRecovered,
     WorkItemMajorChanged,
     WorkItemUpdated,
     WorkItemStatusChanged,

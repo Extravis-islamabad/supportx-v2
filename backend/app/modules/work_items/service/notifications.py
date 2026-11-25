@@ -50,6 +50,7 @@ from app.modules.work_items.events import (
     WorkItemCreated,
     WorkItemFollowerAdded,
     WorkItemMajorChanged,
+    WorkItemSourceRecovered,
     WorkItemStatusChanged,
     WorkItemWorkflowNotice,
 )
@@ -101,6 +102,7 @@ APPROVER = "approver"
 # A workflow's notice (WP-048b S2): its audience is the node's, resolved at send time.
 WORKFLOW_AUDIENCE = "workflow_audience"
 NOTICE = "incident.workflow_notice"
+SOURCE_RECOVERED = "incident.source_recovered"
 
 _STATUS_EVENTS: Mapping[str, str] = {
     WorkItemAction.RESOLVE: "incident.resolved",
@@ -193,6 +195,14 @@ EVENTS: tuple[NotificationEvent, ...] = (
         "incident.closed",
         NotificationCategory.STATUS,
         EventDefault(enabled=False, recipients=("requester",)),
+    ),
+    # D-050 (WP-053 S7a): the monitoring source recovered, but a person works on it, so it stays
+    # open and its technician is told (never the requester; not required, may be muted).
+    NotificationEvent(
+        SOURCE_RECOVERED,
+        NotificationCategory.STATUS,
+        EventDefault(enabled=True, recipients=("assignee",)),
+        public=False,
     ),
     NotificationEvent(
         "incident.reopened",
@@ -503,6 +513,8 @@ def _approval_events(payload: Mapping[str, Any]) -> tuple[str, ...]:
 # Events that are one notification each, of their own code.
 _ONE_NOTICE = {
     WorkItemWorkflowNotice.event_type: NOTICE,
+    # WP-053 S7a (D-050): the outside problem recovered, the incident kept open; its assignee.
+    WorkItemSourceRecovered.event_type: SOURCE_RECOVERED,
 }
 
 
