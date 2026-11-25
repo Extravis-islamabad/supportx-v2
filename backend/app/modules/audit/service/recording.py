@@ -378,6 +378,18 @@ class LifecycleSink:
 # --- route dependencies ------------------------------------------------------------------------
 
 
+def _same_object(record_id: object, object_id: object) -> bool:
+    """The saved record is the route's object (lane C's #631 review).
+
+    The note's ID is the raw path string, so an upper-cased or braced UUID in the URL is still
+    the same record: compared as UUIDs when both parse, as strings otherwise.
+    """
+    try:
+        return uuid.UUID(str(record_id)) == uuid.UUID(str(object_id))
+    except ValueError:
+        return str(record_id) == str(object_id)
+
+
 def audited(
     action_code: str,
     *,
@@ -418,7 +430,7 @@ def audited(
             facts = RequestFacts.of(request)
             merged = group_saves(saves)
             matched = next(
-                (i for i, m in enumerate(merged) if str(m[-1].record_id) == str(note.object_id)),
+                (i for i, m in enumerate(merged) if _same_object(m[-1].record_id, note.object_id)),
                 None,
             )
             # The route names an object none of its saves is (a workflow stop names the instance

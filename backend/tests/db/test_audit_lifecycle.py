@@ -272,3 +272,29 @@ async def test_a_route_naming_another_object_gets_its_own_entry_and_the_save_sta
     )
     assert [r["action"] for r in own] == ["automation.workflow_stopped"]
     assert json.loads(own[0]["details"])["reason_code"] == "stopped_by_admin"
+
+
+async def test_an_upper_cased_id_in_the_path_still_leads_that_records_one_entry(
+    world: World,
+) -> None:
+    """The note's ID is the raw path string: the same record however it is cased (lane C)."""
+    a = world.a
+    asset = await _asset(world, a, "Cased path")
+    before = await _entries(world, a, asset["id"])
+    saved = await world.call(
+        "PATCH",
+        f"{BASE}/{asset['id'].upper()}",
+        a,
+        a.admin,
+        json={"name": "Cased path, renamed"},
+        headers=_match(asset["version"]),
+    )
+    assert saved.status_code == 200, saved.text
+    after = await _entries(world, a, asset["id"])
+    assert len(after) == len(before) + 1  # one action, one entry: never a second "own" entry
+    stray = await world.sql(
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1 AND object_id = $2",
+        a.tenant,
+        asset["id"].upper(),
+    )
+    assert stray[0]["n"] == 0
